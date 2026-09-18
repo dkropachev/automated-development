@@ -1,0 +1,14 @@
+{
+  "name": "automated-development",
+  "owner": {
+    "name": "Dmitry Kropachev"
+  },
+  "plugins": [
+    {
+      "name": "draft-pr-description",
+      "source": "./plugins/draft-pr-description",
+      "description": "Draft PR titles and descriptions in each repository's own voice, from a cached prompt learned once from that repo's template, contributing guide and merged PRs."
+    }
+  ],
+  "description": "Claude Code plugins for day-to-day development work."
+}
