@@ -1,0 +1,72 @@
+'use strict'
+// Unit tests for the pure functions in lib/, no subprocess.
+const { test } = require('node:test')
+const assert = require('node:assert/strict')
+const gate = require('../lib/prompt-gate')
+const checks = require('../lib/draft-checks')
+const repo = require('../lib/repo')
+
+test('frontmatter parses key: value lines and nothing else', () => {
+  assert.deepEqual(gate.frontmatter('---\nlearned_at: 2026-01-02\npattern: derived\n---\nbody'), { learned_at: '2026-01-02', pattern: 'derived' })
+  assert.equal(gate.frontmatter('no frontmatter'), null)
+})
+
+test('claimedFields reads covers comments, deduplicated, backticks stripped', () => {
+  assert.deepEqual(gate.claimedFields('<!-- covers: motivation --> x <!-- covers: `risk`, breaking-changes, risk -->'),
+                   ['motivation', 'risk', 'breaking-changes'])
+})
+
+test('fmList parses [a, 1, "b"] into values with numbers as numbers', () => {
+  assert.deepEqual(gate.fmList('[4412, alice, "bob"]'), [4412, 'alice', 'bob'])
+  assert.deepEqual(gate.fmList('nope'), []); assert.deepEqual(gate.fmList('[]'), [])
+})
+
+test('stampFrontmatter replaces existing keys and appends new ones without touching the body', () => {
+  const out = gate.stampFrontmatter('---\na: 1\nb: 2\n---\nbody\n', { b: '3', c: '4' })
+  assert.equal(out, '---\na: 1\nb: 3\nc: 4\n---\nbody\n')
+  assert.equal(gate.stampFrontmatter('no fm', { a: '1' }), null)
+})
+
+test('parseOrigin handles every common remote shape and rejects garbage', () => {
+  assert.deepEqual(repo.parseOrigin('git@github.com:o/r.git'), { host: 'github.com', nwo: 'o/r' })
+  assert.deepEqual(repo.parseOrigin('ssh://git@ghe.corp:2222/team/repo/'), { host: 'ghe.corp', nwo: 'team/repo' })
+  assert.deepEqual(repo.parseOrigin('https://user@gitlab.com/g/sub/r.git'), { host: 'gitlab.com', nwo: 'g/sub/r' })
+  assert.deepEqual(repo.parseOrigin('git://github.com/o/r'), { host: 'github.com', nwo: 'o/r' })
+  assert.equal(repo.parseOrigin('/local/path'), null)
+  assert.equal(repo.parseOrigin('git@github.com:o/../r'), null)
+  assert.equal(repo.parseOrigin('https://github.com/o'), null)
+})
+
+test('utcDay parses only YYYY-MM-DD', () => {
+  assert.equal(repo.utcDay('2026-09-18'), Date.UTC(2026, 8, 18)); assert.ok(isNaN(repo.utcDay('yesterday')))
+})
+
+test('citedPaths finds backticked file paths and ignores identifiers, flags and versions', () => {
+  assert.deepEqual(checks.citedPaths('see `src/pool.py`, `Session::new`, `--limit`, `v1.2.3`, `1.2`, `foo_test.rs`'),
+                   ['src/pool.py', 'foo_test.rs'])
+})
+
+test('prose strips fenced blocks so quoted commands are not read as headings', () => {
+  assert.equal(checks.prose('a\n```sh\n# not a heading\n```\nb\n'), 'a\n\nb\n')
+})
+
+test('filler, placeholder, banner and permalink regexes fire where they should and not elsewhere', () => {
+  assert.deepEqual(checks.fillerFound('we do this in order\nto win'), ['in order to  ->  to'])
+  assert.deepEqual(checks.fillerFound('we do this to win'), [])
+  assert.ok(checks.PLACEHOLDER.test('fill in <describe the problem>')); assert.ok(!checks.PLACEHOLDER.test('a <b> tag'))
+  assert.ok(checks.BANNER.test('🤖 Generated with [Claude Code](https://claude.com/claude-code)'))
+  assert.ok(checks.BANNER.test('Co-Authored-By: Claude <noreply@anthropic.com>')); assert.ok(!checks.BANNER.test('Claude reviewed it'))
+  assert.ok(checks.FILE_LINE.test('see src/pool.py:42 here')); assert.ok(!checks.FILE_LINE.test('at 12:30 today'))
+  assert.ok(checks.WRAPPED.test('[x](https://github.com/o/r/blob/main/a.py#L1)'))
+  assert.ok(!checks.WRAPPED.test('https://github.com/o/r/blob/main/a.py#L1'))
+})
+
+test('unknownPaths splits invented from merely-untouched using the tracked file list', () => {
+  const fs = require('fs'), os = require('os'), path = require('path'), { execFileSync } = require('child_process')
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pgl-'))
+  execFileSync('git', ['init', '-q', root])
+  fs.mkdirSync(path.join(root, 'src')); fs.writeFileSync(path.join(root, 'src', 'pool.py'), ''); fs.writeFileSync(path.join(root, 'src', 'util.py'), '')
+  execFileSync('git', ['-C', root, 'add', '.'])
+  const r = checks.unknownPaths(['pool.py', 'util.py', 'tests/test_pool.py'], ['src/pool.py'], root)
+  assert.deepEqual(r, { invented: ['tests/test_pool.py'], referenced: ['util.py'] })
+})

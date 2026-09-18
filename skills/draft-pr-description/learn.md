@@ -98,7 +98,8 @@ never emit a rule that reproduces one. The draft machine rejects a description c
 prompt that asks for it would deadlock every future run.
 
 If fewer than 5 usable PRs come back, there is not enough evidence. Write the cache with
-`pattern: none` and stop — a stamped `learned_at` means this won't be re-mined for 90 days.
+`pattern: none` and stop — a stamped `learned_at` means this won't be re-mined for 90 days, unless
+the PR template or contributing guide changes first.
 
 ## 4. Synthesize the prompt
 
@@ -233,6 +234,10 @@ max_bytes: 5200                 # this repo's own ceiling (see below)
 
 `pattern: template` when a PR template drove it, `derived` when observed practice did, `none` when
 there was not enough evidence and `schema.md` should be used verbatim instead.
+
+Write only the five keys shown. The driver stamps `verified`, `verify_verdict`, `unresolved`,
+`sources_hash` and `nwo` into the frontmatter when it publishes, from what the verifier and the repo
+actually said; anything you write there is overwritten.
 
 **`max_bytes` is not optional and not a guess.** Measure the sampled bodies and take roughly the
 90th percentile, rounded to something round — the length past which this repo simply does not go.
