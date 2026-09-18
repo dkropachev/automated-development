@@ -1,8 +1,16 @@
 # automated-development
 
-Claude Code plugins for day-to-day development work.
+A Claude Code plugin of development workflows that learn a repository's own conventions before they
+act on it. One workflow so far; the layout expects more.
 
-## Plugins
+## Install
+
+```
+/plugin marketplace add dkropachev/automated-development
+/plugin install automated-development@automated-development
+```
+
+## Workflows
 
 ### `draft-pr-description`
 
@@ -17,24 +25,17 @@ The cache is rebuilt after 90 days or on `--refresh-cache`.
 It **drafts only**. It never runs `gh pr create` or `gh pr edit`; every `gh` call it makes is
 read-only.
 
-## Install
-
-```
-/plugin marketplace add dkropachev/automated-development
-/plugin install draft-pr-description@automated-development
-```
-
-Then, in any git repo:
+Run it in any git repo:
 
 ```
 /draft-pr-description
 ```
 
-## How it works
+#### How it works
 
 Two pieces, and the interesting part is the second one.
 
-**The learned prompt.** A workflow (`pr-description-prompt`) mines the repo with one agent, has it
+**The learned prompt.** A background workflow (`workflows/pr-description-prompt.js`) mines the repo with one agent, has it
 critique its own draft up to 8 times — it cannot stop until two consecutive passes find nothing, and
 it is never told how close it is to the exit — then hands the result to a *fresh* agent that checks
 it against PRs the first one never sampled. Only then is it published.
@@ -55,7 +56,7 @@ Drafting runs in your own conversation, not in a subagent, because you know why 
 and which tests actually ran. A subagent would re-derive that from the diff and get the plausible
 version instead of the true one.
 
-## What it writes
+#### What it writes
 
 | path | what |
 |---|---|
@@ -65,9 +66,9 @@ version instead of the true one.
 Nothing else. It does not write to your repository, beyond a depth-limited `git fetch` when the base
 branch is genuinely absent from the clone.
 
-## Configuring what a description must contain
+#### Configuring what a description must contain
 
-`plugins/draft-pr-description/skills/draft-pr-description/schema.md` is the canonical field list —
+`skills/draft-pr-description/schema.md` is the canonical field list —
 motivation, summary of changes, risk, breaking changes, and `testing` only where the repo itself
 writes about it. Edit it and run `/draft-pr-description --refresh-cache` in a repo to rebuild that
 repo's prompt against the new shape.

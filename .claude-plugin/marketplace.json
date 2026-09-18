@@ -3,12 +3,12 @@
   "owner": {
     "name": "Dmitry Kropachev"
   },
+  "description": "Development workflows that learn a repository's own conventions before they act on it.",
   "plugins": [
     {
-      "name": "draft-pr-description",
-      "source": "./plugins/draft-pr-description",
-      "description": "Draft PR titles and descriptions in each repository's own voice, from a cached prompt learned once from that repo's template, contributing guide and merged PRs."
+      "name": "automated-development",
+      "source": "./",
+      "description": "Development workflows that learn a repository's own conventions before they act on it. Currently: draft-pr-description."
     }
-  ],
-  "description": "Claude Code plugins for day-to-day development work."
+  ]
 }
