@@ -1,6 +1,8 @@
 {
   "name": "draft-pr-description",
   "description": "Draft PR titles and descriptions in each repository's own voice, from a cached prompt learned once from that repo's template, contributing guide and merged PRs.",
-  "version": "0.1.0",
-  "author": { "name": "Dmitry Kropachev" }
+  "version": "0.1.1",
+  "author": {
+    "name": "Dmitry Kropachev"
+  }
 }

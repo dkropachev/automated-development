@@ -53,11 +53,14 @@ it cheaply — it is built once and then reused for 90 days — so it gets its o
 inline pass:
 
 ```
-Workflow(name: 'pr-description-prompt', args: {
+Workflow(scriptPath: '${CLAUDE_PLUGIN_ROOT}/workflows/pr-description-prompt.js', args: {
   repoRoot:   '<absolute repo root>',
   pluginRoot: '${CLAUDE_PLUGIN_ROOT}',
 })
 ```
+
+By `scriptPath`, not by `name`: a plugin's workflows are not a registered component the way its
+skills are, so there is no name for this one to resolve to. The path is.
 
 A builder agent mines the repo and is driven by `promptgen-driver.js` through up to 8 critique
 passes over its own draft, unable to stop until two consecutive passes find nothing. Coverage of
