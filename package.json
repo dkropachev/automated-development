@@ -1,0 +1,10 @@
+{
+  "name": "automated-development",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Claude Code plugin: development skills that learn a repository's own conventions before they act on it.",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=20" }
+}

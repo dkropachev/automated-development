@@ -3,12 +3,12 @@
   "owner": {
     "name": "Dmitry Kropachev"
   },
-  "description": "Development workflows that learn a repository's own conventions before they act on it.",
+  "description": "Development skills that learn a repository's own conventions before they act on it.",
   "plugins": [
     {
       "name": "automated-development",
       "source": "./",
-      "description": "Development workflows that learn a repository's own conventions before they act on it. Currently: draft-pr-description."
+      "description": "Development skills that learn a repository's own conventions before they act on it. Currently: draft-pr-description."
     }
   ]
 }

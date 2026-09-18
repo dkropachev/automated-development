@@ -1,6 +1,8 @@
 {
   "name": "automated-development",
-  "description": "Development workflows that learn a repository's own conventions before they act on it.",
-  "version": "0.2.0",
-  "author": { "name": "Dmitry Kropachev" }
+  "description": "Development skills that learn a repository's own conventions before they act on it.",
+  "version": "0.3.0",
+  "author": {
+    "name": "Dmitry Kropachev"
+  }
 }
