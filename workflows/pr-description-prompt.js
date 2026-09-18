@@ -199,7 +199,7 @@ function verifyPrompt(build) {
     '',
     '  1. Pull several merged PRs YOURSELF - including at least two the builder did not sample, and',
     '     at least one small one (a revert, a one-line fix, a dependency bump that has a real body):',
-    '       gh pr list --repo ' + build.nwo + ' --state merged --limit 30 --json number,title,body,author,mergedAt',
+    '       gh pr list --repo "' + ghRepo(build) + '" --state merged --limit 30 --json number,title,body,author,mergedAt',
     '     (`gh pr list`, not `gh search prs` - that one rejects `--state merged` and reads a lagging index)',
     '  2. For each, ask: if the prompt had been followed, would you get something that belongs next to',
     '     this? Where would it differ, and does the difference matter?',
@@ -253,6 +253,9 @@ function verifyPrompt(build) {
 }
 
 function this_repo(build) { return build.nwo ? 'the repository ' + build.nwo : 'this repository' }
+// What `gh --repo` needs: bare owner/repo means github.com, so anything else has to carry its host or
+// gh silently queries the wrong server and the verifier "checks" a repository that does not exist.
+function ghRepo(build) { return (build.host && build.host !== 'github.com' ? build.host + '/' : '') + build.nwo }
 function dirOf(p) { return p.slice(0, p.lastIndexOf('/')) || '/' }
 function baseOf(p) { return p.slice(p.lastIndexOf('/') + 1) }
 
@@ -312,6 +315,14 @@ function badPath(p) {
 // Why a build result must not be published, or null. Run on EVERY build result that could reach
 // the publish step, not just the first: a rebuild is another agent-returned pair of paths.
 function unpublishable(b, expectCache) {
+  // nwo and host are interpolated into a `gh --repo` argument in the verifier's prompt, so they get
+  // the same treatment as the paths: a plain owner/repo and a plain hostname, or nothing runs.
+  if (typeof b.nwo !== 'string' || !/^[\w.-]+\/[\w.-]+$/.test(b.nwo) ||
+      typeof b.host !== 'string' || !/^[\w.-]+$/.test(b.host)) {
+    return 'pr-description-prompt: the builder returned a repository name that is not a plain owner/repo ' +
+           'on a plain host.\n  nwo:  ' + JSON.stringify(b.nwo) + '\n  host: ' + JSON.stringify(b.host) + '\n' +
+           'Nothing was published; any previously cached prompt is untouched.'
+  }
   if (badPath(b.cachePath) || badPath(b.draftPath)) {
     return 'pr-description-prompt: the builder returned a path that is not a plain absolute path.\n' +
            '  cachePath: ' + JSON.stringify(b.cachePath) + '\n' +
@@ -332,12 +343,12 @@ function unpublishable(b, expectCache) {
   }
   return null
 }
-const bad = unpublishable(build, '')
-if (bad) return bad
 if (build.outcome !== 'built') {
   return 'pr-description-prompt: the builder stopped at "' + build.outcome + '". Nothing was published; ' +
          'any previously cached prompt is untouched.\n\n' + (build.notes || '')
 }
+const bad = unpublishable(build, '')
+if (bad) return bad
 log('built: ' + build.nwo + ' pattern=' + build.pattern + ' from ' + build.prsSampled +
     ' PR(s), ' + build.critiquePasses + ' critique pass(es)')
 
@@ -353,7 +364,16 @@ if (build.pattern !== 'none') {
     verify = await agent(verifyPrompt(build), {
       schema: VERIFY_SCHEMA, phase: 'Verify', label: 'verify ' + rounds, effort: 'high',
       disallowedTools: DENY_READONLY,
-    }) || { issues: [], verdict: 'unverified', checkedPrs: [], notes: 'verifier returned nothing' }
+    })
+    if (!verify) {
+      // Skipped or died. That is not a verdict, so it must not be read as "no blocking issues": try
+      // once more if a round is left, otherwise publish - as with unresolved findings below - but
+      // say plainly in the report that nobody checked this draft.
+      verify = { issues: [], verdict: 'unverified', checkedPrs: [], notes: 'the verifier returned nothing' }
+      log('verify ' + rounds + ': the verifier returned nothing' +
+          (rounds < MAX_VERIFY_ROUNDS ? ' - trying again' : ' - publishing unverified'))
+      continue
+    }
 
     const blocking = (verify.issues || []).filter(i => i.severity === 'blocking')
     log('verify ' + rounds + ': ' + (verify.issues || []).length + ' issue(s), ' + blocking.length +
@@ -387,6 +407,10 @@ if (build.pattern !== 'none') {
       break
     }
     build = again
+    if (build.pattern === 'none') {
+      verify = { issues: [], verdict: 'sound', checkedPrs: [], notes: 'skipped: rebuild resolved pattern none' }
+      break
+    }
     phase('Verify')
   }
 }
@@ -398,11 +422,16 @@ const pub = await agent(publishPrompt(build), {
 })
 
 const unresolved = (verify.issues || []).filter(i => i.severity === 'blocking')
+const published = !!(pub && pub.published && pub.gatePassed)
 const lines = []
 lines.push('# pr-description prompt: ' + build.nwo)
 lines.push('')
-if (pub && pub.published && pub.gatePassed) {
+if (published) {
   lines.push('Published to `' + build.cachePath + '`.')
+} else if (!pub) {
+  lines.push('PUBLICATION STATE UNKNOWN. The publish agent returned nothing, so it may or may not have ' +
+             'moved the draft into place. Check whether `' + build.cachePath + '` is newer than `' +
+             build.draftPath + '`; if the draft still exists, re-run with `--refresh-cache`.')
 } else {
   lines.push('NOT PUBLISHED. The draft is still at `' + build.draftPath + '`; the previously cached ' +
              'prompt, if there was one, is untouched and still live.')
@@ -413,7 +442,8 @@ lines.push('- pattern: **' + build.pattern + '**' + (build.pattern === 'none' ? 
 lines.push('- sampled: ' + build.prsSampled + ' merged PR(s) from ' + (build.contributors || []).join(', '))
 lines.push('- critique passes: ' + build.critiquePasses + ' (driver-enforced, 8 max)')
 lines.push(rounds
-  ? '- verification rounds: ' + rounds + ' — verdict ' + verify.verdict
+  ? '- verification rounds: ' + rounds + ' — verdict ' + verify.verdict +
+    (verify.verdict === 'unverified' ? ' (the verifier returned nothing; this prompt was published unchecked)' : '')
   : '- verification: skipped — there is no prompt body to verify when `pattern` is none')
 if (unresolved.length) {
   lines.push('')
@@ -421,8 +451,10 @@ if (unresolved.length) {
   lines.push('')
   for (const i of unresolved) lines.push('- **' + i.where + '** — ' + i.problem + '  \n  evidence: ' + i.evidence)
   lines.push('')
-  lines.push('These survived ' + rounds + ' round(s). The prompt was published anyway; re-run with ' +
-             '`--refresh-cache` after fixing whatever in the repo made them ambiguous.')
+  lines.push('These survived ' + rounds + ' round(s). ' +
+             (published ? 'The prompt was published anyway; re-run with `--refresh-cache` after fixing ' +
+                          'whatever in the repo made them ambiguous.'
+                        : 'The draft that carries them was not published.'))
 }
 if (build.notes) { lines.push(''); lines.push('## Builder notes'); lines.push(''); lines.push(build.notes) }
 return lines.join('\n')
