@@ -4,6 +4,7 @@
 // conversation and tells it what to do next, one step at a time.
 //
 //   node promptgen-driver.js start --batch <run> --draft <path> --schema <path> --nwo <owner/repo>
+//                                  [--learn <path>] [--carry-file <path>]
 //
 // then one verb per step, each named after what the agent just did. There are two machines, and
 // they share no verbs, so neither can be run by mistake:
@@ -518,6 +519,13 @@ const MAX_STEPS = 40                        // accepted commands in one batch
 const MAX_AGE_BUILD_MS = 2 * 3600 * 1000
 const MAX_AGE_DRAFT_MS = 8 * 3600 * 1000
 
+// Verification findings handed to a rebuild. They come in as a file, not an argument: they are
+// agent-written prose with quotes and newlines in it, which no caller should have to shell-quote.
+function carryFile(p) {
+  if (!p) return ''
+  try { return fs.readFileSync(p, 'utf8').trim() } catch { return '' }
+}
+
 const load = () => { try { return JSON.parse(fs.readFileSync(STATEFILE, 'utf8')) } catch { return null } }
 const save = (st) => { fs.mkdirSync(STATEDIR, { recursive: true }); fs.writeFileSync(STATEFILE, JSON.stringify(st, null, 1)) }
 const cmd = (verb, extra) => '  node ' + __filename + ' ' + verb + ' --batch ' + BATCH + (extra ? ' ' + extra : '')
@@ -661,7 +669,7 @@ if (VERB === 'start') {
     batch: BATCH, mode,
     draft: one('draft', ''), schema: one('schema', ''), learn: one('learn', ''),
     prompt: one('prompt', ''), files: one('files', ''), maxBytes: num('max-bytes') || DEFAULT_MAX_BYTES,
-    nwo: one('nwo', ''), root: one('root', process.cwd()), carry: one('carry', ''),
+    nwo: one('nwo', ''), root: one('root', process.cwd()), carry: one('carry', '') || carryFile(one('carry-file', '')),
     rounds: 0, zeros: 0, cleans: 0, trimmed: 0, trimPending: 0, issuesSeen: 0, gateFails: 0, checkFails: 0,
     errors: 0, stepErrors: 0, errorStep: '', steps: 0, startedAt: Date.now(),
     step: mode === 'build' ? 'drafting' : 'writing',
