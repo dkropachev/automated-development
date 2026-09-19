@@ -443,3 +443,266 @@ test('draft start refuses a missing prompt file loudly', () => {
   const r = run(h, ['start', '--batch', 'd2', '--mode', 'draft', '--draft', path.join(h, 'd.md'), '--prompt', path.join(h, 'nope.md')])
   assert.equal(r.code, 2); assert.match(r.out, /no prompt at/)
 })
+
+// ---------------------------------------------------------- issue domain ----
+// The same driver, told --domain issue: its own cache root and state directory, the issue templates
+// in the sources hash, `source_issues` and CHECKED_ISSUES in place of the PR names, and KINDS - a
+// prompt whose sections belong to a bug report or a feature request, gated and checked per kind.
+
+const ISCHEMA = path.join(__dirname, '..', 'skills', 'draft-issue-description', 'schema.md')
+const ILEARN = path.join(__dirname, '..', 'skills', 'draft-issue-description', 'learn.md')
+
+const ISSUE_PROMPT = (extra) => `---
+learned_at: ${today()}
+source_issues: [1041, 1050, 1102]
+contributors: [alice, bob]
+pattern: template
+max_bytes: 2500
+kinds: [bug, feature]
+${extra || ''}---
+
+## Title
+Bugs: \`[Bug]: <symptom>\`, declarative, under 80 characters. Features: imperative, no prefix.
+
+## Kinds
+### \`bug\` — \`.github/ISSUE_TEMPLATE/bug.yml\`, title prefix \`[Bug]: \`, labels \`bug\`
+Something that worked or should work does not.
+### \`feature\` — \`.github/ISSUE_TEMPLATE/feature.yml\`, labels \`enhancement\`
+Something the project does not do yet. Questions go to Discussions and are not filed here.
+
+## Body
+### \`### What happened?\`  <!-- kinds: bug --> <!-- covers: problem -->
+The symptom as a user meets it, two to four sentences. Required by the form.
+
+### \`### What did you expect?\`  <!-- kinds: bug --> <!-- covers: expected -->
+One or two sentences of the correct behaviour.
+
+### \`### Steps to reproduce\`  <!-- kinds: bug --> <!-- covers: reproduction -->
+Numbered, minimal, actually run.
+
+### \`### Version\`  <!-- covers: context -->
+The released version as a number, and the platform where it matters.
+
+### \`### Problem\`  <!-- kinds: feature --> <!-- covers: problem -->
+What cannot be done today and who needs it.
+
+### \`### Proposed solution\`  <!-- kinds: feature --> <!-- covers: expected, proposal -->
+The outcome wanted as behaviour; a design sketch only if you have one.
+
+## Style
+Lead with the fact. No "in order to", no "it is worth noting". Logs trimmed to the failing lines. Median 900 characters, middle half 500-1600.
+
+## Notes
+No sign-off line. A proposed-fix section appears in 2 of 12 sampled bugs; excluded for the bug kind.
+`
+
+function startIssueBuild(h, batch, cache) {
+  return run(h, ['start', '--domain', 'issue', '--batch', batch, '--cache', cache, '--schema', ISCHEMA, '--learn', ILEARN,
+                 '--nwo', 'o/r', '--host', 'github.com', '--root', h])
+}
+function startIssueDraft(h, repo, draft, prompt, kind, batch) {
+  return run(h, ['start', '--domain', 'issue', '--batch', batch || 'i1', '--mode', 'draft', '--draft', draft, '--prompt', prompt,
+                 '--root', repo, ...(kind ? ['--kind', kind] : [])])
+}
+
+test('issue gate: coverage is judged per kind, kinds must be declared, and the PR gate rejects an issue prompt', () => {
+  const h = tmp(); const p = path.join(h, 'p.md'); write(p, ISSUE_PROMPT())
+  let r = run(h, ['gate', '--domain', 'issue', '--draft', p, '--schema', ISCHEMA])
+  assert.equal(r.code, 0, r.out); assert.match(r.out, /kinds: {3}bug, feature/); assert.match(r.out, /GATE: pass/)
+
+  // restrict the shared Version section to bugs: the feature kind loses `context`
+  write(p, ISSUE_PROMPT().replace('### `### Version`  <!-- covers: context -->', '### `### Version`  <!-- kinds: bug --> <!-- covers: context -->'))
+  r = run(h, ['gate', '--domain', 'issue', '--draft', p, '--schema', ISCHEMA])
+  assert.equal(r.code, 5); assert.match(r.out, /not covered:\n {2}- context \(kind: feature\)/); assert.doesNotMatch(r.out, /kind: bug\)/)
+
+  // a kinds-comment naming a kind the frontmatter does not declare
+  write(p, ISSUE_PROMPT().replace('<!-- kinds: feature --> <!-- covers: problem -->', '<!-- kinds: docs --> <!-- covers: problem -->'))
+  r = run(h, ['gate', '--domain', 'issue', '--draft', p, '--schema', ISCHEMA])
+  assert.equal(r.code, 5); assert.match(r.out, /not in the frontmatter:\n {2}- docs/); assert.match(r.out, /problem \(kind: feature\)/)
+
+  // kinds declared but no ## Kinds section to choose one by
+  write(p, ISSUE_PROMPT().replace('## Kinds', '## Templates'))
+  r = run(h, ['gate', '--domain', 'issue', '--draft', p, '--schema', ISCHEMA])
+  assert.equal(r.code, 5); assert.match(r.out, /no `## Kinds` section/)
+
+  // a malformed kinds list
+  write(p, ISSUE_PROMPT().replace('kinds: [bug, feature]', 'kinds: bug feature'))
+  assert.match(run(h, ['gate', '--domain', 'issue', '--draft', p, '--schema', ISCHEMA]).out, /`kinds` must be a \[\.\.\] list/)
+
+  // no kinds at all is fine: every section covers every issue
+  write(p, ISSUE_PROMPT().replace('kinds: [bug, feature]\n', '').replace(/<!-- kinds: [a-z, ]+ -->\s*/g, '').replace('## Kinds', '## Templates'))
+  assert.equal(run(h, ['gate', '--domain', 'issue', '--draft', p, '--schema', ISCHEMA]).code, 0)
+
+  // the PR gate reads source_prs, which an issue prompt does not have
+  write(p, ISSUE_PROMPT())
+  r = run(h, ['gate', '--draft', p, '--schema', ISCHEMA]); assert.equal(r.code, 5); assert.match(r.out, /`source_prs` is missing/)
+  assert.equal(run(h, ['gate', '--domain', 'ticket', '--draft', p, '--schema', ISCHEMA]).code, 2)
+})
+
+test('issue resolve: its own cache root, issue templates in the sources hash, kinds read off the cache', () => {
+  const h = tmp(); const repo = path.join(h, 'r'); gitRepo(repo, 'git@github.com:o/r.git')
+  let r = run(h, ['resolve', '--domain', 'issue', '--root', repo])
+  assert.equal(r.code, 0, r.out)
+  assert.match(r.stdout, /^DOMAIN='issue'$/m)
+  assert.match(r.stdout, new RegExp(`^CACHE='${path.join(h, '.claude/issue-style-cache/github.com/o/r.md')}'$`, 'm'))
+  assert.match(r.stdout, /^SOURCES_HASH='none'$/m); assert.match(r.stdout, /^CACHE_KINDS=''$/m)
+
+  // a PR template does not touch the issue hash; an issue form and config.yml do
+  write(path.join(repo, '.github', 'PULL_REQUEST_TEMPLATE.md'), '## Why\n')
+  assert.match(run(h, ['resolve', '--domain', 'issue', '--root', repo]).stdout, /^SOURCES_HASH='none'$/m)
+  write(path.join(repo, '.github', 'ISSUE_TEMPLATE', 'bug.yml'), 'name: Bug\nbody:\n  - type: textarea\n    id: what\n    attributes:\n      label: What happened?\n')
+  const h1 = /SOURCES_HASH='([0-9a-f]+)'/.exec(run(h, ['resolve', '--domain', 'issue', '--root', repo]).stdout)[1]
+  assert.equal(h1.length, 12)
+  write(path.join(repo, '.github', 'ISSUE_TEMPLATE', 'config.yml'), 'blank_issues_enabled: false\n')
+  const h2 = /SOURCES_HASH='([0-9a-f]+)'/.exec(run(h, ['resolve', '--domain', 'issue', '--root', repo]).stdout)[1]
+  assert.notEqual(h1, h2)
+  // and the PR hash saw the PR template but neither issue file
+  const prHash = /SOURCES_HASH='([0-9a-f]+)'/.exec(run(h, ['resolve', '--root', repo]).stdout)[1]
+  assert.notEqual(prHash, 'none'); assert.notEqual(prHash, h2)
+
+  const cache = path.join(h, '.claude/issue-style-cache/github.com/o/r.md')
+  write(cache, ISSUE_PROMPT(`verified: true\nsources_hash: ${h2}\n`))
+  r = run(h, ['resolve', '--domain', 'issue', '--root', repo]).stdout
+  assert.match(r, /^STALE=0$/m); assert.match(r, /^CACHE_KINDS='bug feature'$/m); assert.match(r, /^CACHE_PATTERN='template'$/m)
+  // the PR cache for the same repo is a different file and is still missing
+  assert.match(run(h, ['resolve', '--root', repo]).stdout, /^STALE_REASON='missing'$/m)
+})
+
+test('issue build: PR cache path refused, state lands in the issue state dir, CHECKED_ISSUES recorded, later verbs need no --domain', () => {
+  const h = tmp()
+  let r = startIssueBuild(h, 'ib1', path.join(h, '.claude/pr-style-cache/github.com/o/r.md'))
+  assert.equal(r.code, 2); assert.match(r.out, /inside ~\/.claude\/issue-style-cache/); assert.match(r.out, /resolve --domain issue/)
+
+  const cache = path.join(h, '.claude/issue-style-cache/github.com/o/r.md'); const work = cache + '.work.ib1'
+  r = startIssueBuild(h, 'ib1', cache); assert.equal(r.code, 0, r.out)
+  assert.match(r.out, /draft an issue title and body/)
+  assert.ok(fs.existsSync(path.join(h, '.claude/draft-issue-description/state/ib1.state.json')))
+  assert.ok(!fs.existsSync(path.join(h, '.claude/draft-pr-description/state/ib1.state.json')))
+
+  write(work, ISSUE_PROMPT())
+  r = run(h, ['drafted', '--batch', 'ib1']); assert.equal(r.code, 0, r.out)
+  assert.match(r.out, /CRITIQUE YOUR OWN DRAFT/); assert.match(r.out, /sampled issues/); assert.match(r.out, /WHICH kind/)
+  r = run(h, ['critiqued', '--batch', 'ib1', '--issues', '0']); assert.match(r.out, /raw issue bodies/)
+  r = run(h, ['critiqued', '--batch', 'ib1', '--issues', '0']); assert.match(r.out, /LAST READ/)
+  r = run(h, ['handed-off', '--batch', 'ib1']); assert.match(r.out, /FINAL STATE: built template/)
+
+  const res = JSON.parse(run(h, ['result', '--batch', 'ib1']).stdout)
+  assert.equal(res.domain, 'issue'); assert.deepEqual(res.sourceIssues, [1041, 1050, 1102]); assert.deepEqual(res.kinds, ['bug', 'feature'])
+  assert.equal(res.sourcePrs, undefined)
+
+  const report = path.join(h, 'report.txt')
+  write(report, 'VERDICT: sound\nCHECKED_ISSUES: 1041, 1050\nFINDINGS:\n')
+  r = run(h, ['verified', '--batch', 'ib1', '--report-file', report]); assert.equal(r.code, 3); assert.match(r.out, /checked 2 issue\(s\), of which only 0/)
+  write(report, 'VERDICT: sound\nCHECKED_ISSUES: #870, 1120, 1041\nFINDINGS:\n  - [worth-fixing] ## Title: example predates the prefix  (evidence: #870)\n')
+  r = run(h, ['verified', '--batch', 'ib1', '--report-file', report]); assert.equal(r.code, 0, r.out); assert.match(r.out, /RECORDED verdict=sound/)
+
+  r = run(h, ['publish', '--batch', 'ib1']); assert.equal(r.code, 0, r.out)
+  assert.ok(fs.existsSync(cache)); assert.ok(!fs.existsSync(work))
+  const fm = fs.readFileSync(cache, 'utf8').split('\n---\n')[0]
+  assert.match(fm, /^kinds: \[bug, feature\]$/m); assert.match(fm, /^source_issues: /m); assert.match(fm, /^verified: true$/m)
+
+  const repo = path.join(h, 'repo'); gitRepo(repo, 'git@github.com:o/r.git')
+  const out = run(h, ['resolve', '--domain', 'issue', '--root', repo]).stdout
+  assert.match(out, /^STALE=0$/m); assert.match(out, /^CACHE_KINDS='bug feature'$/m)
+})
+
+test('issue draft: --kind is required when the prompt declares kinds, and must be one of them', () => {
+  const h = tmp(); const repo = path.join(h, 'r'); gitRepo(repo, 'git@github.com:o/r.git')
+  const prompt = path.join(h, 'prompt.md'); write(prompt, ISSUE_PROMPT())
+  const draft = path.join(h, 'draft.md')
+  let r = startIssueDraft(h, repo, draft, prompt, '')
+  assert.equal(r.code, 2); assert.match(r.out, /--kind was not given/); assert.match(r.out, /kinds: bug, feature/)
+  r = startIssueDraft(h, repo, draft, prompt, 'docs')
+  assert.equal(r.code, 2); assert.match(r.out, /"docs" is not a kind this prompt declares/)
+  r = startIssueDraft(h, repo, draft, prompt, 'bug')
+  assert.equal(r.code, 0, r.out); assert.match(r.out, /WRITE THE ISSUE/); assert.match(r.out, /^ {2}kind: bug$/m)
+  assert.match(r.out, /Labels: <comma-separated>/); assert.doesNotMatch(r.out, /no --files given/)
+  // no kinds in the prompt: --kind is ignored and nothing is asked for
+  const flat = path.join(h, 'flat.md'); write(flat, GOOD_PROMPT().replace('source_prs', 'source_issues'))
+  r = startIssueDraft(h, repo, draft, flat, '', 'i2'); assert.equal(r.code, 0, r.out); assert.doesNotMatch(r.out, /kind:/)
+})
+
+test('issue draft checks: other kind\'s heading, template comment, invented file; then a clean bug report passes', () => {
+  const h = tmp(); const repo = path.join(h, 'r'); gitRepo(repo, 'git@github.com:o/r.git')
+  const prompt = path.join(h, 'prompt.md'); write(prompt, ISSUE_PROMPT())
+  const draft = path.join(h, 'draft.md')
+  assert.equal(startIssueDraft(h, repo, draft, prompt, 'bug').code, 0)
+  write(draft, `Title: [Bug]: process stays alive after PoolManager.shutdown() returns
+Labels: bug
+
+### What happened?
+<!-- A clear and concise description of what the bug is. -->
+After shutdown() returns the process does not exit; see \`src/pool.py\` and \`tests/test_pool.py\`.
+
+### What did you expect?
+The process exits.
+
+### Steps to reproduce
+1. start a pool
+2. call shutdown() during a handshake
+
+### Version
+2.3.1 on Linux
+
+### Proposed solution
+join the workers
+`)
+  let r = run(h, ['written', '--batch', 'i1']); assert.equal(r.code, 0, r.out)
+  assert.match(r.out, /not in this repo's vocabulary for this kind of issue[\s\S]*### Proposed solution/)
+  assert.match(r.out, /still contains an HTML comment/)
+  assert.match(r.out, /do not exist in this repository at all[\s\S]*tests\/test_pool\.py/)
+  assert.doesNotMatch(r.out, /src\/pool\.py/)                     // exists: nothing to say about it for an issue
+  assert.doesNotMatch(r.out, /no changed-file list/)
+  assert.match(r.out, /maintainer who will triage it/)
+
+  write(draft, `Title: [Bug]: process stays alive after PoolManager.shutdown() returns
+Labels: bug
+
+### What happened?
+After shutdown() returns, the process does not exit while a worker is mid-handshake. Seen in \`src/pool.py\`.
+
+### What did you expect?
+The process exits once shutdown() returns.
+
+### Steps to reproduce
+1. start a pool of two workers
+2. call shutdown() while one is connecting
+
+### Version
+2.3.1 on Linux
+`)
+  r = run(h, ['revised', '--batch', 'i1', '--changed', 'yes']); assert.match(r.out, /GO AGAIN/); assert.match(r.out, /log block pasted whole/)
+  r = run(h, ['revised', '--batch', 'i1', '--changed', 'no']); assert.match(r.out, /GO AGAIN/); assert.match(r.out, /terminal closed/)
+  r = run(h, ['revised', '--batch', 'i1', '--changed', 'no'])
+  assert.match(r.out, /LAST READ/); assert.match(r.out, /every file named exists in the repository/)
+  assert.match(r.out, /print the title, labels and body/); assert.match(r.out, /maintainer who gets this/)
+  r = run(h, ['finished', '--batch', 'i1']); assert.match(r.out, /FINAL STATE: drafted/)
+})
+
+test('issue draft: a feature is checked against the feature sections only', () => {
+  const h = tmp(); const repo = path.join(h, 'r'); gitRepo(repo, 'git@github.com:o/r.git')
+  const prompt = path.join(h, 'prompt.md'); write(prompt, ISSUE_PROMPT())
+  const draft = path.join(h, 'draft.md')
+  assert.equal(startIssueDraft(h, repo, draft, prompt, 'feature').code, 0)
+  write(draft, `Title: Let shutdown() take a join timeout
+Labels: enhancement
+
+### Problem
+Callers cannot bound how long shutdown() blocks, so a stuck worker stalls process exit indefinitely.
+
+### Version
+2.3.1
+
+### Proposed solution
+shutdown(timeout=None) returns once every worker has stopped or the timeout has passed, whichever is first.
+`)
+  let r = run(h, ['written', '--batch', 'i1']); assert.equal(r.code, 0, r.out)
+  assert.doesNotMatch(r.out, /Sections the cached prompt asks for/)   // no bug section is demanded of a feature
+  assert.doesNotMatch(r.out, /not in this repo's vocabulary/)
+  // drop the shared Version section: it applies to every kind and is reported missing
+  write(draft, fs.readFileSync(draft, 'utf8').replace('### Version\n2.3.1\n\n', ''))
+  run(h, ['revised', '--batch', 'i1', '--changed', 'yes'])
+  run(h, ['revised', '--batch', 'i1', '--changed', 'no']); r = run(h, ['revised', '--batch', 'i1', '--changed', 'no'])
+  assert.match(r.out, /THE CHECKS REJECTED THIS DRAFT/); assert.match(r.out, /and the repository\./)
+  assert.match(r.out, /asks for that are not in your draft:\n {2}- ### Version/)
+})
