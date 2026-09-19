@@ -1,7 +1,7 @@
 {
   "name": "automated-development",
-  "description": "Development skills that learn a repository's own conventions before they act on it.",
-  "version": "0.3.0",
+  "description": "Development skills that learn a repository's own conventions before they act on it, and a PR review-and-fix pipeline that verifies what it finds.",
+  "version": "0.4.0",
   "author": {
     "name": "Dmitry Kropachev"
   }
