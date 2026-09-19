@@ -4,7 +4,13 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: monthly
+    groups:
+      eslint:
+        patterns: ["eslint", "@eslint/*"]
