@@ -1,0 +1,14 @@
+schema_version: "1.1"
+name: draft-from-cached-prompt
+description: >
+  A repo with a fresh cached PR-description prompt and one committed change on a branch. The skill
+  must draft from the cache in that repo's vocabulary, run the driver, never call a writing gh
+  command, and print the draft. gh itself is unauthenticated here, so the git fallbacks are exercised.
+tags: [draft-pr-description, offline]
+runs: 2
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, Skill]
