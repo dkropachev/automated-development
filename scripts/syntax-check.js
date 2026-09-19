@@ -6,7 +6,7 @@ const path = require('path')
 const { spawnSync } = require('child_process')
 const ROOT = path.join(__dirname, '..')
 let failed = 0
-for (const dir of ['bin', 'lib', 'scripts', 'test', 'evals']) {
+for (const dir of ['bin', 'lib', 'scripts', 'test', 'evals', 'workflows']) {
   const walk = (d) => {
     for (const f of fs.readdirSync(d, { withFileTypes: true })) {
       const p = path.join(d, f.name)

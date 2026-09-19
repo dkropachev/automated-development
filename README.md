@@ -84,6 +84,10 @@ the plausible version instead of the true one. It runs under the same driver.
 | `~/.claude/draft-pr-description/state/` | driver state and per-build result JSON, pruned after 7 days |
 | `~/.claude/issue-style-cache/<host>/<owner>/<repo>.md` (+ `.work.<batch>`, `.attempt`) | the same three, for the issue skill |
 | `~/.claude/draft-issue-description/state/` | the issue skill's driver state |
+| `~/.claude/pr-review-fix/state/` | one file per live review or fix conversation, pruned after 7 days |
+| `~/.claude/pr-review-fix/<owner>__<repo>/classify.js` (+ `meta.json`) | the generated reviewability rule and the repo fingerprint that invalidates it |
+| `~/.claude/pr-review-fix/<owner>__<repo>/reviewed.json` | files recorded clean, keyed on content, kept across runs |
+| `~/.claude/pr-review-fix/<owner>__<repo>/runs/<sha>/` | frozen chunk `.diff` files for one run |
 
 Nothing else. It does not write to your repository, beyond a depth-limited `git fetch` when the base
 branch is genuinely absent from the clone.
@@ -131,6 +135,31 @@ It is the same three pieces as the PR skill, driven by the same `promptgen-drive
 context — with reproduction, evidence, proposal and workaround only where the repo's template or
 its maintainers' issues actually have them.
 
+### `pr-review-fix`
+
+Reviews a PR and, on your own PRs, fixes what it finds. The diff is split into size-capped chunks of
+whole hunks, staged **code → tests → cicd → other** with a hard barrier between stages; read-only
+reviewers run in parallel, then one fixer at a time validates and commits its own batch. Nothing is
+ever reverted: a batch whose build fails leaves its edits in the tree for you to read.
+
+```
+/pr-review-fix 1234
+```
+
+Every reviewer and every fixer is walked through its work one step at a time by
+`bin/pr-review-fix-driver.js`, which holds the decisions an agent should not make for itself: what
+changed is measured with `git status` rather than taken from the agent's word, `COMMIT` is never
+printed while the build is failing, and a review cannot stop looking until two passes in a row find
+nothing — with the agent never told how close it is, so it cannot aim for the exit.
+
+Scope is a label, not a filter. A defect this PR did not cause is reported and marked out-of-scope
+rather than suppressed, so you can tell "you broke this" from "this was already broken". With
+`detailedReview: true` reviewers may leave the hunk, trace callers, and *run* experiments in a
+throwaway clone — which is what finds caller-side defects that reading past them does not.
+
+Files a reviewer finds genuinely clean are recorded in a ledger keyed on content, so a later run
+skips them until they change.
+
 ## Layout
 
 ```
@@ -138,6 +167,10 @@ agents/                  subagents the skills spawn, typed automated-development
                          :pr-style-verifier, :issue-style-builder, :issue-style-verifier
                          (plugin name is part of the type)
 bin/promptgen-driver.js  the CLI: the two state machines and the orchestrator's verbs, --domain pr|issue
+bin/pr-review-fix-*.js   the review pipeline's helpers: -driver (fix and review state machines),
+                         -chunker (diff -> capped chunks), -reviewed (the clean-file ledger),
+                         -repofp (repo-shape fingerprint), -meter (token accounting, manual)
+workflows/               Workflow scripts, run by scriptPath; not linted (see eslint.config.js)
 lib/domains.js           everything that differs between the two domains: paths, keys, source files,
                          and every instruction that talks about "the diff" or "the maintainer"
 lib/prompt-gate.js       coverage gate for a learned prompt, per kind where kinds exist; frontmatter helpers

@@ -3,12 +3,12 @@
   "owner": {
     "name": "Dmitry Kropachev"
   },
-  "description": "Development skills that learn a repository's own conventions before they act on it.",
+  "description": "Development skills that learn a repository's own conventions before they act on it, and a PR review-and-fix pipeline that verifies what it finds.",
   "plugins": [
     {
       "name": "automated-development",
       "source": "./",
-      "description": "Development skills that learn a repository's own conventions before they act on it. Currently: draft-pr-description, draft-issue-description."
+      "description": "Development skills that learn a repository's own conventions before they act on it, and a PR review-and-fix pipeline that verifies what it finds. Currently: draft-pr-description, draft-issue-description, pr-review-fix."
     }
   ]
 }
