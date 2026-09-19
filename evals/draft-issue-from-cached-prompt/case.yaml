@@ -1,0 +1,15 @@
+schema_version: "1.1"
+name: draft-issue-from-cached-prompt
+description: >
+  A repo with a fresh cached issue prompt that distinguishes a bug kind from a feature kind, and a
+  failure described in the prompt. The skill must pick the bug kind, draft from the cache in that
+  kind's vocabulary only, run the driver with --domain issue, never call a writing gh command, and
+  print the title, labels and body. gh itself is unauthenticated here.
+tags: [draft-issue-description, offline]
+runs: 2
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, Skill]

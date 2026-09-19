@@ -1,10 +1,19 @@
 #!/usr/bin/env node
 'use strict'
-// draft-pr-description promptgen driver. A state machine that runs INSIDE the builder agent's
-// conversation and tells it what to do next, one step at a time.
+// promptgen driver, shared by draft-pr-description and draft-issue-description. A state machine
+// that runs INSIDE the builder agent's conversation and tells it what to do next, one step at a
+// time.
 //
 //   node promptgen-driver.js start --batch <run> --cache <path> --schema <path> --nwo <owner/repo>
-//                                  [--host <host>] [--learn <path>] [--carry-file <path>]
+//                                  [--domain pr|issue] [--host <host>] [--learn <path>]
+//                                  [--carry-file <path>]
+//
+// `--domain` says which of the two things is being drafted. Everything that differs between them -
+// the cache root, the state directory, the files that outrank observed practice, the frontmatter
+// key the sampled numbers live under, the header the verifier reports them under, and every
+// instruction that talks about "the diff" or "the maintainer" - lives in lib/domains.js. The
+// default is `pr`, so a caller that predates the flag reads as before. The domain is recorded in
+// the batch's state at `start`; no later verb needs the flag.
 //
 // In build mode the driver names the work file itself: <cache>.work.<batch>. Two sessions learning
 // the same repo at once therefore cannot overwrite each other, and the builder never gets to choose
@@ -17,10 +26,14 @@
 //   draft : start -> written -> revised --changed yes|no [loop] -> finished
 //
 // The BUILD machine drives a subagent that writes a repo's cached generation prompt.
-// The DRAFT machine drives THE CURRENT SESSION while it writes one PR description. It is a
-// different machine because the thing it is checking is different - not "is this prompt any good"
-// but "does this description match the diff in front of me" - and because the session, unlike a
-// subagent, knows why the change was made.
+// The DRAFT machine drives THE CURRENT SESSION while it writes one PR description or one issue. It
+// is a different machine because the thing it is checking is different - not "is this prompt any
+// good" but "does this draft match the change, or the failure, in front of me" - and because the
+// session, unlike a subagent, knows why the change was made or what the failure looked like.
+//
+// An issue prompt may declare KINDS - bug, feature - each with its own sections. The coverage gate
+// then judges every kind separately, and a draft names its kind with `--kind` at `start` so the
+// section checks use that kind's vocabulary and no other's.
 //
 // A verb that does not belong to the current step is refused, naming the one it wants.
 //
@@ -47,9 +60,10 @@
 // verbs of its own. None of them nudges an agent; each is a measurement or a state change with an
 // exit code:
 //
-//   node promptgen-driver.js resolve --root <repo>                     where this repo's cache is,
+//   node promptgen-driver.js resolve --root <repo> [--domain d]        where this repo's cache is,
 //                                                                      and whether it is stale
-//   node promptgen-driver.js gate --draft <path> --schema <path>       exit 0 clean, 5 not
+//   node promptgen-driver.js gate --draft <path> --schema <path> [--domain d]
+//                                                                      exit 0 clean, 5 not
 //   node promptgen-driver.js result --batch <run>                      the build's facts, as JSON,
 //                                                                      read off disk not off the agent
 //   node promptgen-driver.js verified --batch <run> --report-file <p> | --verdict unverified
@@ -74,8 +88,9 @@ const fs = require('fs')
 const path = require('path')
 const { execFileSync } = require('child_process')
 const { inspect, frontmatter, fmList, stampFrontmatter } = require('../lib/prompt-gate')
-const { inspectDraft } = require('../lib/draft-checks')
-const { parseOrigin, cachePathFor, sourcesHash, staleness, CACHE_ROOT } = require('../lib/repo')
+const { inspectDraft, promptSections } = require('../lib/draft-checks')
+const { parseOrigin, cachePathFor, sourcesHash, staleness } = require('../lib/repo')
+const { DOMAINS, domain } = require('../lib/domains')
 
 const argv = process.argv
 const VERB = argv[2] || ''
@@ -85,18 +100,33 @@ const num = (f) => Math.max(0, parseInt(one(f, '0'), 10) || 0)
 
 const say = (...l) => process.stdout.write(l.filter(x => x !== null && x !== undefined).join('\n') + '\n')
 
+// The domain named on the command line - only `resolve`, `gate` and `start` take it; every other
+// verb reads it off the batch's state.
+function domainFlag() {
+  const d = domain(one('domain', 'pr'))
+  if (!d) {
+    console.error('promptgen-driver: --domain must be one of: ' + Object.keys(DOMAINS).join(', '))
+    process.exit(2)
+  }
+  return d
+}
+const HOME = process.env.HOME || '.'
+
 // ------------------------------------------------------------------ gate ----
 
 // The orchestrator's stateless verb. No nudging, no prose for an agent: a verdict and an exit code.
 if (VERB === 'gate') {
-  const r = inspect(one('draft', ''), one('schema', ''))
+  const D = domainFlag()
+  const r = inspect(one('draft', ''), one('schema', ''), { sourceKey: D.sourceKey })
   say('COVERAGE GATE',
       '  draft:   ' + one('draft', ''),
       '  pattern: ' + (r.pattern || '(none read)'),
       '  bytes:   ' + r.bytes,
+      ...(r.kinds.length ? ['  kinds:   ' + r.kinds.join(', ')] : []),
       ...(r.problems.length ? ['', 'Problems:', ...r.problems.map(p => '  - ' + p)] : []),
       ...(r.missing.length ? ['', 'Canonical fields not covered:', ...r.missing.map(f => '  - ' + f)] : []),
       ...(r.unknown.length ? ['', 'Covers-comments naming fields that are not in schema.md:', ...r.unknown.map(f => '  - ' + f)] : []),
+      ...(r.unknownKinds.length ? ['', 'Kinds-comments naming kinds that are not in the frontmatter:', ...r.unknownKinds.map(f => '  - ' + f)] : []),
       '',
       r.ok ? 'GATE: pass' : 'GATE: fail')
   process.exit(r.ok ? 0 : 5)
@@ -105,6 +135,7 @@ if (VERB === 'gate') {
 // --------------------------------------------------------------- resolve ----
 
 if (VERB === 'resolve') {
+  const D = domainFlag()
   const root = one('root', process.cwd())
   let origin
   try {
@@ -112,7 +143,7 @@ if (VERB === 'resolve') {
                           { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
   } catch {
     console.error('promptgen-driver: ' + root + ' is not a git repository with an origin remote.')
-    console.error('  There is no repo whose PR style could be learned. Do not fall back to `gh repo view`:')
+    console.error('  There is no repo whose ' + D.artifact + ' style could be learned. Do not fall back to `gh repo view`:')
     console.error('  in a fork clone it answers with the upstream project.')
     process.exit(2)
   }
@@ -121,8 +152,8 @@ if (VERB === 'resolve') {
     console.error('promptgen-driver: cannot read a host and owner/repo out of origin url ' + JSON.stringify(origin))
     process.exit(2)
   }
-  const cache = cachePathFor(o.host, o.nwo)
-  const hash = sourcesHash(root)
+  const cache = cachePathFor(o.host, o.nwo, D.cacheRoot)
+  const hash = sourcesHash(root, D.sources)
   const st = staleness(cache, hash, has('max-age-days') ? num('max-age-days') : 90,
                       has('unverified-max-age-days') ? num('unverified-max-age-days') : 7)
   const stale = st.reason ? 1 : 0
@@ -136,9 +167,11 @@ if (VERB === 'resolve') {
   const learnNow = stale && !(attempt && hours >= 0 && hours < backoff) ? 1 : 0
   // Shell-assignable on purpose: every value is either regex-validated above, a path built from
   // those values, an integer, or one fixed word - so `eval "$(... resolve)"` cannot run anything.
-  say("HOST='" + o.host + "'",
+  say("DOMAIN='" + D.key + "'",
+      "HOST='" + o.host + "'",
       "NWO='" + o.nwo + "'",
       "CACHE='" + cache + "'",
+      "CACHE_KINDS='" + st.kinds.join(' ') + "'",
       "SOURCES_HASH='" + hash + "'",
       "CACHE_EXISTS=" + (st.exists ? 1 : 0),
       "CACHE_LEARNED_AT='" + st.learnedAt.replace(/[^\d-]/g, '') + "'",
@@ -178,7 +211,17 @@ function clearAttempt(st) { try { fs.unlinkSync(attemptPath(st.cache)) } catch {
 const BATCH = one('batch')
 if (!BATCH) { console.error('promptgen-driver: --batch is required'); process.exit(2) }
 if (!/^[\w.-]+$/.test(BATCH)) { console.error('promptgen-driver: --batch must be [A-Za-z0-9_.-] only'); process.exit(2) }
-const STATEDIR = path.join(process.env.HOME || '.', '.claude', 'draft-pr-description', 'state')
+// One state directory per domain. `start` writes into the directory of the domain it was given;
+// every later verb finds the batch by looking in each, so nothing after `start` needs `--domain`.
+// Batch names are random hex, so one name living in two directories does not happen.
+function stateDirOf(D) { return path.join(HOME, D.stateDir) }
+function locateStateDir() {
+  for (const D of Object.values(DOMAINS)) {
+    if (fs.existsSync(path.join(stateDirOf(D), BATCH + '.state.json'))) return stateDirOf(D)
+  }
+  return null
+}
+const STATEDIR = VERB === 'start' ? stateDirOf(domainFlag()) : (locateStateDir() || stateDirOf(domain('pr')))
 const STATEFILE = path.join(STATEDIR, BATCH + '.state.json')
 const RESULTFILE = path.join(STATEDIR, BATCH + '.result.json')
 
@@ -214,14 +257,20 @@ const save = (st) => { fs.mkdirSync(STATEDIR, { recursive: true }); fs.writeFile
 const cmd = (verb, extra) => '  node ' + __filename + ' ' + verb + ' --batch ' + BATCH + (extra ? ' ' + extra : '')
 
 function prune() {
-  try {
-    const cutoff = Date.now() - 7 * 24 * 3600 * 1000
-    for (const f of fs.readdirSync(STATEDIR)) {
-      const full = path.join(STATEDIR, f)
-      try { if (fs.statSync(full).mtimeMs < cutoff) fs.unlinkSync(full) } catch {}
-    }
-  } catch {}
+  const cutoff = Date.now() - 7 * 24 * 3600 * 1000
+  for (const D of Object.values(DOMAINS)) {
+    try {
+      const dir = stateDirOf(D)
+      for (const f of fs.readdirSync(dir)) {
+        const full = path.join(dir, f)
+        try { if (fs.statSync(full).mtimeMs < cutoff) fs.unlinkSync(full) } catch {}
+      }
+    } catch {}
+  }
 }
+
+// The domain a loaded run belongs to. State written before domains existed has none and is a PR.
+function domainOf(st) { return domain(st && st.domain) || domain('pr') }
 
 const EXPECTS = {
   drafting:   ['drafted', ''],
@@ -347,12 +396,14 @@ function requireStep(st, ...steps) {
 
 if (VERB === 'start') {
   prune()
+  const D = domainFlag()
   const mode = one('mode', 'build')
   if (mode !== 'build' && mode !== 'draft') { console.error('promptgen-driver: --mode must be build or draft'); process.exit(2) }
   const st = {
-    batch: BATCH, mode,
+    batch: BATCH, mode, domain: D.key,
     draft: one('draft', ''), cache: one('cache', ''), schema: one('schema', ''), learn: one('learn', ''),
     prompt: one('prompt', ''), files: one('files', ''), maxBytes: num('max-bytes') || DEFAULT_MAX_BYTES,
+    kind: one('kind', ''),
     nwo: one('nwo', ''), host: one('host', ''), root: one('root', process.cwd()),
     carry: one('carry', '') || carryFile(one('carry-file', '')),
     rounds: 0, totalRounds: 0, reopened: 0, zeros: 0, cleans: 0, trimmed: 0, trimPending: 0, issuesSeen: 0,
@@ -361,13 +412,14 @@ if (VERB === 'start') {
     step: mode === 'build' ? 'drafting' : 'writing',
   }
   if (mode === 'build') {
-    // The cache path is the orchestrator's, from `resolve`. It has to sit inside the cache root and
-    // end in .md, because `publish` will rename the work file over it; and the work file is named
-    // here, by batch, so the builder cannot pick a path and two builds cannot share one.
+    // The cache path is the orchestrator's, from `resolve`. It has to sit inside this domain's
+    // cache root and end in .md, because `publish` will rename the work file over it; and the work
+    // file is named here, by batch, so the builder cannot pick a path and two builds cannot share
+    // one.
     if (!st.cache || !path.isAbsolute(st.cache) || !/^[\w./@-]+$/.test(st.cache) ||
         /(^|\/)\.\.(\/|$)/.test(st.cache) || !st.cache.endsWith('.md') ||
-        st.cache.indexOf(path.sep + CACHE_ROOT + path.sep) === -1) {
-      console.error('promptgen-driver: --cache must be an absolute .md path inside ~/' + CACHE_ROOT + ' (use `resolve`); got ' + JSON.stringify(st.cache))
+        st.cache.indexOf(path.sep + D.cacheRoot + path.sep) === -1) {
+      console.error('promptgen-driver: --cache must be an absolute .md path inside ~/' + D.cacheRoot + ' (use `resolve --domain ' + D.key + '`); got ' + JSON.stringify(st.cache))
       process.exit(2)
     }
     if (!st.nwo || !/^[\w.-]+(\/[\w.-]+)+$/.test(st.nwo)) {
@@ -393,51 +445,29 @@ if (VERB === 'start') {
       console.error('  will not start. Check the path, or build the cache first with --refresh-cache.')
       process.exit(2)
     }
-    if (!st.files) {
+    if (!st.files && D.hasDiff) {
       console.error('promptgen-driver: warning - no --files given, so nothing can be checked against the diff')
     }
-    say('WRITE THE DESCRIPTION',
+    // A prompt that distinguishes kinds needs to be told which one this draft is, and the section
+    // checks are meaningless without it - so refuse now, naming the kinds, rather than check a bug
+    // report against every template at once.
+    const kinds = promptSections(st.prompt).kinds
+    if (kinds.length && !kinds.includes(st.kind)) {
+      console.error('promptgen-driver: ' + (st.kind ? '--kind ' + JSON.stringify(st.kind) + ' is not a kind this prompt declares.' : 'this prompt distinguishes kinds and --kind was not given.'))
+      console.error('  The prompt\'s kinds: ' + kinds.join(', '))
+      console.error('  Pick the one this draft is - the prompt\'s `## Kinds` section says how - and start again with --kind <kind>.')
+      process.exit(2)
+    }
+    if (!kinds.length) st.kind = ''
+    save(st)
+    say(D.text.writeHeadline,
         '',
-        'Write the PR title and description for the change in front of you, following the cached',
-        'prompt for this repository - its sections, its order, its title format, its tone:',
-        '  ' + st.prompt,
-        '',
-        'That prompt is authoritative. Do not substitute your own conventions for it, do not add a',
-        'section it does not ask for, and do not drop one because this change seems too small to',
-        'need it. In particular: if the prompt does not ask how the change was tested, write nothing',
-        'about testing. That is not an oversight in the prompt - it means this repo does not write',
-        'test plans in its PRs, and adding one puts words in their mouth.',
-        '',
-        'Draw on THIS conversation first. You have been working on this change: you know why it was',
-        'made, what was tried and abandoned, which tests you actually ran. None of that is in the',
-        'diff, and it is the part a description exists to carry. Fetch from git or gh only what you',
-        'genuinely do not already have.',
-        '',
-        'Claim nothing you cannot point at. Every file you name, every test you say passes, every',
-        'benchmark - if it is not in the diff or in this conversation, it does not go in.',
-        '',
-        'Write it the way the best PRs in this repo are written, not the average ones: short, direct,',
-        'and leading with the fact. The first sentence of a section carries its point - no warm-up',
-        'clause, no restating the heading. Cut every word that carries nothing ("in order to" is "to",',
-        '"due to the fact that" is "because", "it is worth noting that" is nothing at all), and do not',
-        'hedge where you actually know the answer. Shorter is the tie-breaker, always.',
-        '',
-        'CODE REFERENCES ARE PERMALINKS. Never `path/to/file.py:42` - that is a terminal convention and',
-        'is dead text on GitHub. Use a raw GitHub url pinned to a full commit SHA, never a branch, on a',
-        'line of its own so GitHub expands it into a snippet:',
-        '  https://github.com/<owner>/<repo>/blob/<full-sha>/<path>#L42-L50',
-        'Get the SHA with `git rev-parse HEAD`, use the one the line actually exists at upstream, and do',
-        'not wrap the url in markdown link text or a fenced block - either one kills the preview.',
-        '',
-        'NO TOOLING BANNER. No "Generated with Claude Code", no robot emoji, no Co-Authored-By line,',
-        'no link to claude.com - not at the end, not anywhere. This is the author\'s description of',
-        'their own change. Whatever attribution convention applies to commits does not apply here,',
-        'and this is checked.',
+        ...D.text.write(st),
         '',
         'Write it to this exact path (this is a working file, not the final answer):',
         '  ' + st.draft,
         '',
-        'The first line must be `Title: <the title>`, then a blank line, then the body.',
+        ...D.text.format(),
         '',
         'Then:',
         cmd('written', ''))
@@ -462,9 +492,7 @@ if (VERB === 'start') {
   }
   say('BUILD THE PROMPT',
       '',
-      'You are writing a GENERATION PROMPT for one repository: the instructions a later run will',
-      'follow to draft a PR title and description in that repo\'s own style. You are not writing a PR',
-      'description yourself, and nothing you produce is shown to a user.',
+      ...D.text.buildIntro(),
       '',
       'Follow the procedure in this file, start to finish:',
       '  ' + (st.learn || '<learn.md path from your prompt>'),
@@ -509,11 +537,17 @@ if (!st) {
         'Its state is gone and cannot be rebuilt.')
 }
 
+// The two measurements, each with the domain's own keys filled in from the state.
+function inspectPrompt(st) { return inspect(st.draft, st.schema, { sourceKey: domainOf(st).sourceKey }) }
+function inspectDraftFor(st) {
+  return inspectDraft(st.draft, st.prompt, st.files, st.root, st.maxBytes, { kind: st.kind || '', noDiff: !domainOf(st).hasDiff })
+}
+
 // --------------------------------------------------------------- drafted ----
 
 if (VERB === 'drafted') {
   requireStep(st, 'drafting')
-  const r = inspect(st.draft, st.schema)
+  const r = inspectPrompt(st)
   if (r.bytes === 0 && r.problems.length && /does not exist/.test(r.problems[0])) {
     refuse(st, 'THERE IS NO DRAFT',
            'Nothing exists at the path you were given, so there is nothing to critique. Write the file',
@@ -535,14 +569,7 @@ function critiqueLines(st, r) {
       'Read the draft back as it stands on disk - not your memory of writing it - and look for what is',
       'wrong with it AS A PROMPT. The questions that matter:',
       '',
-      '  - Would a competent writer given ONLY this prompt, a diff and a commit log produce something',
-      '    that looks like the sampled PRs? Where would they guess?',
-      '  - Is every rule stated concretely - a real heading, a real prefix, a real length - or does it',
-      '    hide behind "follow the repo\'s conventions" and "match the existing style"?',
-      '  - Is it describing what these PRs CONSISTENTLY do, or something one PR did once?',
-      '  - Does anything contradict the repo\'s own template or CONTRIBUTING, which outrank observation?',
-      '  - Does it invent a section, a checklist or a sign-off line that the evidence does not support?',
-      '  - Would it survive a PR unlike the ones you sampled - a revert, a one-line fix, a big refactor?',
+      ...domainOf(st).text.critique(),
       '',
       'Fix what you find, in the file. Then report how many problems THIS PASS turned up - not a',
       'running total, not the number you have fixed so far. 0 is a real answer:',
@@ -569,7 +596,7 @@ if (VERB === 'critiqued') {
   if (st.zeros >= 2 || exhausted) {
     // Two clean passes in a row, or the nudge budget is gone. Either way the agent's own judgement
     // has said what it is going to say - now the gate measures what cannot be judged.
-    const r = inspect(st.draft, st.schema)
+    const r = inspectPrompt(st)
     if (!r.ok) {
       st.gateFails = (st.gateFails || 0) + 1
       st.zeros = 0                            // a gate failure is not a clean pass, whatever it said
@@ -593,6 +620,10 @@ if (VERB === 'critiqued') {
               'These covers-comments name things that are not canonical fields. Check them for typos;',
               'a misspelled name covers nothing:',
               ...r.unknown.map(f => '  - ' + f)] : []),
+          ...(r.unknownKinds.length ? ['',
+              'These kinds-comments name kinds the frontmatter does not declare. A section restricted to',
+              'a kind that does not exist is restricted to nothing:',
+              ...r.unknownKinds.map(f => '  - ' + f)] : []),
           '',
           'Fix the draft - do not fix the comment alone. A covers-comment on a section that does not',
           'actually ask for that information is a lie the gate cannot detect and a later draft will.',
@@ -620,7 +651,7 @@ if (VERB === 'critiqued') {
       '',
       n > 0
         ? 'You found ' + n + ' this pass. A prompt with one weak rule usually has its neighbour: the section that says what to write but not how long, the one that names a heading but not its level.'
-        : 'Nothing that pass. That is not yet evidence the prompt is good - it is evidence of one pass. Look along something you have not tried yet: re-read the raw PR bodies you sampled and check the prompt against two of them you have not thought about since.',
+        : domainOf(st).text.againBuild(),
       '',
       'A pass that changes nothing is a legitimate outcome, but it has to be an actual pass.',
       '',
@@ -633,7 +664,7 @@ if (VERB === 'critiqued') {
 
 if (VERB === 'handed-off') {
   requireStep(st, 'handoff')
-  const r = inspect(st.draft, st.schema)
+  const r = inspectPrompt(st)
   if (!r.ok) {
     st.step = 'covering'; save(st)
     refuse(st, 'THE DRAFT NO LONGER PASSES',
@@ -654,14 +685,17 @@ if (VERB === 'handed-off') {
 
 // ------------------------------------------------- the ORCHESTRATOR's verbs ----
 function buildResult(st) {
+  const D = domainOf(st)
   let fm = null
   try { fm = frontmatter(fs.readFileSync(st.draft, 'utf8')) } catch {}
   return {
-    batch: st.batch, mode: st.mode, step: st.step, outcome: st.outcome || '',
+    batch: st.batch, mode: st.mode, domain: D.key, step: st.step, outcome: st.outcome || '',
     draft: st.draft, cache: st.cache, nwo: st.nwo, host: st.host || 'github.com', schema: st.schema,
     pattern: fm ? (fm.pattern || '') : '', bytes: st.finalBytes || 0,
     learnedAt: fm ? (fm.learned_at || '') : '',
-    sourcePrs: fm ? fmList(fm.source_prs) : [], contributors: fm ? fmList(fm.contributors) : [],
+    kinds: fm ? fmList(fm.kinds) : [],
+    // `sourcePrs` for a PR build, `sourceIssues` for an issue build: the numbers the builder sampled.
+    [D.resultKey]: fm ? fmList(fm[D.sourceKey]) : [], contributors: fm ? fmList(fm.contributors) : [],
     critiquePasses: st.totalRounds || st.rounds || 0, reopened: st.reopened || 0,
     verify: st.verify || null, published: !!st.published, abortReason: st.abortReason || '',
   }
@@ -684,7 +718,7 @@ if (VERB === 'result') {
 // The verifier ends its report with a fixed block:
 //
 //   VERDICT: sound | needs-work
-//   CHECKED_PRS: 104, 105, 110
+//   CHECKED_PRS: 104, 105, 110          (CHECKED_ISSUES: for an issue prompt)
 //   FINDINGS:
 //     - [blocking] <where>: <problem>  (evidence: ...)
 //     - [worth-fixing] ...
@@ -696,7 +730,7 @@ function parseReport(text) {
   const r = { isReport: false, verdict: '', checkedPrs: [], findings: [], blocking: 0 }
   const v = /^\s*VERDICT:\s*([\w-]+)/m.exec(text)
   if (v) { r.isReport = true; r.verdict = v[1].toLowerCase() }
-  const c = /^\s*CHECKED_PRS:\s*(.*)$/m.exec(text)
+  const c = /^\s*CHECKED_(?:PRS|ISSUES):\s*(.*)$/m.exec(text)
   if (c) {
     r.isReport = true
     r.checkedPrs = c[1].split(/[\s,]+/).map(x => x.replace(/^#/, '')).filter(x => /^\d+$/.test(x)).map(Number)
@@ -719,20 +753,21 @@ if (VERB === 'verified') {
   let verify
   if (reportPath) {
     const rep = parseReport(carryFile(reportPath))
+    const D = domainOf(st)
     if (!rep.isReport) {
-      console.error('promptgen-driver: ' + reportPath + ' has no VERDICT: / CHECKED_PRS: block. Save the verifier\'s closing block verbatim.')
+      console.error('promptgen-driver: ' + reportPath + ' has no VERDICT: / ' + D.checkedKey + ': block. Save the verifier\'s closing block verbatim.')
       process.exit(2)
     }
     // The verifier must have looked beyond the builder's sample, or it has checked the prompt against
     // the evidence the prompt was made from and found, unsurprisingly, that they agree.
     let sampled = []
-    try { sampled = fmList(frontmatter(fs.readFileSync(st.draft, 'utf8')).source_prs).filter(x => typeof x === 'number') } catch {}
+    try { sampled = fmList(frontmatter(fs.readFileSync(st.draft, 'utf8'))[D.sourceKey]).filter(x => typeof x === 'number') } catch {}
     const outside = rep.checkedPrs.filter(n => !sampled.includes(n))
     const minOutside = has('min-outside') ? num('min-outside') : 2
     if (outside.length < minOutside) {
-      say('NOT RECORDED: the verifier checked ' + rep.checkedPrs.length + ' PR(s), of which only ' + outside.length +
+      say('NOT RECORDED: the verifier checked ' + rep.checkedPrs.length + ' ' + D.sample + '(s), of which only ' + outside.length +
             ' are outside the builder\'s sample (' + sampled.join(', ') + ').',
-          'Send it back for at least ' + minOutside + ' merged PRs the builder did not sample, then record its new block.')
+          'Send it back for at least ' + minOutside + ' ' + D.samples + ' the builder did not sample, then record its new block.')
       process.exit(3)
     }
     const verdict = rep.blocking ? 'needs-work' : 'sound'
@@ -787,7 +822,7 @@ if (VERB === 'reopen') {
   st.startedAt = Date.now()
   st.outcome = ''; st.verify = null; st.step = 'critiquing'
   save(st); writeResult(st)
-  const r = inspect(st.draft, st.schema)
+  const r = inspectPrompt(st)
   say(...critiqueLines(st, r))
   process.exit(0)
 }
@@ -801,7 +836,7 @@ if (VERB === 'publish') {
         'The live cache, if any, is untouched.')
     process.exit(4)
   }
-  const r = inspect(st.draft, st.schema)
+  const r = inspectPrompt(st)
   if (!r.ok) {
     stampAttempt(st, 'publish refused: coverage gate failed')
     say('NOT PUBLISHED: the coverage gate rejected the draft at ' + st.draft + '.',
@@ -827,7 +862,7 @@ if (VERB === 'publish') {
     verified: st.verify.verdict === 'sound' || st.verify.verdict === 'skipped' ? 'true' : 'false',
     verify_verdict: st.verify.verdict,
     unresolved: String(st.verify.blocking || 0),
-    sources_hash: sourcesHash(st.root),
+    sources_hash: sourcesHash(st.root, domainOf(st).sources),
     nwo: st.nwo,
   })
   if (!stamped) { say('NOT PUBLISHED: the draft lost its frontmatter between the gate and now.'); process.exit(5) }
@@ -866,9 +901,9 @@ if (VERB === 'publish') {
 
 // ------------------------------------------- the DRAFT machine's verbs ----
 
-// What the driver found wrong with the description, printed as data under a header. Never as
+// What the driver found wrong with the draft, printed as data under a header. Never as
 // imperatives: these strings are built from the repo's own file names.
-function draftProblems(r) {
+function draftProblems(r, D) {
   const out = []
   if (r.problems.length) out.push('', 'Structural problems:', ...r.problems.map(x => '  - ' + x))
   if (r.longTitle) {
@@ -897,27 +932,25 @@ function draftProblems(r) {
              ...r.missingHeadings.map(h => '  - ' + h))
   }
   if (r.inventedHeadings.length) {
-    out.push('', 'Headings that are not in this repo\'s vocabulary. The cached prompt lists every',
+    out.push('', 'Headings that are not in this repo\'s vocabulary' + (D && !D.hasDiff ? ' for this kind of issue' : '') +
+             '. The cached prompt lists every',
              'heading these authors use; anything else is you importing a habit from elsewhere:',
              ...r.inventedHeadings.map(h => '  - ' + h))
   }
   if (r.invented.length) {
-    out.push('', 'Files your description names that do not exist in this repository at all. You',
+    out.push('', 'Files your draft names that do not exist in this repository at all. You',
              'invented them, however sure you are. Name the real file or say less:',
              ...r.invented.map(f => '  - ' + f))
   }
-  if (r.referenced && r.referenced.length) {
-    out.push('', 'Files you name that exist but this change does not touch. That is allowed - a',
-             'description may point at context - but check each one is deliberate:',
-             ...r.referenced.map(f => '  - ' + f))
-  }
+  if (r.referenced && r.referenced.length) out.push(...(D || domain('pr')).text.referenced(r.referenced))
   if (r.noFileList) out.push('', 'NOTE: no changed-file list was given, so nothing could be checked against the diff.')
   return out
 }
 
 if (VERB === 'written') {
   requireStep(st, 'writing')
-  const r = inspectDraft(st.draft, st.prompt, st.files, st.root, st.maxBytes)
+  const D = domainOf(st)
+  const r = inspectDraftFor(st)
   if (r.bytes === 0 && r.problems.length && /does not exist/.test(r.problems[0])) {
     refuse(st, 'THERE IS NO DRAFT',
            'Nothing exists at the path you were given, so there is nothing to go over. Write the file',
@@ -927,30 +960,9 @@ if (VERB === 'written') {
   say('GO BACK OVER IT',
       '',
       'Measured on disk: ' + r.bytes + ' bytes' + (r.budget ? ' against a guide of ' + r.budget : '') + '.',
-      ...draftProblems(r),
+      ...draftProblems(r, D),
       '',
-      'Now read the description back as it stands on disk - not your memory of writing it - and read',
-      'the diff again beside it.',
-      '',
-      'CUT FIRST. This pass is for taking things out, and most passes should end shorter than they',
-      'started. A PR description is read by someone deciding where to look, not by someone who wants',
-      'the change explained to them - they have the diff for that.',
-      '',
-      '  - What in here restates the diff? Delete it. A bullet per file, a walk through the control',
-      '    flow, a list of renamed symbols: the reviewer is about to read all of that anyway.',
-      '  - What is true but not worth the reader\'s time? Delete it.',
-      '  - Which sentence hedges a claim you could either prove or drop? Do one or the other.',
-      '  - Is any section saying the same thing as its neighbour under a different heading?',
-      '  - Does the whole thing look like the PRs the cached prompt describes, in SHAPE and LENGTH,',
-      '    or is it visibly longer than what this repo merges?',
-      '',
-      'Only then, what is missing:',
-      '',
-      '  - Is anything in the diff genuinely unexplained - not undescribed, unexplained?',
-      '  - Does the motivation say what you understood the problem to be, or has it drifted into a',
-      '    summary of the code you wrote?',
-      '  - Would a reviewer who has not read this conversation know what to look at first?',
-      '  - Is anything in here only true of an earlier version of the change?',
+      ...D.text.review(),
       '',
       'Fix what you find, in the file. Then say whether you changed anything at all:',
       cmd('revised', '--changed yes'), cmd('revised', '--changed no'))
@@ -973,9 +985,10 @@ if (VERB === 'revised') {
   // reports: the description was already sound before it, and the cut either happened or did not.
   const afterTrim = st.trimPending === 1
   if (afterTrim) { st.trimPending = 0; save(st) }
+  const D = domainOf(st)
   const exhausted = st.rounds >= MAX_REVISE_ROUNDS
   if (st.cleans >= 2 || exhausted || afterTrim) {
-    const r = inspectDraft(st.draft, st.prompt, st.files, st.root, st.maxBytes)
+    const r = inspectDraftFor(st)
     // Over budget and the loop is otherwise finished: spend one pass on nothing but length, then
     // accept whatever comes back. One, because a second would be the agent hunting the number
     // rather than the fat, and that is where sections start disappearing.
@@ -986,8 +999,8 @@ if (VERB === 'revised') {
       st.trimmed = 1; st.trimPending = 1; st.step = 'reworking'; save(st)
       say('ONE PASS FOR LENGTH',
           '',
-          'Everything else about this description is fine. It is only too long.',
-          ...draftProblems(r),
+          'Everything else about this draft is fine. It is only too long.',
+          ...draftProblems(r, D),
           '',
           'This is the only pass that is about length, and nothing else. Do not rewrite, do not',
           'restructure, do not reorder: cut. Then report:',
@@ -1002,13 +1015,14 @@ if (VERB === 'revised') {
               'will not start passing because it is worded differently.')
       }
       st.step = 'repairing'; save(st)
-      say('THE CHECKS REJECTED THIS DESCRIPTION',
+      say('THE CHECKS REJECTED THIS DRAFT',
           '',
-          'These are read off your file, the cached prompt and the list of changed files. They are not',
+          'These are read off your file, the cached prompt' + (D.hasDiff ? ' and the list of changed files' : ' and the repository') +
+            '. They are not',
           'a matter of opinion.',
-          ...draftProblems(r),
+          ...draftProblems(r, D),
           '',
-          'Fix the description - not the check. A section heading pasted in to satisfy the list, with',
+          'Fix the draft - not the check. A section heading pasted in to satisfy the list, with',
           'nothing real under it, is worse than the missing section was.',
           '',
           'Then:',
@@ -1018,18 +1032,15 @@ if (VERB === 'revised') {
     st.step = 'lastread'; save(st)
     say('LAST READ',
         '',
-        'The checks passed: ' + r.bytes + ' bytes' + (r.budget ? ' (guide ' + r.budget + ')' : '') +
-          ', every section present, every file named is one this change touches.',
+        'The checks passed: ' + r.bytes + ' bytes' + (r.budget ? ' (guide ' + r.budget + ')' : '') + ', ' + D.text.passed,
         ...(r.overBudget ? ['',
           'Still over the guide at ' + r.overBudget.pct + '%. That is allowed - you were asked to cut',
           'once and you have. When you print this, say in one clause that it runs longer than this',
           'repo usually does and why the length is earned.'] : []),
         '',
-        'One last thing, and it is a read, not a write. Read it once as the reviewer who gets this PR',
-        'cold on a Monday morning. If the first paragraph does not tell them why this exists, fix that',
-        'one thing now.',
+        ...D.text.lastRead(),
         '',
-        'Then print the title and body to the user, exactly as the file has them, and:',
+        'Then print the title' + (r.labels ? ', labels' : '') + ' and body to the user, exactly as the file has them, and:',
         cmd('finished', ''))
     process.exit(0)
   }
@@ -1037,9 +1048,7 @@ if (VERB === 'revised') {
   st.step = 'reworking'; save(st)
   say('GO AGAIN',
       '',
-      v === 'yes'
-        ? 'You changed something, so there was something to change. A description with one weak claim usually has its neighbour: the section you wrote first and never re-read, the sentence carried over from the commit message. If that pass only ADDED, it was half a pass - go back and take something out.'
-        : 'Nothing that pass. That is not yet evidence it is right - it is evidence of one pass. Try something you have not: read it aloud and stop at the first sentence a reviewer would skip, or read the description without looking at the code at all and see what it leaves you guessing.',
+      D.text.again(v === 'yes'),
       '',
       'Then say whether that pass changed anything:',
       cmd('revised', '--changed yes'), cmd('revised', '--changed no'))
@@ -1048,17 +1057,17 @@ if (VERB === 'revised') {
 
 if (VERB === 'finished') {
   requireStep(st, 'lastread')
-  const r = inspectDraft(st.draft, st.prompt, st.files, st.root, st.maxBytes)
+  const r = inspectDraftFor(st)
   if (!r.ok) {
     st.step = 'repairing'; save(st)
-    refuse(st, 'THE DESCRIPTION NO LONGER PASSES',
+    refuse(st, 'THE DRAFT NO LONGER PASSES',
            'Something changed between the last check and now:',
-           ...draftProblems(r).filter(Boolean))
+           ...draftProblems(r, domainOf(st)).filter(Boolean))
   }
   st.step = 'done'; st.outcome = 'drafted'; save(st)
   say('Done after ' + st.rounds + ' pass(es)' + (r.overBudget ? ', over the length guide and deliberately so' : '') + '.',
       '',
-      'The description is at ' + st.draft + '. You have already printed it; say nothing further about',
+      'The draft is at ' + st.draft + '. You have already printed it; say nothing further about',
       'how it was produced, and do not offer to apply it - this skill drafts and stops.',
       'FINAL STATE: drafted ' + r.bytes)
   process.exit(0)

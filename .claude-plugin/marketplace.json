@@ -8,7 +8,7 @@
     {
       "name": "automated-development",
       "source": "./",
-      "description": "Development skills that learn a repository's own conventions before they act on it. Currently: draft-pr-description."
+      "description": "Development skills that learn a repository's own conventions before they act on it. Currently: draft-pr-description, draft-issue-description."
     }
   ]
 }

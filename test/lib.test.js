@@ -70,3 +70,38 @@ test('unknownPaths splits invented from merely-untouched using the tracked file 
   const r = checks.unknownPaths(['pool.py', 'util.py', 'tests/test_pool.py'], ['src/pool.py'], root)
   assert.deepEqual(r, { invented: ['tests/test_pool.py'], referenced: ['util.py'] })
 })
+
+test('sourceFiles picks each domain\'s own authoritative files', () => {
+  const fs = require('fs'), os = require('os'), path = require('path')
+  const { DOMAINS } = require('../lib/domains')
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pgl-'))
+  const w = (p) => { fs.mkdirSync(path.dirname(path.join(root, p)), { recursive: true }); fs.writeFileSync(path.join(root, p), 'x') }
+  w('.github/PULL_REQUEST_TEMPLATE.md'); w('.github/ISSUE_TEMPLATE/bug.yml'); w('.github/ISSUE_TEMPLATE/config.yml')
+  w('.github/ISSUE_TEMPLATE.md'); w('CONTRIBUTING.md'); w('README.md'); w('commitlint.config.js')
+  assert.deepEqual(repo.sourceFiles(root), ['.github/PULL_REQUEST_TEMPLATE.md', 'CONTRIBUTING.md', 'commitlint.config.js'])
+  assert.deepEqual(repo.sourceFiles(root, DOMAINS.issue.sources),
+                   ['.github/ISSUE_TEMPLATE.md', '.github/ISSUE_TEMPLATE/bug.yml', '.github/ISSUE_TEMPLATE/config.yml', 'CONTRIBUTING.md'])
+  assert.notEqual(repo.sourcesHash(root), repo.sourcesHash(root, DOMAINS.issue.sources))
+})
+
+test('claimedByKind reads covers and kinds comments line by line', () => {
+  assert.deepEqual(gate.claimedByKind('### `### A`  <!-- kinds: bug --> <!-- covers: problem -->\n### `### V` <!-- covers: context -->\nprose\n'),
+                   [{ fields: ['problem'], kinds: ['bug'] }, { fields: ['context'], kinds: null }])
+  assert.deepEqual(gate.slugList('[bug, feature]'), ['bug', 'feature']); assert.deepEqual(gate.slugList(''), [])
+})
+
+test('promptSections carries kinds, and sectionsForKind drops the other kinds\' sections and headings', () => {
+  const fs = require('fs'), os = require('os'), path = require('path')
+  const p = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pgl-')), 'p.md')
+  fs.writeFileSync(p, '---\nkinds: [bug, feature]\n---\n## Body\n### `### A` <!-- kinds: bug -->\n### `### V`\n### `### P` — also `### Q` <!-- kinds: feature -->\nThe `## Notes` heading is allowed in prose.\n## Forbidden headings\n- `## Summary`\n')
+  const ps = checks.promptSections(p)
+  assert.deepEqual(ps.kinds, ['bug', 'feature'])
+  assert.deepEqual(ps.sections, [{ names: ['### A'], kinds: ['bug'] }, { names: ['### V'], kinds: null }, { names: ['### P', '### Q'], kinds: ['feature'] }])
+  assert.deepEqual(ps.forbidden, ['## Summary']); assert.ok(!ps.allowed.includes('## Summary'))
+  const bug = checks.sectionsForKind(ps, 'bug')
+  assert.deepEqual(bug.sections.map(s => s.names[0]), ['### A', '### V'])
+  assert.deepEqual(bug.allowed, ['### A', '### V', '## Notes'])
+  const any = checks.sectionsForKind(ps, '')
+  assert.deepEqual(any.sections.map(s => s.names[0]), ['### A', '### V', '### P']); assert.deepEqual(any.allowed, ps.allowed)
+  assert.ok(checks.HTML_COMMENT.test('a <!-- hint --> b')); assert.ok(!checks.HTML_COMMENT.test('a < b -- c > d'))
+})

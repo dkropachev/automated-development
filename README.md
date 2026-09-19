@@ -1,7 +1,8 @@
 # automated-development
 
 A Claude Code plugin of development skills that learn a repository's own conventions before they
-act on it. One skill so far; the layout expects more.
+act on it. Two skills so far — a PR description and an issue — sharing one driver; the layout
+expects more.
 
 ## Install
 
@@ -81,6 +82,8 @@ the plausible version instead of the true one. It runs under the same driver.
 | `~/.claude/pr-style-cache/<host>/<owner>/<repo>.md.work.<batch>` | a build in progress; swept at publish once its batch is finished |
 | `~/.claude/pr-style-cache/<host>/<owner>/<repo>.md.attempt` | when and why the last learn failed; cleared by a successful publish |
 | `~/.claude/draft-pr-description/state/` | driver state and per-build result JSON, pruned after 7 days |
+| `~/.claude/issue-style-cache/<host>/<owner>/<repo>.md` (+ `.work.<batch>`, `.attempt`) | the same three, for the issue skill |
+| `~/.claude/draft-issue-description/state/` | the issue skill's driver state |
 
 Nothing else. It does not write to your repository, beyond a depth-limited `git fetch` when the base
 branch is genuinely absent from the clone.
@@ -92,14 +95,53 @@ motivation, summary of changes, risk, breaking changes, and `testing` only where
 writes about it. Edit it and run `/draft-pr-description --refresh-cache` in a repo to rebuild that
 repo's prompt against the new shape.
 
+### `draft-issue-description`
+
+Drafts a GitHub issue — title, labels and body — **in the voice of the repository you are in**: a
+bug report shaped like that repo's bug form, a feature request shaped like its feature form.
+
+The first time it runs against a repo it learns how that repo files issues — from the markdown
+templates and YAML issue forms under `.github/ISSUE_TEMPLATE/`, from `config.yml` (which says what
+is *not* filed here), from the contributing guide, and from the issues its maintainers file
+themselves — and caches the result as a generation prompt. A repo with more than one template gets
+**kinds**: the prompt carries each kind's sections separately, says how to tell them apart and which
+labels each takes, and the driver gates and checks every kind on its own. Staleness, back-off and
+`--refresh-cache` work exactly as for PRs; the issue cache is a separate file, so the two skills
+never read each other's.
+
+It **drafts only**. It never runs `gh issue create`, `gh issue edit` or `gh issue comment`; every
+`gh` call it makes is read-only, including the one duplicate search it does before drafting.
+
+```
+/draft-issue-description
+```
+
+It is the same three pieces as the PR skill, driven by the same `promptgen-driver.js` told
+`--domain issue`. What differs:
+
+- the **kind** is settled first, from the cache's `## Kinds` section and what the user described; a
+  report the repo routes elsewhere (questions to Discussions) gets one line and no draft
+- there is no diff, so a file the draft names is checked for existence in the repo and nothing else
+- a template comment (`<!-- ... -->`) or placeholder line left in the body is rejected, as is a
+  heading from another kind's form — a bug report does not carry "Proposed solution"
+- the prompt is built to render YAML issue forms the way GitHub does: one `### <label>` per field, in
+  the form's order, `type: markdown` items omitted
+
+`skills/draft-issue-description/schema.md` is its canonical field list — problem, expected,
+context — with reproduction, evidence, proposal and workaround only where the repo's template or
+its maintainers' issues actually have them.
+
 ## Layout
 
 ```
-agents/                  subagents the skills spawn, typed automated-development:pr-style-builder
-                         and automated-development:pr-style-verifier (plugin name is part of the type)
-bin/promptgen-driver.js  the CLI: the two state machines and the orchestrator's verbs
-lib/prompt-gate.js       coverage gate for a learned prompt; frontmatter helpers
-lib/draft-checks.js      the checks on a PR description draft, and their regexes
+agents/                  subagents the skills spawn, typed automated-development:pr-style-builder,
+                         :pr-style-verifier, :issue-style-builder, :issue-style-verifier
+                         (plugin name is part of the type)
+bin/promptgen-driver.js  the CLI: the two state machines and the orchestrator's verbs, --domain pr|issue
+lib/domains.js           everything that differs between the two domains: paths, keys, source files,
+                         and every instruction that talks about "the diff" or "the maintainer"
+lib/prompt-gate.js       coverage gate for a learned prompt, per kind where kinds exist; frontmatter helpers
+lib/draft-checks.js      the checks on a draft, and their regexes
 lib/repo.js              origin parsing, cache path, sources hash, staleness rule
 skills/<name>/           SKILL.md plus the procedure files it hands to agents
 Makefile                 the entry point for CI, release and evals; every target is a node script
