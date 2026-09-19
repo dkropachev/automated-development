@@ -1,0 +1,36 @@
+name: release
+# Manual only. `make release` bumps the version everywhere, runs the full suite, commits to main,
+# tags vX.Y.Z and publishes a GitHub Release. Nothing tags on its own. It pushes with RELEASE_TOKEN,
+# an admin's fine-grained PAT, because the ruleset on main lets only repository admins past the
+# required checks and GitHub does not allow the Actions app as a bypass actor on a user-owned repo.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "patch, minor, major, or an explicit X.Y.Z"
+        required: true
+        default: patch
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: make install
+      - run: make release BUMP="${{ inputs.bump }}"
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}

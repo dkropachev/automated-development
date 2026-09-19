@@ -102,15 +102,42 @@ lib/prompt-gate.js       coverage gate for a learned prompt; frontmatter helpers
 lib/draft-checks.js      the checks on a PR description draft, and their regexes
 lib/repo.js              origin parsing, cache path, sources hash, staleness rule
 skills/<name>/           SKILL.md plus the procedure files it hands to agents
+Makefile                 the entry point for CI, release and evals; every target is a node script
+scripts/                 check-consistency, syntax-check, eval-parse, eval, bump-version, release
+evals/                   `claude plugin eval` cases: a scaffolded repo, deterministic graders, one LLM grader
 test/                    node --test: lib unit tests and end-to-end driver tests
+.github/workflows/       ci (test, lint, validate), release (manual), eval (manual + weekly)
 ```
 
 ## Development
 
 ```
-npm test
+make install
+make ci           # lint + check + test, what a PR has to pass
+make help         # every target
 ```
+
+Every CI job and the release run through the Makefile, and every target is a `node scripts/*.js`
+call, so what Actions does is exactly what runs locally. No workflow carries shell logic.
 
 `test/lib.test.js` exercises the pure functions directly. `test/driver.test.js` runs the real driver
 in a subprocess with `HOME` pointed at a temp dir, so state, caches and result files are inspected
-where they land. CI runs both on Node 20 and 22.
+where they land. `scripts/check-consistency.js` fails when a skill names a driver verb, flag, file or
+agent type that does not exist, or when the version in `plugin.json` and `package.json` disagree.
+
+## CI/CD
+
+| workflow | when | what |
+|---|---|---|
+| `ci` | every PR and push to main | `test` on Node 20 and 22, `lint` (ESLint + `node --check`), `validate` (consistency script, `claude plugin validate`, eval suite parses) |
+| `release` | manual, `workflow_dispatch` with `bump` = patch, minor, major or X.Y.Z | bumps the version everywhere, runs the full suite, commits to main, tags `vX.Y.Z`, publishes a GitHub Release with generated notes |
+| `eval` | manual, or Mondays 06:17 UTC | runs `evals/` with real model calls under a $5 ceiling; skips itself with a notice when the `CLAUDE_CODE_OAUTH_TOKEN` secret is absent |
+
+Main is protected by a ruleset requiring the four `ci` checks; only repository admins bypass it. The
+`release` workflow pushes with the `RELEASE_TOKEN` secret, an admin's fine-grained PAT with Contents
+read/write on this repo, which is how the version bump lands without a PR. It fails with a clear
+message if the secret is missing.
+
+Dependabot watches GitHub Actions and npm monthly. Locally: `make eval` (needs `claude` logged in),
+`make eval-parse` to only validate the case files, `make release BUMP=minor` to cut a release from
+a clean main checkout.

@@ -83,7 +83,7 @@ test('gate fails on an uncovered required field and on an unknown covers name', 
   const h = tmp(); const p = path.join(h, 'p.md')
   write(p, GOOD_PROMPT().replace('covers: motivation', 'covers: motivaton'))
   const r = run(h, ['gate', '--draft', p, '--schema', SCHEMA])
-  assert.equal(r.code, 5); assert.match(r.out, /not covered:\n  - motivation/); assert.match(r.out, /motivaton/)
+  assert.equal(r.code, 5); assert.match(r.out, /not covered:\n {2}- motivation/); assert.match(r.out, /motivaton/)
 })
 
 test('gate fails without a ## Style section', () => {
@@ -356,7 +356,7 @@ ran it
   assert.match(r.out, /pinned to a branch or tag rather than a commit SHA \(main\)/)
   assert.match(r.out, /wrapped in markdown link text/)
   assert.match(r.out, /Claude Code banner/)
-  assert.match(r.out, /in order to  ->  to/)
+  assert.match(r.out, /in order to {2}-> {2}to/)
   assert.match(r.out, /not in this repo's vocabulary[\s\S]*## Test plan/)
 })
 

@@ -1,0 +1,40 @@
+name: eval
+# Runs the plugin's eval suite with real model calls. Manual, or weekly. `make eval` skips itself
+# with a notice when no credential is set, so a fork or a fresh clone is never red for this.
+on:
+  workflow_dispatch:
+    inputs:
+      case:
+        description: "case name glob (default: all)"
+        required: false
+        default: "*"
+        type: string
+      threshold:
+        description: "fail below this per-case score (0..1)"
+        required: false
+        default: "0.8"
+        type: string
+  schedule:
+    - cron: "17 6 * * 1"
+permissions:
+  contents: read
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm install -g @anthropic-ai/claude-code
+      - run: make eval CASE="${{ inputs.case || '*' }}" THRESHOLD="${{ inputs.threshold || '0.8' }}"
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: |
+            eval-report.html
+            eval-result.json
+          if-no-files-found: ignore

@@ -4,7 +4,15 @@
   "private": true,
   "description": "Claude Code plugin: development skills that learn a repository's own conventions before they act on it.",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "lint": "eslint .",
+    "check": "node scripts/check-consistency.js"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5"
+  }
 }
