@@ -875,7 +875,7 @@ function scopePrompt() {
         '    but leave chunks empty.',
     '',
     'B3. LEDGER AND RUN DIR. ledgerPath is ' + dir + '/reviewed.json; create it containing exactly {}',
-    '    if absent, and report ledgerEntries = the number of keys in it. runDir is',
+    '    if absent, and report ledgerEntries = the number of keys in it.',
     '    runDir is a FRESH directory of this run\'s own: mkdir -p ' + dir + '/runs, then mint it with',
     '      mktemp -d ' + dir + '/runs/<first 8 chars of headSha>-XXXXXX',
     '    so two runs at the same head sha cannot share one. Report classifyPath, ledgerPath and',
@@ -1994,7 +1994,15 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
 
   const stageStartSha = headSha
   let chunks = item.only || chunksByStage.get(stage) || []
-  if (stageStartSha !== scope.headSha) {
+  // A carried-over chunk is only stale if a fix has since edited one of ITS files; nothing else the
+  // fixer touched can have moved its hunks. That matters because a file too big for one chunk is
+  // split across several, so re-chunking a stale file hands back the chunks of it this stage has
+  // already reviewed - taking the re-chunk for the stale files only, and reusing the rest of the
+  // carry-over as it was chunked, is what keeps a round off hunks it has already paid for.
+  const staleFiles = new Set(item.only
+    ? item.only.flatMap(c => c.files || []).filter(f => (item.touched || []).includes(f))
+    : [])
+  if (stageStartSha !== scope.headSha && (!item.only || staleFiles.size)) {
     phase('Chunk')
     log(stage + ': fixes have landed since the chunking - re-chunking against ' + shortSha(stageStartSha) + ' so new and moved files are included')
     const re = await agentSafe(chunkerPrompt(scope, setup, [stage], stageStartSha), {
@@ -2008,17 +2016,25 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
       break
     }
     ledgerSkipped += re.hunksInLedger || 0
-    // A resumed round is only responsible for what it had not reached. Re-chunking returns the whole
-    // stage, so keep the chunks that still carry one of those files and drop what was reviewed already.
+    // A resumed round is only responsible for what it had not reached: take the re-chunked form of
+    // every stale file, and keep the carried chunks of the files no fix touched exactly as they are.
     if (item.only) {
-      const pending = new Set(item.only.flatMap(c => c.files || []))
-      chunks = re.chunks.filter(c => (c.files || []).some(f => pending.has(f)))
+      const fresh = re.chunks.filter(c => (c.files || []).some(f => staleFiles.has(f)))
+      // Ids restart at 0000 on every chunking, so a round holding two chunkings at once has two
+      // chunks per id. Stamping the round that minted a chunk keeps the id spaces apart in
+      // reviewKey(), here and in any later round that carries these same chunks again.
+      for (const c of fresh) c.mint = item.round
+      chunks = item.only.filter(c => !(c.files || []).some(f => staleFiles.has(f))).concat(fresh)
     } else {
       chunks = re.chunks
     }
   }
   if (!chunks.length) {
     log(stage + ': nothing to review')
+    // A resumed round starts from chunks nobody has read. If the re-chunk no longer produces them -
+    // the fixer renamed or deleted the file, or an agent recorded it clean - they are unreviewed,
+    // and this item is already off stageQueue, so the drain at the end of the loop cannot say so.
+    for (const c of (item.only || [])) unreviewed.push({ chunk: c, why: 'carried over, but the re-chunk no longer produced these hunks' })
     stageLog.push({ stage: stageLabel, chunks: 0, clean: 0, fixed: 0, stillPresent: 0, verdict: 'not run', commitSha: 'none', note: 'no reviewable hunks' })
     continue
   }
@@ -2038,29 +2054,33 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
   // Chunk ids restart at 0000 on every re-chunk, so the driver batch a reviewer opens - and the run
   // tag its clean marks are recorded under - has to carry the stage and the round as well, or a later
   // reviewer meets "state already exists for --batch" and a revocation hits the wrong run.
-  const reviewKey = (c) => c.stage + (item.round > 1 ? 'r' + item.round : '') + '-' + c.id
+  // A round that reused part of its carry-over holds two chunkings at once, so the minting round
+  // separates the re-chunked ids from the carried ones.
+  const reviewKey = (c) => c.stage + (item.round > 1 ? 'r' + item.round : '') + (c.mint ? 'n' + c.mint : '') + '-' + c.id
   const reviewed = await runWaves(chunks, REVIEW_CONCURRENCY, async (chunk) =>
     agentSafe(reviewerPrompt(scope, setup, chunk, reviewKey(chunk)), {
       schema: REVIEW_SCHEMA, phase: 'Review', label: 'review ' + chunk.id,
       effort: DETAILED ? 'high' : (chunk.stage === 'other' ? 'medium' : 'high'), disallowedTools: DENY_READONLY,
     }), REVIEW_ONLY ? Infinity : MAX_OUTSTANDING)   // nothing fixes anything on a review-only run, so nothing to wait for
+  // Filled in below with what the fixers actually edit, so the next round knows which of these
+  // chunks a fix has moved under and which are still exactly as they were chunked.
+  const carried = reviewed.paused ? { stage, only: reviewed.unreviewed, round: item.round + 1, touched: [] } : null
   if (reviewed.paused) {
     // Not unreviewed - deferred to the next round of this same stage, ahead of every other stage.
-    stageQueue.unshift({ stage, only: reviewed.unreviewed, round: item.round + 1 })
+    stageQueue.unshift(carried)
     log(stage + ': ' + reviewed.unreviewed.length + ' chunk(s) carried over to round ' + (item.round + 1) + ' after the fixes land')
   } else {
     for (const c of reviewed.unreviewed) unreviewed.push({ chunk: c, why: reviewed.halted || 'halted' })
   }
   // Only what this round actually reviewed, so a paused stage does not count its carry-over twice.
   chunks = reviewed.results.map(r => r.chunk)
-  totalChunks += chunks.length
   if (reviewed.halted) stopReason = reviewed.halted
 
   // ---- ACCUMULATE: one pile of findings for the whole stage, deduped and ranked.
   const known = knownKeys()
   const pile = new Map()
   const stageProblemFiles = new Set()
-  let stageClean = 0
+  let stageClean = 0, stageReviewed = 0
   for (const { chunk, result } of reviewed.results) {
     if (!result) {
       log('  review ' + chunk.id + ': returned nothing; chunk is NOT reviewed')
@@ -2098,6 +2118,9 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
       unreviewed.push({ chunk, why: 'the reviewer returned an empty result; nothing indicates it looked' })
       continue
     }
+    // Counted here and not from the wave: a chunk whose reviewer returned nothing, whose driver
+    // aborted or whose result was vacuous is listed as NOT REVIEWED, so it is not a reviewed chunk.
+    if (!aborted) stageReviewed++
     if (!aborted && !(result.findings || []).length) stageClean++
     for (const f of (result.findings || [])) {
       if (!f || !f.fingerprint) continue
@@ -2149,6 +2172,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
       pile.set(k, f)
     }
   }
+  totalChunks += stageReviewed
   const conflictingMarks = markedReviewed.filter(m => m.stage === stage && stageProblemFiles.has(m.file))
   if (conflictingMarks.length) {
     const revoked = await revokeReviewRuns(setup, conflictingMarks.map(m => m.chunk),
@@ -2163,10 +2187,10 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
   }
   cleanChunks += stageClean
   const findings = [...pile.values()].sort((a, b) => severityRank(a.severity) - severityRank(b.severity))
-  log(stage + ': ' + chunks.length + ' chunk(s) reviewed, ' + stageClean + ' clean, ' + findings.length + ' finding(s) to fix')
+  log(stage + ': ' + stageReviewed + ' chunk(s) reviewed, ' + stageClean + ' clean, ' + findings.length + ' finding(s) to fix')
 
   if (!findings.length) {
-    stageLog.push({ stage: stageLabel, chunks: chunks.length, clean: stageClean, fixed: 0, stillPresent: 0,
+    stageLog.push({ stage: stageLabel, chunks: stageReviewed, clean: stageClean, fixed: 0, stillPresent: 0,
                     verdict: 'not run', commitSha: 'none', note: 'nothing to fix' })
     if (reviewed.halted) break
     continue
@@ -2177,7 +2201,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
     // fixes" - nobody tried - so they go to the deferred list with that reason, which is the
     // truthful bucket for "real, and not acted on".
     for (const f of findings) deferFinding(f, 'review-only run: this PR is not yours, so nothing was edited')
-    stageLog.push({ stage: stageLabel, chunks: chunks.length, clean: stageClean, fixed: 0, stillPresent: 0,
+    stageLog.push({ stage: stageLabel, chunks: stageReviewed, clean: stageClean, fixed: 0, stillPresent: 0,
                     verdict: 'not run', commitSha: 'none',
                     note: findings.length + ' finding(s) reported, review-only' })
     if (reviewed.halted) break
@@ -2221,6 +2245,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
     const grant = new Set(batches[bi].flatMap(f => (f.files && f.files.length) ? f.files : [f.primaryFile]))
     for (const f of (res.filesTouched || [])) {
       if (!grant.has(f)) { violations.push({ chunkId: batchId, stage, file: f }); log('  !! ' + batchId + ' reported editing ' + f + ', which none of its findings declared') }
+      if (carried && !carried.touched.includes(f)) carried.touched.push(f)
     }
     for (const f of (res.stillOpen || [])) {
       if ((f.files || [f.primaryFile]).some(x => /\.github\/workflows\//.test(String(x)))) workflowScopeBlocked = true
@@ -2273,7 +2298,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
     headSha = res.commitSha
   }
 
-  stageLog.push({ stage: stageLabel, chunks: chunks.length, clean: stageClean, fixed: stageFixedCount,
+  stageLog.push({ stage: stageLabel, chunks: stageReviewed, clean: stageClean, fixed: stageFixedCount,
                   stillPresent: stillPresent.filter(x => String(x.chunkId).startsWith(batchPrefix)).length,
                   verdict: stageVerdict, commitSha: lastCommit, note: stageNote })
   if (stopReason !== 'completed' || reviewed.halted) break
