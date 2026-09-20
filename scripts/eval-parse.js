@@ -10,6 +10,9 @@ const r = spawnSync(process.env.CLAUDE || 'claude',
 const out = (r.stdout || '') + (r.stderr || '')
 process.stdout.write(out)
 if (r.error) { console.error('eval-parse: could not run claude: ' + r.error.message); process.exit(1) }
+// The filter matching nothing is the one nonzero exit that means the suite loaded; any other is a
+// runner that did not get as far as reading the cases.
+if (r.status !== 0 && !/No eval cases found matching/.test(out)) { console.error('eval-parse: claude exited ' + String(r.status)); process.exit(1) }
 if (/failed to load|unknown frontmatter key|frontmatter must include|frontmatter missing|invalid/i.test(out)) {
   console.error('eval-parse: a case file did not load'); process.exit(1)
 }

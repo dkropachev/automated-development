@@ -95,13 +95,13 @@ nothing left to do:
 ```bash
 SLUG=<owner>__<repo>
 node "${CLAUDE_PLUGIN_ROOT}/bin/pr-review-fix-chunker.js" --root <repo> --base <mergeBase> --head <headSha> \
-  --classify ~/.claude/pr-review-fix/$SLUG/classify.js \
+  --classify ~/.claude/pr-review-fix/$SLUG/classify.json \
   --ledger   ~/.claude/pr-review-fix/$SLUG/reviewed.json \
   --out /tmp/prfix-probe --isolation './../' 2>/dev/null | python3 -c \
   'import json,sys; m=json.load(sys.stdin); print(m["totals"]["chunks"], m["totals"]["bytes"])'
 ```
 
-(If `classify.js` does not exist yet the flag is harmless — the chunker falls back to a built-in rule
+(If `classify.json` does not exist yet the flag is harmless — the chunker falls back to a built-in rule
 for the probe, and the run generates the real one.)
 
 **Small PR — `chunks == 0` or `bytes <= 4000`: do not offer anything.** Run it with
@@ -127,8 +127,8 @@ both perfectly normal.
   **"Review only (Recommended)"**, with "Review and fix" offered, and say whose PR it is in the
   option description. Fixing writes commits onto their branch, which is their call, not yours.
 
-Pass the answer through as `fix: true` or `fix: false`. Omitting it leaves the workflow on `'auto'`,
-which applies the same ownership rule itself — so the gate holds even if the skill is bypassed.
+Pass the answer through as `fix: true` or `fix: false`. Omitting it is deliberately review-only;
+repository ownership is not delegated to a model-produced boolean.
 
 ```
 Workflow({
@@ -149,8 +149,8 @@ is not the repository itself.
 | arg | default | meaning |
 |---|---|---|
 | `pr` | current branch's PR | PR number or URL |
-| `fix` | `'auto'` | `true` to edit and commit, `false` for a read-only pass. `auto` fixes only when the PR's author is the authenticated gh user. |
-| `mode` | `'auto'` | `parallel` \| `single` \| `auto` (parallel above ~4KB of diff, single below) |
+| `fix` | `false` | `true` to edit and commit, `false` for a read-only pass. The skill always asks and passes this explicitly. |
+| `mode` | `'auto'` | `parallel` \| `single` \| `full` \| `auto` (parallel above ~4KB of diff, single below; full forces one whole-PR pass) |
 | `reviewConcurrency` | 5 | read-only reviewers in flight at once |
 | `maxFixBatch` | 10 | findings per fixer; a fresh agent takes the next batch after this one commits |
 | `chunkBytes` | `{code:12000, test:12000, cicd:12000, other:24000}` | per-stage cap on packed hunk bytes. A single hunk larger than the cap is **never split** — git emits a newly added file as one hunk, so a new 2,800-line file is one chunk by design. |
@@ -158,7 +158,7 @@ is not the repository itself.
 | `stages` | `['code','test','cicd','other']` | order and membership |
 | `detailedReview` | false | let reviewers leave the hunk: trace every caller, and **run experiments** in a throwaway clone (`git clone --no-hardlinks --no-local`) rather than reasoning about the code. Costs ~2× and finds caller-side defects a reading-only pass looks straight past. The repo under review stays read-only; nothing may be pushed. |
 | `ignoreLedger` | false | re-review files already recorded clean |
-| `refreshRules` | false | regenerate the per-repo `classify.js` |
+| `refreshRules` | false | regenerate the per-repo `classify.json` |
 | `maxAgents` | 900 | hard stop on agents spawned (platform ceiling is 1000). Checked before every wave. |
 | `maxTokens` | none | stop once this many tokens have been spent *by this run*. Measured as a delta of `budget.spent()`, because `budget.total`/`remaining()` are null unless a ceiling was configured. |
 | `repoRoot` | (session cwd) | absolute path to the repository |
@@ -233,7 +233,7 @@ ACCUMULATES PER USER - state, not code, so it lives beside the plugin's other ca
 
 ~/.claude/pr-review-fix/
   state/<batch>.state.json              one live driver conversation; pruned after 7 days
-  <owner>__<repo>/classify.js           the generated reviewability rule
+  <owner>__<repo>/classify.json         the generated declarative reviewability rule
   <owner>__<repo>/meta.json             repo fingerprint; a change regenerates the rule
   <owner>__<repo>/reviewed.json         the reviewed-files ledger, kept across runs
   <owner>__<repo>/runs/<sha>/           frozen chunk .diff files for one run

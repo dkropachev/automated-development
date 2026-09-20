@@ -36,16 +36,36 @@ if (!LEDGER) { console.error('reviewed: --ledger is required'); process.exit(2) 
 
 function load() {
   if (!fs.existsSync(LEDGER)) return {}
-  try {
-    const p = JSON.parse(fs.readFileSync(LEDGER, 'utf8'))
-    return (p && typeof p === 'object' && !Array.isArray(p)) ? p : {}
-  } catch { return {} }
+  const p = JSON.parse(fs.readFileSync(LEDGER, 'utf8'))
+  if (!p || typeof p !== 'object' || Array.isArray(p)) throw new Error('reviewed: ledger must contain a JSON object')
+  return p
 }
 function save(obj) {
   const tmp = LEDGER + '.tmp-' + process.pid
   fs.mkdirSync(path.dirname(LEDGER), { recursive: true })
   fs.writeFileSync(tmp, JSON.stringify(obj, null, 1))
   fs.renameSync(tmp, LEDGER)
+}
+function update(fn) {
+  const lock = LEDGER + '.lock'
+  fs.mkdirSync(path.dirname(LEDGER), { recursive: true })
+  for (let tries = 0; ; tries++) {
+    try { fs.mkdirSync(lock); break } catch (e) {
+      if (e.code !== 'EEXIST' || tries >= 500) throw e
+      try {
+        if (Date.now() - fs.statSync(lock).mtimeMs > 30000) fs.rmSync(lock, { recursive: true, force: true })
+      } catch {}
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10)
+    }
+  }
+  try {
+    const led = load()
+    const result = fn(led)
+    save(led)
+    return result
+  } finally {
+    try { fs.rmdirSync(lock) } catch {}
+  }
 }
 // Two-dot diff against the merge base compares it to the WORKING TREE, which is what we want while
 // a stage's fixes are still uncommitted. With a clean tree it is byte-identical to `base...head`,
@@ -57,17 +77,19 @@ function diffSha(file) {
 }
 
 if (has('revoke')) {
-  const led = load()
-  let removed = 0
-  for (const [k, v] of Object.entries(led)) {
-    if (v && v.run === RUN && (!STAGE || v.stage === STAGE)) { delete led[k]; removed++ }
-  }
-  save(led)
-  process.stdout.write(JSON.stringify({ ok: true, revoked: removed, total: Object.keys(led).length }, null, 1))
+  const result = update(led => {
+    let removed = 0
+    for (const [k, v] of Object.entries(led)) {
+      if (v && v.run === RUN && (!STAGE || v.stage === STAGE)) { delete led[k]; removed++ }
+    }
+    return { ok: true, revoked: removed, total: Object.keys(led).length }
+  })
+  process.stdout.write(JSON.stringify(result, null, 1))
   process.exit(0)
 }
 
 if (has('check')) {
+  if (!BASE) { console.error('reviewed: --base is required to check'); process.exit(2) }
   const led = load()
   const out = {}
   for (const f of FILES) {
@@ -82,22 +104,18 @@ if (has('check')) {
 if (!BASE) { console.error('reviewed: --base is required to mark'); process.exit(2) }
 if (!FILES.length) { console.error('reviewed: at least one --file is required'); process.exit(2) }
 
-const led = load()
-const before = Object.keys(led).length
 const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z')
-const marked = [], skipped = []
-
-for (const f of FILES) {
-  let d
-  try { d = diffSha(f) } catch (e) { skipped.push({ file: f, reason: 'git diff failed: ' + String(e.message || e).slice(0, 120) }); continue }
-  if (!d) { skipped.push({ file: f, reason: 'this file has no diff against the merge base - nothing to record' }); continue }
-  if (led[d.sha]) { skipped.push({ file: f, reason: 'already recorded' }); continue }
-  led[d.sha] = { file: f, kind: 'file', bytes: d.bytes, reviewedAt: now, pr: PR, run: RUN, stage: STAGE }
-  marked.push({ file: f, sha: d.sha })
-}
-save(led)
-
-process.stdout.write(JSON.stringify({
-  ok: true, marked: marked.length, skipped, files: marked.map(m => m.file),
-  before, total: Object.keys(led).length,
-}, null, 1))
+const result = update(led => {
+  const before = Object.keys(led).length
+  const marked = [], skipped = []
+  for (const f of FILES) {
+    let d
+    try { d = diffSha(f) } catch (e) { skipped.push({ file: f, reason: 'git diff failed: ' + String(e.message || e).slice(0, 120) }); continue }
+    if (!d) { skipped.push({ file: f, reason: 'this file has no diff against the merge base - nothing to record' }); continue }
+    if (led[d.sha]) { skipped.push({ file: f, reason: 'already recorded' }); continue }
+    led[d.sha] = { file: f, kind: 'file', bytes: d.bytes, reviewedAt: now, pr: PR, run: RUN, stage: STAGE }
+    marked.push({ file: f, sha: d.sha })
+  }
+  return { ok: true, marked: marked.length, skipped, files: marked.map(m => m.file), before, total: Object.keys(led).length }
+})
+process.stdout.write(JSON.stringify(result, null, 1))
