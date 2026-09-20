@@ -1,14 +1,21 @@
 ---
 name: draft-commit-message
-description: Write a commit message — subject, body, references and trailers — that matches how this specific repo actually commits — learned once from its commitlint or commit-msg hook config, its commit template, its contributing guide and its own authors' recent commits, cached per repo, rebuilt when the cache is 90 days old or the configuration changes. Use when asked to "write the commit message", "commit message for this", "draft a commit", "what should the commit say", or to rewrite the message of the commit being amended. Drafts only — never runs git commit, never amends, never pushes.
+description: Write a commit message — subject, body, references and trailers — that matches how this specific repo actually commits — learned once from its commitlint or commit-msg hook config, its commit template, its contributing guide and its own authors' recent commits, cached per repo, rebuilt when the cache is 90 days old or the configuration changes. Use when asked to "write the commit message", "commit message for this", "draft a commit", "what should the commit say", or to rewrite the message of the commit being amended. Use it before a commit is made or its message rewritten — "commit this", "commit these changes", "stage and commit", "reword the commit", "fix the commit message" — to write the message that commit is made or amended with, and use it when the points the message should make are handed to you rather than asked for. Drafts only — never runs git commit, never amends, never pushes; the caller applies the message this skill returns.
 ---
 
 # Commit message draft
 
 Produces **text**: a commit message, printed for the user and written to a file they can hand to
 `git commit -F`. This skill never runs `git commit`, `git commit --amend`, `git rebase` or `git push`.
-Every git command it runs is a read. If the user wants the message committed, they say so and that is
-a separate action outside this skill.
+Every git command it runs is a read. Committing the message is a separate step outside this skill,
+taken once it has returned by whoever asked for it.
+
+Drafts-only is a limit on what this skill does, **not** on when it runs. "Commit this", "stage and
+commit these changes", "reword the commit" all need a message, so they run this skill first and the
+caller applies what it printed afterwards. It runs when the content is supplied too: points the user
+dictates or a message they paste are the material, and this skill puts them in the repo's subject
+grammar, wrap column and trailer form rather than inventing different content. Their facts win. The
+one case it does not run is a message handed over as final and marked to be used verbatim.
 
 The message is written by a **cached, repo-specific generation prompt** — not by generic instincts
 about Conventional Commits or the fifty-character rule. Each repo gets its own prompt, derived once
@@ -283,4 +290,9 @@ Then one line, at most: the path of `commit-message.txt` so the user can `git co
 identify, nothing staged, a `Signed-off-by` identity you could not read — and, if
 `CACHE_VERIFIED=false`, that the repo's prompt carries `CACHE_UNRESOLVED` unresolved verification
 findings and will be rebuilt within a week. Nothing else: no summary of what you did, no account of
-the driver passes, and never a `git commit` run for them.
+the driver passes, and no `git commit` from inside these steps.
+
+Do not offer, and do not stop, when the request was the action. "Commit this", "reword the commit"
+are asks this skill does not carry out itself, so the commit is your next step once the skill has
+returned: `git commit -F "$WORK/commit-message.txt"`, or `git commit --amend -F` it, with the message
+exactly as drafted. Print it either way: the user sees the message before it lands.

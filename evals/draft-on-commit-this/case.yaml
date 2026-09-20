@@ -1,0 +1,20 @@
+schema_version: "1.1"
+name: draft-on-commit-this
+description: >
+  The same repo and cached prompt as draft-commit-from-cached-prompt, asked for the action rather
+  than for the text: "commit the staged change". The skill is drafts-only, which is a limit on what
+  it does and not on when it runs, so the message still has to come from the cached prompt -- and
+  the commit still has to happen, with that message and not a hand-written one. Writing the message
+  by hand because the request said commit is one regression this case catches; drafting it and then
+  standing down without committing, because the skill says it never commits, is the other. Unlike
+  the create-a-PR and create-an-issue cases the action is local git, so it succeeds and the message
+  that landed is checkable. `git commit` is the one writing call this case allows -- it is what was
+  asked for -- so the write guard lists the others.
+tags: [draft-commit-message, offline]
+runs: 2
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, Skill]
