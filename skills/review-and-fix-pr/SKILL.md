@@ -1,12 +1,12 @@
 ---
-name: pr-review-fix
-description: Review a PR hunk by hunk, fix what it finds, defer what is too big, and report what is still broken after the fixes — chunking the diff into size-capped batches, staged code → tests → cicd → other, remembering clean hunks across runs. Use when asked to "review this PR and fix it", "review and fix PR 1234", "pr review fix", or to iterate on review findings until a PR is clean. Not for a read-only review (use /code-review for that).
+name: review-and-fix-pr
+description: Review a PR hunk by hunk, fix what it finds, defer what is too big, and report what is still broken after the fixes — chunking the diff into size-capped batches, staged code → tests → cicd → other, remembering clean hunks across runs. Use when asked to "review this PR and fix it", "review and fix PR 1234", "review and fix pr", or to iterate on review findings until a PR is clean. Not for a read-only review (use /code-review for that).
 ---
 
 # PR review-and-fix, chunked and staged
 
-Runs the `pr-review-fix` workflow. The diff is split into **chunks** — size-capped batches of whole
-hunks drawn from files that share an isolation lock key — and each chunk is reviewed, fixed and
+Runs the `review-and-fix-pr` workflow. The diff is split into **chunks** — size-capped batches of
+whole hunks drawn from files that share an isolation lock key — and each chunk is reviewed, fixed and
 **reviewed again** until it comes back clean. Stages run in a fixed order with a hard barrier
 between them: **code → tests → cicd → other**. Each fixer validates and commits its own batch.
 Nothing is ever pushed, and nothing is ever reverted.
@@ -19,7 +19,7 @@ Two shapes, picked by size:
   10, fixes, re-reads its own work, validates it and commits it — all in its own conversation —
   before a brand-new fixer starts the next 10.
 - **single** (small PRs) — one agent reviews and fixes the whole PR, driven through both loops by
-  `pr-review-fix-driver.js` exactly as a reviewer and a fixer are. Below ~4KB of diff the per-agent overhead of
+  `review-and-fix-pr-driver.js` exactly as a reviewer and a fixer are. Below ~4KB of diff the per-agent overhead of
   splitting costs more than it saves.
 
 What else is worth knowing:
@@ -45,7 +45,7 @@ What else is worth knowing:
 - **Nothing ends on a write.** A reviewer double-checks every candidate against the real code before
   reporting it; a fixer re-reads everything it changed and reports what its re-read still sees.
 - **Reviewed files are remembered across runs.** A reviewer that finds a file clean records it with
-  `pr-review-fix-reviewed.js` itself, keyed on the sha of that file's diff against the merge base, so it is never
+  `review-and-fix-pr-reviewed.js` itself, keyed on the sha of that file's diff against the merge base, so it is never
   reviewed again until its content changes. Only files it found nothing in are recorded, so the
   content recorded is content nobody is about to change; if a later fix touches such a file anyway,
   its sha changes and the next run reviews it again.
@@ -72,13 +72,13 @@ Refuse, and say which check failed, if any of these hold:
   `gh pr checkout <number>`.
 - `gh auth status` is not logged in, or no PR resolves.
 
-Also confirm the helper scripts exist (`pr-review-fix-chunker.js`, `pr-review-fix-driver.js`,
-`pr-review-fix-reviewed.js`, `pr-review-fix-repofp.js`) — the workflow refuses to start without
-them. `pr-review-fix-driver.js` matters most: every reviewer and every fixer is walked through its
-work by it.
+Also confirm the helper scripts exist (`review-and-fix-pr-chunker.js`,
+`review-and-fix-pr-driver.js`, `review-and-fix-pr-reviewed.js`, `review-and-fix-pr-repofp.js`) —
+the workflow refuses to start without them. `review-and-fix-pr-driver.js` matters most: every
+reviewer and every fixer is walked through its work by it.
 
 ```bash
-ls "${CLAUDE_PLUGIN_ROOT}/bin/" | grep pr-review-fix
+ls "${CLAUDE_PLUGIN_ROOT}/bin/" | grep review-and-fix-pr
 ```
 Run `npm test` in the plugin checkout if you suspect one of them.
 
@@ -94,14 +94,14 @@ nothing left to do:
 
 ```bash
 SLUG=<owner>__<repo>
-node "${CLAUDE_PLUGIN_ROOT}/bin/pr-review-fix-chunker.js" --root <repo> --base <mergeBase> --head <headSha> \
-  --classify ~/.claude/pr-review-fix/$SLUG/classify.js \
-  --ledger   ~/.claude/pr-review-fix/$SLUG/reviewed.json \
+node "${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-chunker.js" --root <repo> --base <mergeBase> --head <headSha> \
+  --classify ~/.claude/review-and-fix-pr/$SLUG/classify.json \
+  --ledger   ~/.claude/review-and-fix-pr/$SLUG/reviewed.json \
   --out /tmp/prfix-probe --isolation './../' 2>/dev/null | python3 -c \
   'import json,sys; m=json.load(sys.stdin); print(m["totals"]["chunks"], m["totals"]["bytes"])'
 ```
 
-(If `classify.js` does not exist yet the flag is harmless — the chunker falls back to a built-in rule
+(If `classify.json` does not exist yet the flag is harmless — the chunker falls back to a built-in rule
 for the probe, and the run generates the real one.)
 
 **Small PR — `chunks == 0` or `bytes <= 4000`: do not offer anything.** Run it with
@@ -127,12 +127,12 @@ both perfectly normal.
   **"Review only (Recommended)"**, with "Review and fix" offered, and say whose PR it is in the
   option description. Fixing writes commits onto their branch, which is their call, not yours.
 
-Pass the answer through as `fix: true` or `fix: false`. Omitting it leaves the workflow on `'auto'`,
-which applies the same ownership rule itself — so the gate holds even if the skill is bypassed.
+Pass the answer through as `fix: true` or `fix: false`. Omitting it is deliberately review-only;
+repository ownership is not delegated to a model-produced boolean.
 
 ```
 Workflow({
-  scriptPath: '${CLAUDE_PLUGIN_ROOT}/workflows/pr-review-fix.js',
+  scriptPath: '${CLAUDE_PLUGIN_ROOT}/workflows/review-and-fix-pr.js',
   args: {
     pr: '<number>',
     pluginRoot: '${CLAUDE_PLUGIN_ROOT}',   // REQUIRED - how the workflow finds its own helper scripts
@@ -149,8 +149,8 @@ is not the repository itself.
 | arg | default | meaning |
 |---|---|---|
 | `pr` | current branch's PR | PR number or URL |
-| `fix` | `'auto'` | `true` to edit and commit, `false` for a read-only pass. `auto` fixes only when the PR's author is the authenticated gh user. |
-| `mode` | `'auto'` | `parallel` \| `single` \| `auto` (parallel above ~4KB of diff, single below) |
+| `fix` | `false` | `true` to edit and commit, `false` for a read-only pass. The skill always asks and passes this explicitly. |
+| `mode` | `'auto'` | `parallel` \| `single` \| `full` \| `auto` (parallel above ~4KB of diff, single below; full forces one whole-PR pass) |
 | `reviewConcurrency` | 5 | read-only reviewers in flight at once |
 | `maxFixBatch` | 10 | findings per fixer; a fresh agent takes the next batch after this one commits |
 | `chunkBytes` | `{code:12000, test:12000, cicd:12000, other:24000}` | per-stage cap on packed hunk bytes. A single hunk larger than the cap is **never split** — git emits a newly added file as one hunk, so a new 2,800-line file is one chunk by design. |
@@ -158,7 +158,7 @@ is not the repository itself.
 | `stages` | `['code','test','cicd','other']` | order and membership |
 | `detailedReview` | false | let reviewers leave the hunk: trace every caller, and **run experiments** in a throwaway clone (`git clone --no-hardlinks --no-local`) rather than reasoning about the code. Costs ~2× and finds caller-side defects a reading-only pass looks straight past. The repo under review stays read-only; nothing may be pushed. |
 | `ignoreLedger` | false | re-review files already recorded clean |
-| `refreshRules` | false | regenerate the per-repo `classify.js` |
+| `refreshRules` | false | regenerate the per-repo `classify.json` |
 | `maxAgents` | 900 | hard stop on agents spawned (platform ceiling is 1000). Checked before every wave. |
 | `maxTokens` | none | stop once this many tokens have been spent *by this run*. Measured as a delta of `budget.spent()`, because `budget.total`/`remaining()` are null unless a ceiling was configured. |
 | `repoRoot` | (session cwd) | absolute path to the repository |
@@ -171,7 +171,7 @@ the ledger, so a re-run picks it up.
 
 ## How the driver runs an agent
 
-`bin/pr-review-fix-driver.js` is a state machine that runs *inside* an agent's conversation: the agent runs a
+`bin/review-and-fix-pr-driver.js` is a state machine that runs *inside* an agent's conversation: the agent runs a
 command, the driver prints the next step, the agent does it and runs the next command. It holds the
 decisions the agent should not make for itself, and the step it prints is a command, not a rule —
 a gate the agent cannot talk itself past. Each machine has its own verbs so the two cannot be
@@ -194,7 +194,7 @@ if it has not moved.
 passes and **never tells the agent the count**, so it cannot aim for the exit; two in a row (or eight
 passes) move it to the double-check, and only then may it name clean files. Those names are
 intersected with the files the chunk wholly contains — a file with hunks in another chunk is refused
-and never reaches a `pr-review-fix-reviewed.js --mark` command, because no single reviewer can speak for it.
+and never reaches a `review-and-fix-pr-reviewed.js --mark` command, because no single reviewer can speak for it.
 
 **When the agent gets out of step.** A refused command is not a one-line error: the driver names
 which machine the verb belongs to, says where the batch actually is in the agent's own terms, prints
@@ -220,20 +220,20 @@ for you to decide.
 SHIPS WITH THE PLUGIN - read-only, never written to at runtime:
 
 ${CLAUDE_PLUGIN_ROOT}/
-  workflows/pr-review-fix.js            the orchestrator; Workflow runs it by scriptPath
-  bin/pr-review-fix-chunker.js          diff -> hunks -> lock-key groups -> capped chunks
+  workflows/review-and-fix-pr.js            the orchestrator; Workflow runs it by scriptPath
+  bin/review-and-fix-pr-chunker.js          diff -> hunks -> lock-key groups -> capped chunks
                                         (--lock-key --isolation X --path P prints one lock key)
-  bin/pr-review-fix-driver.js           two state machines: fix, and review
-  bin/pr-review-fix-reviewed.js         agents mark files reviewed-clean, keyed on content
-  bin/pr-review-fix-repofp.js           deterministic repo-shape fingerprint
-  bin/pr-review-fix-meter.js            token accounting, dedupes by requestId (manual tool -
+  bin/review-and-fix-pr-driver.js           two state machines: fix, and review
+  bin/review-and-fix-pr-reviewed.js         agents mark files reviewed-clean, keyed on content
+  bin/review-and-fix-pr-repofp.js           deterministic repo-shape fingerprint
+  bin/review-and-fix-pr-meter.js            token accounting, dedupes by requestId (manual tool -
                                         no agent runs it, and a run does not need it present)
 
 ACCUMULATES PER USER - state, not code, so it lives beside the plugin's other caches:
 
-~/.claude/pr-review-fix/
+~/.claude/review-and-fix-pr/
   state/<batch>.state.json              one live driver conversation; pruned after 7 days
-  <owner>__<repo>/classify.js           the generated reviewability rule
+  <owner>__<repo>/classify.json         the generated declarative reviewability rule
   <owner>__<repo>/meta.json             repo fingerprint; a change regenerates the rule
   <owner>__<repo>/reviewed.json         the reviewed-files ledger, kept across runs
   <owner>__<repo>/runs/<sha>/           frozen chunk .diff files for one run

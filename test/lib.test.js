@@ -30,7 +30,8 @@ test('stampFrontmatter replaces existing keys and appends new ones without touch
 test('parseOrigin handles every common remote shape and rejects garbage', () => {
   assert.deepEqual(repo.parseOrigin('git@github.com:o/r.git'), { host: 'github.com', nwo: 'o/r' })
   assert.deepEqual(repo.parseOrigin('ssh://git@ghe.corp:2222/team/repo/'), { host: 'ghe.corp', nwo: 'team/repo' })
-  assert.deepEqual(repo.parseOrigin('https://user@gitlab.com/g/sub/r.git'), { host: 'gitlab.com', nwo: 'g/sub/r' })
+  assert.deepEqual(repo.parseOrigin('https://user@gitlab.com/g/r.git'), { host: 'gitlab.com', nwo: 'g/r' })
+  assert.equal(repo.parseOrigin('https://user@gitlab.com/g/sub/r.git'), null)
   assert.deepEqual(repo.parseOrigin('git://github.com/o/r'), { host: 'github.com', nwo: 'o/r' })
   assert.equal(repo.parseOrigin('/local/path'), null)
   assert.equal(repo.parseOrigin('git@github.com:o/../r'), null)
@@ -39,11 +40,12 @@ test('parseOrigin handles every common remote shape and rejects garbage', () => 
 
 test('utcDay parses only YYYY-MM-DD', () => {
   assert.equal(repo.utcDay('2026-09-18'), Date.UTC(2026, 8, 18)); assert.ok(isNaN(repo.utcDay('yesterday')))
+  assert.ok(isNaN(repo.utcDay('2026-99-99')))
 })
 
 test('citedPaths finds backticked file paths and ignores identifiers, flags and versions', () => {
-  assert.deepEqual(checks.citedPaths('see `src/pool.py`, `Session::new`, `--limit`, `v1.2.3`, `1.2`, `foo_test.rs`'),
-                   ['src/pool.py', 'foo_test.rs'])
+  assert.deepEqual(checks.citedPaths('see `src/pool.py`, `Session::new`, `--limit`, `v1.2.3`, `1.2`, `foo_test.rs`; also src/plain.js and Makefile'),
+                   ['src/pool.py', 'foo_test.rs', 'src/plain.js', 'Makefile'])
 })
 
 test('prose strips fenced blocks so quoted commands are not read as headings', () => {
@@ -54,6 +56,7 @@ test('filler, placeholder, banner and permalink regexes fire where they should a
   assert.deepEqual(checks.fillerFound('we do this in order\nto win'), ['in order to  ->  to'])
   assert.deepEqual(checks.fillerFound('we do this to win'), [])
   assert.ok(checks.PLACEHOLDER.test('fill in <describe the problem>')); assert.ok(!checks.PLACEHOLDER.test('a <b> tag'))
+  assert.ok(!checks.PLACEHOLDER.test('<details><summary>trace</summary></details>'))
   assert.ok(checks.BANNER.test('🤖 Generated with [Claude Code](https://claude.com/claude-code)'))
   assert.ok(checks.BANNER.test('Co-Authored-By: Claude <noreply@anthropic.com>')); assert.ok(!checks.BANNER.test('Claude reviewed it'))
   assert.ok(checks.FILE_LINE.test('see src/pool.py:42 here')); assert.ok(!checks.FILE_LINE.test('at 12:30 today'))
@@ -69,6 +72,8 @@ test('unknownPaths splits invented from merely-untouched using the tracked file 
   execFileSync('git', ['-C', root, 'add', '.'])
   const r = checks.unknownPaths(['pool.py', 'util.py', 'tests/test_pool.py'], ['src/pool.py'], root)
   assert.deepEqual(r, { invented: ['tests/test_pool.py'], referenced: ['util.py'] })
+  assert.deepEqual(checks.unknownPaths(['fake/src/pool.py', '../outside.py'], ['src/pool.py'], root).invented,
+                   ['../outside.py', 'fake/src/pool.py'])
 })
 
 test('sourceFiles picks each domain\'s own authoritative files', () => {
@@ -76,11 +81,12 @@ test('sourceFiles picks each domain\'s own authoritative files', () => {
   const { DOMAINS } = require('../lib/domains')
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pgl-'))
   const w = (p) => { fs.mkdirSync(path.dirname(path.join(root, p)), { recursive: true }); fs.writeFileSync(path.join(root, p), 'x') }
-  w('.github/PULL_REQUEST_TEMPLATE.md'); w('.github/ISSUE_TEMPLATE/bug.yml'); w('.github/ISSUE_TEMPLATE/config.yml')
-  w('.github/ISSUE_TEMPLATE.md'); w('CONTRIBUTING.md'); w('README.md'); w('commitlint.config.js')
-  assert.deepEqual(repo.sourceFiles(root), ['.github/PULL_REQUEST_TEMPLATE.md', 'CONTRIBUTING.md', 'commitlint.config.js'])
-  assert.deepEqual(repo.sourceFiles(root, DOMAINS.issue.sources),
-                   ['.github/ISSUE_TEMPLATE.md', '.github/ISSUE_TEMPLATE/bug.yml', '.github/ISSUE_TEMPLATE/config.yml', 'CONTRIBUTING.md'])
+    w('.github/PULL_REQUEST_TEMPLATE.md'); w('.github/ISSUE_TEMPLATE/bug.yml'); w('.github/ISSUE_TEMPLATE/config.yml')
+    w('.github/ISSUE_TEMPLATE.md'); w('.github/SUPPORT.md'); w('.github/workflows/title-lint.yml')
+    w('CONTRIBUTING.md'); w('README.md'); w('commitlint.config.js')
+    assert.deepEqual(repo.sourceFiles(root), ['.github/PULL_REQUEST_TEMPLATE.md', '.github/workflows/title-lint.yml', 'CONTRIBUTING.md', 'commitlint.config.js'])
+    assert.deepEqual(repo.sourceFiles(root, DOMAINS.issue.sources),
+                     ['.github/ISSUE_TEMPLATE.md', '.github/ISSUE_TEMPLATE/bug.yml', '.github/ISSUE_TEMPLATE/config.yml', '.github/SUPPORT.md', 'CONTRIBUTING.md'])
   assert.notEqual(repo.sourcesHash(root), repo.sourcesHash(root, DOMAINS.issue.sources))
 })
 
@@ -123,4 +129,30 @@ test('commit-domain helpers: label sections, trailers, frontmatter numbers, SHA 
   w('.gitmessage'); w('commitlint.config.js'); w('.husky/commit-msg'); w('.github/workflows/commitlint.yml'); w('.github/workflows/ci.yml'); w('.github/PULL_REQUEST_TEMPLATE.md'); w('CONTRIBUTING.md')
   assert.deepEqual(repo.sourceFiles(root, DOMAINS.commit.sources),
                    ['.github/workflows/commitlint.yml', '.gitmessage', '.husky/commit-msg', 'CONTRIBUTING.md', 'commitlint.config.js'])
+})
+
+test('a heading declared for one kind is not globally removed by Forbidden headings', () => {
+  const fs = require('fs'), os = require('os'), path = require('path')
+  const p = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pgl-')), 'p.md')
+  fs.writeFileSync(p, '---\nkinds: [bug, feature]\n---\n## Body\n### `### Proposed solution` <!-- kinds: feature -->\n## Forbidden headings\n- `### Proposed solution` is forbidden for bugs\n')
+  const feature = checks.sectionsForKind(checks.promptSections(p), 'feature')
+  assert.ok(feature.allowed.includes('### Proposed solution'))
+  assert.ok(!checks.sectionsForKind(checks.promptSections(p), 'bug').allowed.includes('### Proposed solution'))
+})
+
+test('canonical schema fallback declares required generic sections', () => {
+  const fs = require('fs'), os = require('os'), path = require('path')
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pgl-'))
+  const draft = path.join(root, 'draft.md'); fs.writeFileSync(draft, 'Title: vague\n\n' + 'generic prose '.repeat(20))
+  const prompt = path.join(__dirname, '..', 'skills', 'draft-pr-description', 'schema.md')
+  const r = checks.inspectDraft(draft, prompt, '', root, 3000, {})
+  assert.equal(r.ok, false); assert.deepEqual(r.missingHeadings, ['## Motivation', '## Summary of changes', '## Risk', '## Breaking changes'])
+})
+
+test('eval-parse fails when the claude subprocess exits nonzero', () => {
+  const path = require('path'), { spawnSync } = require('child_process')
+  const r = spawnSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'eval-parse.js')], {
+    env: { ...process.env, CLAUDE: '/bin/false' }, encoding: 'utf8',
+  })
+  assert.equal(r.status, 1); assert.match(r.stdout + r.stderr, /claude exited/)
 })

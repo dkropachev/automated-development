@@ -102,6 +102,7 @@ const has = (f) => argv.indexOf('--' + f) !== -1
 const num = (f) => Math.max(0, parseInt(one(f, '0'), 10) || 0)
 
 const say = (...l) => process.stdout.write(l.filter(x => x !== null && x !== undefined).join('\n') + '\n')
+const shellQuote = (s) => "'" + String(s).replace(/'/g, "'\"'\"'") + "'"
 
 // The domain named on the command line - only `resolve`, `gate` and `start` take it; every other
 // verb reads it off the batch's state.
@@ -120,7 +121,7 @@ const HOME = process.env.HOME || '.'
 // The orchestrator's stateless verb. No nudging, no prose for an agent: a verdict and an exit code.
 if (VERB === 'gate') {
   const D = domainFlag()
-  const r = inspect(one('draft', ''), one('schema', ''), { sourceKey: D.sourceKey })
+  const r = inspect(one('draft', ''), one('schema', ''), { sourceKey: D.sourceKey, idPattern: D.idPattern })
   say('COVERAGE GATE',
       '  draft:   ' + one('draft', ''),
       '  pattern: ' + (r.pattern || '(none read)'),
@@ -155,6 +156,10 @@ if (VERB === 'resolve') {
     console.error('promptgen-driver: cannot read a host and owner/repo out of origin url ' + JSON.stringify(origin))
     process.exit(2)
   }
+  if (['gitlab.com', 'bitbucket.org'].includes(o.host.toLowerCase())) {
+    console.error('promptgen-driver: origin host ' + o.host + ' is not supported; this plugin uses GitHub CLI and GitHub pull requests/issues.')
+    process.exit(2)
+  }
   const cache = cachePathFor(o.host, o.nwo, D.cacheRoot)
   const hash = sourcesHash(root, D.sources)
   const st = staleness(cache, hash, has('max-age-days') ? num('max-age-days') : 90,
@@ -170,22 +175,22 @@ if (VERB === 'resolve') {
   const learnNow = stale && !(attempt && hours >= 0 && hours < backoff) ? 1 : 0
   // Shell-assignable on purpose: every value is either regex-validated above, a path built from
   // those values, an integer, or one fixed word - so `eval "$(... resolve)"` cannot run anything.
-  say("DOMAIN='" + D.key + "'",
-      "HOST='" + o.host + "'",
-      "NWO='" + o.nwo + "'",
-      "CACHE='" + cache + "'",
-      "CACHE_KINDS='" + st.kinds.join(' ') + "'",
-      "SOURCES_HASH='" + hash + "'",
+  say('DOMAIN=' + shellQuote(D.key),
+      'HOST=' + shellQuote(o.host),
+      'NWO=' + shellQuote(o.nwo),
+      'CACHE=' + shellQuote(cache),
+      'CACHE_KINDS=' + shellQuote(st.kinds.join(' ')),
+      'SOURCES_HASH=' + shellQuote(hash),
       "CACHE_EXISTS=" + (st.exists ? 1 : 0),
-      "CACHE_LEARNED_AT='" + st.learnedAt.replace(/[^\d-]/g, '') + "'",
+      'CACHE_LEARNED_AT=' + shellQuote(st.learnedAt.replace(/[^\d-]/g, '')),
       "CACHE_AGE_DAYS=" + st.ageDays,
-      "CACHE_PATTERN='" + (['derived', 'template', 'none'].includes(st.pattern) ? st.pattern : '') + "'",
-      "CACHE_VERIFIED='" + (st.verified === 'false' ? 'false' : st.verified === 'true' ? 'true' : '') + "'",
+      'CACHE_PATTERN=' + shellQuote(['derived', 'template', 'none'].includes(st.pattern) ? st.pattern : ''),
+      'CACHE_VERIFIED=' + shellQuote(st.verified === 'false' ? 'false' : st.verified === 'true' ? 'true' : ''),
       "CACHE_UNRESOLVED=" + st.unresolved,
       "STALE=" + stale,
-      "STALE_REASON='" + (st.reason || 'fresh') + "'",
+      'STALE_REASON=' + shellQuote(st.reason || 'fresh'),
       "LAST_ATTEMPT_HOURS=" + (hours < 0 ? -1 : Math.floor(hours)),
-      "LAST_ATTEMPT_REASON='" + (attempt ? String(attempt.reason || '').replace(/[^\w .:/#-]/g, ' ').slice(0, 120) : '') + "'",
+      'LAST_ATTEMPT_REASON=' + shellQuote(attempt ? String(attempt.reason || '').replace(/[^\w .:/#-]/g, ' ').slice(0, 120) : ''),
       "LEARN_NOW=" + learnNow)
   process.exit(0)
 }
@@ -257,7 +262,7 @@ function carryFile(p) {
 
 const load = () => { try { return JSON.parse(fs.readFileSync(STATEFILE, 'utf8')) } catch { return null } }
 const save = (st) => { fs.mkdirSync(STATEDIR, { recursive: true }); fs.writeFileSync(STATEFILE, JSON.stringify(st, null, 1)) }
-const cmd = (verb, extra) => '  node ' + __filename + ' ' + verb + ' --batch ' + BATCH + (extra ? ' ' + extra : '')
+const cmd = (verb, extra) => '  node ' + shellQuote(__filename) + ' ' + verb + ' --batch ' + BATCH + (extra ? ' ' + extra : '')
 
 function prune() {
   const cutoff = Date.now() - 7 * 24 * 3600 * 1000
@@ -419,9 +424,11 @@ if (VERB === 'start') {
     // cache root and end in .md, because `publish` will rename the work file over it; and the work
     // file is named here, by batch, so the builder cannot pick a path and two builds cannot share
     // one.
-    if (!st.cache || !path.isAbsolute(st.cache) || !/^[\w./@-]+$/.test(st.cache) ||
-        /(^|\/)\.\.(\/|$)/.test(st.cache) || !st.cache.endsWith('.md') ||
-        st.cache.indexOf(path.sep + D.cacheRoot + path.sep) === -1) {
+    const cacheBase = path.resolve(HOME, D.cacheRoot)
+    const cacheResolved = path.resolve(st.cache || '.')
+    const cacheRel = path.relative(cacheBase, cacheResolved)
+    if (!st.cache || !path.isAbsolute(st.cache) || !st.cache.endsWith('.md') ||
+        cacheRel.startsWith('..' + path.sep) || cacheRel === '..' || path.isAbsolute(cacheRel)) {
       console.error('promptgen-driver: --cache must be an absolute .md path inside ~/' + D.cacheRoot + ' (use `resolve --domain ' + D.key + '`); got ' + JSON.stringify(st.cache))
       process.exit(2)
     }
@@ -441,7 +448,9 @@ if (VERB === 'start') {
     // forbidden headings - and disables it SILENTLY: the checks simply find nothing to complain
     // about and the draft sails through looking fine. A wrong --prompt path is the likeliest way to
     // get a confidently generic description out of a skill whose whole purpose is the opposite.
-    if (!fs.existsSync(st.prompt)) {
+    let promptText = null
+    try { if (fs.statSync(st.prompt).isFile()) promptText = fs.readFileSync(st.prompt, 'utf8') } catch {}
+    if (promptText === null) {
       console.error('promptgen-driver: no prompt at ' + st.prompt)
       console.error('  That file is the repo\'s cached generation prompt. Without it this run would')
       console.error('  produce a description in no repo\'s voice and report no problem with it, so it')
@@ -454,7 +463,14 @@ if (VERB === 'start') {
     // A prompt that distinguishes kinds needs to be told which one this draft is, and the section
     // checks are meaningless without it - so refuse now, naming the kinds, rather than check a bug
     // report against every template at once.
-    const kinds = promptSections(st.prompt).kinds
+    const parsedPrompt = promptSections(st.prompt, { labels: D.labels })
+    const promptFm = frontmatter(promptText)
+    if (parsedPrompt.error || (!promptFm && !parsedPrompt.fallback) ||
+        (promptFm && promptFm.pattern !== 'none' && !parsedPrompt.sections.length)) {
+      console.error('promptgen-driver: prompt is neither a readable learned prompt nor a canonical schema: ' + st.prompt)
+      process.exit(2)
+    }
+    const kinds = parsedPrompt.kinds
     if (kinds.length && !kinds.includes(st.kind)) {
       console.error('promptgen-driver: ' + (st.kind ? '--kind ' + JSON.stringify(st.kind) + ' is not a kind this prompt declares.' : 'this prompt distinguishes kinds and --kind was not given.'))
       console.error('  The prompt\'s kinds: ' + kinds.join(', '))
@@ -466,6 +482,10 @@ if (VERB === 'start') {
     say(D.text.writeHeadline,
         '',
         ...D.text.write(st),
+        ...(parsedPrompt.fallback ? ['',
+          'No repository convention was available. Use these fallback section headings exactly:',
+          ...parsedPrompt.sections.map(s => '  ' + s.names[0]),
+          'Every section must contain a concrete answer; use "None" only where that is truthful.'] : []),
         '',
         'Write it to this exact path (this is a working file, not the final answer):',
         '  ' + st.draft,
@@ -541,7 +561,7 @@ if (!st) {
 }
 
 // The two measurements, each with the domain's own keys filled in from the state.
-function inspectPrompt(st) { return inspect(st.draft, st.schema, { sourceKey: domainOf(st).sourceKey }) }
+function inspectPrompt(st) { const D = domainOf(st); return inspect(st.draft, st.schema, { sourceKey: D.sourceKey, idPattern: D.idPattern }) }
 function inspectDraftFor(st) {
   const D = domainOf(st)
   return inspectDraft(st.draft, st.prompt, st.files, st.root, st.maxBytes,
@@ -767,6 +787,10 @@ if (VERB === 'verified') {
       console.error('promptgen-driver: ' + reportPath + ' has no VERDICT: / ' + D.checkedKey + ': block. Save the verifier\'s closing block verbatim.')
       process.exit(2)
     }
+    if (!['sound', 'needs-work'].includes(rep.verdict)) {
+      console.error('promptgen-driver: VERDICT must be exactly sound or needs-work; got ' + JSON.stringify(rep.verdict || '(missing)'))
+      process.exit(2)
+    }
     // The verifier must have looked beyond the builder's sample, or it has checked the prompt against
     // the evidence the prompt was made from and found, unsurprisingly, that they agree.
     let sampled = []
@@ -859,7 +883,9 @@ if (VERB === 'publish') {
   }
   if (!st.verify) {
     say('NOT PUBLISHED: no verdict has been recorded for this build. Run the verifier and then:',
-        cmd('verified', '--verdict sound|needs-work|unverified --blocking <N> [--findings-file <path>]'),
+        cmd('verified', '--report-file <path-to-verifier-block>'),
+        'If verification could not produce a usable report after retrying, record that explicitly with:',
+        cmd('verified', '--verdict unverified'),
         'The live cache, if any, is untouched.')
     process.exit(4)
   }

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict'
-// pr-review-fix chunker. Deterministic: same inputs -> byte-identical manifest.
+// review-and-fix-pr chunker. Deterministic: same inputs -> byte-identical manifest.
 // Usage:
-//   node pr-review-fix-chunker.js --root <repo> --base <sha> --head <sha> --classify <classify.js>
+//   node review-and-fix-pr-chunker.js --root <repo> --base <sha> --head <sha> --classify <classify.json>
 //                   --ledger <reviewed.json> --out <dir> --isolation './../'
 //                   --caps '{"code":12000,...}' --stages code,test,cicd,other [--ignore-ledger]
 // Emits the manifest as JSON on stdout.
@@ -35,10 +35,14 @@ const IGNORE_LEDGER = argv('ignore-ledger', false) === true
 // test suite table-tests: this function decides which files may share a chunk, so it is worth being
 // able to interrogate directly.
 //
-//   node pr-review-fix-chunker.js --lock-key --isolation './../' --path tests/testinfra/ccm.cpp
+//   node review-and-fix-pr-chunker.js --lock-key --isolation './../' --path tests/testinfra/ccm.cpp
 const LOCK_KEY_PROBE = argv('lock-key', false) === true
 
 if (!LOCK_KEY_PROBE && (!BASE || !HEAD || !OUT)) { console.error('chunker: --base, --head and --out are required'); process.exit(2) }
+for (const [stage, cap] of Object.entries(CAPS)) {
+  if (!Number.isSafeInteger(cap) || cap <= 0) { console.error('chunker: cap for ' + stage + ' must be a positive integer'); process.exit(2) }
+}
+if (!STAGES.length || STAGES.some(s => !/^[a-z][a-z0-9-]*$/.test(s))) { console.error('chunker: --stages must be comma-separated slugs'); process.exit(2) }
 
 const git = (...a) => execFileSync('git', ['-C', ROOT, ...a], { encoding: 'utf8', maxBuffer: 1 << 30 })
 
@@ -83,11 +87,28 @@ if (LOCK_KEY_PROBE) {
 // ----------------------------------------------------------------- classify --
 let classify
 if (CLASSIFY && fs.existsSync(CLASSIFY)) {
-  classify = require(path.resolve(CLASSIFY))
+  let rules
+  try { rules = JSON.parse(fs.readFileSync(path.resolve(CLASSIFY), 'utf8')) } catch (e) {
+    console.error('chunker: classifier must be valid JSON: ' + String(e.message || e)); process.exit(2)
+  }
+  const compile = (name) => {
+    if (!Array.isArray(rules[name]) || rules[name].some(x => typeof x !== 'string')) throw new Error('classifier field ' + name + ' must be an array of regex strings')
+    return rules[name].map(x => new RegExp(x))
+  }
+  let excluded, test, cicd, other
+  try { excluded = compile('exclude'); test = compile('test'); cicd = compile('cicd'); other = compile('other') } catch (e) {
+    console.error('chunker: ' + e.message); process.exit(2)
+  }
+  classify = (p) => {
+    if (excluded.some(re => re.test(p))) return { reviewable: false, category: 'other', reason: 'classifier exclusion' }
+    if (test.some(re => re.test(p))) return { reviewable: true, category: 'test', reason: 'classifier test rule' }
+    if (cicd.some(re => re.test(p))) return { reviewable: true, category: 'cicd', reason: 'classifier cicd rule' }
+    if (other.some(re => re.test(p))) return { reviewable: true, category: 'other', reason: 'classifier other rule' }
+    return { reviewable: true, category: 'code', reason: 'classifier default' }
+  }
 } else {
   // Conservative fallback, only used when no per-repo rule has been generated yet.
-  classify = (p, status) => {
-    if (String(status).startsWith('D')) return { reviewable: false, category: 'other', reason: 'pure deletion' }
+  classify = (p, _status) => {
     if (p.startsWith('.github/')) return { reviewable: true, category: 'cicd', reason: 'fallback: .github' }
     if (/(^|\/)tests?\//.test(p) || /_test\.|test_/.test(p)) return { reviewable: true, category: 'test', reason: 'fallback: test path' }
     if (/\.(md|txt|rst|ya?ml|json|toml|ini|cfg)$/.test(p)) return { reviewable: true, category: 'other', reason: 'fallback: docs/config' }
@@ -122,16 +143,18 @@ function splitHunks(text) {
 }
 
 const isoExpr = parseIsolation(ISO)
-const nameStatus = git('diff', '--name-status', `${BASE}...${HEAD}`).split('\n').filter(Boolean)
+const nameStatus = git('diff', '--name-status', '-z', `${BASE}...${HEAD}`).split('\0').filter(Boolean)
 
 const skipped = { notReviewable: [], inLedger: 0, inLedgerBytes: 0, cleanFiles: [] }
 const totalHunksPerFile = new Map()
 const groups = new Map()   // "stage\u0000lockKey" -> {stage, lockKey, files: Map(file -> {header, hunks:[{body,hash,bytes}]})}
 
-for (const line of nameStatus) {
-  const parts = line.split('\t')
-  const status = parts[0]
-  const file = parts[parts.length - 1]          // rename: take the destination
+for (let i = 0; i < nameStatus.length; i++) {
+  const status = nameStatus[i]
+  const renamed = /^[RC]/.test(status)
+  if (i + 1 >= nameStatus.length) { skipped.notReviewable.push({ file: '(unknown)', reason: 'malformed git --name-status output' }); break }
+  const source = nameStatus[++i]
+  const file = renamed && i + 1 < nameStatus.length ? nameStatus[++i] : source
   const verdict = classify(file, status) || {}
   if (!verdict.reviewable) { skipped.notReviewable.push({ file, reason: verdict.reason || 'classifier said no' }); continue }
   const stage = verdict.category || 'other'
@@ -226,9 +249,10 @@ for (const g of orderedGroups) {
   for (const file of [...g.files.keys()].sort()) {
     const { header, hunks } = g.files.get(file)
     for (const hunk of hunks) {
-      if (cur.length && curBytes + hunk.bytes > cap) flush()
+      const headerBytes = cur.some(e => e.file === file) ? 0 : Buffer.byteLength(header)
+      if (cur.length && curBytes + headerBytes + hunk.bytes > cap) flush()
       cur.push({ file, header, hunk })
-      curBytes += hunk.bytes
+      curBytes += (cur.filter(e => e.file === file).length === 1 ? Buffer.byteLength(header) : 0) + hunk.bytes
     }
   }
   flush()

@@ -8,7 +8,8 @@ const path = require('path')
 const ROOT = path.join(__dirname, '..')
 const FILES = ['.claude-plugin/plugin.json', 'package.json']
 
-const arg = process.argv[2]
+const dryRun = process.argv.includes('--dry-run')
+const arg = process.argv.slice(2).find(x => x !== '--dry-run')
 if (!arg) { console.error('usage: bump-version.js patch|minor|major|X.Y.Z'); process.exit(2) }
 const cur = JSON.parse(fs.readFileSync(path.join(ROOT, FILES[0]), 'utf8')).version
 let next
@@ -19,6 +20,7 @@ else {
   if (!next) { console.error('bump must be patch, minor, major or X.Y.Z'); process.exit(2) }
 }
 if (next === cur) { console.error('version is already ' + cur); process.exit(2) }
+if (dryRun) { process.stdout.write(next + '\n'); process.exit(0) }
 for (const f of FILES) {
   const p = path.join(ROOT, f)
   const o = JSON.parse(fs.readFileSync(p, 'utf8'))

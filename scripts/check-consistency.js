@@ -15,7 +15,11 @@ const bad = (m) => problems.push(m)
 const plugin = JSON.parse(rd('.claude-plugin/plugin.json'))
 const pkg = JSON.parse(rd('package.json'))
 const market = JSON.parse(rd('.claude-plugin/marketplace.json'))
+const lock = JSON.parse(rd('package-lock.json'))
 if (plugin.version !== pkg.version) bad(`version: plugin.json says ${plugin.version}, package.json says ${pkg.version}`)
+if (lock.version !== pkg.version || (lock.packages && lock.packages[''] && lock.packages[''].version !== pkg.version)) {
+  bad(`version: package-lock.json does not match package.json ${pkg.version}`)
+}
 if (!/^\d+\.\d+\.\d+$/.test(plugin.version || '')) bad(`plugin.json version "${plugin.version}" is not X.Y.Z`)
 if (plugin.name !== pkg.name) bad(`name: plugin.json says ${plugin.name}, package.json says ${pkg.name}`)
 if (market.name !== plugin.name) bad(`marketplace.json name ${market.name} != plugin name ${plugin.name}`)
@@ -48,7 +52,7 @@ for (const f of fs.existsSync(path.join(ROOT, 'agents')) ? fs.readdirSync(path.j
 // ---- skills: name == dir, description present, driver verbs/flags/files it references exist
 // Every driver this plugin ships, so a skill naming a verb or flag that its own driver does not
 // have is caught here rather than at runtime. Keyed by the basename a skill would write.
-const DRIVERS = ['promptgen-driver.js', 'pr-review-fix-driver.js'].map((f) => {
+const DRIVERS = ['promptgen-driver.js', 'review-and-fix-pr-driver.js'].map((f) => {
   const src = rd(path.join('bin', f))
   return {
     file: f,
