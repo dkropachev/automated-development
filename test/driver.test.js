@@ -557,10 +557,10 @@ test('issue gate: coverage is judged per kind, kinds must be declared, and the P
   let r = run(h, ['gate', '--domain', 'issue', '--draft', p, '--schema', ISCHEMA])
   assert.equal(r.code, 0, r.out); assert.match(r.out, /kinds: {3}bug, feature/); assert.match(r.out, /GATE: pass/)
 
-  // restrict the shared Version section to bugs: the feature kind loses `context`
-  write(p, ISSUE_PROMPT().replace('### `### Version`  <!-- covers: context -->', '### `### Version`  <!-- kinds: bug --> <!-- covers: context -->'))
+  // restrict the feature kind's Problem section to bugs: the feature kind loses `problem`
+  write(p, ISSUE_PROMPT().replace('### `### Problem`  <!-- kinds: feature -->', '### `### Problem`  <!-- kinds: bug -->'))
   r = run(h, ['gate', '--domain', 'issue', '--draft', p, '--schema', ISCHEMA])
-  assert.equal(r.code, 5); assert.match(r.out, /not covered:\n {2}- context \(kind: feature\)/); assert.doesNotMatch(r.out, /kind: bug\)/)
+  assert.equal(r.code, 5); assert.match(r.out, /not covered:\n {2}- problem \(kind: feature\)/); assert.doesNotMatch(r.out, /kind: bug\)/)
 
   // a kinds-comment naming a kind the frontmatter does not declare
   write(p, ISSUE_PROMPT().replace('<!-- kinds: feature --> <!-- covers: problem -->', '<!-- kinds: docs --> <!-- covers: problem -->'))
