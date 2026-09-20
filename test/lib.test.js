@@ -153,6 +153,30 @@ test('canonical schema fallback declares required generic sections', () => {
   assert.equal(r.ok, false); assert.deepEqual(r.missingHeadings, ['## Motivation', '## Summary of changes', '## Risk', '## Breaking changes'])
 })
 
+test('promptLabels reads the run of backticked items after `labels` and nothing else on the line', () => {
+  const fs = require('fs'), os = require('os'), path = require('path')
+  const p = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pgl-')), 'p.md')
+  fs.writeFileSync(p, ['## Kinds',
+    '### `bug` — `.github/ISSUE_TEMPLATE/bug.yml`, title prefix `[Bug]: `, labels `kind/bug`, `needs-triage`',
+    '### `feature` — labels `enhancement` and `area/api`',
+    '### `docs` — `.github/ISSUE_TEMPLATE/docs.yml`, labels `docs`, title prefix `[Docs] `',
+    '### `task` — no labels are applied',
+  ].join('\n'))
+  // A namespaced label is a label, not the template path: `kind/bug` and `area/api` survive.
+  assert.deepEqual(checks.promptLabels(p, 'bug'), ['kind/bug', 'needs-triage'])
+  assert.deepEqual(checks.promptLabels(p, 'feature'), ['enhancement', 'area/api'])
+  // The run stops where the line goes back to prose, so a trailing title prefix is not a label.
+  assert.deepEqual(checks.promptLabels(p, 'docs'), ['docs'])
+  assert.deepEqual(checks.promptLabels(p, 'task'), [])
+  assert.deepEqual(checks.promptLabels(p, 'absent'), []); assert.deepEqual(checks.promptLabels(p, ''), [])
+})
+
+test('citedPaths ignores prose that merely contains a slash', () => {
+  assert.deepEqual(checks.citedPaths('the client/server handshake fails and/or hangs on read/write, ' +
+                                     '50/50 of runs, on Linux/6.1; see src/plain.js and tests/test_pool.py'),
+                   ['src/plain.js', 'tests/test_pool.py'])
+})
+
 test('eval-parse fails when the claude subprocess exits nonzero', () => {
   const path = require('path'), { spawnSync } = require('child_process')
   const r = spawnSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'eval-parse.js')], {
