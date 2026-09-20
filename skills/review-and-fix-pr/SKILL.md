@@ -19,8 +19,8 @@ Two shapes, picked by size:
   10, fixes, re-reads its own work, validates it and commits it — all in its own conversation —
   before a brand-new fixer starts the next 10.
 - **single** (small PRs) — one agent reviews and fixes the whole PR, driven through both loops by
-  `review-and-fix-pr-driver.js` exactly as a reviewer and a fixer are. Below ~4KB of diff the per-agent overhead of
-  splitting costs more than it saves.
+  `review-and-fix-pr-driver.js` exactly as a reviewer and a fixer are. At or below 20KB of diff the
+  per-agent overhead of splitting costs more than it saves.
 
 What else is worth knowing:
 
@@ -104,7 +104,7 @@ node "${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-chunker.js" --root <repo> --ba
 (If `classify.json` does not exist yet the flag is harmless — the chunker falls back to a built-in rule
 for the probe, and the run generates the real one.)
 
-**Small PR — `chunks == 0` or `bytes <= 4000`: do not offer anything.** Run it with
+**Small PR — `chunks == 0` or `bytes <= 20000`: do not offer anything.** Run it with
 `mode: 'single'` and say in one line that the PR was too small to be worth splitting. Splitting a
 diff this size costs more in per-agent overhead than it saves, so there is no decision to make.
 
@@ -150,10 +150,10 @@ is not the repository itself.
 |---|---|---|
 | `pr` | current branch's PR | PR number or URL |
 | `fix` | `false` | `true` to edit and commit, `false` for a read-only pass. The skill always asks and passes this explicitly. |
-| `mode` | `'auto'` | `parallel` \| `single` \| `full` \| `auto` (parallel above ~4KB of diff, single below; full forces one whole-PR pass) |
+| `mode` | `'auto'` | `parallel` \| `single` \| `full` \| `auto` (parallel above 20KB of diff, single at or below it; full forces one whole-PR pass) |
 | `reviewConcurrency` | 5 | read-only reviewers in flight at once |
 | `maxFixBatch` | 10 | findings per fixer; a fresh agent takes the next batch after this one commits |
-| `chunkBytes` | `{code:12000, test:12000, cicd:12000, other:24000}` | per-stage cap on packed hunk bytes. A single hunk larger than the cap is **never split** — git emits a newly added file as one hunk, so a new 2,800-line file is one chunk by design. |
+| `chunkBytes` | `{code:20000, test:20000, cicd:20000, other:20000}` | per-stage cap on packed hunk bytes. A single hunk larger than the cap is **never split** — git emits a newly added file as one hunk, so a new 2,800-line file is one chunk by design. |
 | `isolation` | `'./../'` | which files may share a chunk: `.` the file, `./../`×n n levels up, `*/`×n n levels down from the root. It no longer constrains scheduling — reviewers are read-only and fixers are serial, so nothing can collide. |
 | `stages` | `['code','test','cicd','other']` | order and membership |
 | `detailedReview` | false | let reviewers leave the hunk: trace every caller, and **run experiments** in a throwaway clone (`git clone --no-hardlinks --no-local`) rather than reasoning about the code. Costs ~2× and finds caller-side defects a reading-only pass looks straight past. The repo under review stays read-only; nothing may be pushed. |

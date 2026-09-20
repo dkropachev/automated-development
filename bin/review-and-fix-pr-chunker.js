@@ -4,7 +4,7 @@
 // Usage:
 //   node review-and-fix-pr-chunker.js --root <repo> --base <sha> --head <sha> --classify <classify.json>
 //                   --ledger <reviewed.json> --out <dir> --isolation './../'
-//                   --caps '{"code":12000,...}' --stages code,test,cicd,other [--ignore-ledger]
+//                   --caps '{"code":20000,...}' --stages code,test,cicd,other [--ignore-ledger]
 // Emits the manifest as JSON on stdout.
 
 const { execFileSync } = require('child_process')
@@ -26,7 +26,7 @@ const CLASSIFY = argv('classify')
 const LEDGER = argv('ledger')
 const OUT = argv('out')
 const ISO = String(argv('isolation', './../'))
-const CAPS = JSON.parse(argv('caps', '{"code":12000,"test":12000,"cicd":12000,"other":24000}'))
+const CAPS = JSON.parse(argv('caps', '{"code":20000,"test":20000,"cicd":20000,"other":20000}'))
 const STAGES = String(argv('stages', 'code,test,cicd,other')).split(',')
 const IGNORE_LEDGER = argv('ignore-ledger', false) === true
 
@@ -208,7 +208,7 @@ const manifest = []
 let seq = 0
 
 for (const g of orderedGroups) {
-  const cap = CAPS[g.stage] || 12000
+  const cap = CAPS[g.stage] || 20000
   let cur = []            // [{file, header, hunk}]
   let curBytes = 0
 
@@ -268,6 +268,6 @@ process.stdout.write(JSON.stringify({
     bytes: manifest.reduce((n, c) => n + c.bytes, 0),
     cleanFilesSkipped: skipped.cleanFiles.length,
     spanningChunks: manifest.filter(c => c.files.length > 1).length,
-    overCap: manifest.filter(c => c.bytes > (CAPS[c.stage] || 12000)).length,
+    overCap: manifest.filter(c => c.bytes > (CAPS[c.stage] || 20000)).length,
   },
 }, null, 2))

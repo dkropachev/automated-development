@@ -21,7 +21,7 @@ export const meta = {
 const ARGS = (args && typeof args === 'object') ? args : (args === undefined || args === null ? {} : { pr: args })
 const PR_ARG = (ARGS.pr === undefined || ARGS.pr === null) ? '' : String(ARGS.pr)
 
-const DEFAULT_CAPS = { code: 12000, test: 12000, cicd: 12000, other: 24000 }
+const DEFAULT_CAPS = { code: 20000, test: 20000, cicd: 20000, other: 20000 }
 const CAPS = Object.assign({}, DEFAULT_CAPS, (ARGS.chunkBytes && typeof ARGS.chunkBytes === 'object') ? ARGS.chunkBytes : {})
 const STAGES = Array.isArray(ARGS.stages) && ARGS.stages.length ? ARGS.stages.map(String) : ['code', 'test', 'cicd', 'other']
 for (const [stage, cap] of Object.entries(CAPS)) {
@@ -43,7 +43,7 @@ const REPO_ROOT_ARG = ARGS.repoRoot ? String(ARGS.repoRoot) : ''
 // 'auto' (default) = chunked, escalating to a full pass if the chunked pass found NOTHING.
 // 'single'   = one agent reviews and fixes the whole PR. Right for a small diff.
 // 'parallel' = up to REVIEW_CONCURRENCY read-only reviewers, then ONE fixer at a time in batches.
-// 'auto'     = single below FULL_PR_MIN_BYTES, parallel above it.
+// 'auto'     = single at or below FULL_PR_MIN_BYTES, parallel above it.
 const MODE = ['auto', 'single', 'parallel', 'full'].includes(ARGS.mode) ? ARGS.mode : 'auto'
 // Fixing is explicit. Omitting `fix` is review-only; an agent-produced ownership field never grants writes.
 const FIX_ARG = ARGS.fix === true
@@ -62,7 +62,7 @@ if (ARGS.confirm !== undefined) {
   throw new Error("review-and-fix-pr: `confirm` is gone - mode:'auto' (the default) already escalates to " +
                   "a whole-PR pass when the chunked pass finds nothing. Use mode:'full' to force one.")
 }
-const FULL_PR_MIN_BYTES = 4000   // below this a diff is not worth chunking at all
+const FULL_PR_MIN_BYTES = 20000  // at or below this a diff is not worth chunking at all
 const RUN_NONCE = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8)
 
 // Where the helper scripts live. They ship with this plugin, so the path comes from the plugin
