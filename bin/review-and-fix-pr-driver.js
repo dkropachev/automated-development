@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 'use strict'
-// pr-review-fix driver. A state machine that runs INSIDE an agent's conversation and tells it what
+// review-and-fix-pr driver. A state machine that runs INSIDE an agent's conversation and tells it what
 // to do next, one step at a time.
 //
-//   node pr-review-fix-driver.js start --batch <run>-<id> --root <repo> --mode fix|review [flags]
+//   node review-and-fix-pr-driver.js start --batch <run>-<id> --root <repo> --mode fix|review [flags]
 //
 // then one verb per step, each named after what the agent just did, so there is never a question of
 // which status this step wants:
@@ -49,7 +49,7 @@ const num = (f) => Math.max(0, parseInt(one(f, '0'), 10) || 0)
 const BATCH = one('batch')
 if (!BATCH) { console.error('driver: --batch is required'); process.exit(2) }
 if (!/^[\w.-]+$/.test(BATCH)) { console.error('driver: --batch must be [A-Za-z0-9_.-] only'); process.exit(2) }
-const STATEDIR = path.join(process.env.HOME || '.', '.claude', 'pr-review-fix', 'state')
+const STATEDIR = path.join(process.env.HOME || '.', '.claude', 'review-and-fix-pr', 'state')
 const STATEFILE = path.join(STATEDIR, BATCH + '.state.json')
 
 const MAX_LOOK_ROUNDS = 8
@@ -620,7 +620,7 @@ if (VERB === 'checked') {
       'until its content changes. When in doubt leave it out - an unrecorded file is merely reviewed',
       'again; a wrongly recorded one is never looked at by anyone.',
       '',
-      '  node ' + shellQuote(path.join(path.dirname(__filename), 'pr-review-fix-reviewed.js')) + ' --mark \\',
+      '  node ' + shellQuote(path.join(path.dirname(__filename), 'review-and-fix-pr-reviewed.js')) + ' --mark \\',
       '    --root ' + shellQuote(st.root) + ' --base ' + shellQuote(st.base || '<mergeBaseSha from your prompt>') + ' \\',
       '    --ledger ' + shellQuote(st.ledger || '<ledgerPath from your prompt>') + ' \\',
       '    --pr ' + shellQuote(st.pr || '0') + ' --run ' + shellQuote(BATCH) + ' --stage review \\',
@@ -635,7 +635,7 @@ if (VERB === 'marked') {
   requireStep(st, 'marking')
   let reviewState = null
   try {
-    const script = path.join(path.dirname(__filename), 'pr-review-fix-reviewed.js')
+    const script = path.join(path.dirname(__filename), 'review-and-fix-pr-reviewed.js')
     const args = [script, '--check', '--root', st.root, '--base', st.base, '--ledger', st.ledger]
     for (const f of st.markable || []) args.push('--file', f)
     reviewState = JSON.parse(execFileSync(process.execPath, args, { encoding: 'utf8' }))

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 'use strict'
-// pr-review-fix reviewed-ledger tool. This is the ONLY way a file is recorded as clean.
+// review-and-fix-pr reviewed-ledger tool. This is the ONLY way a file is recorded as clean.
 //
-//   mark:    node pr-review-fix-reviewed.js --mark --root R --base <mergeBaseSha> --ledger L \
+//   mark:    node review-and-fix-pr-reviewed.js --mark --root R --base <mergeBaseSha> --ledger L \
 //                             --pr N --run <runId> --stage <stage> --file <path> [--file ...]
-//   revoke:  node pr-review-fix-reviewed.js --revoke --ledger L --run <runId> --stage <stage>
-//   check:   node pr-review-fix-reviewed.js --check --root R --base <mergeBaseSha> --ledger L --file <path>
+//   revoke:  node review-and-fix-pr-reviewed.js --revoke --ledger L --run <runId> --stage <stage>
+//   check:   node review-and-fix-pr-reviewed.js --check --root R --base <mergeBaseSha> --ledger L --file <path>
 //
 // The key is sha256 of the file's CURRENT diff against the merge base, taken from the WORKING TREE -
 // so a file marked after a fix records the fixed content, not the content that had the bug. A later

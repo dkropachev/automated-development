@@ -1,5 +1,5 @@
 'use strict'
-// The pr-review-fix helper scripts, exercised against a throwaway git repo this file builds itself.
+// The review-and-fix-pr helper scripts, exercised against a throwaway git repo this file builds itself.
 // One test case rather than many: the repo is constructed step by step and later assertions depend
 // on earlier ones having run, so splitting them would only make the ordering implicit.
 //
@@ -8,10 +8,10 @@
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 'use strict'
-// Self-contained regression suite for the pr-review-fix helper scripts.
+// Self-contained regression suite for the review-and-fix-pr helper scripts.
 // Builds its own throwaway git repo, so it depends on nothing outside this directory.
 //
-//   node ~/.claude/pr-review-fix/test/selftest.js
+//   node ~/.claude/review-and-fix-pr/test/selftest.js
 //
 // Exists because of two real incidents:
 //   1. A heredoc collapsed the `\u0000` escape in chunker.js into a RAW NUL byte. Harmless at
@@ -31,10 +31,10 @@ const BIN = path.join(ROOT, 'bin')
 // Everything we own, not just bin/. The first version of this file scanned only bin/ and therefore
 // passed while carrying a raw NUL in its own comment - a guard that cannot inspect itself is half a
 // guard.
-test('pr-review-fix helper scripts', { timeout: 120000 }, async () => {
+test('review-and-fix-pr helper scripts', { timeout: 120000 }, async () => {
 const OWNED = [
-  path.join(ROOT, 'workflows', 'pr-review-fix.js'),
-  path.join(ROOT, 'skills', 'pr-review-fix', 'SKILL.md'),
+  path.join(ROOT, 'workflows', 'review-and-fix-pr.js'),
+  path.join(ROOT, 'skills', 'review-and-fix-pr', 'SKILL.md'),
   __filename,
 ]
 let fails = 0
@@ -46,7 +46,7 @@ const sh = (cmd, args, opts) => execFileSync(cmd, args, Object.assign({ encoding
 
 // ---------------------------------------------------------------- 1. bytes --
 const scripts = fs.readdirSync(BIN).filter(f => f.endsWith('.js')).sort()
-ck('found the helper scripts', ['pr-review-fix-chunker.js','pr-review-fix-driver.js','pr-review-fix-meter.js','pr-review-fix-repofp.js','pr-review-fix-reviewed.js'].every(x => scripts.includes(x)), scripts.join(','))
+ck('found the helper scripts', ['review-and-fix-pr-chunker.js','review-and-fix-pr-driver.js','review-and-fix-pr-meter.js','review-and-fix-pr-repofp.js','review-and-fix-pr-reviewed.js'].every(x => scripts.includes(x)), scripts.join(','))
 for (const f of scripts) {
   const buf = fs.readFileSync(path.join(BIN, f))
   // Anything outside tab/LF/CR means a heredoc or an editor mangled an escape sequence.
@@ -99,7 +99,7 @@ fs.writeFileSync(LED, '{}')
 const OUT = path.join(TMP, 'chunks')
 
 function chunk(extra) {
-  const out = sh('node', [path.join(BIN, 'pr-review-fix-chunker.js'), '--root', R, '--base', BASE,
+  const out = sh('node', [path.join(BIN, 'review-and-fix-pr-chunker.js'), '--root', R, '--base', BASE,
     '--head', git('rev-parse', 'HEAD').trim(), '--out', OUT, '--ledger', LED,
     '--isolation', './../'].concat(extra || []))
   return JSON.parse(out)
@@ -158,7 +158,7 @@ ck('a .hashes sidecar exists per chunk with hunkCount lines',
 }
 
 // ------------------------------------------------------ 4. reviewed.js cycle --
-const mark = (file, stage) => JSON.parse(sh('node', [path.join(BIN, 'pr-review-fix-reviewed.js'), '--mark',
+const mark = (file, stage) => JSON.parse(sh('node', [path.join(BIN, 'review-and-fix-pr-reviewed.js'), '--mark',
   '--root', R, '--base', BASE, '--ledger', LED, '--pr', '1', '--run', 'RUN1', '--stage', stage, '--file', file]))
 
 let r = mark('README.md', 'other')
@@ -166,18 +166,18 @@ ck('marks a changed file', r.marked === 1, JSON.stringify(r))
 m = chunk()
 ck('a marked file is skipped entirely', !filesIn(m).includes('README.md') && m.totals.cleanFilesSkipped === 1, filesIn(m).join(','))
 
-r = JSON.parse(sh('node', [path.join(BIN, 'pr-review-fix-reviewed.js'), '--mark', '--root', R, '--base', BASE,
+r = JSON.parse(sh('node', [path.join(BIN, 'review-and-fix-pr-reviewed.js'), '--mark', '--root', R, '--base', BASE,
   '--ledger', LED, '--pr', '1', '--run', 'RUN1', '--stage', 'other', '--file', 'src/a.js']))
 ck('marking is idempotent-safe for a new file', r.marked === 1)
 m = chunk()
 ck('both marked files now skipped', !filesIn(m).includes('src/a.js') && m.totals.cleanFilesSkipped === 2, filesIn(m).join(','))
 
-r = JSON.parse(sh('node', [path.join(BIN, 'pr-review-fix-reviewed.js'), '--mark', '--root', R, '--base', BASE,
+r = JSON.parse(sh('node', [path.join(BIN, 'review-and-fix-pr-reviewed.js'), '--mark', '--root', R, '--base', BASE,
   '--ledger', LED, '--pr', '1', '--run', 'RUN1', '--stage', 'other', '--file', 'src/b.js', '--file', 'src/b.js']))
 ck('re-marking the same file adds nothing', r.marked === 1 && r.skipped.length === 1, JSON.stringify(r))
 
 // A file with no diff must be refused, not silently recorded as clean.
-r = JSON.parse(sh('node', [path.join(BIN, 'pr-review-fix-reviewed.js'), '--mark', '--root', R, '--base', BASE,
+r = JSON.parse(sh('node', [path.join(BIN, 'review-and-fix-pr-reviewed.js'), '--mark', '--root', R, '--base', BASE,
   '--ledger', LED, '--pr', '1', '--run', 'RUN1', '--stage', 'other', '--file', 'does/not/exist.js']))
 ck('refuses a file with no diff', r.marked === 0 && r.skipped.length === 1, JSON.stringify(r))
 
@@ -193,7 +193,7 @@ m = chunk()
 ck('an UNCOMMITTED edit does not (chunker reads base...head)', !filesIn(m).includes('README.md'), filesIn(m).join(','))
 git('checkout', '--', 'README.md')
 
-r = JSON.parse(sh('node', [path.join(BIN, 'pr-review-fix-reviewed.js'), '--revoke', '--ledger', LED, '--run', 'RUN1', '--stage', 'other']))
+r = JSON.parse(sh('node', [path.join(BIN, 'review-and-fix-pr-reviewed.js'), '--revoke', '--ledger', LED, '--run', 'RUN1', '--stage', 'other']))
 ck('revoke removes exactly that run+stage', r.revoked === 3 && r.total === 0, JSON.stringify(r))
 m = chunk()
 ck('everything comes back after revoke', filesIn(m).length === 4 && m.totals.cleanFilesSkipped === 0, filesIn(m).join(','))
@@ -204,7 +204,7 @@ ck('everything comes back after revoke', filesIn(m).length === 4 && m.totals.cle
 // `./../` walks UP from the file, `*/` walks DOWN from the repo root, and both clamp at the root.
 {
   const key = (expr, file) =>
-    sh('node', [path.join(BIN, 'pr-review-fix-chunker.js'), '--lock-key', '--isolation', expr, '--path', file]).trim()
+    sh('node', [path.join(BIN, 'review-and-fix-pr-chunker.js'), '--lock-key', '--isolation', expr, '--path', file]).trim()
   const DEEP = 'tests/testinfra/ccm_provisioner.cpp'      // depth 2
   const table = [
     ['.',            DEEP, DEEP],
@@ -237,10 +237,10 @@ ck('everything comes back after revoke', filesIn(m).length === 4 && m.totals.cle
 }
 
 // -------------------------------------------------------------- 5. driver --
-// The driver keeps state under $HOME/.claude/pr-review-fix/state, so every invocation here runs
+// The driver keeps state under $HOME/.claude/review-and-fix-pr/state, so every invocation here runs
 // with HOME pointed at the throwaway dir. The suite must never touch the real state directory.
 {
-  const D = path.join(BIN, 'pr-review-fix-driver.js')
+  const D = path.join(BIN, 'review-and-fix-pr-driver.js')
   const HOME = path.join(TMP, 'driver-home')
   fs.mkdirSync(HOME, { recursive: true })
   const env = Object.assign({}, process.env, { HOME })
@@ -341,7 +341,7 @@ ck('everything comes back after revoke', filesIn(m).length === 4 && m.totals.cle
      !/--file src\/zzz\.js/.test(out), cmdLines(out))
   ck('review: the file that IS wholly ours is offered for marking',
      /--file 'src\/a\.js'/.test(out), cmdLines(out))
-  sh('node', [path.join(BIN, 'pr-review-fix-reviewed.js'), '--mark', '--root', R, '--base', BASE,
+  sh('node', [path.join(BIN, 'review-and-fix-pr-reviewed.js'), '--mark', '--root', R, '--base', BASE,
     '--ledger', path.join(TMP, 'rv-ledger.json'), '--pr', '7', '--run', 'rv1', '--stage', 'review', '--file', 'src/a.js'])
   out = drive('marked', 'rv1')
   ck('review: marking ends the batch', /FINAL STATE: reviewed/.test(out), out.slice(-120))
@@ -460,20 +460,20 @@ ck('everything comes back after revoke', filesIn(m).length === 4 && m.totals.cle
   try { drive('start', 'duplicate-state', ['--root', R, '--parent', parent, '--mode', 'fix']) } catch (e) { threw = true }
   ck('refuses to overwrite an existing batch state', threw)
   ck('the suite left the real state directory alone',
-     fs.existsSync(path.join(HOME, '.claude', 'pr-review-fix', 'state', 'fx3.state.json')),
+     fs.existsSync(path.join(HOME, '.claude', 'review-and-fix-pr', 'state', 'fx3.state.json')),
      'state did not land under the throwaway HOME')
 }
 
 // -------------------------------------------------------------- 6. repofp --
 write('package.json', '{"scripts":{"test":"node --test"}}\n'); git('add', '-A'); git('commit', '-qm', 'manifest')
-const fp1 = sh('node', [path.join(BIN, 'pr-review-fix-repofp.js'), '--root', R]).trim()
-const fp2 = sh('node', [path.join(BIN, 'pr-review-fix-repofp.js'), '--root', R]).trim()
+const fp1 = sh('node', [path.join(BIN, 'review-and-fix-pr-repofp.js'), '--root', R]).trim()
+const fp2 = sh('node', [path.join(BIN, 'review-and-fix-pr-repofp.js'), '--root', R]).trim()
 ck('deterministic across runs', fp1 === fp2 && /^[0-9a-f]{64}$/.test(fp1), fp1)
 write('package.json', '{"scripts":{"test":"node --test","lint":"eslint ."}}\n'); git('add', '-A'); git('commit', '-qm', 'manifest command')
-const fp3 = sh('node', [path.join(BIN, 'pr-review-fix-repofp.js'), '--root', R]).trim()
+const fp3 = sh('node', [path.join(BIN, 'review-and-fix-pr-repofp.js'), '--root', R]).trim()
 ck('changes when a classifier input changes content', fp3 !== fp1)
 write('newtop/x.js', 'x\n'); git('add', '-A'); git('commit', '-qm', 'new top dir')
-ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'pr-review-fix-repofp.js'), '--root', R]).trim() !== fp3)
+ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'review-and-fix-pr-repofp.js'), '--root', R]).trim() !== fp3)
 
 // Parallel reviewers update one shared ledger. Locking must preserve every mark.
 {
@@ -484,7 +484,7 @@ ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'pr-review-
   rg('add', '.'); rg('commit', '-qm', 'base'); const rb = rg('rev-parse', 'HEAD').trim()
   for (let i = 0; i < 24; i++) fs.writeFileSync(path.join(RR, 'f' + i + '.js'), 'new ' + i + '\n')
   const children = []
-  for (let i = 0; i < 24; i++) children.push(spawn(process.execPath, [path.join(BIN, 'pr-review-fix-reviewed.js'),
+  for (let i = 0; i < 24; i++) children.push(spawn(process.execPath, [path.join(BIN, 'review-and-fix-pr-reviewed.js'),
     '--mark', '--root', RR, '--base', rb, '--ledger', LL, '--run', 'race', '--stage', 'code', '--file', 'f' + i + '.js'], { stdio: 'ignore' }))
   await Promise.all(children.map(c => new Promise(resolve => c.on('exit', resolve))))
   ck('parallel ledger marks are merged without lost updates', Object.keys(JSON.parse(fs.readFileSync(LL, 'utf8'))).length === 24)

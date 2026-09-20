@@ -1,5 +1,5 @@
 export const meta = {
-  name: 'pr-review-fix',
+  name: 'review-and-fix-pr',
   description: 'Review a PR with read-only reviewers in parallel, then fix in serial batches, staged code -> tests -> cicd -> other, remembering reviewed files across runs',
   whenToUse: 'When a PR should be reviewed AND the findings actually fixed in-tree, with provable per-hunk coverage rather than a whole-PR skim, and without re-reviewing hunks that were already clean.',
   phases: [
@@ -25,15 +25,15 @@ const DEFAULT_CAPS = { code: 12000, test: 12000, cicd: 12000, other: 24000 }
 const CAPS = Object.assign({}, DEFAULT_CAPS, (ARGS.chunkBytes && typeof ARGS.chunkBytes === 'object') ? ARGS.chunkBytes : {})
 const STAGES = Array.isArray(ARGS.stages) && ARGS.stages.length ? ARGS.stages.map(String) : ['code', 'test', 'cicd', 'other']
 for (const [stage, cap] of Object.entries(CAPS)) {
-  if (!Number.isSafeInteger(Number(cap)) || Number(cap) <= 0) throw new Error('pr-review-fix: chunkBytes.' + stage + ' must be a positive integer')
+  if (!Number.isSafeInteger(Number(cap)) || Number(cap) <= 0) throw new Error('review-and-fix-pr: chunkBytes.' + stage + ' must be a positive integer')
   CAPS[stage] = Number(cap)
 }
-if (STAGES.some(s => !/^[a-z][a-z0-9-]*$/.test(s))) throw new Error('pr-review-fix: stages must be lowercase slugs')
+if (STAGES.some(s => !/^[a-z][a-z0-9-]*$/.test(s))) throw new Error('review-and-fix-pr: stages must be lowercase slugs')
 const ISOLATION = ARGS.isolation === undefined ? './../' : String(ARGS.isolation)
 // "none" is rejected on purpose: it bucketed every file under one key and waived same-file
 // exclusion, so two agents could edit one file at once. "." is the loosest safe setting.
 if (ISOLATION === 'none') {
-  throw new Error('pr-review-fix: isolation "none" is not supported - it would allow two agents to ' +
+  throw new Error('review-and-fix-pr: isolation "none" is not supported - it would allow two agents to ' +
                   'edit the same file concurrently. Use "." for per-file locking.')
 }
 const IGNORE_LEDGER = ARGS.ignoreLedger === true
@@ -59,7 +59,7 @@ const REVIEW_CONCURRENCY = Number(ARGS.reviewConcurrency) > 0 ? Math.min(12, Mat
 // `confirm` was the old opt-in whole-PR panel. mode:'auto' now does it automatically, and only when
 // the chunked pass found nothing - which is the only time it can tell you something new.
 if (ARGS.confirm !== undefined) {
-  throw new Error("pr-review-fix: `confirm` is gone - mode:'auto' (the default) already escalates to " +
+  throw new Error("review-and-fix-pr: `confirm` is gone - mode:'auto' (the default) already escalates to " +
                   "a whole-PR pass when the chunked pass finds nothing. Use mode:'full' to force one.")
 }
 const FULL_PR_MIN_BYTES = 4000   // below this a diff is not worth chunking at all
@@ -75,7 +75,7 @@ const PLUGIN_ROOT = (typeof ARGS.pluginRoot === 'string' && ARGS.pluginRoot.trim
   ? ARGS.pluginRoot.trim().replace(/\/+$/, '')
   : null
 if (!PLUGIN_ROOT) {
-  throw new Error('pr-review-fix: pluginRoot is required - pass args.pluginRoot = "${CLAUDE_PLUGIN_ROOT}" ' +
+  throw new Error('review-and-fix-pr: pluginRoot is required - pass args.pluginRoot = "${CLAUDE_PLUGIN_ROOT}" ' +
                   'so the workflow can tell its agents where the helper scripts are.')
 }
 const HOME_BIN = PLUGIN_ROOT + '/bin'
@@ -171,7 +171,7 @@ const SCOPE_SCHEMA = {
     authoredByMe: { type: 'boolean', description: 'true only if prAuthor and ghUser are both known and equal' },
     blocker: { type: 'string', description: 'reason the run must not proceed, or exactly "none"' },
 
-    binOk: { type: 'boolean', description: 'pr-review-fix-chunker.js, pr-review-fix-driver.js, pr-review-fix-reviewed.js and pr-review-fix-repofp.js are all present' },
+    binOk: { type: 'boolean', description: 'review-and-fix-pr-chunker.js, review-and-fix-pr-driver.js, review-and-fix-pr-reviewed.js and review-and-fix-pr-repofp.js are all present' },
     classifyPath: { type: 'string' },
     classifyAction: { type: 'string', enum: ['reused', 'needs-generation', 'failed'],
                       description: '"needs-generation" means you stopped and left chunks empty' },
@@ -181,7 +181,7 @@ const SCOPE_SCHEMA = {
     runDir: { type: 'string', description: 'absolute scratch dir for this run\'s chunk files' },
     chunks: {
       type: 'array',
-      description: 'the chunks array from pr-review-fix-chunker.js stdout, verbatim',
+      description: 'the chunks array from review-and-fix-pr-chunker.js stdout, verbatim',
       items: {
         type: 'object',
         properties: {
@@ -200,7 +200,7 @@ const SCOPE_SCHEMA = {
     },
     hunksInLedger: { type: 'integer' },
     notReviewable: { type: 'array', items: { type: 'string' } },
-    chunkerStderr: { type: 'string', description: 'anything pr-review-fix-chunker.js printed on stderr, or exactly "none"' },
+    chunkerStderr: { type: 'string', description: 'anything review-and-fix-pr-chunker.js printed on stderr, or exactly "none"' },
     notes: { type: 'string' },
   },
   required: ['repo', 'slug', 'baseRef', 'mergeBaseSha', 'headSha', 'startBranch', 'startSha', 'repoRoot',
@@ -253,7 +253,7 @@ const MANIFEST_SCHEMA = {
     },
     hunksInLedger: { type: 'integer', description: 'hunks skipped because they were already clean' },
     notReviewable: { type: 'array', items: { type: 'string' }, description: 'files the classifier excluded' },
-    stderr: { type: 'string', description: 'anything pr-review-fix-chunker.js printed on stderr, or exactly "none"' },
+    stderr: { type: 'string', description: 'anything review-and-fix-pr-chunker.js printed on stderr, or exactly "none"' },
   },
   required: ['chunks', 'hunksInLedger', 'notReviewable'],
 }
@@ -304,7 +304,7 @@ const REVIEW_SCHEMA = {
                required: ['fingerprint', 'reason', 'kind'] },
     },
     markedReviewed: { type: 'array', items: { type: 'string' },
-                      description: 'files you ran pr-review-fix-reviewed.js --mark on; [] if none' },
+                      description: 'files you ran review-and-fix-pr-reviewed.js --mark on; [] if none' },
     followUps: {
       type: 'array',
       description: 'work this change implies that nobody has done; [] if none',
@@ -499,7 +499,7 @@ async function agentSafe(prompt, opts) {
 async function revokeReviewRuns(setup, chunkIds, reason) {
   const ids = [...new Set(chunkIds)].filter(Boolean)
   if (!ids.length) return true
-  const commands = ids.map(id => 'node ' + shq(HOME_BIN + '/pr-review-fix-reviewed.js') + ' --revoke --ledger ' +
+  const commands = ids.map(id => 'node ' + shq(HOME_BIN + '/review-and-fix-pr-reviewed.js') + ' --revoke --ledger ' +
     shq(setup.ledgerPath) + ' --run ' + shq(RUN_TAG + '-rv-' + id) + ' --stage review')
   const r = await agentSafe([
     'Ledger cleanup. Run every command exactly; these reviewers marked files clean before another review found a defect in them.',
@@ -599,7 +599,7 @@ function fullPrPrompt(scope, base, setup, foundNothing, reviewOnly, parentSha) {
     '=== HOW THIS WORKS ===',
     'A driver script walks you through the review one step at a time. Run this now:',
     '',
-    '  node ' + shq(HOME_BIN + '/pr-review-fix-driver.js') + ' start --batch ' + shq(RUN_TAG + '-rv-full') + ' \\',
+    '  node ' + shq(HOME_BIN + '/review-and-fix-pr-driver.js') + ' start --batch ' + shq(RUN_TAG + '-rv-full') + ' \\',
     '    --root ' + shq(scope.repoRoot) + ' --mode review \\',
     '    ' + (DETAILED ? '--detailed ' : '') + '--scratch ' + shq('/tmp/prfix-rv-' + RUN_TAG + '-full') + ' \\',
     '    --whole-files ' + shq((scope.changedFiles || [])
@@ -633,7 +633,7 @@ function fullPrPrompt(scope, base, setup, foundNothing, reviewOnly, parentSha) {
       '=== THEN FIX WHAT YOU FOUND ===',
       'Once the review driver has printed FINAL STATE, start the fix driver on the findings you kept:',
       '',
-      '  node ' + shq(HOME_BIN + '/pr-review-fix-driver.js') + ' start --batch ' + shq(RUN_TAG + '-fx-full') + ' \\',
+      '  node ' + shq(HOME_BIN + '/review-and-fix-pr-driver.js') + ' start --batch ' + shq(RUN_TAG + '-fx-full') + ' \\',
       '    --root ' + shq(scope.repoRoot) + ' \\',
       '    --parent ' + parentSha + ' --mode fix',
       '',
@@ -745,7 +745,7 @@ function scopePrompt() {
   const target = PR_ARG
     ? 'the pull request identified by "' + PR_ARG + '" (a number or a URL)'
     : 'the pull request associated with the currently checked-out branch'
-  const dir = HOME_DIR + '/pr-review-fix/<slug>'
+  const dir = HOME_DIR + '/review-and-fix-pr/<slug>'
   return [
     workdir(''),
     'You scope AND set up an automated PR review run. Two agents used to do this; it is one because',
@@ -753,7 +753,7 @@ function scopePrompt() {
     'about 15k tokens of prompt prefix to re-learn them.',
     'You are READ-ONLY inside the repository: you may run git and gh commands that only read, but you',
     'must NOT edit a repo file or run git add/commit/checkout/stash/reset/clean/push. Everything you',
-    'write goes under ' + HOME_DIR + '/pr-review-fix/, never inside the repo.',
+    'write goes under ' + HOME_DIR + '/review-and-fix-pr/, never inside the repo.',
     '',
     'TARGET: ' + target + '.',
     '',
@@ -806,9 +806,9 @@ function scopePrompt() {
     '',
     '========================= PART B: SET THE RUN UP =========================',
     '',
-    'B1. HELPER SCRIPTS. Check pr-review-fix-chunker.js, pr-review-fix-driver.js, pr-review-fix-repofp.js and pr-review-fix-reviewed.js all exist under',
-    '    ' + HOME_BIN + ', and that `node ' + HOME_BIN + '/pr-review-fix-chunker.js` runs (it exits 2 with a usage',
-    '    error - that is success). pr-review-fix-driver.js matters most: every reviewer and every fixer is walked',
+    'B1. HELPER SCRIPTS. Check review-and-fix-pr-chunker.js, review-and-fix-pr-driver.js, review-and-fix-pr-repofp.js and review-and-fix-pr-reviewed.js all exist under',
+    '    ' + HOME_BIN + ', and that `node ' + HOME_BIN + '/review-and-fix-pr-chunker.js` runs (it exits 2 with a usage',
+    '    error - that is success). review-and-fix-pr-driver.js matters most: every reviewer and every fixer is walked',
     '    through its work by it, so without it nothing can review or commit anything.',
     '    Set binOk. If any is missing, set binOk false, say so in notes, and return; do NOT write them',
     '    yourself.',
@@ -816,7 +816,7 @@ function scopePrompt() {
     'B2. THE REVIEWABILITY RULE, at ' + dir + '/classify.json with metadata in ' + dir + '/meta.json',
     '    (substitute the slug you reported for <slug>; expand ~ to ' + HOME_DIR + ').',
     '    Get the repo fingerprint by running exactly:',
-    '      node ' + HOME_BIN + '/pr-review-fix-repofp.js --root <the repoRoot you reported>',
+    '      node ' + HOME_BIN + '/review-and-fix-pr-repofp.js --root <the repoRoot you reported>',
     '    It prints one sha256 and nothing else. Use it VERBATIM - do not compute it yourself. A',
     '    fingerprint that drifts silently regenerates the rule and wastes a large agent.',
     REFRESH_RULES
@@ -833,7 +833,7 @@ function scopePrompt() {
     '',
     'B4. CHUNK THE DIFF - only if classifyAction is "reused". Run it once, for every stage at a time:',
     '',
-    '      node ' + HOME_BIN + '/pr-review-fix-chunker.js \\',
+    '      node ' + HOME_BIN + '/review-and-fix-pr-chunker.js \\',
     '        --root <repoRoot> --base <mergeBaseSha> --head <headSha> \\',
     '        --classify <classifyPath> --ledger <ledgerPath> \\',
     '        --out <runDir>/all --isolation ' + JSON.stringify(ISOLATION) + ' \\',
@@ -856,7 +856,7 @@ function scopePrompt() {
 }
 
 function classifyGenPrompt(scope) {
-  const dir = HOME_DIR + '/pr-review-fix/' + scope.slug
+  const dir = HOME_DIR + '/review-and-fix-pr/' + scope.slug
   return [
     workdir(scope.repoRoot),
     'You write the reviewability rule for ' + scope.repo + ' - the single function that decides which',
@@ -887,13 +887,13 @@ function classifyGenPrompt(scope) {
     '',
     'TEST it before you finish: run it over this PR\'s real changed-file list and print the verdicts.',
     'Fix anything obviously wrong. Then write ' + dir + '/meta.json as',
-    '{"repo":"' + scope.repo + '","fingerprint":"<the pr-review-fix-repofp.js output>","generatedAt":"<iso8601>","version":2},',
-    'taking the fingerprint from `node ' + HOME_BIN + '/pr-review-fix-repofp.js --root ' + scope.repoRoot + '` verbatim.',
+    '{"repo":"' + scope.repo + '","fingerprint":"<the review-and-fix-pr-repofp.js output>","generatedAt":"<iso8601>","version":2},',
+    'taking the fingerprint from `node ' + HOME_BIN + '/review-and-fix-pr-repofp.js --root ' + scope.repoRoot + '` verbatim.',
     '',
     '',
     '=== OUTPUT ===',
     'classifyPath: the absolute path you wrote, with ~ expanded.',
-    'fingerprint: the pr-review-fix-repofp.js output you put in meta.json, verbatim.',
+    'fingerprint: the review-and-fix-pr-repofp.js output you put in meta.json, verbatim.',
     'ok: true ONLY if classify.json is written, is valid JSON, and the chunker ran it over changed files',
     'without an error. If anything went wrong set it false and explain in notes - the run stops',
     'rather than chunking with a broken rule.',
@@ -950,7 +950,7 @@ function chunkerPrompt(scope, setup, stageList, stageSha, caps) {
     '',
     'Run exactly this, from ' + scope.repoRoot + ':',
     '',
-    '  node ' + shq(HOME_BIN + '/pr-review-fix-chunker.js') + ' \\',
+    '  node ' + shq(HOME_BIN + '/review-and-fix-pr-chunker.js') + ' \\',
     '    --root ' + shq(scope.repoRoot) + ' \\',
     '    --base ' + shq(scope.mergeBaseSha) + ' \\',
     '    --head ' + shq(stageSha) + ' \\',
@@ -1037,7 +1037,7 @@ function reviewerPrompt(scope, setup, chunk) {
     '=== HOW THIS WORKS ===',
     'A driver script walks you through it one step at a time. Run this now:',
     '',
-    '  node ' + shq(HOME_BIN + '/pr-review-fix-driver.js') + ' start --batch ' + shq(RUN_TAG + '-rv-' + chunk.id) + ' \\',
+    '  node ' + shq(HOME_BIN + '/review-and-fix-pr-driver.js') + ' start --batch ' + shq(RUN_TAG + '-rv-' + chunk.id) + ' \\',
     '    --root ' + shq(scope.repoRoot) + ' --mode review \\',
     '    ' + (DETAILED ? '--detailed ' : '') + '--scratch ' + shq('/tmp/prfix-rv-' + RUN_TAG + '-' + chunk.stage + '-' + chunk.id) + ' \\',
     '    --chunk ' + shq(chunk.path) + ' \\',
@@ -1118,7 +1118,7 @@ function reviewerPrompt(scope, setup, chunk) {
     ] : [
       'You are READ-ONLY. Do not edit any file. Do not run git add/commit/stash/checkout/reset/clean/',
       'push, package managers, formatters, linters with --fix, or code generators. The only things you',
-      'write are the driver commands and the pr-review-fix-reviewed.js command the driver prints for you.',
+      'write are the driver commands and the review-and-fix-pr-reviewed.js command the driver prints for you.',
     ]),
     '',
     '=== OUTPUT ===',
@@ -1157,7 +1157,7 @@ function fixerPrompt(scope, base, batch, batchId, batchNo, batchCount, parentSha
     '=== HOW THIS WORKS ===',
     'A driver script walks you through it one step at a time. Run this now:',
     '',
-    '  node ' + shq(HOME_BIN + '/pr-review-fix-driver.js') + ' start --batch ' + shq(RUN_TAG + '-' + batchId) + ' \\',
+    '  node ' + shq(HOME_BIN + '/review-and-fix-pr-driver.js') + ' start --batch ' + shq(RUN_TAG + '-' + batchId) + ' \\',
     '    --root ' + shq(scope.repoRoot) + ' \\',
     '    --parent ' + parentSha + ' --mode fix',
     '',
@@ -1617,7 +1617,7 @@ const scope = await agentSafe(scopePrompt(), {
   schema: SCOPE_SCHEMA, label: 'scope', effort: 'high',
   disallowedTools: DENY_READONLY,
 })
-if (!scope) return 'pr-review-fix: aborted before doing anything - the scope agent returned no result.\nNothing was changed.'
+if (!scope) return 'review-and-fix-pr: aborted before doing anything - the scope agent returned no result.\nNothing was changed.'
 
 const unsafeScope = []
 if (!/^[\w.-]+__[\w.-]+$/.test(scope.slug || '')) unsafeScope.push('unsafe repository slug')
@@ -1629,20 +1629,20 @@ for (const f of (scope.changedFiles || [])) {
 }
 if (scope.classifyPath && scope.classifyPath !== 'none' && !scope.classifyPath.endsWith('/' + scope.slug + '/classify.json')) unsafeScope.push('classifier path is outside the repo cache')
 if (scope.ledgerPath && scope.ledgerPath !== 'none' && !scope.ledgerPath.endsWith('/' + scope.slug + '/reviewed.json')) unsafeScope.push('ledger path is outside the repo cache')
-if (unsafeScope.length) return 'pr-review-fix refused unsafe scope output:\n  - ' + unsafeScope.join('\n  - ') + '\n\nNothing was changed.'
+if (unsafeScope.length) return 'review-and-fix-pr refused unsafe scope output:\n  - ' + unsafeScope.join('\n  - ') + '\n\nNothing was changed.'
 
 if (scope.blocker && scope.blocker !== 'none') {
-  return 'pr-review-fix refused to start.\n\n' + scope.blocker + '\n\nNothing was changed.'
+  return 'review-and-fix-pr refused to start.\n\n' + scope.blocker + '\n\nNothing was changed.'
 }
 if (!scope.treeClean) {
-  return 'pr-review-fix refused to start: your working tree is dirty.\n\n' +
+  return 'review-and-fix-pr refused to start: your working tree is dirty.\n\n' +
          'This workflow commits to the current branch, and a batch whose build fails leaves its edits in\n' +
          'the tree for you to look at. Both of those become unreadable mixed with uncommitted work of\n' +
          'your own, and it has no way to tell which edits are yours.\n\n' +
          'Commit or stash your changes, then run it again. Nothing was changed.'
 }
 if (!scope.headMatchesPr) {
-  return 'pr-review-fix refused to start: HEAD is not the PR head.\n\n' +
+  return 'review-and-fix-pr refused to start: HEAD is not the PR head.\n\n' +
          '  you are on: ' + scope.startBranch + ' @ ' + shortSha(scope.startSha) + '\n' +
          '  PR #' + (scope.prNumber || '?') + ' head: ' + shortSha(scope.headSha) + '\n\n' +
          'Fixes would be committed to the wrong branch. Check the PR out first:\n' +
@@ -1659,7 +1659,7 @@ if (setup.classifyAction === 'needs-generation') {
     schema: CLASSIFY_GEN_SCHEMA, label: 'classify-gen', effort: 'high', disallowedTools: DENY_COMMON,
   })
   if (!gen || !gen.ok) {
-    return 'pr-review-fix stopped: could not generate a reviewability rule for ' + scope.repo + '.\n\n' +
+    return 'review-and-fix-pr stopped: could not generate a reviewability rule for ' + scope.repo + '.\n\n' +
            ((gen && gen.notes) || 'the generator agent returned nothing') + '\n\nNothing was changed.'
   }
   log('reviewability rule written: ' + gen.summary)
@@ -1673,13 +1673,13 @@ if (setup.classifyAction === 'needs-generation') {
   })
 }
 if (!setup.binOk) {
-  return 'pr-review-fix refused to start: the helper scripts are missing.\n\n' +
-         'Expected pr-review-fix-chunker.js, pr-review-fix-driver.js, pr-review-fix-reviewed.js and pr-review-fix-repofp.js under ' + HOME_BIN + '.\n' +
+  return 'review-and-fix-pr refused to start: the helper scripts are missing.\n\n' +
+         'Expected review-and-fix-pr-chunker.js, review-and-fix-pr-driver.js, review-and-fix-pr-reviewed.js and review-and-fix-pr-repofp.js under ' + HOME_BIN + '.\n' +
          (setup.notes ? '\n' + setup.notes + '\n' : '') +
          '\nNothing was changed.'
 }
 const setupProblems = []
-const cacheMarker = '/pr-review-fix/' + scope.slug + '/'
+const cacheMarker = '/review-and-fix-pr/' + scope.slug + '/'
 if (!String(setup.classifyPath || '').includes(cacheMarker) || !String(setup.classifyPath).endsWith('/classify.json')) setupProblems.push('unsafe classifier path')
 if (!String(setup.ledgerPath || '').includes(cacheMarker) || !String(setup.ledgerPath).endsWith('/reviewed.json')) setupProblems.push('unsafe ledger path')
 if (!String(setup.runDir || '').includes(cacheMarker + 'runs/')) setupProblems.push('unsafe run directory')
@@ -1688,7 +1688,7 @@ for (const c of (setup.chunks || [])) {
       !(c.files || []).every(f => f && !f.startsWith('/') && !f.split('/').includes('..')) ||
       !(c.wholeFiles || []).every(f => (c.files || []).includes(f))) setupProblems.push('unsafe or malformed chunk ' + String((c && c.id) || '(unknown)'))
 }
-if (setupProblems.length) return 'pr-review-fix refused unsafe setup output:\n  - ' + setupProblems.join('\n  - ') + '\n\nNothing was changed.'
+if (setupProblems.length) return 'review-and-fix-pr refused unsafe setup output:\n  - ' + setupProblems.join('\n  - ') + '\n\nNothing was changed.'
 log('classifier ' + setup.classifyAction + ': ' + setup.classifyPath)
 log('ledger: ' + setup.ledgerEntries + ' hunk(s) already recorded clean' + (IGNORE_LEDGER ? ' (ignoreLedger set - they will be reviewed anyway)' : ''))
 
@@ -1772,7 +1772,7 @@ const RESOLVED_MODE = MODE !== 'auto' ? MODE
 // fall through to a whole-PR pass - that would re-read every file the ledger says is clean and make
 // the ledger pointless. Only an explicit mode may override this.
 if (MODE === 'auto' && !scheduled && allManifest.hunksInLedger) {
-  return 'pr-review-fix: nothing to review - every changed file in PR #' + (scope.prNumber || '?') +
+  return 'review-and-fix-pr: nothing to review - every changed file in PR #' + (scope.prNumber || '?') +
          ' was already reviewed and found clean in an earlier run, and none of them has changed since.\n\n' +
          allManifest.hunksInLedger + ' hunk(s) skipped via ' + setup.ledgerPath + '\n\n' +
          'Re-run with ignoreLedger: true to review them anyway, or mode: \'single\' for a fresh whole-PR pass.\n' +
@@ -1826,15 +1826,15 @@ function discardBatch(batchId, claimedFixed, findings, why) {
 // Distinguish "nothing to review" from "the chunker failed". Silently reviewing nothing because a
 // helper broke would look exactly like a clean PR, which is the worst possible failure mode here.
 if (setup.chunkerStderr && setup.chunkerStderr !== 'none' && !allManifest.chunks.length) {
-  return 'pr-review-fix stopped: the chunker failed, so no hunk could be scheduled.\n\n' +
+  return 'review-and-fix-pr stopped: the chunker failed, so no hunk could be scheduled.\n\n' +
          setup.chunkerStderr + '\n\n' +
-         'Check that `node ' + HOME_BIN + '/pr-review-fix-chunker.js` runs, and that ' + setup.classifyPath + ' is valid JS.\n\n' +
+         'Check that `node ' + HOME_BIN + '/review-and-fix-pr-chunker.js` runs, and that ' + setup.classifyPath + ' is valid JS.\n\n' +
          'Nothing was changed.'
 }
 // In single mode the chunk manifest is informational only - the whole-PR pass reads the diff itself,
 // so an empty manifest (everything already in the ledger) must not abort the run.
 if (!['single', 'full'].includes(RESOLVED_MODE) && !scheduled && !allManifest.hunksInLedger) {
-  return 'pr-review-fix found nothing to review in PR #' + (scope.prNumber || '?') + '.\n\n' +
+  return 'review-and-fix-pr found nothing to review in PR #' + (scope.prNumber || '?') + '.\n\n' +
          'The chunker produced no chunks and nothing was skipped as already-clean, which usually means\n' +
          'the reviewability rule excluded every changed file.\n' +
          (((allManifest.notReviewable || []).length)
@@ -2303,7 +2303,7 @@ if (['single', 'full'].includes(RESOLVED_MODE) || (RESOLVED_MODE === 'parallel' 
 
 // There is no ledger agent any more. A file is recorded clean by the reviewer that read it, via
 // `reviewed.js --mark`, at the moment it is confident - and only for files it found nothing in, so
-// the content it records is content no fixer in this stage is about to change. pr-review-fix-reviewed.js hashes
+// the content it records is content no fixer in this stage is about to change. review-and-fix-pr-reviewed.js hashes
 // the file's diff off the WORKING TREE, which at that point is the stage's committed head.
 
 phase('Follow-ups')
