@@ -1,14 +1,23 @@
 ---
 name: draft-issue-description
-description: Draft a GitHub issue — title, labels and body — that matches how this specific repo actually files them — learned once from the repo's issue templates and forms, its contributing guide and its maintainers' own issues, cached per repo, rebuilt when the cache is 90 days old or the templates change. Use when asked to "file a bug", "write an issue", "draft an issue", "open a feature request", "report this", or to rewrite an existing issue in the repo's style. Drafts only — never creates, edits, labels or comments on an issue on GitHub.
+description: Draft a GitHub issue — title, labels and body — that matches how this specific repo actually files them — learned once from the repo's issue templates and forms, its contributing guide and its maintainers' own issues, cached per repo, rebuilt when the cache is 90 days old or the templates change. Use when asked to "file a bug", "write an issue", "draft an issue", "open a feature request", "report this", or to rewrite an existing issue in the repo's style. Use it before an issue is filed or its body changed — "create an issue", "open an issue", "file an issue", "file a ticket", "update the issue" — to write the text that issue is filed or updated with, and use it when the points the issue should make are handed to you rather than asked for. Drafts only — never creates, edits, labels or comments on an issue on GitHub; the caller applies the text this skill returns.
 ---
 
 # Issue draft
 
 Produces **text**: a title, the labels the repo's template applies, and a body, printed for the
 user. This skill never calls `gh issue create`, `gh issue edit`, `gh issue comment` or anything else
-that writes to GitHub. Every `gh` call it makes is read-only. If the user wants the draft filed, they
-say so and that is a separate action outside this skill.
+that writes to GitHub. Every `gh` call it makes is read-only. Filing the draft — `gh issue create`,
+`gh issue edit` — is a separate step outside this skill, taken once it has returned by whoever asked
+for it.
+
+Drafts-only is a limit on what this skill does, **not** on when it runs. "Create an issue for this",
+"open an issue", "file a ticket", "update the issue" all need a title, labels and a body, so they run
+this skill first and the caller applies what it printed afterwards. It runs when the content is
+supplied too: a report the user pastes or the symptoms they dictate are the material, and this skill
+puts them in the kind, the labels and the sections the repo's forms ask for rather than inventing
+different content. Their facts win. The one case it does not run is text handed over as final and
+marked to be used verbatim.
 
 The draft is written by a **cached, repo-specific generation prompt** — not by generic instincts
 about what a bug report should look like. Each repo gets its own prompt, derived once from its issue
@@ -280,3 +289,8 @@ could not determine, a reproduction you did not run, a possible duplicate you fo
 if `CACHE_VERIFIED=false`, that the repo's prompt carries `CACHE_UNRESOLVED` unresolved verification
 findings and will be rebuilt within a week. Nothing else: no summary of what you did, no account of
 the driver passes, no offer to file it.
+
+Do not offer, and do not stop, when the request was the action. "Create an issue for this", "update
+the issue" are asks this skill does not carry out itself, so filing or editing that issue is your
+next step once the skill has returned — with this title, these labels and this body, unedited. Print
+it either way: the user sees the text before it lands, and sees it even when the `gh` call fails.
