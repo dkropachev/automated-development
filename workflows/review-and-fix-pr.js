@@ -254,11 +254,11 @@ const MANIFEST_SCHEMA = {
           files: { type: 'array', items: { type: 'string' } },
           wholeFiles: { type: 'array', items: { type: 'string' } },
           path: { type: 'string', description: 'absolute path to the chunk .diff file' },
-          hashFile: { type: 'string', description: 'path to the .hashes sidecar; optional, nothing reads it' },
+          hashFile: { type: 'string', description: 'absolute path to the .hashes sidecar for this chunk' },
           bytes: { type: 'integer' },
           hunkCount: { type: 'integer' },
         },
-        required: ['id', 'stage', 'lockKey', 'files', 'wholeFiles', 'path', 'bytes', 'hunkCount'],
+        required: ['id', 'stage', 'lockKey', 'files', 'wholeFiles', 'path', 'hashFile', 'bytes', 'hunkCount'],
       },
     },
     hunksInLedger: { type: 'integer', description: 'hunks skipped because they were already clean' },
@@ -733,7 +733,7 @@ function rankForTruncation(chunks) {
 // Before committing to a stage, work out how many agents it will need and whether that fits in what
 // is left. If not, widen the byte caps so the same hunks pack into fewer, larger chunks and re-chunk.
 // Only if that still does not fit do we truncate - and then we say exactly what went unreviewed.
-async function fitStage(scope, setup, stage, chunks, stageSha) {
+async function fitStage(scope, setup, stage, chunks, stageSha, exclude) {
   let current = chunks
 
   const truncate = (why) => {
@@ -761,7 +761,10 @@ async function fitStage(scope, setup, stage, chunks, stageSha) {
     for (const k of Object.keys(caps)) caps[k] = caps[k] * 2
     log(stage + ': ' + current.length + ' chunk(s) would need ~' + need + ' agents but only ' + headroom +
         ' are left - doubling caps to ' + JSON.stringify(caps) + ' and re-chunking')
-    const re = await agentSafe(chunkerPrompt(scope, setup, [stage], stageSha, caps), {
+    // Same excludes as the chunking this is widening, or the refit hands back the hunks an earlier
+    // round already reviewed and the count below compares two different bodies of work.
+    const re = await agentSafe(chunkerPrompt(scope, setup, [stage], stageSha, caps,
+                                             { exclude, outTag: 'fit' + (attempt + 1) }), {
       schema: MANIFEST_SCHEMA, label: 'refit ' + stage, effort: 'low', disallowedTools: DENY_READONLY,
     })
     if (!re || !re.chunks || !re.chunks.length) {
@@ -991,8 +994,16 @@ function baselinePrompt(scope) {
 
 // Only used to RE-chunk a stage whose files an earlier stage edited. The first-pass chunking is
 // done by the setup agent, which already has Bash open.
-function chunkerPrompt(scope, setup, stageList, stageSha, caps) {
+// `opts.exclude` is the .hashes sidecars of chunks somebody has already reviewed this run; the
+// chunker drops their hunks, so a re-chunk returns the work that is actually left rather than the
+// whole stage. `opts.outTag` keeps each chunking's files apart: two chunkings of one stage at one
+// sha (a budget refit, say) would otherwise write different content over the same 0000.diff.
+function chunkerPrompt(scope, setup, stageList, stageSha, caps, opts) {
   caps = caps || CAPS
+  opts = opts || {}
+  const exclude = (opts.exclude || []).filter(Boolean)
+  const outDir = setup.runDir + '/' + stageList.join('-') + '-' + shortSha(stageSha) +
+                 (opts.outTag ? '-' + opts.outTag : '')
   return [
     workdir(scope.repoRoot),
     'You are the chunker for an automated PR review-and-fix run, covering stage(s): ' + stageList.join(', ') + '.',
@@ -1006,14 +1017,15 @@ function chunkerPrompt(scope, setup, stageList, stageSha, caps) {
     '    --head ' + shq(stageSha) + ' \\',
     '    --classify ' + shq(setup.classifyPath) + ' \\',
     '    --ledger ' + shq(setup.ledgerPath) + ' \\',
-    '    --out ' + shq(setup.runDir + '/' + stageList.join('-') + '-' + shortSha(stageSha)) + ' \\',
+    '    --out ' + shq(outDir) + ' \\',
     '    --isolation ' + JSON.stringify(ISOLATION) + ' \\',
     '    --caps ' + JSON.stringify(JSON.stringify(caps)) + ' \\',
+    ...exclude.map(f => '    --exclude-hashes ' + shq(f) + ' \\'),
     '    --stages ' + stageList.join(',') + (IGNORE_LEDGER ? ' \\\n    --ignore-ledger' : ''),
     '',
     'It prints a JSON manifest on stdout. Return:',
     '  - chunks: the `chunks` array verbatim, every field preserved exactly as printed - id, stage,',
-    '    lockKey, files, wholeFiles, path, bytes, hunkCount. Do NOT re-order it, do not',
+    '    lockKey, files, wholeFiles, path, hashFile, bytes, hunkCount. Do NOT re-order it, do not',
     '    drop a field and do not retype a value. wholeFiles especially: it is the ONLY thing that lets',
     '    a reviewer record a file as clean for future runs, an empty array where the chunker gave you',
     '    paths silently throws that away, and nothing downstream can tell the difference.',
@@ -1392,7 +1404,7 @@ function renderReport(state) {
   out.push('Stop reason:  ' + (STOP_TEXT[stopReason] || stopReason))
   out.push('Agents:       ' + agentsSpawned + ' of ' + MAX_AGENTS + '    tokens: ' + spentSoFar().toLocaleString() +
            (MAX_TOKENS === null ? ' (no ceiling set)' : ' of ' + MAX_TOKENS.toLocaleString()))
-  out.push('Stages run:   ' + stageLog.map(s => s.stage).join(' -> ') || '(none)')
+  out.push('Stages run:   ' + (stageLog.map(s => s.stage).join(' -> ') || '(none)'))
   out.push('Chunks:       ' + state.totalChunks + ' reviewed, ' + state.cleanChunks + ' ended clean')
   out.push('Fixed:        ' + knownFixed.size)
   out.push('Still present after fixes: ' + stillPresent.length)
@@ -1735,6 +1747,7 @@ if (!String(setup.ledgerPath || '').includes(cacheMarker) || !String(setup.ledge
 if (!String(setup.runDir || '').includes(cacheMarker + 'runs/')) setupProblems.push('unsafe run directory')
 for (const c of (setup.chunks || [])) {
   if (!c || !/^[\w.-]+$/.test(c.id || '') || !STAGES.includes(c.stage) || !String(c.path || '').startsWith(setup.runDir + '/') ||
+      !String(c.hashFile || '').startsWith(setup.runDir + '/') ||
       !(c.files || []).every(f => f && !f.startsWith('/') && !f.split('/').includes('..')) ||
       !(c.wholeFiles || []).every(f => (c.files || []).includes(f))) setupProblems.push('unsafe or malformed chunk ' + String((c && c.id) || '(unknown)'))
 }
@@ -1980,6 +1993,13 @@ function absorbFix(res, stage, batchId) {
 // with the chunks it had not reached, so `code round 2` runs before `test` ever starts.
 const stageQueue = STAGES.map(st => ({ stage: st, only: null, round: 1 }))
 
+// The .hashes sidecars of every chunk a reviewer has actually finished, per stage. A stage that
+// re-chunks - because fixes moved the tree, or because the budget forced wider caps - hands these
+// to the chunker as --exclude-hashes, so what comes back is the hunks nobody has reached. Keyed on
+// hunks, not on file names: a file too big for one chunk is split across several, and a file-name
+// filter either returns chunks the run already paid for or silently drops hunks it never saw.
+const reviewedHashFiles = new Map(STAGES.map(st => [st, []]))
+
 if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
   const item = stageQueue.shift()
   const stage = item.stage
@@ -1994,18 +2014,15 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
 
   const stageStartSha = headSha
   let chunks = item.only || chunksByStage.get(stage) || []
-  // A carried-over chunk is only stale if a fix has since edited one of ITS files; nothing else the
-  // fixer touched can have moved its hunks. That matters because a file too big for one chunk is
-  // split across several, so re-chunking a stale file hands back the chunks of it this stage has
-  // already reviewed - taking the re-chunk for the stale files only, and reusing the rest of the
-  // carry-over as it was chunked, is what keeps a round off hunks it has already paid for.
-  const staleFiles = new Set(item.only
-    ? item.only.flatMap(c => c.files || []).filter(f => (item.touched || []).includes(f))
-    : [])
-  if (stageStartSha !== scope.headSha && (!item.only || staleFiles.size)) {
+  // Everything this stage has already had reviewed, in the only form a re-chunk can filter on.
+  // Snapshotted: this round appends to the same array as its own reviewers finish.
+  const stageExclude = (reviewedHashFiles.get(stage) || []).slice()
+  if (stageStartSha !== scope.headSha) {
     phase('Chunk')
-    log(stage + ': fixes have landed since the chunking - re-chunking against ' + shortSha(stageStartSha) + ' so new and moved files are included')
-    const re = await agentSafe(chunkerPrompt(scope, setup, [stage], stageStartSha), {
+    log(stage + ': fixes have landed since the chunking - re-chunking against ' + shortSha(stageStartSha) + ' so new and moved files are included' +
+        (stageExclude.length ? ', excluding the ' + stageExclude.length + ' chunk(s) this stage already reviewed' : ''))
+    const re = await agentSafe(chunkerPrompt(scope, setup, [stage], stageStartSha, null,
+                                             { exclude: stageExclude, outTag: 'r' + item.round }), {
       schema: MANIFEST_SCHEMA, label: 'rechunk ' + stage, effort: 'low', disallowedTools: DENY_READONLY,
     })
     if (!re || !Array.isArray(re.chunks) || (re.stderr && re.stderr !== 'none')) {
@@ -2016,18 +2033,9 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
       break
     }
     ledgerSkipped += re.hunksInLedger || 0
-    // A resumed round is only responsible for what it had not reached: take the re-chunked form of
-    // every stale file, and keep the carried chunks of the files no fix touched exactly as they are.
-    if (item.only) {
-      const fresh = re.chunks.filter(c => (c.files || []).some(f => staleFiles.has(f)))
-      // Ids restart at 0000 on every chunking, so a round holding two chunkings at once has two
-      // chunks per id. Stamping the round that minted a chunk keeps the id spaces apart in
-      // reviewKey(), here and in any later round that carries these same chunks again.
-      for (const c of fresh) c.mint = item.round
-      chunks = item.only.filter(c => !(c.files || []).some(f => staleFiles.has(f))).concat(fresh)
-    } else {
-      chunks = re.chunks
-    }
+    // One chunking, covering exactly what is left: the hunks already reviewed were filtered out by
+    // hash, so there is no carry-over to splice in and no second id space to keep apart.
+    chunks = re.chunks
   }
   if (!chunks.length) {
     log(stage + ': nothing to review')
@@ -2035,11 +2043,12 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
     // the fixer renamed or deleted the file, or an agent recorded it clean - they are unreviewed,
     // and this item is already off stageQueue, so the drain at the end of the loop cannot say so.
     for (const c of (item.only || [])) unreviewed.push({ chunk: c, why: 'carried over, but the re-chunk no longer produced these hunks' })
+
     stageLog.push({ stage: stageLabel, chunks: 0, clean: 0, fixed: 0, stillPresent: 0, verdict: 'not run', commitSha: 'none', note: 'no reviewable hunks' })
     continue
   }
 
-  const fitted = await fitStage(scope, setup, stage, chunks, stageStartSha)
+  const fitted = await fitStage(scope, setup, stage, chunks, stageStartSha, stageExclude)
   chunks = fitted.chunks
   for (const c of fitted.unreviewed) unreviewed.push({ chunk: c, why: 'did-not-fit-budget' })
   if (!chunks.length) {
@@ -2053,18 +2062,16 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
   log(stage + ': reviewing ' + chunks.length + ' chunk(s) with up to ' + REVIEW_CONCURRENCY + ' reviewer(s) at a time')
   // Chunk ids restart at 0000 on every re-chunk, so the driver batch a reviewer opens - and the run
   // tag its clean marks are recorded under - has to carry the stage and the round as well, or a later
-  // reviewer meets "state already exists for --batch" and a revocation hits the wrong run.
-  // A round that reused part of its carry-over holds two chunkings at once, so the minting round
-  // separates the re-chunked ids from the carried ones.
-  const reviewKey = (c) => c.stage + (item.round > 1 ? 'r' + item.round : '') + (c.mint ? 'n' + c.mint : '') + '-' + c.id
+  // reviewer meets "state already exists for --batch" and a revocation hits the wrong run. A round
+  // holds exactly one chunking (the re-chunk covers everything left, filtered by hunk hash), so the
+  // stage and the round name a chunk uniquely.
+  const reviewKey = (c) => c.stage + (item.round > 1 ? 'r' + item.round : '') + '-' + c.id
   const reviewed = await runWaves(chunks, REVIEW_CONCURRENCY, async (chunk) =>
     agentSafe(reviewerPrompt(scope, setup, chunk, reviewKey(chunk)), {
       schema: REVIEW_SCHEMA, phase: 'Review', label: 'review ' + chunk.id,
       effort: DETAILED ? 'high' : (chunk.stage === 'other' ? 'medium' : 'high'), disallowedTools: DENY_READONLY,
     }), REVIEW_ONLY ? Infinity : MAX_OUTSTANDING)   // nothing fixes anything on a review-only run, so nothing to wait for
-  // Filled in below with what the fixers actually edit, so the next round knows which of these
-  // chunks a fix has moved under and which are still exactly as they were chunked.
-  const carried = reviewed.paused ? { stage, only: reviewed.unreviewed, round: item.round + 1, touched: [] } : null
+  const carried = reviewed.paused ? { stage, only: reviewed.unreviewed, round: item.round + 1 } : null
   if (reviewed.paused) {
     // Not unreviewed - deferred to the next round of this same stage, ahead of every other stage.
     stageQueue.unshift(carried)
@@ -2107,7 +2114,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
     if (!aborted) for (const f of (result.markedReviewed || [])) markedReviewed.push({ file: f, stage, chunk: reviewKey(chunk) })
     for (const u of (result.followUps || [])) {
       if (!u || !u.title) continue
-      followUpsRaw.push({ stage, chunkId: 'review-' + chunk.id, title: u.title, detail: u.detail || '',
+      followUpsRaw.push({ stage, chunkId: 'review-' + reviewKey(chunk), title: u.title, detail: u.detail || '',
                           area: u.area || 'none', size: u.size || 'big', doneNow: false,
                           releaseBlocker: !!u.releaseBlocker, blockerReason: u.blockerReason || 'none' })
     }
@@ -2120,7 +2127,15 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
     }
     // Counted here and not from the wave: a chunk whose reviewer returned nothing, whose driver
     // aborted or whose result was vacuous is listed as NOT REVIEWED, so it is not a reviewed chunk.
-    if (!aborted) stageReviewed++
+    if (!aborted) {
+      stageReviewed++
+      // Only a chunk a reviewer read to the end is excluded from the next re-chunk. One whose driver
+      // aborted, whose result was vacuous or which returned nothing falls through to here unrecorded,
+      // so a later round chunks its hunks again rather than losing them.
+      // Agent-reported, and it ends up on a command line, so it is only ever this run's own scratch.
+      if (String(chunk.hashFile || '').startsWith(setup.runDir + '/')) (reviewedHashFiles.get(stage) || []).push(chunk.hashFile)
+      else if (chunk.hashFile) log('  review ' + chunk.id + ': ignoring a .hashes path outside the run dir (' + chunk.hashFile + ')')
+    }
     if (!aborted && !(result.findings || []).length) stageClean++
     for (const f of (result.findings || [])) {
       if (!f || !f.fingerprint) continue
@@ -2140,7 +2155,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
       if (f.scopeLabel === 'out') {
         setAside.delete(k)
         if (nearDuplicate(pile, f)) { log('  out-of-scope ' + k + ' dropped: an in-scope reviewer already has the same defect'); continue }
-        if (!outOfScopeFindings.some(x => norm(x.finding.fingerprint) === k || sameDefect(f, x.finding))) outOfScopeFindings.push({ chunkId: chunk.id, stage, finding: f })
+        if (!outOfScopeFindings.some(x => norm(x.finding.fingerprint) === k || sameDefect(f, x.finding))) outOfScopeFindings.push({ chunkId: reviewKey(chunk), stage, finding: f })
         continue
       }
       // From here the finding is this PR's business. An in-scope judgement supersedes any earlier
@@ -2245,7 +2260,6 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
     const grant = new Set(batches[bi].flatMap(f => (f.files && f.files.length) ? f.files : [f.primaryFile]))
     for (const f of (res.filesTouched || [])) {
       if (!grant.has(f)) { violations.push({ chunkId: batchId, stage, file: f }); log('  !! ' + batchId + ' reported editing ' + f + ', which none of its findings declared') }
-      if (carried && !carried.touched.includes(f)) carried.touched.push(f)
     }
     for (const f of (res.stillOpen || [])) {
       if ((f.files || [f.primaryFile]).some(x => /\.github\/workflows\//.test(String(x)))) workflowScopeBlocked = true

@@ -5,7 +5,15 @@
 //   node review-and-fix-pr-chunker.js --root <repo> --base <sha> --head <sha> --classify <classify.json>
 //                   --ledger <reviewed.json> --out <dir> --isolation './../'
 //                   --caps '{"code":20000,...}' --stages code,test,cicd,other [--ignore-ledger]
+//                   [--exclude-hashes <chunk.hashes>]...
 // Emits the manifest as JSON on stdout.
+//
+// --exclude-hashes drops every hunk listed in a .hashes sidecar this chunker wrote earlier. It is
+// how a run that has to re-chunk mid-stage - because fixes moved the tree, or because the agent
+// budget forced wider caps - asks for "the hunks nobody has reviewed yet" instead of the whole
+// stage back. Keying that on hunk hashes rather than on file names is the point: a file too big
+// for one chunk is split across several, so a file-name filter either hands back chunks the run
+// already paid for or drops hunks it never saw.
 
 const { execFileSync } = require('child_process')
 const fs = require('fs')
@@ -19,6 +27,19 @@ function argv(name, dflt) {
   return (v === undefined || v.startsWith('--')) ? true : v
 }
 
+// argv() finds the first occurrence only. --exclude-hashes is repeatable - one sidecar per chunk
+// already reviewed - so it needs every one.
+function argvAll(name) {
+  const out = []
+  for (let i = 0; i < process.argv.length; i++) {
+    if (process.argv[i] !== '--' + name) continue
+    const v = process.argv[i + 1]
+    if (v === undefined || v.startsWith('--')) { console.error('chunker: --' + name + ' needs a value'); process.exit(2) }
+    out.push(v)
+  }
+  return out
+}
+
 const ROOT = argv('root', process.cwd())
 const BASE = argv('base')
 const HEAD = argv('head')
@@ -29,6 +50,7 @@ const ISO = String(argv('isolation', './../'))
 const CAPS = JSON.parse(argv('caps', '{"code":20000,"test":20000,"cicd":20000,"other":20000}'))
 const STAGES = String(argv('stages', 'code,test,cicd,other')).split(',')
 const IGNORE_LEDGER = argv('ignore-ledger', false) === true
+const EXCLUDE_HASH_FILES = argvAll('exclude-hashes')
 
 // --lock-key answers "which lock does this path resolve to under this expression?" and exits. It is
 // the only way to see the isolation rule without running a whole chunking pass, and it is what the
@@ -122,6 +144,25 @@ if (!IGNORE_LEDGER && LEDGER && fs.existsSync(LEDGER)) {
   try { ledger = JSON.parse(fs.readFileSync(LEDGER, 'utf8')) || {} } catch { ledger = {} }
 }
 
+// ------------------------------------------------------------------ excludes --
+// Hunks a caller has already dealt with this run. Unlike the ledger these carry no verdict: they
+// are simply not this chunking's business. A missing or unreadable sidecar is fatal rather than
+// ignored - silently chunking the whole stage again is exactly the bug this option exists to fix,
+// and it would look like ordinary output.
+const EXCLUDE = new Set()
+for (const f of EXCLUDE_HASH_FILES) {
+  let text
+  try { text = fs.readFileSync(f, 'utf8') } catch (e) {
+    console.error('chunker: --exclude-hashes ' + f + ' could not be read: ' + e.message); process.exit(2)
+  }
+  for (const line of text.split('\n')) {
+    const h = line.split('\t')[0].trim()
+    if (!h) continue
+    if (!/^[0-9a-f]{64}$/.test(h)) { console.error('chunker: --exclude-hashes ' + f + ' has a malformed hash: ' + h.slice(0, 80)); process.exit(2) }
+    EXCLUDE.add(h)
+  }
+}
+
 // --------------------------------------------------------------------- diff --
 const sha = s => crypto.createHash('sha256').update(s).digest('hex')
 
@@ -145,7 +186,7 @@ function splitHunks(text) {
 const isoExpr = parseIsolation(ISO)
 const nameStatus = git('diff', '--name-status', '-z', `${BASE}...${HEAD}`).split('\0').filter(Boolean)
 
-const skipped = { notReviewable: [], inLedger: 0, inLedgerBytes: 0, cleanFiles: [] }
+const skipped = { notReviewable: [], inLedger: 0, inLedgerBytes: 0, cleanFiles: [], excluded: 0 }
 const totalHunksPerFile = new Map()
 const groups = new Map()   // "stage\u0000lockKey" -> {stage, lockKey, files: Map(file -> {header, hunks:[{body,hash,bytes}]})}
 
@@ -181,8 +222,12 @@ for (let i = 0; i < nameStatus.length; i++) {
   }
 
   const kept = []
+  let excludedHere = 0
   for (const body of hunks) {
     const h = sha(body)
+    // Checked before the ledger so an excluded hunk is never also counted as "already clean" - the
+    // two mean different things and the report prints the ledger count.
+    if (EXCLUDE.has(h)) { excludedHere++; skipped.excluded++; continue }
     if (ledger[h]) { skipped.inLedger++; skipped.inLedgerBytes += Buffer.byteLength(body); continue }
     kept.push({ body, hash: h, bytes: Buffer.byteLength(body) })
   }
@@ -192,7 +237,10 @@ for (let i = 0; i < nameStatus.length; i++) {
   const gk = stage + '\u0000' + key
   if (!groups.has(gk)) groups.set(gk, { stage, lockKey: key, files: new Map() })
   groups.get(gk).files.set(file, { header, hunks: kept })
-  totalHunksPerFile.set(file, kept.length)
+  // Excluded hunks count towards the total, so a file whose other half was reviewed in an earlier
+  // round can never appear in wholeFiles. A ledger-skipped hunk does NOT count: it carries a clean
+  // verdict already, so the chunk holding the rest really has seen everything still in question.
+  totalHunksPerFile.set(file, kept.length + excludedHere)
 }
 
 // ---------------------------------------------------------------- packing ----
@@ -261,7 +309,8 @@ for (const g of orderedGroups) {
 process.stdout.write(JSON.stringify({
   base: BASE, head: HEAD, isolation: ISO, caps: CAPS,
   chunks: manifest,
-  skipped: { notReviewable: skipped.notReviewable, hunksInLedger: skipped.inLedger, bytesInLedger: skipped.inLedgerBytes },
+  skipped: { notReviewable: skipped.notReviewable, hunksInLedger: skipped.inLedger, bytesInLedger: skipped.inLedgerBytes,
+             hunksExcluded: skipped.excluded },
   totals: {
     chunks: manifest.length,
     hunks: manifest.reduce((n, c) => n + c.hunkCount, 0),
