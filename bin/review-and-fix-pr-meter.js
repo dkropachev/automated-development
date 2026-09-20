@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 'use strict'
-// pr-review-fix meter. Reads a workflow run's subagent transcripts and reports the
+// review-and-fix-pr meter. Reads a workflow run's subagent transcripts and reports the
 // token shape of each agent, so the orchestrator can calibrate its reset projection.
 //
-//   node pr-review-fix-meter.js --dir <.../subagents/workflows/<runId>> [--label-prefix chunk]
+//   node review-and-fix-pr-meter.js --dir <.../subagents/workflows/<runId>> [--label-prefix chunk]
 //
 // CRITICAL: the transcript writes one record per assistant CONTENT BLOCK, so a message
 // carrying both `thinking` and `tool_use` appears twice with the same usage. Summing

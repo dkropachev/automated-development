@@ -52,7 +52,7 @@ for (const f of fs.existsSync(path.join(ROOT, 'agents')) ? fs.readdirSync(path.j
 // ---- skills: name == dir, description present, driver verbs/flags/files it references exist
 // Every driver this plugin ships, so a skill naming a verb or flag that its own driver does not
 // have is caught here rather than at runtime. Keyed by the basename a skill would write.
-const DRIVERS = ['promptgen-driver.js', 'pr-review-fix-driver.js'].map((f) => {
+const DRIVERS = ['promptgen-driver.js', 'review-and-fix-pr-driver.js'].map((f) => {
   const src = rd(path.join('bin', f))
   return {
     file: f,

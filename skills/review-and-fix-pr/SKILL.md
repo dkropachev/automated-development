@@ -1,12 +1,12 @@
 ---
-name: pr-review-fix
-description: Review a PR hunk by hunk, fix what it finds, defer what is too big, and report what is still broken after the fixes — chunking the diff into size-capped batches, staged code → tests → cicd → other, remembering clean hunks across runs. Use when asked to "review this PR and fix it", "review and fix PR 1234", "pr review fix", or to iterate on review findings until a PR is clean. Not for a read-only review (use /code-review for that).
+name: review-and-fix-pr
+description: Review a PR hunk by hunk, fix what it finds, defer what is too big, and report what is still broken after the fixes — chunking the diff into size-capped batches, staged code → tests → cicd → other, remembering clean hunks across runs. Use when asked to "review this PR and fix it", "review and fix PR 1234", "review and fix pr", or to iterate on review findings until a PR is clean. Not for a read-only review (use /code-review for that).
 ---
 
 # PR review-and-fix, chunked and staged
 
-Runs the `pr-review-fix` workflow. The diff is split into **chunks** — size-capped batches of whole
-hunks drawn from files that share an isolation lock key — and each chunk is reviewed, fixed and
+Runs the `review-and-fix-pr` workflow. The diff is split into **chunks** — size-capped batches of
+whole hunks drawn from files that share an isolation lock key — and each chunk is reviewed, fixed and
 **reviewed again** until it comes back clean. Stages run in a fixed order with a hard barrier
 between them: **code → tests → cicd → other**. Each fixer validates and commits its own batch.
 Nothing is ever pushed, and nothing is ever reverted.
@@ -19,7 +19,7 @@ Two shapes, picked by size:
   10, fixes, re-reads its own work, validates it and commits it — all in its own conversation —
   before a brand-new fixer starts the next 10.
 - **single** (small PRs) — one agent reviews and fixes the whole PR, driven through both loops by
-  `pr-review-fix-driver.js` exactly as a reviewer and a fixer are. Below ~4KB of diff the per-agent overhead of
+  `review-and-fix-pr-driver.js` exactly as a reviewer and a fixer are. Below ~4KB of diff the per-agent overhead of
   splitting costs more than it saves.
 
 What else is worth knowing:
@@ -45,7 +45,7 @@ What else is worth knowing:
 - **Nothing ends on a write.** A reviewer double-checks every candidate against the real code before
   reporting it; a fixer re-reads everything it changed and reports what its re-read still sees.
 - **Reviewed files are remembered across runs.** A reviewer that finds a file clean records it with
-  `pr-review-fix-reviewed.js` itself, keyed on the sha of that file's diff against the merge base, so it is never
+  `review-and-fix-pr-reviewed.js` itself, keyed on the sha of that file's diff against the merge base, so it is never
   reviewed again until its content changes. Only files it found nothing in are recorded, so the
   content recorded is content nobody is about to change; if a later fix touches such a file anyway,
   its sha changes and the next run reviews it again.
@@ -72,13 +72,13 @@ Refuse, and say which check failed, if any of these hold:
   `gh pr checkout <number>`.
 - `gh auth status` is not logged in, or no PR resolves.
 
-Also confirm the helper scripts exist (`pr-review-fix-chunker.js`, `pr-review-fix-driver.js`,
-`pr-review-fix-reviewed.js`, `pr-review-fix-repofp.js`) — the workflow refuses to start without
-them. `pr-review-fix-driver.js` matters most: every reviewer and every fixer is walked through its
-work by it.
+Also confirm the helper scripts exist (`review-and-fix-pr-chunker.js`,
+`review-and-fix-pr-driver.js`, `review-and-fix-pr-reviewed.js`, `review-and-fix-pr-repofp.js`) —
+the workflow refuses to start without them. `review-and-fix-pr-driver.js` matters most: every
+reviewer and every fixer is walked through its work by it.
 
 ```bash
-ls "${CLAUDE_PLUGIN_ROOT}/bin/" | grep pr-review-fix
+ls "${CLAUDE_PLUGIN_ROOT}/bin/" | grep review-and-fix-pr
 ```
 Run `npm test` in the plugin checkout if you suspect one of them.
 
@@ -94,9 +94,9 @@ nothing left to do:
 
 ```bash
 SLUG=<owner>__<repo>
-node "${CLAUDE_PLUGIN_ROOT}/bin/pr-review-fix-chunker.js" --root <repo> --base <mergeBase> --head <headSha> \
-  --classify ~/.claude/pr-review-fix/$SLUG/classify.json \
-  --ledger   ~/.claude/pr-review-fix/$SLUG/reviewed.json \
+node "${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-chunker.js" --root <repo> --base <mergeBase> --head <headSha> \
+  --classify ~/.claude/review-and-fix-pr/$SLUG/classify.json \
+  --ledger   ~/.claude/review-and-fix-pr/$SLUG/reviewed.json \
   --out /tmp/prfix-probe --isolation './../' 2>/dev/null | python3 -c \
   'import json,sys; m=json.load(sys.stdin); print(m["totals"]["chunks"], m["totals"]["bytes"])'
 ```
@@ -132,7 +132,7 @@ repository ownership is not delegated to a model-produced boolean.
 
 ```
 Workflow({
-  scriptPath: '${CLAUDE_PLUGIN_ROOT}/workflows/pr-review-fix.js',
+  scriptPath: '${CLAUDE_PLUGIN_ROOT}/workflows/review-and-fix-pr.js',
   args: {
     pr: '<number>',
     pluginRoot: '${CLAUDE_PLUGIN_ROOT}',   // REQUIRED - how the workflow finds its own helper scripts
@@ -171,7 +171,7 @@ the ledger, so a re-run picks it up.
 
 ## How the driver runs an agent
 
-`bin/pr-review-fix-driver.js` is a state machine that runs *inside* an agent's conversation: the agent runs a
+`bin/review-and-fix-pr-driver.js` is a state machine that runs *inside* an agent's conversation: the agent runs a
 command, the driver prints the next step, the agent does it and runs the next command. It holds the
 decisions the agent should not make for itself, and the step it prints is a command, not a rule —
 a gate the agent cannot talk itself past. Each machine has its own verbs so the two cannot be
@@ -194,7 +194,7 @@ if it has not moved.
 passes and **never tells the agent the count**, so it cannot aim for the exit; two in a row (or eight
 passes) move it to the double-check, and only then may it name clean files. Those names are
 intersected with the files the chunk wholly contains — a file with hunks in another chunk is refused
-and never reaches a `pr-review-fix-reviewed.js --mark` command, because no single reviewer can speak for it.
+and never reaches a `review-and-fix-pr-reviewed.js --mark` command, because no single reviewer can speak for it.
 
 **When the agent gets out of step.** A refused command is not a one-line error: the driver names
 which machine the verb belongs to, says where the batch actually is in the agent's own terms, prints
@@ -220,18 +220,18 @@ for you to decide.
 SHIPS WITH THE PLUGIN - read-only, never written to at runtime:
 
 ${CLAUDE_PLUGIN_ROOT}/
-  workflows/pr-review-fix.js            the orchestrator; Workflow runs it by scriptPath
-  bin/pr-review-fix-chunker.js          diff -> hunks -> lock-key groups -> capped chunks
+  workflows/review-and-fix-pr.js            the orchestrator; Workflow runs it by scriptPath
+  bin/review-and-fix-pr-chunker.js          diff -> hunks -> lock-key groups -> capped chunks
                                         (--lock-key --isolation X --path P prints one lock key)
-  bin/pr-review-fix-driver.js           two state machines: fix, and review
-  bin/pr-review-fix-reviewed.js         agents mark files reviewed-clean, keyed on content
-  bin/pr-review-fix-repofp.js           deterministic repo-shape fingerprint
-  bin/pr-review-fix-meter.js            token accounting, dedupes by requestId (manual tool -
+  bin/review-and-fix-pr-driver.js           two state machines: fix, and review
+  bin/review-and-fix-pr-reviewed.js         agents mark files reviewed-clean, keyed on content
+  bin/review-and-fix-pr-repofp.js           deterministic repo-shape fingerprint
+  bin/review-and-fix-pr-meter.js            token accounting, dedupes by requestId (manual tool -
                                         no agent runs it, and a run does not need it present)
 
 ACCUMULATES PER USER - state, not code, so it lives beside the plugin's other caches:
 
-~/.claude/pr-review-fix/
+~/.claude/review-and-fix-pr/
   state/<batch>.state.json              one live driver conversation; pruned after 7 days
   <owner>__<repo>/classify.json         the generated declarative reviewability rule
   <owner>__<repo>/meta.json             repo fingerprint; a change regenerates the rule

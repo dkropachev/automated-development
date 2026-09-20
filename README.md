@@ -86,10 +86,10 @@ the plausible version instead of the true one. It runs under the same driver.
 | `~/.claude/draft-issue-description/state/` | the issue skill's driver state |
 | `~/.claude/commit-style-cache/<host>/<owner>/<repo>.md` (+ `.work.<batch>`, `.attempt`) | the same three, for the commit skill |
 | `~/.claude/draft-commit-message/state/` | the commit skill's driver state |
-| `~/.claude/pr-review-fix/state/` | one file per live review or fix conversation, pruned after 7 days |
-| `~/.claude/pr-review-fix/<owner>__<repo>/classify.json` (+ `meta.json`) | the generated declarative reviewability rule and the repo fingerprint that invalidates it |
-| `~/.claude/pr-review-fix/<owner>__<repo>/reviewed.json` | files recorded clean, keyed on content, kept across runs |
-| `~/.claude/pr-review-fix/<owner>__<repo>/runs/<sha>/` | frozen chunk `.diff` files for one run |
+| `~/.claude/review-and-fix-pr/state/` | one file per live review or fix conversation, pruned after 7 days |
+| `~/.claude/review-and-fix-pr/<owner>__<repo>/classify.json` (+ `meta.json`) | the generated declarative reviewability rule and the repo fingerprint that invalidates it |
+| `~/.claude/review-and-fix-pr/<owner>__<repo>/reviewed.json` | files recorded clean, keyed on content, kept across runs |
+| `~/.claude/review-and-fix-pr/<owner>__<repo>/runs/<sha>/` | frozen chunk `.diff` files for one run |
 
 Nothing else. It does not write to your repository, beyond a depth-limited `git fetch` when the base
 branch is genuinely absent from the clone.
@@ -173,7 +173,7 @@ Same three pieces, same driver, told `--domain commit`. What differs:
 references — with testing, sign-off, breaking-change and co-authors only where a rule requires them
 or the repo's own commits carry them.
 
-### `pr-review-fix`
+### `review-and-fix-pr`
 
 Reviews a PR and, on your own PRs, fixes what it finds. The diff is split into size-capped chunks of
 whole hunks, staged **code → tests → cicd → other** with a hard barrier between stages; read-only
@@ -181,12 +181,12 @@ reviewers run in parallel, then one fixer at a time validates and commits its ow
 ever reverted: a batch whose build fails leaves its edits in the tree for you to read.
 
 ```
-/pr-review-fix 1234
+/review-and-fix-pr 1234
 ```
 
 Every reviewer and every fixer is walked through its work one step at a time by
-`bin/pr-review-fix-driver.js`, which holds the decisions an agent should not make for itself: what
-changed is measured with `git status` rather than taken from the agent's word, `COMMIT` is never
+`bin/review-and-fix-pr-driver.js`, which holds the decisions an agent should not make for itself:
+what changed is measured with `git status` rather than taken from the agent's word, `COMMIT` is never
 printed while the build is failing, and a review cannot stop looking until two passes in a row find
 nothing — with the agent never told how close it is, so it cannot aim for the exit.
 
@@ -205,7 +205,7 @@ agents/                  subagents the skills spawn, typed automated-development
                          :pr-style-verifier, :issue-style-builder, :issue-style-verifier,
                          :commit-style-builder, :commit-style-verifier (plugin name is part of the type)
 bin/promptgen-driver.js  the CLI: the two state machines and the orchestrator's verbs, --domain pr|issue|commit
-bin/pr-review-fix-*.js   the review pipeline's helpers: -driver (fix and review state machines),
+bin/review-and-fix-pr-*.js   the review pipeline's helpers: -driver (fix and review state machines),
                          -chunker (diff -> capped chunks), -reviewed (the clean-file ledger),
                          -repofp (repo-shape fingerprint), -meter (token accounting, manual)
 workflows/               Workflow scripts, run by scriptPath; not linted (see eslint.config.js)

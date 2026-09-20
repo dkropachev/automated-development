@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict'
-// pr-review-fix chunker. Deterministic: same inputs -> byte-identical manifest.
+// review-and-fix-pr chunker. Deterministic: same inputs -> byte-identical manifest.
 // Usage:
-//   node pr-review-fix-chunker.js --root <repo> --base <sha> --head <sha> --classify <classify.json>
+//   node review-and-fix-pr-chunker.js --root <repo> --base <sha> --head <sha> --classify <classify.json>
 //                   --ledger <reviewed.json> --out <dir> --isolation './../'
 //                   --caps '{"code":12000,...}' --stages code,test,cicd,other [--ignore-ledger]
 // Emits the manifest as JSON on stdout.
@@ -35,7 +35,7 @@ const IGNORE_LEDGER = argv('ignore-ledger', false) === true
 // test suite table-tests: this function decides which files may share a chunk, so it is worth being
 // able to interrogate directly.
 //
-//   node pr-review-fix-chunker.js --lock-key --isolation './../' --path tests/testinfra/ccm.cpp
+//   node review-and-fix-pr-chunker.js --lock-key --isolation './../' --path tests/testinfra/ccm.cpp
 const LOCK_KEY_PROBE = argv('lock-key', false) === true
 
 if (!LOCK_KEY_PROBE && (!BASE || !HEAD || !OUT)) { console.error('chunker: --base, --head and --out are required'); process.exit(2) }

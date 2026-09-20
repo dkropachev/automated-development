@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict'
-// pr-review-fix repo fingerprint. Prints one sha256 and nothing else.
+// review-and-fix-pr repo fingerprint. Prints one sha256 and nothing else.
 //
-//   node pr-review-fix-repofp.js --root <repo>
+//   node review-and-fix-pr-repofp.js --root <repo>
 //
 // The fingerprint answers "has this repo's SHAPE changed enough that the generated reviewability
 // rule might be wrong?" - not "has any source file changed". So it covers directory shape plus the
