@@ -87,6 +87,14 @@ problem in front of it: what each kind is for (the template's `name` and `about`
 which file it came from, its title prefix, its labels, and what to do with a report that fits none
 (file as the closest kind, or — when `config.yml` routes it elsewhere — say so and draft nothing).
 
+Write each kind's labels so a later run can read them back: the word `labels`, then a space and the
+labels as backticked items separated only by commas or `and` — ``labels `kind/bug`, `triage` ``. Not
+`labels:` with a colon, and nothing but a separator between two items: the run is found by position,
+because a label is not distinguishable by shape from the other backticked things on the line —
+`kind/bug` looks like a path and `[Bug]: ` looks like a label — and it ends at the first thing that
+is not another item, so put it last on the line. A line that does not conform reads back as no
+labels, or as too few, and the check that holds a draft to them silently stops applying.
+
 A repo with one template, or none, declares **no** kinds and no `## Kinds` section: every section
 applies to every issue.
 

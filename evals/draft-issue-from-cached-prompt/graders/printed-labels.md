@@ -1,7 +1,7 @@
 ---
 type: regex
+pattern: '^Labels: (?:kind/bug, triage|triage, kind/bug)\s*$'
 target: last_message
-pattern: '^Labels: bug\s*$'
 flags: m
 match: contains
 weight: 1
