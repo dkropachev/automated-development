@@ -802,8 +802,13 @@ function startCommitBuild(h, batch, cache) {
                  '--nwo', 'o/r', '--host', 'github.com', '--root', h])
 }
 function startCommitDraft(h, repo, draft, prompt, files, batch) {
-  return run(h, ['start', '--domain', 'commit', '--batch', batch || 'c1', '--mode', 'draft', '--draft', draft, '--prompt', prompt,
-                 '--files', files, '--root', repo])
+  // The exit code is asserted here because `start` saves state BEFORE it validates the prompt: a
+  // refused start still leaves a usable batch, so every later step passes and a test that only
+  // checks those steps never notices the refusal.
+  const r = run(h, ['start', '--domain', 'commit', '--batch', batch || 'c1', '--mode', 'draft', '--draft', draft, '--prompt', prompt,
+                    '--files', files, '--root', repo])
+  assert.equal(r.code, 0, r.out)
+  return r
 }
 
 test('commit gate: source_commits with SHAs, and the PR gate rejects a commit prompt', () => {
@@ -912,6 +917,24 @@ Signed-off-by: Alice <alice@example.com>
   r = run(h, ['revised', '--batch', 'c1', '--changed', 'no'])
   assert.match(r.out, /LAST READ/); assert.match(r.out, /every part the prompt asks for present/); assert.match(r.out, /in one fenced block/)
   assert.match(run(h, ['finished', '--batch', 'c1']).out, /FINAL STATE: drafted/)
+})
+
+test('commit draft: a prose prompt with no labelled parts is a shape, an empty one is not', () => {
+  const h = tmp(); const repo = path.join(h, 'r'); gitRepo(repo, 'git@github.com:o/r.git')
+  const files = path.join(h, 'files.txt'); write(files, 'src/pool.py\n')
+  const fm = `---\nlearned_at: ${today()}\nsource_commits: [a1b2c3d, b2c3d4e]\ncontributors: [alice]\npattern: derived\nmax_bytes: 600\n---\n`
+  // What learn.md tells the builder to write for a repo whose bodies are prose: plain `##` headings,
+  // no `### \`Label:\`` parts, the fields claimed by covers-comments. Most repos are this one.
+  const prose = path.join(h, 'prose.md')
+  write(prose, fm + '\n## Title\n`<component>: <clause>`  <!-- covers: summary -->\n\n## Body\nA paragraph on why.  <!-- covers: motivation -->\n`Fixes #N` when there is one.  <!-- covers: references -->\n')
+  assert.equal(run(h, ['start', '--domain', 'commit', '--batch', 'p1', '--mode', 'draft', '--draft', path.join(h, 'd1.md'),
+                       '--prompt', prose, '--files', files, '--root', repo]).code, 0)
+
+  // Frontmatter and prose, but nothing that says what the message must carry: still refused.
+  const empty = path.join(h, 'empty.md'); write(empty, fm + '\n## Title\nSomething about subjects.\n\n## Body\nSomething about bodies.\n')
+  const r = run(h, ['start', '--domain', 'commit', '--batch', 'p2', '--mode', 'draft', '--draft', path.join(h, 'd2.md'),
+                    '--prompt', empty, '--files', files, '--root', repo])
+  assert.equal(r.code, 2); assert.match(r.out, /neither a readable learned prompt nor a canonical schema/)
 })
 
 test('commit draft: a missing labelled part is reported by its label; a one-liner passes a prompt that allows one', () => {

@@ -90,7 +90,7 @@
 const fs = require('fs')
 const path = require('path')
 const { execFileSync } = require('child_process')
-const { inspect, frontmatter, fmList, stampFrontmatter } = require('../lib/prompt-gate')
+const { inspect, frontmatter, fmList, stampFrontmatter, claimedFields } = require('../lib/prompt-gate')
 const { inspectDraft, promptSections } = require('../lib/draft-checks')
 const { parseOrigin, cachePathFor, sourcesHash, staleness } = require('../lib/repo')
 const { DOMAINS, domain, sameId } = require('../lib/domains')
@@ -465,8 +465,13 @@ if (VERB === 'start') {
     // report against every template at once.
     const parsedPrompt = promptSections(st.prompt, { labels: D.labels })
     const promptFm = frontmatter(promptText)
+    // A commit prompt for a repo whose bodies are prose declares no sections at all: `### `Label:``
+    // is for the repos that label their body, and learn.md says most have none. Its fields are
+    // claimed by covers-comments on prose lines instead, so those count as a shape too - without
+    // this, the common commit prompt is refused as unreadable and the skill cannot draft.
+    const promptShaped = parsedPrompt.sections.length > 0 || claimedFields(promptText).length > 0
     if (parsedPrompt.error || (!promptFm && !parsedPrompt.fallback) ||
-        (promptFm && promptFm.pattern !== 'none' && !parsedPrompt.sections.length)) {
+        (promptFm && promptFm.pattern !== 'none' && !promptShaped)) {
       console.error('promptgen-driver: prompt is neither a readable learned prompt nor a canonical schema: ' + st.prompt)
       process.exit(2)
     }

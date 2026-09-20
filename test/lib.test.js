@@ -87,6 +87,10 @@ test('sourceFiles picks each domain\'s own authoritative files', () => {
     assert.deepEqual(repo.sourceFiles(root), ['.github/PULL_REQUEST_TEMPLATE.md', '.github/workflows/title-lint.yml', 'CONTRIBUTING.md', 'commitlint.config.js'])
     assert.deepEqual(repo.sourceFiles(root, DOMAINS.issue.sources),
                      ['.github/ISSUE_TEMPLATE.md', '.github/ISSUE_TEMPLATE/bug.yml', '.github/ISSUE_TEMPLATE/config.yml', '.github/SUPPORT.md', 'CONTRIBUTING.md'])
+    // The commit spec says "no template directory" with /$^/, which matches the empty string the
+    // root is spelled as. The root still takes the filename filter, so README.md is not a commit
+    // source and editing it does not make the commit cache stale.
+    assert.deepEqual(repo.sourceFiles(root, DOMAINS.commit.sources), ['CONTRIBUTING.md', 'commitlint.config.js'])
   assert.notEqual(repo.sourcesHash(root), repo.sourcesHash(root, DOMAINS.issue.sources))
 })
 
