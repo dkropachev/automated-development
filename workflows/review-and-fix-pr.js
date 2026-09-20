@@ -74,7 +74,6 @@ if (ARGS.confirm !== undefined) {
                   "a whole-PR pass when the chunked pass finds nothing. Use mode:'full' to force one.")
 }
 const FULL_PR_MIN_BYTES = 20000  // at or below this a diff is not worth chunking at all
-const RUN_NONCE = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8)
 
 // Where the helper scripts live. They ship with this plugin, so the path comes from the plugin
 // root; the caller passes it because a workflow script has no filesystem access of its own and no
@@ -877,7 +876,9 @@ function scopePrompt() {
     '',
     'B3. LEDGER AND RUN DIR. ledgerPath is ' + dir + '/reviewed.json; create it containing exactly {}',
     '    if absent, and report ledgerEntries = the number of keys in it. runDir is',
-    '    ' + dir + '/runs/<first 8 chars of headSha>-' + RUN_NONCE + ' - mkdir -p it. Report classifyPath, ledgerPath and',
+    '    runDir is a FRESH directory of this run\'s own: mkdir -p ' + dir + '/runs, then mint it with',
+    '      mktemp -d ' + dir + '/runs/<first 8 chars of headSha>-XXXXXX',
+    '    so two runs at the same head sha cannot share one. Report classifyPath, ledgerPath and',
     '    runDir as ABSOLUTE paths.',
     '',
     'B4. CHUNK THE DIFF - only if classifyAction is "reused". Run it once, for every stage at a time:',
@@ -1784,7 +1785,12 @@ if (base.mode === 'none') log('no build or test command found - fixes will NOT b
 else if (!base.baselineBuildOk) log('the build is ALREADY failing on the untouched tree - validation will be limited')
 else if ((base.baselineFailures || []).length) log((base.baselineFailures || []).length + ' test(s) already failing before this run')
 
-const RUN_TAG = shortSha(scope.startSha) + '-' + RUN_NONCE
+// The run tag names this run's driver batches and scratch dirs, so it has to be unique per run and
+// stable across a resume. Both come free from the run directory the setup agent minted with mktemp:
+// cached on resume, unique otherwise. A workflow script cannot mint one itself - Date.now() and
+// Math.random() are unavailable because they would break resume.
+const RUN_TAG = (String(setup.runDir).split('/').filter(Boolean).pop() || '').replace(/[^\w.-]/g, '') ||
+                shortSha(scope.startSha)
 const violations = []            // {chunkId, stage, file, alsoTouchedBy} - edits outside a chunk's grant
 // Files a batch edited and never committed, because it stopped. They are LEFT THERE on purpose and
 // the report tells the user to commit them - so it has to be able to name them.
