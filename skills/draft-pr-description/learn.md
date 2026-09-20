@@ -120,7 +120,7 @@ Alongside the concision rules, every prompt must require code references to be *
 permalinks pinned to a full commit SHA**, on a line of their own:
 
 ```
-https://github.com/<owner>/<repo>/blob/<full-sha>/<path>#L42-L50
+https://<host>/<owner>/<repo>/blob/<full-sha>/<path>#L42-L50
 ```
 
 Never `path/to/file.py:42` — that is a terminal convention and is dead text in a browser. Never a

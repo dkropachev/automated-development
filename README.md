@@ -87,7 +87,7 @@ the plausible version instead of the true one. It runs under the same driver.
 | `~/.claude/commit-style-cache/<host>/<owner>/<repo>.md` (+ `.work.<batch>`, `.attempt`) | the same three, for the commit skill |
 | `~/.claude/draft-commit-message/state/` | the commit skill's driver state |
 | `~/.claude/pr-review-fix/state/` | one file per live review or fix conversation, pruned after 7 days |
-| `~/.claude/pr-review-fix/<owner>__<repo>/classify.js` (+ `meta.json`) | the generated reviewability rule and the repo fingerprint that invalidates it |
+| `~/.claude/pr-review-fix/<owner>__<repo>/classify.json` (+ `meta.json`) | the generated declarative reviewability rule and the repo fingerprint that invalidates it |
 | `~/.claude/pr-review-fix/<owner>__<repo>/reviewed.json` | files recorded clean, keyed on content, kept across runs |
 | `~/.claude/pr-review-fix/<owner>__<repo>/runs/<sha>/` | frozen chunk `.diff` files for one run |
 

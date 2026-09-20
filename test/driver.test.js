@@ -100,13 +100,20 @@ test('gate accepts pattern none with well-formed frontmatter and no body', () =>
   assert.equal(run(h, ['gate', '--draft', p, '--schema', SCHEMA]).code, 5)
 })
 
+test('gate rejects impossible dates and empty evidence for learned patterns', () => {
+  const h = tmp(); const p = path.join(h, 'p.md')
+  write(p, GOOD_PROMPT().replace(`learned_at: ${today()}`, 'learned_at: 2026-99-99').replace('source_prs: [101, 102, 103]', 'source_prs: []'))
+  const r = run(h, ['gate', '--draft', p, '--schema', SCHEMA])
+  assert.equal(r.code, 5); assert.match(r.out, /YYYY-MM-DD/); assert.match(r.out, /well-formed id/)
+})
+
 // --------------------------------------------------------------- resolve ----
 
 test('resolve parses ssh, scp-style and https origins and never asks gh', () => {
   for (const [origin, host, nwo] of [
     ['git@github.com:scylladb/python-driver.git', 'github.com', 'scylladb/python-driver'],
     ['ssh://git@ghe.example.com:2222/team/repo', 'ghe.example.com', 'team/repo'],
-    ['https://gitlab.com/group/sub/repo.git', 'gitlab.com', 'group/sub/repo'],
+    ['https://github.com/group/repo.git', 'github.com', 'group/repo'],
   ]) {
     const h = tmp(); const repo = path.join(h, 'r'); gitRepo(repo, origin)
     const r = run(h, ['resolve', '--root', repo])
@@ -116,6 +123,14 @@ test('resolve parses ssh, scp-style and https origins and never asks gh', () => 
     assert.match(r.stdout, new RegExp(`^CACHE='${path.join(h, '.claude/pr-style-cache', host, nwo + '.md')}'$`, 'm'))
     assert.match(r.stdout, /^STALE=1$/m); assert.match(r.stdout, /^STALE_REASON='missing'$/m)
     assert.match(r.stdout, /^LEARN_NOW=1$/m); assert.match(r.stdout, /^LAST_ATTEMPT_HOURS=-1$/m)
+  }
+})
+
+test('resolve refuses a gitlab or bitbucket origin: this plugin speaks gh', () => {
+  for (const origin of ['https://gitlab.com/group/repo.git', 'git@bitbucket.org:team/repo.git']) {
+    const h = tmp(); const repo = path.join(h, 'r'); gitRepo(repo, origin)
+    const r = run(h, ['resolve', '--root', repo])
+    assert.equal(r.code, 2, r.out); assert.match(r.out, /is not supported/)
   }
 })
 
@@ -161,6 +176,8 @@ test('start (build) refuses a cache path outside the cache root and names the wo
   const h = tmp()
   let r = startBuild(h, 'b1', path.join(h, 'elsewhere', 'r.md'))
   assert.equal(r.code, 2); assert.match(r.out, /--cache must be an absolute .md path inside/)
+  const foreign = path.join(tmp(), '.claude/pr-style-cache/github.com/o/r.md')
+  r = startBuild(h, 'foreign', foreign); assert.equal(r.code, 2)
   r = run(h, ['start', '--batch', 'b1', '--cache', path.join(h, '.claude/pr-style-cache/github.com/o/r.md'), '--schema', SCHEMA])
   assert.equal(r.code, 2); assert.match(r.out, /--nwo must be owner\/repo/)
   const cache = path.join(h, '.claude/pr-style-cache/github.com/o/r.md')
@@ -207,6 +224,12 @@ test('full build: drafted -> two clean critiques -> handed-off -> result -> veri
   r = run(h, ['publish', '--batch', 'b1']); assert.equal(r.code, 4)
   // a file that is not a report at all
   write(report, 'looks fine to me'); assert.equal(run(h, ['verified', '--batch', 'b1', '--report-file', report]).code, 2)
+  write(report, 'VERDICT: garbage\nCHECKED_PRS: 104, 105\nFINDINGS:\n')
+  assert.equal(run(h, ['verified', '--batch', 'b1', '--report-file', report]).code, 2)
+  write(report, 'VERDICT: sound\nCHECKED_ISSUES: 104, 105\nFINDINGS:\n')
+  assert.equal(run(h, ['verified', '--batch', 'b1', '--report-file', report]).code, 2)
+  write(report, 'VERDICT: sound\nCHECKED_PRS: 104, 104\nFINDINGS:\n')
+  assert.equal(run(h, ['verified', '--batch', 'b1', '--report-file', report]).code, 3)
   // a real one, in the fenced form the verifier prints
   write(report, '```\nVERDICT: sound\nCHECKED_PRS: #104, 105, 101\nFINDINGS:\n  - [worth-fixing] ## Title: example is stale  (evidence: #104)\n```\n')
   r = run(h, ['verified', '--batch', 'b1', '--report-file', report])
@@ -413,6 +436,30 @@ None. No public API changed.
   assert.match(run(h, ['revised', '--batch', 'd1', '--changed', 'no']).out, /LAST READ/)
   assert.match(run(h, ['finished', '--batch', 'd1']).out, /FINAL STATE: drafted/)
   assert.match(run(h, ['written', '--batch', 'd1']).out, /already finished/)
+})
+
+test('draft checks enforce top-line format, required labels, heading lines, and paths without a file list', () => {
+  const h = tmp(); const repoDir = path.join(h, 'r'); gitRepo(repoDir, 'git@github.com:o/r.git')
+  const prompt = path.join(h, 'prompt.md'); write(prompt, ISSUE_PROMPT())
+  const draft = path.join(h, 'draft.md')
+  startIssueDraft(h, repoDir, draft, prompt, 'bug', 'fmt')
+  write(draft, `intro\nTitle: [Bug]: bad\nLabels: wrong\nI mention ### What happened? inline and src/never.js.\n${'padding '.repeat(20)}`)
+  const r = run(h, ['written', '--batch', 'fmt'])
+  assert.match(r.out, /no non-empty `Title:` line/)
+  assert.match(r.out, /requires a `Labels:` line|must be exactly: bug/)
+  assert.match(r.out, /Sections the cached prompt asks for/)
+  assert.match(r.out, /src\/never\.js/)
+})
+
+test('draft checks reject code links in fences or embedded in prose', () => {
+  const h = tmp(); const repoDir = path.join(h, 'r'); gitRepo(repoDir, 'git@github.com:o/r.git')
+  const prompt = path.join(h, 'prompt.md'); write(prompt, GOOD_PROMPT())
+  const files = path.join(h, 'files'); write(files, '')
+  const draft = path.join(h, 'draft.md'); startDraft(h, repoDir, draft, prompt, files)
+  const sha = '0123456789012345678901234567890123456789'
+  write(draft, `Title: core: links\n\n## Why\n\`\`\`\nhttps://github.com/o/r/blob/main/a.js#L1\n\`\`\`\nSee https://github.com/o/r/blob/${sha}/a.js#L1 here.\n\n## What changed\n${'content '.repeat(10)}\n\n## Risk\nNone.\n`)
+  const r = run(h, ['written', '--batch', 'd1'])
+  assert.match(r.out, /inside a fenced block/); assert.match(r.out, /not a bare URL on its own line/)
 })
 
 test('draft machine: over budget gets exactly one pass for length, then finishes long', () => {

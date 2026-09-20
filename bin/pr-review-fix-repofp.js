@@ -5,8 +5,8 @@
 //   node pr-review-fix-repofp.js --root <repo>
 //
 // The fingerprint answers "has this repo's SHAPE changed enough that the generated reviewability
-// rule might be wrong?" - not "has any file changed". So it covers the top-level entries plus the
-// set of build-manifest and CI files present, and deliberately ignores file contents.
+// rule might be wrong?" - not "has any source file changed". So it covers directory shape plus the
+// contents of build manifests, ignore rules and CI files that teach the classifier what is generated.
 //
 // This MUST be computed by code. It was prose in the setup agent's prompt at first, and two runs
 // over a byte-identical tree produced two different fingerprints, which silently regenerated the
@@ -51,6 +51,11 @@ const second = [...new Set(
 
 const manifests = MANIFESTS.filter(m => files.includes(m)).sort()
 const ci = files.filter(f => f.startsWith('.github/workflows/') || f === '.gitlab-ci.yml' || f === '.travis.yml').sort()
+const ruleInputs = [...new Set(manifests.concat(ci, files.includes('.gitignore') ? ['.gitignore'] : []))].sort()
+const inputHashes = ruleInputs.map(f => {
+  const content = execFileSync('git', ['-C', ROOT, 'show', 'HEAD:' + f], { maxBuffer: 1 << 28 })
+  return [f, crypto.createHash('sha256').update(content).digest('hex')]
+})
 
-const payload = JSON.stringify({ v: 1, top, second, manifests, ci })
+const payload = JSON.stringify({ v: 2, top, second, manifests, ci, inputHashes })
 process.stdout.write(crypto.createHash('sha256').update(payload).digest('hex') + '\n')

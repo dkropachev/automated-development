@@ -170,7 +170,7 @@ Every prompt must require code references to be **raw GitHub permalinks pinned t
 SHA**, on a line of their own:
 
 ```
-https://github.com/<owner>/<repo>/blob/<full-sha>/<path>#L42-L50
+https://<host>/<owner>/<repo>/blob/<full-sha>/<path>#L42-L50
 ```
 
 Never `path/to/file.py:42`, never a branch ref such as `/blob/main/`, never wrapped in markdown link

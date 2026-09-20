@@ -37,6 +37,7 @@
 const { execFileSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const os = require('os')
 
 const argv = process.argv
 const VERB = argv[2] || ''
@@ -62,11 +63,12 @@ const MAX_STEPS = 40                        // accepted commands in one batch
 const MAX_AGE_MS = 3 * 3600 * 1000          // a batch alive this long has lost the plot
 
 const say = (...l) => process.stdout.write(l.filter(x => x !== null && x !== undefined).join('\n') + '\n')
+const shellQuote = s => "'" + String(s).replace(/'/g, "'\"'\"'") + "'"
 const load = () => { try { return JSON.parse(fs.readFileSync(STATEFILE, 'utf8')) } catch { return null } }
 const save = (st) => { fs.mkdirSync(STATEDIR, { recursive: true }); fs.writeFileSync(STATEFILE, JSON.stringify(st, null, 1)) }
 const gitRaw = (st, ...a) => execFileSync('git', ['-C', st.root, ...a], { encoding: 'utf8', maxBuffer: 1 << 28 })
 const git = (st, ...a) => gitRaw(st, ...a).trim()
-const cmd = (verb, extra) => '  node ' + __filename + ' ' + verb + ' --batch ' + BATCH + (extra ? ' ' + extra : '')
+const cmd = (verb, extra) => '  node ' + shellQuote(__filename) + ' ' + verb + ' --batch ' + BATCH + (extra ? ' ' + extra : '')
 
 function prune() {
   try {
@@ -79,13 +81,22 @@ function prune() {
 }
 
 function changed(st) {
-  const out = gitRaw(st, 'status', '--porcelain')     // NOT trimmed: the leading space is data
+  const out = gitRaw(st, 'status', '--porcelain=v1', '-z')
   const modified = [], untracked = []
-  for (const line of out.split('\n').filter(Boolean)) {
-    const code = line.slice(0, 2), p = line.slice(3).trim()
+  const entries = out.split('\0').filter(Boolean)
+  for (let i = 0; i < entries.length; i++) {
+    const line = entries[i]
+    const code = line.slice(0, 2), p = line.slice(3)
     if (code === '??') untracked.push(p); else modified.push(p)
+    if (/[RC]/.test(code)) i++                 // porcelain -z emits the source path as the next record
   }
   return { modified, untracked }
+}
+
+function changedSinceStart(st) {
+  const now = changed(st)
+  const oldM = new Set(st.startModified || []), oldU = new Set(st.startUntracked || [])
+  return { modified: now.modified.filter(p => !oldM.has(p)), untracked: now.untracked.filter(p => !oldU.has(p)), all: now }
 }
 
 const EXPECTS = {
@@ -183,6 +194,14 @@ function refuse(st, headline, ...why) {
 }
 
 function requireStep(st, ...steps) {
+  if (st.mode === 'review') {
+    let head = '', status = ''
+    try { head = git(st, 'rev-parse', 'HEAD'); status = gitRaw(st, 'status', '--porcelain=v1', '-z') } catch {}
+    if (head !== st.startHead || status !== st.reviewStatus) {
+      abort(st, 'The repository changed during a read-only review.',
+            'Stop every parallel reviewer. Inspect the working tree before continuing; this driver will not treat a moving tree as reviewed.')
+    }
+  }
   if (steps.includes(st.step)) {
     // An accepted verb. It is not necessarily progress - the flags may still be wrong - so the
     // miss counter is not cleared here; only leaving the step clears it, in refuse().
@@ -216,6 +235,10 @@ function requireStep(st, ...steps) {
 
 if (VERB === 'start') {
   prune()
+  if (fs.existsSync(STATEFILE)) {
+    console.error('driver: state already exists for --batch ' + BATCH + '; use a fresh batch id')
+    process.exit(2)
+  }
   const mode = one('mode', 'fix')
   if (mode !== 'fix' && mode !== 'review') { console.error('driver: --mode must be fix or review'); process.exit(2) }
   const st = {
@@ -227,6 +250,33 @@ if (VERB === 'start') {
     errors: 0, stepErrors: 0, errorStep: '', steps: 0, startedAt: Date.now(),
     step: mode === 'fix' ? 'fixing' : 'looking',
   }
+  let rootStat = null
+  try { rootStat = fs.statSync(st.root) } catch {}
+  if (!rootStat || !rootStat.isDirectory()) { console.error('driver: --root must be an existing directory'); process.exit(2) }
+  try { git(st, 'rev-parse', '--git-dir') } catch { console.error('driver: --root is not a git repository'); process.exit(2) }
+  if (mode === 'fix') {
+    if (!/^[0-9a-f]{40}$/i.test(st.parent)) { console.error('driver: --parent must be a full commit sha in fix mode'); process.exit(2) }
+    if (git(st, 'rev-parse', 'HEAD') !== st.parent) { console.error('driver: HEAD does not match --parent; refusing to edit the wrong tree'); process.exit(2) }
+  }
+  if (mode === 'review') {
+    if (!/^[0-9a-f]{40}$/i.test(st.base)) { console.error('driver: --base must be a full commit sha in review mode'); process.exit(2) }
+    if (!st.ledger || !path.isAbsolute(st.ledger)) { console.error('driver: --ledger must be an absolute path in review mode'); process.exit(2) }
+    if (st.wholeFiles.some(f => path.isAbsolute(f) || f.split('/').includes('..'))) { console.error('driver: --whole-files contains an unsafe path'); process.exit(2) }
+    if (!st.scratch) { console.error('driver: review mode requires an explicit --scratch path'); process.exit(2) }
+  }
+  if (st.detailed && st.scratch) {
+    const scratch = path.resolve(st.scratch), tmp = path.resolve(os.tmpdir())
+    if (scratch === tmp || !scratch.startsWith(tmp + path.sep)) { console.error('driver: --scratch must be a child of the system temporary directory'); process.exit(2) }
+    st.scratch = scratch
+  }
+  const initial = changed(st)
+  st.startHead = git(st, 'rev-parse', 'HEAD')
+  st.reviewStatus = gitRaw(st, 'status', '--porcelain=v1', '-z')
+  if (mode === 'fix' && initial.modified.length) {
+    console.error('driver: tracked files are already modified before this fix batch; refusing to mix them with automated edits')
+    process.exit(2)
+  }
+  st.startModified = initial.modified; st.startUntracked = initial.untracked
   save(st)
   try { fs.unlinkSync(path.join(STATEDIR, BATCH + '.lost')) } catch {}
   if (mode === 'review') {
@@ -249,9 +299,7 @@ if (VERB === 'start') {
           '',
           // rm -rf first: chunk ids restart at 0000 on every re-chunk, and a reviewer that retries
           // after a driver refusal would otherwise hit "destination path already exists".
-          '  ' + (st.scratch
-            ? 'rm -rf ' + st.scratch + ' && git clone --no-hardlinks --no-local ' + st.root + ' ' + st.scratch + ' && cd ' + st.scratch
-            : 'rm -rf /tmp/rv-<your batch> && git clone --no-hardlinks --no-local ' + st.root + ' /tmp/rv-<your batch> && cd /tmp/rv-<your batch>'),
+          '  rm -rf -- ' + shellQuote(st.scratch) + ' && git clone --no-hardlinks --no-local ' + shellQuote(st.root) + ' ' + shellQuote(st.scratch) + ' && cd ' + shellQuote(st.scratch),
           '',
           'Then write a throwaway test or main() there with a heredoc and run it. Feed the degenerate',
           'input. Delete a guard the diff adds and see whether any test fails - if none does, the guard',
@@ -271,6 +319,9 @@ if (VERB === 'start') {
         '',
         st.chunk ? 'The hunks you are reviewing are in this file - read it first:' : 'Review the chunk described in your prompt.',
         st.chunk ? '  ' + st.chunk : null,
+        '',
+        'Work from a throwaway clone. The repository under review is guarded read-only:',
+        '  rm -rf -- ' + shellQuote(st.scratch) + ' && git clone --no-hardlinks --no-local ' + shellQuote(st.root) + ' ' + shellQuote(st.scratch) + ' && cd ' + shellQuote(st.scratch),
         '',
         'Read enough surrounding code to judge those hunks properly. You are reviewing THOSE HUNKS,',
         'not the whole file and not the whole PR - other reviewers have the rest. Do not read whole',
@@ -340,8 +391,9 @@ if (VERB === 'fixed') {
            'whether this step repeats: 0 means none are left and the batch moves on to the build.')
   }
   const left = num('followups')
-  const ch = changed(st)
+  const ch = changedSinceStart(st)
   st.modified = ch.modified; st.untracked = ch.untracked; st.rounds++
+  st.fixPaths = [...new Set(ch.modified.concat(ch.untracked))]
   if (left > 0 && st.rounds < MAX_FOLLOWUP_ROUNDS) {
     st.step = 'followups'; save(st)
     say('DO THE FOLLOW-UPS',
@@ -389,15 +441,17 @@ if (VERB === 'validated') {
            'and it is the one thing it will not decide for you.')
   }
   if (p === 'yes') {
-    const now = changed(st)
+    const now = changedSinceStart(st)
     st.modified = now.modified; st.untracked = now.untracked
-    const paths = now.modified.concat(now.untracked)
+    const intended = new Set(st.fixPaths || [])
+    const paths = now.modified.concat(now.untracked).filter(q => intended.has(q))
+    const artifacts = now.modified.concat(now.untracked).filter(q => !intended.has(q))
     if (!paths.length) {
       st.step = 'done'; st.outcome = 'no-changes'; save(st)
       say('Nothing is left to commit - the tree matches ' + st.parent + '.', '', 'Report your result and finish.', 'FINAL STATE: no-changes')
       process.exit(0)
     }
-    st.step = 'committing'; save(st)
+    st.commitPaths = paths; st.validationArtifacts = artifacts; st.step = 'committing'; save(st)
     const msgfile = path.join(STATEDIR, BATCH + '.msg')
     say('COMMIT',
         '',
@@ -408,15 +462,18 @@ if (VERB === 'validated') {
         '     not, commit NOTHING and stop - something moved HEAD underneath this run.',
         '  2. Stage these paths explicitly and no others:',
         ...paths.map(q => '       ' + q),
+        ...(artifacts.length ? ['', 'Do NOT stage these paths; they appeared during validation and were not part of the fix:',
+          ...artifacts.map(q => '       ' + q)] : []),
         '     Never `git add -A`, `.` or `-u`: build runs leave artifacts in the tree.',
         '',
         'Write the message with a quoted heredoc rather than `-m`, so nothing in it is reinterpreted',
         'by the shell:',
         '',
-        '  cat > ' + msgfile + " <<'EOF'",
+        '  cat > ' + shellQuote(msgfile) + " <<'EOF'",
         '  <your message>',
         '  EOF',
-        '  git -C ' + st.root + ' commit -F ' + msgfile,
+        '  git -C ' + shellQuote(st.root) + ' add -- ' + paths.map(shellQuote).join(' '),
+        '  git -C ' + shellQuote(st.root) + ' commit -F ' + shellQuote(msgfile),
         '',
         cmd('committed', ''))
     process.exit(0)
@@ -452,6 +509,18 @@ if (VERB === 'committed') {
   const head = git(st, 'rev-parse', 'HEAD')
   if (head === st.parent) {
     say('ERROR: HEAD is still ' + st.parent + ', so no commit was made. Run the commit commands from the previous step, then run this again.')
+    process.exit(3)
+  }
+  let parent = ''
+  try { parent = git(st, 'rev-parse', head + '^') } catch {}
+  if (parent !== st.parent) {
+    say('ERROR: the new HEAD is not a direct child of ' + st.parent + '. Another commit moved the branch; this batch cannot claim it.')
+    process.exit(3)
+  }
+  const committedPaths = new Set(gitRaw(st, 'diff-tree', '--no-commit-id', '--name-only', '-r', '-z', head).split('\0').filter(Boolean))
+  const missing = (st.commitPaths || []).filter(p => !committedPaths.has(p))
+  if (missing.length) {
+    say('ERROR: the commit omitted paths the validated batch required:', ...missing.map(p => '  ' + p))
     process.exit(3)
   }
   const after = changed(st)
@@ -524,9 +593,13 @@ if (VERB === 'checked') {
   }
   const kept = num('kept')
   const claimed = list('clean-files')
-  const markable = claimed.filter(f => st.wholeFiles.includes(f))
+  if (kept > (st.candidates || 0)) {
+    refuse(st, 'IMPOSSIBLE COUNT', 'You kept more findings than all review passes reported.')
+  }
+  const markable = kept === 0 ? claimed.filter(f => st.wholeFiles.includes(f)) : []
   const rejected = claimed.filter(f => !st.wholeFiles.includes(f))
   st.kept = kept; st.markable = markable; save(st)
+  if (kept && claimed.length) rejected.push(...claimed.filter(f => !rejected.includes(f)))
   if (rejected.length) {
     say('These are not yours to call clean - their other hunks are in other chunks, so no single',
         'reviewer can speak for them. They are ignored:', ...rejected.map(f => '  ' + f), '')
@@ -534,7 +607,7 @@ if (VERB === 'checked') {
   if (!markable.length) {
     st.step = 'done'; st.outcome = 'reviewed'; save(st)
     say('Nothing to record as clean' + (kept ? ' - you kept ' + kept + ' finding(s).' : '.'),
-      ...(st.scratch ? ['', 'Your scratch clone is no longer needed:', '  rm -rf ' + st.scratch] : []),
+      ...(st.scratch ? ['', 'Your scratch clone is no longer needed:', '  rm -rf -- ' + shellQuote(st.scratch)] : []),
         '', 'Report your findings and finish.', 'FINAL STATE: reviewed')
     process.exit(0)
   }
@@ -547,11 +620,11 @@ if (VERB === 'checked') {
       'until its content changes. When in doubt leave it out - an unrecorded file is merely reviewed',
       'again; a wrongly recorded one is never looked at by anyone.',
       '',
-      '  node ' + path.join(path.dirname(__filename), 'pr-review-fix-reviewed.js') + ' --mark \\',
-      '    --root ' + st.root + ' --base ' + (st.base || '<mergeBaseSha from your prompt>') + ' \\',
-      '    --ledger ' + (st.ledger || '<ledgerPath from your prompt>') + ' \\',
-      '    --pr ' + (st.pr || '0') + ' --run ' + BATCH + ' --stage review \\',
-      ...markable.map(f => '    --file ' + f + ' \\'),
+      '  node ' + shellQuote(path.join(path.dirname(__filename), 'pr-review-fix-reviewed.js')) + ' --mark \\',
+      '    --root ' + shellQuote(st.root) + ' --base ' + shellQuote(st.base || '<mergeBaseSha from your prompt>') + ' \\',
+      '    --ledger ' + shellQuote(st.ledger || '<ledgerPath from your prompt>') + ' \\',
+      '    --pr ' + shellQuote(st.pr || '0') + ' --run ' + shellQuote(BATCH) + ' --stage review \\',
+      ...markable.map(f => '    --file ' + shellQuote(f) + ' \\'),
       '',
       'Leave out any you are not certain about. Then:',
       cmd('marked', ''))
@@ -560,9 +633,18 @@ if (VERB === 'checked') {
 
 if (VERB === 'marked') {
   requireStep(st, 'marking')
+  let reviewState = null
+  try {
+    const script = path.join(path.dirname(__filename), 'pr-review-fix-reviewed.js')
+    const args = [script, '--check', '--root', st.root, '--base', st.base, '--ledger', st.ledger]
+    for (const f of st.markable || []) args.push('--file', f)
+    reviewState = JSON.parse(execFileSync(process.execPath, args, { encoding: 'utf8' }))
+  } catch {}
+  const missing = (st.markable || []).filter(f => !reviewState || !reviewState.reviewed || !reviewState.reviewed[f])
+  if (missing.length) refuse(st, 'NOT RECORDED', 'The ledger does not contain the current diff for:', ...missing.map(f => '  ' + f))
   st.step = 'done'; st.outcome = 'reviewed'; save(st)
   say('Recorded.',
-      ...(st.scratch ? ['', 'Your scratch clone is no longer needed:', '  rm -rf ' + st.scratch] : []),
+      ...(st.scratch ? ['', 'Your scratch clone is no longer needed:', '  rm -rf -- ' + shellQuote(st.scratch)] : []),
       '', 'Report your findings and finish.', 'FINAL STATE: reviewed')
   process.exit(0)
 }
