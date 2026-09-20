@@ -1,6 +1,6 @@
 ---
 name: draft-pr-description
-description: Draft a PR title and description that match how this specific repo actually writes them — learned once from the repo's own config and its top contributors' merged PRs, cached per repo, rebuilt when the cache is 90 days old or the repo's PR template or contributing guide changes. Use when asked to "draft a PR description", "write the PR description", "pr description", or to rewrite an existing one in the repo's style — and use it before a PR is opened, whenever asked to "create a PR", "open a PR", "raise a PR", "push this and open a PR", to write the text that PR is opened with. Drafts only — never edits or creates a PR on GitHub; the caller opens the PR with the text this skill returns.
+description: Draft a PR title and description that match how this specific repo actually writes them — learned once from the repo's own config and its top contributors' merged PRs, cached per repo, rebuilt when the cache is 90 days old or the repo's PR template or contributing guide changes. Use when asked to "draft a PR description", "write the PR description", "pr description", or to rewrite an existing one in the repo's style. Use it before a PR is opened or its description changed — "create a PR", "open a PR", "raise a PR", "push this and open a PR", "update the PR description", "fix the PR body" — to write the text that PR is opened or updated with, and use it when the points the description should make are handed to you rather than asked for. Drafts only — never edits or creates a PR on GitHub; the caller applies the text this skill returns.
 ---
 
 # PR description draft
@@ -11,9 +11,16 @@ read-only. If the user wants the draft applied, they say so and that is a separa
 this skill.
 
 Drafts-only is a limit on what this skill does, **not** on when it runs. "Create the PR", "open a
-PR for this", "push it and raise a PR" all want a title and a body, so they run this skill first
-and the caller opens the PR afterwards with what it printed. Writing the text by hand because the
-request said *create* rather than *draft* is the failure this skill exists to prevent.
+PR for this", "push it and raise a PR", "update the PR description", "fix the PR body" all want a
+title and a body, so they run this skill first and the caller applies what it printed afterwards.
+Writing the text by hand because the request said *create* rather than *draft* is the failure this
+skill exists to prevent.
+
+It runs when the content is supplied too. Points the user dictates, a rough draft they paste, an
+existing description they want kept — that is the material, and this skill puts it in the repo's
+shape rather than inventing different content. Their facts win over anything you would have written;
+what the skill decides is the title form, the sections, the order and the permalinks. The one case
+it does not run is text handed over as final and marked to be used verbatim.
 
 The draft is written by a **cached, repo-specific generation prompt** — not by generic instincts
 about what a PR description should look like. Each repo gets its own prompt, derived once from that

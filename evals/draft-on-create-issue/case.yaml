@@ -1,0 +1,16 @@
+schema_version: "1.1"
+name: draft-on-create-issue
+description: >
+  The same repo and cached prompt as draft-issue-from-cached-prompt, asked for the action rather
+  than for the text, and without naming the kind: "create an issue". The skill is drafts-only, which
+  is a limit on what it does and not on when it runs, so the title, labels and body still have to
+  come from the cached prompt, and the bug kind still has to be picked from the failure described.
+  gh is unauthenticated here, so the issue cannot actually be filed and the run has to say so.
+tags: [draft-issue-description, offline]
+runs: 2
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, Skill]

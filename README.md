@@ -27,7 +27,9 @@ not retried for a day.
 
 It **drafts only**. It never runs `gh pr create` or `gh pr edit`; every `gh` call it makes is
 read-only. That is a limit on what it does, not on when it runs: asking to *create* or *open* the
-PR runs it too, and you open the PR with the text it printed.
+PR, or to *update* an existing description, runs it too, and you apply the text it printed. It runs
+when you supply the content as well — your points are the material, and it puts them in the repo's
+shape — unless you hand it final text to use verbatim.
 
 Run it in any git repo:
 
@@ -117,7 +119,9 @@ labels each takes, and the driver gates and checks every kind on its own. Stalen
 never read each other's.
 
 It **drafts only**. It never runs `gh issue create`, `gh issue edit` or `gh issue comment`; every
-`gh` call it makes is read-only, including the one duplicate search it does before drafting.
+`gh` call it makes is read-only, including the one duplicate search it does before drafting. That is
+a limit on what it does, not on when it runs: asking to *create*, *file* or *update* the issue runs
+it too, and you apply the text it printed.
 
 ```
 /draft-issue-description
@@ -152,8 +156,8 @@ runs on `git log`; no `gh` is needed, so it works offline. Staleness, back-off a
 template or CONTRIBUTING changes.
 
 It **drafts only**. It never runs `git commit`, `--amend`, `rebase` or `push`. The message is
-printed and saved to a file for `git commit -F` — including when the ask was "commit this", which
-runs the skill for the message and leaves the commit to you.
+printed and saved to a file for `git commit -F` — including when the ask was "commit this" or
+"reword the commit", which run the skill for the message and leave the commit to you.
 
 ```
 /draft-commit-message

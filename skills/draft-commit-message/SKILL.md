@@ -1,6 +1,6 @@
 ---
 name: draft-commit-message
-description: Write a commit message — subject, body, references and trailers — that matches how this specific repo actually commits — learned once from its commitlint or commit-msg hook config, its commit template, its contributing guide and its own authors' recent commits, cached per repo, rebuilt when the cache is 90 days old or the configuration changes. Use when asked to "write the commit message", "commit message for this", "draft a commit", "what should the commit say", or to rewrite the message of the commit being amended — and use it before a commit is made, whenever asked to "commit this", "commit these changes", "stage and commit", to write the message that commit is made with. Drafts only — never runs git commit, never amends, never pushes; the caller commits with the message this skill returns.
+description: Write a commit message — subject, body, references and trailers — that matches how this specific repo actually commits — learned once from its commitlint or commit-msg hook config, its commit template, its contributing guide and its own authors' recent commits, cached per repo, rebuilt when the cache is 90 days old or the configuration changes. Use when asked to "write the commit message", "commit message for this", "draft a commit", "what should the commit say", or to rewrite the message of the commit being amended. Use it before a commit is made or its message rewritten — "commit this", "commit these changes", "stage and commit", "reword the commit", "fix the commit message" — to write the message that commit is made or amended with, and use it when the points the message should make are handed to you rather than asked for. Drafts only — never runs git commit, never amends, never pushes; the caller applies the message this skill returns.
 ---
 
 # Commit message draft
@@ -11,8 +11,11 @@ Every git command it runs is a read. If the user wants the message committed, th
 a separate action outside this skill.
 
 Drafts-only is a limit on what this skill does, **not** on when it runs. "Commit this", "stage and
-commit these changes" all need a message, so they run this skill first and the caller commits
-afterwards with what it printed.
+commit these changes", "reword the commit" all need a message, so they run this skill first and the
+caller applies what it printed afterwards. It runs when the content is supplied too: points the user
+dictates or a message they paste are the material, and this skill puts them in the repo's subject
+grammar, wrap column and trailer form rather than inventing different content. Their facts win. The
+one case it does not run is a message handed over as final and marked to be used verbatim.
 
 The message is written by a **cached, repo-specific generation prompt** — not by generic instincts
 about Conventional Commits or the fifty-character rule. Each repo gets its own prompt, derived once
