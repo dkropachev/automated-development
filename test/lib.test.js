@@ -105,3 +105,22 @@ test('promptSections carries kinds, and sectionsForKind drops the other kinds\' 
   assert.deepEqual(any.sections.map(s => s.names[0]), ['### A', '### V', '### P']); assert.deepEqual(any.allowed, ps.allowed)
   assert.ok(checks.HTML_COMMENT.test('a <!-- hint --> b')); assert.ok(!checks.HTML_COMMENT.test('a < b -- c > d'))
 })
+
+test('commit-domain helpers: label sections, trailers, frontmatter numbers, SHA identity', () => {
+  const fs = require('fs'), os = require('os'), path = require('path')
+  const { sameId, DOMAINS } = require('../lib/domains')
+  const p = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pgl-')), 'p.md')
+  fs.writeFileSync(p, '---\nwrap_at: 72\ntitle_max: 60\n---\n## Body\n### `Problem:` <!-- covers: motivation -->\n### `## Why`\n## Trailers\n- `Signed-off-by:` required - DCO\n- `Fixes:` optional\n- `Reviewed-by:` REQUIRED\n')
+  assert.deepEqual(checks.promptSections(p, { labels: true }).sections.map(s => s.names[0]), ['Problem:', '## Why'])
+  assert.deepEqual(checks.promptSections(p).sections.map(s => s.names[0]), ['## Why'])
+  assert.deepEqual(checks.promptTrailers(p), ['Signed-off-by', 'Reviewed-by'])
+  assert.equal(checks.promptNumber(p, 'wrap_at'), 72); assert.equal(checks.promptNumber(p, 'title_max'), 60); assert.equal(checks.promptNumber(p, 'nope'), 0)
+  assert.ok(checks.hasSection('x\nProblem: y', 'Problem:')); assert.ok(!checks.hasSection('the Problem: y', 'Problem:')); assert.ok(checks.hasSection('a ## Why b', '## Why'))
+  assert.ok(sameId('a1b2c3d', 'A1B2C3D0123456789')); assert.ok(!sameId('a1b2c3d', 'a1b2c3e')); assert.ok(sameId(7, 7)); assert.ok(!sameId(101, 1010))
+  assert.ok(DOMAINS.commit.idPattern.test('deadbeef')); assert.ok(!DOMAINS.commit.idPattern.test('123456')); assert.ok(!DOMAINS.pr.idPattern.test('deadbeef'))
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pgl-'))
+  const w = (f) => { fs.mkdirSync(path.dirname(path.join(root, f)), { recursive: true }); fs.writeFileSync(path.join(root, f), 'x') }
+  w('.gitmessage'); w('commitlint.config.js'); w('.husky/commit-msg'); w('.github/workflows/commitlint.yml'); w('.github/workflows/ci.yml'); w('.github/PULL_REQUEST_TEMPLATE.md'); w('CONTRIBUTING.md')
+  assert.deepEqual(repo.sourceFiles(root, DOMAINS.commit.sources),
+                   ['.github/workflows/commitlint.yml', '.gitmessage', '.husky/commit-msg', 'CONTRIBUTING.md', 'commitlint.config.js'])
+})
