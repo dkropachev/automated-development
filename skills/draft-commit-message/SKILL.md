@@ -7,8 +7,8 @@ description: Write a commit message — subject, body, references and trailers �
 
 Produces **text**: a commit message, printed for the user and written to a file they can hand to
 `git commit -F`. This skill never runs `git commit`, `git commit --amend`, `git rebase` or `git push`.
-Every git command it runs is a read. If the user wants the message committed, they say so and that is
-a separate action outside this skill.
+Every git command it runs is a read. Committing the message is a separate step outside this skill,
+taken once it has returned by whoever asked for it.
 
 Drafts-only is a limit on what this skill does, **not** on when it runs. "Commit this", "stage and
 commit these changes", "reword the commit" all need a message, so they run this skill first and the
@@ -290,4 +290,9 @@ Then one line, at most: the path of `commit-message.txt` so the user can `git co
 identify, nothing staged, a `Signed-off-by` identity you could not read — and, if
 `CACHE_VERIFIED=false`, that the repo's prompt carries `CACHE_UNRESOLVED` unresolved verification
 findings and will be rebuilt within a week. Nothing else: no summary of what you did, no account of
-the driver passes, and never a `git commit` run for them.
+the driver passes, and no `git commit` from inside these steps.
+
+Do not offer, and do not stop, when the request was the action. "Commit this", "reword the commit"
+are asks this skill does not carry out itself, so the commit is your next step once the skill has
+returned: `git commit -F "$WORK/commit-message.txt"`, or `git commit --amend -F` it, with the message
+exactly as drafted. Print it either way: the user sees the message before it lands.

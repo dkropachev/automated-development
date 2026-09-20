@@ -5,7 +5,10 @@ description: >
   than for the text, and without naming the kind: "create an issue". The skill is drafts-only, which
   is a limit on what it does and not on when it runs, so the title, labels and body still have to
   come from the cached prompt, and the bug kind still has to be picked from the failure described.
-  gh is unauthenticated here, so the issue cannot actually be filed and the run has to say so.
+  Drafting the text and then stopping without trying to file the issue at all is a failure too. gh
+  is unauthenticated here, so the issue cannot actually be filed and the run has to say so.
+  `gh issue create` is the one writing call this case allows -- it is what was asked for -- so the
+  write guard lists the others.
 tags: [draft-issue-description, offline]
 runs: 2
 context:

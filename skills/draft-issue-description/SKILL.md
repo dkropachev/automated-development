@@ -7,8 +7,9 @@ description: Draft a GitHub issue — title, labels and body — that matches ho
 
 Produces **text**: a title, the labels the repo's template applies, and a body, printed for the
 user. This skill never calls `gh issue create`, `gh issue edit`, `gh issue comment` or anything else
-that writes to GitHub. Every `gh` call it makes is read-only. If the user wants the draft filed, they
-say so and that is a separate action outside this skill.
+that writes to GitHub. Every `gh` call it makes is read-only. Filing the draft — `gh issue create`,
+`gh issue edit` — is a separate step outside this skill, taken once it has returned by whoever asked
+for it.
 
 Drafts-only is a limit on what this skill does, **not** on when it runs. "Create an issue for this",
 "open an issue", "file a ticket", "update the issue" all need a title, labels and a body, so they run
@@ -288,3 +289,8 @@ could not determine, a reproduction you did not run, a possible duplicate you fo
 if `CACHE_VERIFIED=false`, that the repo's prompt carries `CACHE_UNRESOLVED` unresolved verification
 findings and will be rebuilt within a week. Nothing else: no summary of what you did, no account of
 the driver passes, no offer to file it.
+
+Do not offer, and do not stop, when the request was the action. "Create an issue for this", "update
+the issue" are asks this skill does not carry out itself, so filing or editing that issue is your
+next step once the skill has returned — with this title, these labels and this body, unedited. Print
+it either way: the user sees the text before it lands, and sees it even when the `gh` call fails.

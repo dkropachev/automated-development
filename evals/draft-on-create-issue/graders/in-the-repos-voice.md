@@ -25,8 +25,8 @@ failed `gh issue create`, or both:
 6. `### Version` gives `2.3.1`, Linux and Python 3.12 as numbers - never "latest".
 7. The prose is direct: no "Hi team", no filler, no template comment (`<!--`), no placeholder, and
    no fix proposed in the body.
-8. The agent says plainly that the issue was not filed, and why - `gh` is not authenticated - rather
-   than reporting success or leaving it ambiguous.
+8. The agent tried to file the issue and says plainly that it was not filed, quoting or naming what
+   actually failed, rather than reporting success, leaving it ambiguous, or never trying at all.
 
 Full credit when all eight hold. Deduct proportionally. Drafting the feature kind, a generic body
 the repository's forms do not ask for, or claiming the issue was created is a major deduction.

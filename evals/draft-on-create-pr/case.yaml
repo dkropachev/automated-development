@@ -4,8 +4,10 @@ description: >
   The same repo and cached prompt as draft-from-cached-prompt, asked for the action rather than for
   the text: "create the PR". The skill is drafts-only, which is a limit on what it does and not on
   when it runs, so the title and body still have to come from the cached prompt. Writing them by
-  hand because the request said create is the regression this case exists to catch. gh is
-  unauthenticated here, so the PR cannot actually be opened and the run has to say so.
+  hand because the request said create is the regression this case exists to catch, and so is
+  drafting the text and then stopping without trying to open the PR at all. gh is unauthenticated
+  here, so the PR cannot actually be opened and the run has to say so. `gh pr create` is the one
+  writing call this case allows -- it is what was asked for -- so the write guard lists the others.
 tags: [draft-pr-description, offline]
 runs: 2
 context:

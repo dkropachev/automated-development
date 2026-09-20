@@ -242,7 +242,8 @@ call, so what Actions does is exactly what runs locally. No workflow carries she
 `test/lib.test.js` exercises the pure functions directly. `test/driver.test.js` runs the real driver
 in a subprocess with `HOME` pointed at a temp dir, so state, caches and result files are inspected
 where they land. `scripts/check-consistency.js` fails when a skill names a driver verb, flag, file or
-agent type that does not exist, or when the version in `plugin.json` and `package.json` disagree.
+agent type that does not exist, when an eval case is missing a piece or carries a grader that would
+not load, or when the version in `plugin.json` and `package.json` disagree.
 
 ## CI/CD
 

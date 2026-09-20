@@ -7,8 +7,8 @@ description: Draft a PR title and description that match how this specific repo 
 
 Produces **text**: a title and a description body, printed for the user. This skill never calls
 `gh pr edit`, `gh pr create`, or anything else that writes to GitHub. Every `gh` call it makes is
-read-only. If the user wants the draft applied, they say so and that is a separate action outside
-this skill.
+read-only. Applying the draft — `gh pr create`, `gh pr edit` — is a separate step outside this
+skill, taken once it has returned by whoever asked for it.
 
 Drafts-only is a limit on what this skill does, **not** on when it runs. "Create the PR", "open a
 PR for this", "push it and raise a PR", "update the PR description", "fix the PR body" all want a
@@ -295,3 +295,8 @@ plan, a missing issue link, a risk you could not assess — and, if `CACHE_VERIF
 repo's prompt carries `CACHE_UNRESOLVED` unresolved verification findings and will be rebuilt within
 a week. Nothing else: no summary of what you did, no account of the driver passes, no offer to apply
 it.
+
+Do not offer, and do not stop, when the request was the action. "Create the PR", "update the PR
+body" are asks this skill does not carry out itself, so opening or editing that PR is your next step
+once the skill has returned — with this title and this body, unedited. Print it either way: the user
+sees the text before it lands, and sees it even when the `gh` call fails.

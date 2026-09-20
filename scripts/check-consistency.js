@@ -125,6 +125,44 @@ for (const d of fs.readdirSync(skillsDir)) {
   }
 }
 
+// ---- eval cases: the pieces a case needs, and graders that will actually load
+// `make eval-parse` only parses case.yaml; the grader files are read when a case runs, which costs
+// tokens, so a typo in one would otherwise ship. Only the certainly-wrong is checked here. A new
+// grader type has to be added to GRADER_TYPES.
+const GRADER_TYPES = new Set(['llm', 'regex', 'tool_used'])
+const evalsDir = path.join(ROOT, 'evals')
+for (const c of fs.existsSync(evalsDir) ? fs.readdirSync(evalsDir, { withFileTypes: true }) : []) {
+  if (!c.isDirectory() || c.name === 'results' || c.name === 'mocks') continue
+  const dir = path.join('evals', c.name)
+  for (const f of ['case.yaml', 'prompt.md']) {
+    if (!fs.existsSync(path.join(ROOT, dir, f))) bad(`${dir}: no ${f}`)
+  }
+  if (fs.existsSync(path.join(ROOT, dir, 'case.yaml'))) {
+    const declared = /^name:\s*(\S+)/m.exec(rd(path.join(dir, 'case.yaml')))
+    if (!declared) bad(`${dir}/case.yaml: no name`)
+    else if (declared[1] !== c.name) bad(`${dir}/case.yaml: name "${declared[1]}" does not match the directory`)
+  }
+  const gDir = path.join(ROOT, dir, 'graders')
+  const graders = fs.existsSync(gDir) ? fs.readdirSync(gDir).filter((f) => f.endsWith('.md')) : []
+  if (!graders.length) { bad(`${dir}: no graders`); continue }
+  for (const f of graders) {
+    const file = path.join(dir, 'graders', f)
+    const h = fm(rd(file))
+    if (!h) { bad(`${file}: no frontmatter`); continue }
+    if (!GRADER_TYPES.has(h.type)) { bad(`${file}: grader type "${h.type}" is not one this suite runs`); continue }
+    if (h.weight !== undefined && !Number.isFinite(Number(h.weight))) bad(`${file}: weight "${h.weight}" is not a number`)
+    if (h.type === 'regex') {
+      if (!h.pattern) bad(`${file}: a regex grader with no pattern`)
+      else {
+        const body = /^'(.*)'$/.exec(h.pattern) || /^"(.*)"$/.exec(h.pattern)
+        try { new RegExp(body ? body[1] : h.pattern, h.flags || '') } catch (e) { bad(`${file}: pattern does not compile: ${e.message}`) }
+      }
+      if (!['contains', 'not_contains'].includes(h.match)) bad(`${file}: match "${h.match}" is neither contains nor not_contains`)
+    }
+    if (h.type === 'tool_used' && !h.tool) bad(`${file}: a tool_used grader with no tool`)
+  }
+}
+
 // ---- workflows call make targets that exist; Makefile targets call scripts that exist
 const makefile = rd('Makefile')
 const targets = new Set([...makefile.matchAll(/^([a-z][\w-]*):/gm)].map((m) => m[1]))
