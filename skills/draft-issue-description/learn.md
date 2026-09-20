@@ -88,7 +88,11 @@ which file it came from, its title prefix, its labels, and what to do with a rep
 (file as the closest kind, or — when `config.yml` routes it elsewhere — say so and draft nothing).
 
 A repo with one template, or none, declares **no** kinds and no `## Kinds` section: every section
-applies to every issue.
+applies to every issue. Its one template still applies labels automatically, and with no `## Kinds`
+line to carry them they go in the frontmatter instead, as `labels: [bug]` — spelled exactly as the
+template's `labels:` spells them, and omitted entirely when the template applies none. The draft
+machine requires that line on every draft, so a label listed here that the repo does not actually
+apply is wrong in the same way a missing section is.
 
 ## 2. Top contributors
 
@@ -241,6 +245,7 @@ contributors: [alice, bob]        # after bot filtering
 pattern: template                 # template | derived | none
 max_bytes: 2600                   # this repo's own ceiling (see below)
 kinds: [bug, feature]             # omit the key entirely when the repo has one shape
+labels: [bug]                     # ONLY without kinds: the one template's own labels; omit if none
 ---
 
 ## Title
@@ -294,7 +299,9 @@ A section line may name alternates — `### \`### Version\` — also \`### Versi
 was renamed and older issues carry the old label; a draft satisfies it with any one of them. A
 section with no `kinds` comment belongs to every kind.
 
-Write only the six keys shown (five, without `kinds`). The driver stamps `verified`,
+Write only the keys shown, and `kinds` and `labels` are alternatives: a prompt that declares kinds
+carries each kind's labels on its `## Kinds` line and has no `labels` key, and a prompt with no
+kinds carries the key. The driver stamps `verified`,
 `verify_verdict`, `unresolved`, `sources_hash` and `nwo` into the frontmatter when it publishes;
 anything you write there is overwritten.
 

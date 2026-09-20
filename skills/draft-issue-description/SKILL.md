@@ -279,7 +279,7 @@ Print the result as:
 
 ```
 Title: <title>
-Labels: <labels, when the kind has them>
+Labels: <labels, when the prompt names any>
 
 <body>
 ```

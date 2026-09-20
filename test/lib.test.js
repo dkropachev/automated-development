@@ -171,6 +171,27 @@ test('promptLabels reads the run of backticked items after `labels` and nothing 
   assert.deepEqual(checks.promptLabels(p, 'absent'), []); assert.deepEqual(checks.promptLabels(p, ''), [])
 })
 
+test('a kindless prompt carries its one template\'s labels in the frontmatter', () => {
+  const fs = require('fs'), os = require('os'), path = require('path')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pgl-'))
+  const p = path.join(dir, 'p.md')
+  fs.writeFileSync(p, '---\nlabels: [bug, needs-triage]\n---\n## Title\nx\n')
+  assert.deepEqual(checks.promptLabels(p, ''), ['bug', 'needs-triage'])
+  fs.writeFileSync(p, '---\npattern: template\n---\n## Title\nx\n')
+  assert.deepEqual(checks.promptLabels(p, ''), [])
+  // A kinded prompt answers from its `## Kinds` line, and the key is refused beside it.
+  const schema = path.join(__dirname, '..', 'skills', 'draft-issue-description', 'schema.md')
+  const fm = (extra) => '---\nlearned_at: 2026-09-18\nsource_issues: [1]\npattern: template\nmax_bytes: 2600\n' + extra + '---\n' +
+    '## Title\nx\n## Body\n### `### A` <!-- covers: problem, expected, context -->\n' + 'prose. '.repeat(70) + '\n## Style\nbe concise\n'
+  const draft = path.join(dir, 'd.md')
+  fs.writeFileSync(draft, fm('labels: [bug]\n'))
+  assert.ok(gate.inspect(draft, schema, { sourceKey: 'source_issues', idPattern: /^\d+$/ }).ok)
+  fs.writeFileSync(draft, fm('labels: bug\n'))
+  assert.match(gate.inspect(draft, schema, { sourceKey: 'source_issues', idPattern: /^\d+$/ }).problems.join('\n'), /`labels` must be a \[\.\.\] list/)
+  fs.writeFileSync(draft, fm('kinds: [bug]\nlabels: [bug]\n'))
+  assert.match(gate.inspect(draft, schema, { sourceKey: 'source_issues', idPattern: /^\d+$/ }).problems.join('\n'), /cannot both be present/)
+})
+
 test('citedPaths ignores prose that merely contains a slash', () => {
   assert.deepEqual(checks.citedPaths('the client/server handshake fails and/or hangs on read/write, ' +
                                      '50/50 of runs, on Linux/6.1; see src/plain.js and tests/test_pool.py'),

@@ -63,6 +63,12 @@ Do not take the builder's word for anything.
    section marked `kinds: bug` that actually comes from the feature form is **blocking** — it is the
    one lie the mechanical gate cannot see. A repo with one template or none should declare no kinds.
 
+   With no kinds there is no `## Kinds` line to carry the template's labels, so they belong in the
+   frontmatter as `labels: [...]`. A single-template repo whose form applies labels and whose prompt
+   has no `labels` key is **blocking**: every issue filed from it lands unlabelled. So is a `labels`
+   key that names something the form does not apply, or one sitting beside a `kinds` list, where
+   each kind carries its own.
+
 5. **No tooling banner.** The prompt must never ask for a "Generated with Claude Code" line, a robot
    emoji, a `Co-Authored-By: Claude` trailer or a claude.com link. Sampled issues may contain them;
    the prompt must not reproduce them. **Blocking**: the draft machine rejects any draft carrying
