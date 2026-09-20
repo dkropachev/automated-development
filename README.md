@@ -1,8 +1,8 @@
 # automated-development
 
 A Claude Code plugin of development skills that learn a repository's own conventions before they
-act on it. Two skills so far — a PR description and an issue — sharing one driver; the layout
-expects more.
+act on it. Three drafting skills — a PR description, an issue, a commit message — sharing one
+driver, plus a PR review-and-fix pipeline; the layout expects more.
 
 ## Install
 
@@ -84,6 +84,8 @@ the plausible version instead of the true one. It runs under the same driver.
 | `~/.claude/draft-pr-description/state/` | driver state and per-build result JSON, pruned after 7 days |
 | `~/.claude/issue-style-cache/<host>/<owner>/<repo>.md` (+ `.work.<batch>`, `.attempt`) | the same three, for the issue skill |
 | `~/.claude/draft-issue-description/state/` | the issue skill's driver state |
+| `~/.claude/commit-style-cache/<host>/<owner>/<repo>.md` (+ `.work.<batch>`, `.attempt`) | the same three, for the commit skill |
+| `~/.claude/draft-commit-message/state/` | the commit skill's driver state |
 | `~/.claude/pr-review-fix/state/` | one file per live review or fix conversation, pruned after 7 days |
 | `~/.claude/pr-review-fix/<owner>__<repo>/classify.js` (+ `meta.json`) | the generated reviewability rule and the repo fingerprint that invalidates it |
 | `~/.claude/pr-review-fix/<owner>__<repo>/reviewed.json` | files recorded clean, keyed on content, kept across runs |
@@ -135,6 +137,42 @@ It is the same three pieces as the PR skill, driven by the same `promptgen-drive
 context — with reproduction, evidence, proposal and workaround only where the repo's template or
 its maintainers' issues actually have them.
 
+### `draft-commit-message`
+
+Writes a commit message — subject, body, references, trailers — **in the voice of the repository
+you are in**: its subject grammar, its wrap column, its `Fixes #N` form, a `Signed-off-by` only where
+the repo requires one.
+
+The first time it runs against a repo it learns how that repo commits — from commitlint, commitizen
+or semantic-release config, a commit-msg hook, the commit template, the contributing guide, and the
+recent commits of its top authors — and caches the result as a generation prompt. The whole learn
+runs on `git log`; no `gh` is needed, so it works offline. Staleness, back-off and
+`--refresh-cache` work exactly as for PRs, and `sources-changed` fires when commitlint, a hook, the
+template or CONTRIBUTING changes.
+
+It **drafts only**. It never runs `git commit`, `--amend`, `rebase` or `push`. The message is
+printed and saved to a file for `git commit -F`.
+
+```
+/draft-commit-message
+```
+
+Same three pieces, same driver, told `--domain commit`. What differs:
+
+- the change is the **staged diff** by default, the working tree when nothing is staged, or HEAD
+  when amending; the changed-file list comes from the same place
+- the checks are the terminal's, not the browser's: `path:line` is fine and permalinks are not
+  asked for; instead the subject is measured against the repo's `title_max`, body lines against
+  its `wrap_at`, every trailer the prompt marks required must be present, a `#` line is rejected
+  where the repo's commits carry no markdown
+- a prompt may declare `Problem:` / `Solution:`-style labelled parts as sections, and a
+  `## Trailers` section whose `required` lines become checks
+- a one-liner passes where the prompt says this repo commits one-liners for changes of that size
+
+`skills/draft-commit-message/schema.md` is its canonical field list — summary, motivation,
+references — with testing, sign-off, breaking-change and co-authors only where a rule requires them
+or the repo's own commits carry them.
+
 ### `pr-review-fix`
 
 Reviews a PR and, on your own PRs, fixes what it finds. The diff is split into size-capped chunks of
@@ -164,15 +202,15 @@ skips them until they change.
 
 ```
 agents/                  subagents the skills spawn, typed automated-development:pr-style-builder,
-                         :pr-style-verifier, :issue-style-builder, :issue-style-verifier
-                         (plugin name is part of the type)
-bin/promptgen-driver.js  the CLI: the two state machines and the orchestrator's verbs, --domain pr|issue
+                         :pr-style-verifier, :issue-style-builder, :issue-style-verifier,
+                         :commit-style-builder, :commit-style-verifier (plugin name is part of the type)
+bin/promptgen-driver.js  the CLI: the two state machines and the orchestrator's verbs, --domain pr|issue|commit
 bin/pr-review-fix-*.js   the review pipeline's helpers: -driver (fix and review state machines),
                          -chunker (diff -> capped chunks), -reviewed (the clean-file ledger),
                          -repofp (repo-shape fingerprint), -meter (token accounting, manual)
 workflows/               Workflow scripts, run by scriptPath; not linted (see eslint.config.js)
-lib/domains.js           everything that differs between the two domains: paths, keys, source files,
-                         and every instruction that talks about "the diff" or "the maintainer"
+lib/domains.js           everything that differs between the three domains: paths, keys, source files,
+                         which checks apply, and every instruction that talks about "the diff" or "the maintainer"
 lib/prompt-gate.js       coverage gate for a learned prompt, per kind where kinds exist; frontmatter helpers
 lib/draft-checks.js      the checks on a draft, and their regexes
 lib/repo.js              origin parsing, cache path, sources hash, staleness rule

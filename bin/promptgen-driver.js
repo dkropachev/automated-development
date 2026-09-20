@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 'use strict'
-// promptgen driver, shared by draft-pr-description and draft-issue-description. A state machine
+// promptgen driver, shared by draft-pr-description, draft-issue-description and
+// draft-commit-message. A state machine
 // that runs INSIDE the builder agent's conversation and tells it what to do next, one step at a
 // time.
 //
 //   node promptgen-driver.js start --batch <run> --cache <path> --schema <path> --nwo <owner/repo>
-//                                  [--domain pr|issue] [--host <host>] [--learn <path>]
+//                                  [--domain pr|issue|commit] [--host <host>] [--learn <path>]
 //                                  [--carry-file <path>]
 //
-// `--domain` says which of the two things is being drafted. Everything that differs between them -
+// `--domain` says which of the three things is being drafted. Everything that differs between them -
 // the cache root, the state directory, the files that outrank observed practice, the frontmatter
-// key the sampled numbers live under, the header the verifier reports them under, and every
-// instruction that talks about "the diff" or "the maintainer" - lives in lib/domains.js. The
+// key the sampled identifiers live under, the header the verifier reports them under, which
+// mechanical checks apply, and every instruction that talks about "the diff" or "the maintainer" -
+// lives in lib/domains.js. The
 // default is `pr`, so a caller that predates the flag reads as before. The domain is recorded in
 // the batch's state at `start`; no later verb needs the flag.
 //
@@ -26,7 +28,8 @@
 //   draft : start -> written -> revised --changed yes|no [loop] -> finished
 //
 // The BUILD machine drives a subagent that writes a repo's cached generation prompt.
-// The DRAFT machine drives THE CURRENT SESSION while it writes one PR description or one issue. It
+// The DRAFT machine drives THE CURRENT SESSION while it writes one PR description, one issue or one
+// commit message. It
 // is a different machine because the thing it is checking is different - not "is this prompt any
 // good" but "does this draft match the change, or the failure, in front of me" - and because the
 // session, unlike a subagent, knows why the change was made or what the failure looked like.
@@ -90,7 +93,7 @@ const { execFileSync } = require('child_process')
 const { inspect, frontmatter, fmList, stampFrontmatter } = require('../lib/prompt-gate')
 const { inspectDraft, promptSections } = require('../lib/draft-checks')
 const { parseOrigin, cachePathFor, sourcesHash, staleness } = require('../lib/repo')
-const { DOMAINS, domain } = require('../lib/domains')
+const { DOMAINS, domain, sameId } = require('../lib/domains')
 
 const argv = process.argv
 const VERB = argv[2] || ''
@@ -540,7 +543,9 @@ if (!st) {
 // The two measurements, each with the domain's own keys filled in from the state.
 function inspectPrompt(st) { return inspect(st.draft, st.schema, { sourceKey: domainOf(st).sourceKey }) }
 function inspectDraftFor(st) {
-  return inspectDraft(st.draft, st.prompt, st.files, st.root, st.maxBytes, { kind: st.kind || '', noDiff: !domainOf(st).hasDiff })
+  const D = domainOf(st)
+  return inspectDraft(st.draft, st.prompt, st.files, st.root, st.maxBytes,
+                      { kind: st.kind || '', noDiff: !D.hasDiff, web: D.web, titleMax: D.titleMax, minBytes: D.minBytes, labels: D.labels })
 }
 
 // --------------------------------------------------------------- drafted ----
@@ -718,7 +723,7 @@ if (VERB === 'result') {
 // The verifier ends its report with a fixed block:
 //
 //   VERDICT: sound | needs-work
-//   CHECKED_PRS: 104, 105, 110          (CHECKED_ISSUES: for an issue prompt)
+//   CHECKED_PRS: 104, 105, 110          (CHECKED_ISSUES: / CHECKED_COMMITS: for the other domains)
 //   FINDINGS:
 //     - [blocking] <where>: <problem>  (evidence: ...)
 //     - [worth-fixing] ...
@@ -726,14 +731,18 @@ if (VERB === 'result') {
 // The orchestrator saves that block to a file and hands the file here. The driver parses it, and the
 // verdict it records is DERIVED from the findings - a "sound" above a blocking line is needs-work -
 // so no transcription by the orchestrator and no self-assessment by the verifier decides anything.
-function parseReport(text) {
-  const r = { isReport: false, verdict: '', checkedPrs: [], findings: [], blocking: 0 }
+function parseReport(text, D) {
+  const r = { isReport: false, hasChecked: false, verdict: '', checkedPrs: [], findings: [], blocking: 0 }
   const v = /^\s*VERDICT:\s*([\w-]+)/m.exec(text)
   if (v) { r.isReport = true; r.verdict = v[1].toLowerCase() }
-  const c = /^\s*CHECKED_(?:PRS|ISSUES):\s*(.*)$/m.exec(text)
+  // The domain's own header, and only that one: a CHECKED_PRS block on an issue build is a verifier
+  // that ran the wrong checklist, and is refused rather than read.
+  const c = new RegExp('^\\s*' + D.checkedKey + ':\\s*(.*)$', 'm').exec(text)
   if (c) {
-    r.isReport = true
-    r.checkedPrs = c[1].split(/[\s,]+/).map(x => x.replace(/^#/, '')).filter(x => /^\d+$/.test(x)).map(Number)
+    r.isReport = true; r.hasChecked = true
+    const ids = c[1].split(/[\s,]+/).map(x => x.replace(/^#/, '')).filter(x => D.idPattern.test(x))
+      .map(x => /^\d+$/.test(x) ? Number(x) : x.toLowerCase())
+    r.checkedPrs = ids.filter((x, i) => ids.findIndex(y => sameId(x, y)) === i)
   }
   const fi = text.search(/^\s*FINDINGS:\s*$/m)
   const body = fi === -1 ? (r.isReport ? '' : text) : text.slice(fi).split('\n').slice(1).join('\n')
@@ -752,17 +761,17 @@ if (VERB === 'verified') {
   const reportPath = one('report-file', '')
   let verify
   if (reportPath) {
-    const rep = parseReport(carryFile(reportPath))
     const D = domainOf(st)
-    if (!rep.isReport) {
+    const rep = parseReport(carryFile(reportPath), D)
+    if (!rep.isReport || !rep.hasChecked) {
       console.error('promptgen-driver: ' + reportPath + ' has no VERDICT: / ' + D.checkedKey + ': block. Save the verifier\'s closing block verbatim.')
       process.exit(2)
     }
     // The verifier must have looked beyond the builder's sample, or it has checked the prompt against
     // the evidence the prompt was made from and found, unsurprisingly, that they agree.
     let sampled = []
-    try { sampled = fmList(frontmatter(fs.readFileSync(st.draft, 'utf8'))[D.sourceKey]).filter(x => typeof x === 'number') } catch {}
-    const outside = rep.checkedPrs.filter(n => !sampled.includes(n))
+    try { sampled = fmList(frontmatter(fs.readFileSync(st.draft, 'utf8'))[D.sourceKey]).filter(x => D.idPattern.test(String(x))) } catch {}
+    const outside = rep.checkedPrs.filter(n => !sampled.some(s => sameId(s, n)))
     const minOutside = has('min-outside') ? num('min-outside') : 2
     if (outside.length < minOutside) {
       say('NOT RECORDED: the verifier checked ' + rep.checkedPrs.length + ' ' + D.sample + '(s), of which only ' + outside.length +
@@ -813,7 +822,7 @@ if (VERB === 'reopen') {
   }
   // The same file `verified` took: only the findings lines are carried, never the verdict header.
   const raw = carryFile(one('carry-file', ''))
-  const parsed = parseReport(raw)
+  const parsed = parseReport(raw, domainOf(st))
   const carry = parsed.isReport ? parsed.findings.join('\n') : raw
   if (!carry) { console.error('promptgen-driver: --carry-file <path> with the findings is required, and it has to contain at least one finding'); process.exit(2) }
   st.carry = carry
@@ -906,11 +915,7 @@ if (VERB === 'publish') {
 function draftProblems(r, D) {
   const out = []
   if (r.problems.length) out.push('', 'Structural problems:', ...r.problems.map(x => '  - ' + x))
-  if (r.longTitle) {
-    out.push('', 'The title is ' + r.longTitle + ' characters. Every listing a reviewer meets it in will',
-             'truncate it, so the part past ~70 is written for nobody. Say the one thing it is for and',
-             'move the rest into the body.')
-  }
+  if (r.longTitle) out.push('', ...(D || domain('pr')).text.longTitle(r.longTitle, r.titleBudget))
   if (r.overBudget) {
     out.push('',
       'TOO LONG: ' + r.overBudget.bytes + ' bytes against ' + r.overBudget.budget + ' - ' +
@@ -1040,7 +1045,7 @@ if (VERB === 'revised') {
         '',
         ...D.text.lastRead(),
         '',
-        'Then print the title' + (r.labels ? ', labels' : '') + ' and body to the user, exactly as the file has them, and:',
+        D.text.print(r),
         cmd('finished', ''))
     process.exit(0)
   }

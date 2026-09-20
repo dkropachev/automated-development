@@ -706,3 +706,182 @@ shutdown(timeout=None) returns once every worker has stopped or the timeout has 
   assert.match(r.out, /THE CHECKS REJECTED THIS DRAFT/); assert.match(r.out, /and the repository\./)
   assert.match(r.out, /asks for that are not in your draft:\n {2}- ### Version/)
 })
+
+// --------------------------------------------------------- commit domain ----
+// The same driver, told --domain commit: its own cache root and state directory, commitlint and the
+// commit template in the sources hash, `source_commits` and CHECKED_COMMITS with SHAs matched by
+// prefix, and the terminal-side checks - a subject ceiling, a wrap column, required trailers,
+// Label:-style body parts, no markdown - in place of the browser-side permalink rules.
+
+const CSCHEMA = path.join(__dirname, '..', 'skills', 'draft-commit-message', 'schema.md')
+const CLEARN = path.join(__dirname, '..', 'skills', 'draft-commit-message', 'learn.md')
+
+const COMMIT_PROMPT = (extra) => `---
+learned_at: ${today()}
+source_commits: [a1b2c3d, b2c3d4e, c3d4e5f]
+contributors: [alice, bob]
+pattern: derived
+max_bytes: 1200
+title_max: 60
+wrap_at: 72
+${extra || ''}---
+
+## Title
+\`<component>: <imperative clause>\` - lowercase component, no period, under 60 characters:
+\`pool: join workers on shutdown\`, \`cli: drop the --legacy flag\`.  <!-- covers: summary -->
+
+## Body
+A body on every change that is not a typo fix, wrapped at 72, opening with the reason.
+### \`Problem:\`  <!-- covers: motivation -->
+One paragraph: what was wrong and why it mattered.
+### \`Solution:\`
+One paragraph: what was done and what was rejected.
+The issue as \`Fixes #N\` on its own line after the body, before any trailer, when one exists.  <!-- covers: references -->
+
+## Trailers
+- \`Signed-off-by:\` required - CONTRIBUTING "Sign your work"
+- \`Co-authored-by:\` optional - human pair authors only
+
+## Style
+Subject says what, body says why. Never narrate the diff. \`path:line\` is fine; no markdown, no permalinks.
+Median body 6 lines, middle half 3-11.
+
+## Notes
+Reverts use git's own \`Revert "<subject>"\` form with the original SHA in the body.
+`
+
+function startCommitBuild(h, batch, cache) {
+  return run(h, ['start', '--domain', 'commit', '--batch', batch, '--cache', cache, '--schema', CSCHEMA, '--learn', CLEARN,
+                 '--nwo', 'o/r', '--host', 'github.com', '--root', h])
+}
+function startCommitDraft(h, repo, draft, prompt, files, batch) {
+  return run(h, ['start', '--domain', 'commit', '--batch', batch || 'c1', '--mode', 'draft', '--draft', draft, '--prompt', prompt,
+                 '--files', files, '--root', repo])
+}
+
+test('commit gate: source_commits with SHAs, and the PR gate rejects a commit prompt', () => {
+  const h = tmp(); const p = path.join(h, 'p.md'); write(p, COMMIT_PROMPT())
+  let r = run(h, ['gate', '--domain', 'commit', '--draft', p, '--schema', CSCHEMA])
+  assert.equal(r.code, 0, r.out); assert.match(r.out, /GATE: pass/)
+  write(p, COMMIT_PROMPT().replace('<!-- covers: references -->', ''))
+  r = run(h, ['gate', '--domain', 'commit', '--draft', p, '--schema', CSCHEMA])
+  assert.equal(r.code, 5); assert.match(r.out, /not covered:\n {2}- references/)
+  write(p, COMMIT_PROMPT())
+  r = run(h, ['gate', '--draft', p, '--schema', CSCHEMA]); assert.equal(r.code, 5); assert.match(r.out, /`source_prs` is missing/)
+})
+
+test('commit resolve: its own cache root; commitlint, the template and a commit-msg hook in the sources hash', () => {
+  const h = tmp(); const repo = path.join(h, 'r'); gitRepo(repo, 'git@github.com:o/r.git')
+  let r = run(h, ['resolve', '--domain', 'commit', '--root', repo])
+  assert.equal(r.code, 0, r.out); assert.match(r.stdout, /^DOMAIN='commit'$/m)
+  assert.match(r.stdout, new RegExp(`^CACHE='${path.join(h, '.claude/commit-style-cache/github.com/o/r.md')}'$`, 'm'))
+  assert.match(r.stdout, /^SOURCES_HASH='none'$/m)
+  // neither a PR template nor an issue form touches the commit hash
+  write(path.join(repo, '.github', 'PULL_REQUEST_TEMPLATE.md'), '## Why\n')
+  write(path.join(repo, '.github', 'ISSUE_TEMPLATE', 'bug.yml'), 'name: Bug\n')
+  assert.match(run(h, ['resolve', '--domain', 'commit', '--root', repo]).stdout, /^SOURCES_HASH='none'$/m)
+  const hashes = []
+  for (const [f, body] of [['commitlint.config.js', 'module.exports = {}'], ['.gitmessage', '\n# subject\n'],
+                           ['.husky/commit-msg', 'npx commitlint --edit $1'], ['.github/workflows/dco.yml', 'name: dco\n']]) {
+    write(path.join(repo, f), body)
+    hashes.push(/SOURCES_HASH='([0-9a-f]+)'/.exec(run(h, ['resolve', '--domain', 'commit', '--root', repo]).stdout)[1])
+  }
+  assert.equal(new Set(hashes).size, 4, 'each file changes the hash: ' + hashes.join(' '))
+  // and the PR hash saw commitlint but not the template, the hook or the DCO workflow
+  const prHash = /SOURCES_HASH='([0-9a-f]+)'/.exec(run(h, ['resolve', '--root', repo]).stdout)[1]
+  assert.notEqual(prHash, 'none'); assert.notEqual(prHash, hashes[3])
+})
+
+test('commit build: SHAs in the result, CHECKED_COMMITS matched by prefix, PR header refused', () => {
+  const h = tmp(); const cache = path.join(h, '.claude/commit-style-cache/github.com/o/r.md'); const work = cache + '.work.cb1'
+  let r = startCommitBuild(h, 'cb1', path.join(h, '.claude/pr-style-cache/github.com/o/r.md'))
+  assert.equal(r.code, 2); assert.match(r.out, /inside ~\/.claude\/commit-style-cache/)
+  r = startCommitBuild(h, 'cb1', cache); assert.equal(r.code, 0, r.out); assert.match(r.out, /write a commit message in that repo/)
+  assert.ok(fs.existsSync(path.join(h, '.claude/draft-commit-message/state/cb1.state.json')))
+
+  write(work, COMMIT_PROMPT())
+  r = run(h, ['drafted', '--batch', 'cb1']); assert.equal(r.code, 0, r.out); assert.match(r.out, /a staged diff/)
+  run(h, ['critiqued', '--batch', 'cb1', '--issues', '0']); run(h, ['critiqued', '--batch', 'cb1', '--issues', '0'])
+  assert.match(run(h, ['handed-off', '--batch', 'cb1']).out, /FINAL STATE: built derived/)
+  const res = JSON.parse(run(h, ['result', '--batch', 'cb1']).stdout)
+  assert.equal(res.domain, 'commit'); assert.deepEqual(res.sourceCommits, ['a1b2c3d', 'b2c3d4e', 'c3d4e5f'])
+
+  const report = path.join(h, 'report.txt')
+  // the PR header on a commit build is not a report for this build
+  write(report, 'VERDICT: sound\nCHECKED_PRS: 1, 2, 3\nFINDINGS:\n')
+  assert.equal(run(h, ['verified', '--batch', 'cb1', '--report-file', report]).code, 2)
+  // a full SHA of a sampled commit is the same commit, so only 0 are outside
+  write(report, 'VERDICT: sound\nCHECKED_COMMITS: a1b2c3d0123456789abcdef0123456789abcdef0, B2C3D4E\nFINDINGS:\n')
+  r = run(h, ['verified', '--batch', 'cb1', '--report-file', report]); assert.equal(r.code, 3); assert.match(r.out, /checked 2 commit\(s\), of which only 0/)
+  // two others, one quoted twice in different lengths, count as two
+  write(report, 'VERDICT: sound\nCHECKED_COMMITS: a1b2c3d, deadbee, deadbeef01, f00dcafe\nFINDINGS:\n  - [worth-fixing] ## Title: example predates the prefix  (evidence: deadbee)\n')
+  r = run(h, ['verified', '--batch', 'cb1', '--report-file', report]); assert.equal(r.code, 0, r.out)
+  assert.match(r.out, /RECORDED verdict=sound blocking=0 checked_prs=3/)
+  r = run(h, ['publish', '--batch', 'cb1']); assert.equal(r.code, 0, r.out)
+  const fm = fs.readFileSync(cache, 'utf8').split('\n---\n')[0]
+  assert.match(fm, /^source_commits: \[a1b2c3d/m); assert.match(fm, /^wrap_at: 72$/m); assert.match(fm, /^title_max: 60$/m)
+})
+
+test('commit draft checks: trailer, wrap, # line, label part, subject ceiling; path:line is fine', () => {
+  const h = tmp(); const repo = path.join(h, 'r'); gitRepo(repo, 'git@github.com:o/r.git')
+  const prompt = path.join(h, 'prompt.md'); write(prompt, COMMIT_PROMPT())
+  const files = path.join(h, 'files.txt'); write(files, 'src/pool.py\n')
+  const draft = path.join(h, 'draft.md')
+  let r = startCommitDraft(h, repo, draft, prompt, files)
+  assert.equal(r.code, 0, r.out); assert.match(r.out, /WRITE THE COMMIT MESSAGE/); assert.match(r.out, /path\/to\/file\.py:42` is fine here/)
+  assert.doesNotMatch(r.out, /PERMALINKS/)
+  write(draft, `Title: pool: join every worker on shutdown so that the process can finally exit cleanly
+
+# Why
+Problem: workers still mid-handshake in \`src/pool.py:12\` kept the process alive after shutdown() returned, which is bad.
+See also \`tests/test_pool.py\`.
+
+Solution: join them.
+`)
+  r = run(h, ['written', '--batch', 'c1']); assert.equal(r.code, 0, r.out)
+  assert.match(r.out, /The subject is 8\d characters against this repo's guide of 60/)
+  assert.match(r.out, /Lines beginning with # \(# Why\)/)
+  assert.match(r.out, /Trailers this repo requires that are not in the draft: Signed-off-by:/)
+  assert.match(r.out, /1 line\(s\) run past the 72-column wrap/)
+  assert.match(r.out, /do not exist in this repository at all[\s\S]*tests\/test_pool\.py/)
+  assert.doesNotMatch(r.out, /references code as/); assert.doesNotMatch(r.out, /permalink/i)
+  assert.match(r.out, /git blame/)
+
+  write(draft, `Title: pool: join workers on shutdown
+
+Problem: workers still mid-handshake kept the process alive after
+shutdown() returned, so a clean exit hung until the handshake timed out.
+
+Solution: stop() then join() each worker (src/pool.py:12), bounded by
+the existing 5s timeout. Draining the queue first was rejected: it
+reorders in-flight requests.
+
+Fixes #42
+
+Signed-off-by: Alice <alice@example.com>
+`)
+  run(h, ['revised', '--batch', 'c1', '--changed', 'yes'])
+  r = run(h, ['revised', '--batch', 'c1', '--changed', 'no']); assert.match(r.out, /GO AGAIN/); assert.match(r.out, /git log --oneline/)
+  r = run(h, ['revised', '--batch', 'c1', '--changed', 'no'])
+  assert.match(r.out, /LAST READ/); assert.match(r.out, /every part the prompt asks for present/); assert.match(r.out, /in one fenced block/)
+  assert.match(run(h, ['finished', '--batch', 'c1']).out, /FINAL STATE: drafted/)
+})
+
+test('commit draft: a missing labelled part is reported by its label; a one-liner passes a prompt that allows one', () => {
+  const h = tmp(); const repo = path.join(h, 'r'); gitRepo(repo, 'git@github.com:o/r.git')
+  const files = path.join(h, 'files.txt'); write(files, 'src/pool.py\n')
+  const prompt = path.join(h, 'prompt.md'); write(prompt, COMMIT_PROMPT())
+  const draft = path.join(h, 'draft.md'); startCommitDraft(h, repo, draft, prompt, files)
+  write(draft, `Title: pool: join workers on shutdown\n\nWorkers kept the process alive. Problem: solved.\n\nSigned-off-by: A <a@x>\n`)
+  let r = run(h, ['written', '--batch', 'c1'])
+  assert.match(r.out, /asks for that are not in your draft:\n {2}- Problem:\n {2}- Solution:/)
+
+  const flat = path.join(h, 'flat.md')
+  write(flat, `---\nlearned_at: ${today()}\nsource_commits: [a1b2c3d, b2c3d4e]\ncontributors: [alice]\npattern: derived\nmax_bytes: 600\n---\n\n## Title\n\`<component>: <clause>\`  <!-- covers: summary -->\n\n## Body\nOne-liners for typo and comment fixes; otherwise a paragraph on why.  <!-- covers: motivation -->\n\`Fixes #N\` when there is one.  <!-- covers: references -->\n\n## Style\nWhat in the subject, why in the body.\n`)
+  const d2 = path.join(h, 'd2.md'); startCommitDraft(h, repo, d2, flat, files, 'c2')
+  write(d2, 'Title: pool: fix typo in shutdown comment\n')
+  r = run(h, ['written', '--batch', 'c2']); assert.equal(r.code, 0, r.out)
+  assert.doesNotMatch(r.out, /Structural problems/); assert.doesNotMatch(r.out, /under \d+ bytes/)
+  run(h, ['revised', '--batch', 'c2', '--changed', 'no'])
+  assert.match(run(h, ['revised', '--batch', 'c2', '--changed', 'no']).out, /LAST READ/)
+})
