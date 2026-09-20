@@ -14,7 +14,6 @@ are rebuilt, so run `/draft-issue-description --refresh-cache` in a repo after c
 |---|---|---|
 | `problem` | What is wrong, missing or slow, as a user or operator meets it? | The symptom or the gap, and why it matters — not the cause you suspect and not the fix. For a feature, what cannot be done today. |
 | `expected` | What should happen instead? | For a bug, the correct behaviour. For a feature, the outcome wanted, stated as behaviour rather than as an implementation. |
-| `context` | Which version, component, platform or configuration is involved? | A version is a number, never "latest". For a feature, the component it belongs to. A maintainer cannot triage against nothing. |
 
 ## Repo-conditional fields
 
@@ -24,6 +23,7 @@ looks like good practice. A repo whose bug form has no log field gets bug report
 
 | field | what it answers | notes |
 |---|---|---|
+| `context` | Which version, component, platform or configuration is involved? | Only where the template has a version or environment field, or the repo's own issues carry one. A version is a number, never "latest"; for a feature, the component it belongs to. |
 | `reproduction` | How does a maintainer see it for themselves? | Numbered, minimal, actually run. Nearly every bug template asks for it, so it is nearly always present for the bug kind — but on the evidence of the template, never by default, and never for a feature request. |
 | `evidence` | What did you actually see? | The log lines, the trace, the screenshot, trimmed to what matters. Include where the template has a log or output field. |
 | `proposal` | What would you do about it? | A sketch of a fix or a design. Only where the template asks ("Describe the solution you'd like") or a clear majority of maintainers' issues of that kind carry one. |
@@ -32,12 +32,14 @@ looks like good practice. A repo whose bug form has no log field gets bug report
 ## Two different kinds of conditional
 
 The section above is conditional **on the repo**: the field never appears unless that repo asks for
-it. This one is conditional **on the issue**: the field is always part of the prompt, but its
-section may be thin in a particular draft.
+it. This one is conditional **on the issue**: a field the repo does ask for is always part of the
+prompt, but its section may be thin in a particular draft.
 
-`context` is the only required field that may collapse to a line — "2.3.1 on Linux" — and it never
-vanishes. `problem` and `expected` are full sections whatever the kind; "it's broken" is not a
-problem statement and "it should work" is not an expected behaviour.
+`problem` and `expected` are full sections whatever the kind, and neither may be a line: "it's
+broken" is not a problem statement and "it should work" is not an expected behaviour. A
+repo-conditional field that the repo does ask for may still be thin in a particular draft —
+`context` is usually the one that collapses to "2.3.1 on Linux" — but it is not left out of a draft
+whose repo asks for it.
 
 ## What never goes in
 
