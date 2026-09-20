@@ -175,6 +175,14 @@ that does not fit (a stage of single oversize hunks, which are never split), it 
 chunks that fit** and lists the rest under **NOT REVIEWED** — nothing silently disappears, and nothing
 skipped is written to the ledger, so a re-run picks it up.
 
+Every re-chunk — the budget widening above, and the one a paused stage does when fixes have landed —
+passes the `.hashes` sidecars of the chunks already reviewed to the chunker as `--exclude-hashes`, so
+what comes back is the hunks nobody has reached rather than the whole stage. The filter is on hunks,
+not on file names, because a file too big for one chunk is split across several: filtering by name
+would either hand back chunks the run already paid for or drop hunks it never saw. An excluded hunk
+also keeps its file out of `wholeFiles`, so a later round cannot record a file clean on the strength
+of the half it happened to see.
+
 ## How the driver runs an agent
 
 `bin/review-and-fix-pr-driver.js` is a state machine that runs *inside* an agent's conversation: the agent runs a

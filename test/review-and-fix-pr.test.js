@@ -25,6 +25,7 @@ const { execFileSync, spawn } = require('child_process')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
+const vm = require('vm')
 
 const ROOT = path.join(__dirname, '..')
 const BIN = path.join(ROOT, 'bin')
@@ -488,6 +489,167 @@ ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'review-and
     '--mark', '--root', RR, '--base', rb, '--ledger', LL, '--run', 'race', '--stage', 'code', '--file', 'f' + i + '.js'], { stdio: 'ignore' }))
   await Promise.all(children.map(c => new Promise(resolve => c.on('exit', resolve))))
   ck('parallel ledger marks are merged without lost updates', Object.keys(JSON.parse(fs.readFileSync(LL, 'utf8'))).length === 24)
+}
+
+// ------------------------------------------- 7. chunker --exclude-hashes --
+// A re-chunk mid-run has to come back with the hunks nobody has reviewed, not the whole stage.
+// The filter is on hunk hashes because a file too big for one chunk is split across several, so a
+// file-name filter either returns chunks the run already paid for or drops hunks it never saw.
+{
+  const XR = path.join(TMP, 'excl-repo')
+  fs.mkdirSync(XR)
+  const xg = (...a) => sh('git', ['-C', XR, ...a])
+  xg('init', '-q', '-b', 'main'); xg('config', 'user.email', 't@t'); xg('config', 'user.name', 'T')
+  // Three edits far enough apart that git emits three separate hunks.
+  const line = i => 'function f' + i + '(){ return ' + i + ' }\n'
+  let base = ''
+  for (let i = 0; i < 40; i++) base += line(i)
+  fs.mkdirSync(path.join(XR, 'src'))
+  fs.writeFileSync(path.join(XR, 'src/big.js'), base)
+  xg('add', '-A'); xg('commit', '-qm', 'base')
+  const XBASE = xg('rev-parse', 'HEAD').trim()
+  let head = base.split('\n')
+  head[0] = 'function f0(){ return 100 }'
+  head[18] = 'function f18(){ return 118 }'
+  head[36] = 'function f36(){ return 136 }'
+  fs.writeFileSync(path.join(XR, 'src/big.js'), head.join('\n'))
+  xg('add', '-A'); xg('commit', '-qm', 'three edits')
+  const XHEAD = xg('rev-parse', 'HEAD').trim()
+  const XLED = path.join(TMP, 'excl-ledger.json'); fs.writeFileSync(XLED, '{}')
+
+  const xchunk = (out, extra) => JSON.parse(sh('node', [path.join(BIN, 'review-and-fix-pr-chunker.js'),
+    '--root', XR, '--base', XBASE, '--head', XHEAD, '--out', path.join(TMP, out), '--ledger', XLED,
+    '--isolation', './../'].concat(extra || [])))
+
+  const whole = xchunk('x-whole')
+  const allHunks = whole.chunks.reduce((n, c) => n + c.hunkCount, 0)
+  ck('the unfiltered chunking sees all three hunks and calls the file whole',
+     allHunks === 3 && whole.chunks.some(c => c.wholeFiles.includes('src/big.js')), 'hunks=' + allHunks)
+
+  // Split it so one chunk holds part of the file, then exclude exactly that chunk.
+  const split = xchunk('x-split', ['--caps', JSON.stringify({ code: 200, test: 200, cicd: 200, other: 200 })])
+  ck('a tiny cap splits one file across chunks', split.chunks.length > 1, 'chunks=' + split.chunks.length)
+  const first = split.chunks[0]
+  const firstHashes = fs.readFileSync(first.hashFile, 'utf8').trim().split('\n').map(l => l.split('\t')[0])
+
+  const rest = xchunk('x-rest', ['--exclude-hashes', first.hashFile])
+  const restHunks = rest.chunks.reduce((n, c) => n + c.hunkCount, 0)
+  ck('excluded hunks do not come back', restHunks === allHunks - first.hunkCount,
+     'got ' + restHunks + ', expected ' + (allHunks - first.hunkCount))
+  ck('the exclusion is counted separately from the ledger',
+     rest.skipped.hunksExcluded === first.hunkCount && rest.skipped.hunksInLedger === 0)
+  const restHashes = new Set(rest.chunks.flatMap(c => fs.readFileSync(c.hashFile, 'utf8').trim().split('\n').map(l => l.split('\t')[0])))
+  ck('no excluded hash reappears in a sidecar', firstHashes.every(h => !restHashes.has(h)))
+  ck('a partly excluded file is no longer whole, so no round can record it clean on half a view',
+     rest.chunks.every(c => !c.wholeFiles.includes('src/big.js')))
+
+  // Two sidecars covering everything leave nothing to review - and say so rather than chunking again.
+  const every = split.chunks.flatMap(c => ['--exclude-hashes', c.hashFile])
+  ck('excluding every chunk leaves no hunks', xchunk('x-none', every).totals.chunks === 0)
+
+  const bad = path.join(TMP, 'bad.hashes'); fs.writeFileSync(bad, 'not-a-hash\tsrc/big.js\n')
+  let rejected = false
+  try { xchunk('x-bad', ['--exclude-hashes', bad]) } catch { rejected = true }
+  ck('a malformed sidecar is fatal, not ignored', rejected)
+  let missing = false
+  try { xchunk('x-missing', ['--exclude-hashes', path.join(TMP, 'nope.hashes')]) } catch { missing = true }
+  ck('an unreadable sidecar is fatal, not ignored', missing)
+}
+
+// ------------------------------------ 8. workflow budget and wave helpers --
+// These live inside the workflow script, which cannot be required: it is a Workflow-tool script with
+// no module wrapper and free globals (agent, log, parallel). So the functions are lifted out of the
+// SHIPPED source by name and evaluated on their own - no second copy to drift from the real one.
+{
+  const WF = fs.readFileSync(path.join(ROOT, 'workflows', 'review-and-fix-pr.js'), 'utf8')
+  const extractFn = (name) => {
+    let i = WF.indexOf('function ' + name + '(')
+    ck('  helper ' + name + ' is still in the workflow', i !== -1)
+    if (i === -1) return 'function ' + name + '(){ throw new Error("not found") }'
+    if (WF.slice(i - 6, i) === 'async ') i -= 6
+    const open = WF.indexOf('{', i)
+    let depth = 0, j = open
+    for (; j < WF.length; j++) {
+      if (WF[j] === '{') depth++
+      else if (WF[j] === '}' && --depth === 0) break
+    }
+    return WF.slice(i, j + 1)
+  }
+
+  // A brace inside a comment or a string would throw the matcher off; a syntax error here says so
+  // loudly instead of testing a truncated function.
+  const src = [
+    'let REVIEW_ONLY = false, MAX_FIX_BATCH = 10, FINDINGS_PER_CHUNK = 1, stopAfter = null',
+    'function mustStop() { return stopAfter }',
+    'function log() {}',
+    // Mirrors the real parallel(): a thunk that throws resolves to null, it never rejects.
+    'async function parallel(thunks) { return Promise.all(thunks.map(t => Promise.resolve().then(t).catch(() => null))) }',
+    extractFn('stageAgentCost'),
+    extractFn('chunksThatFit'),
+    extractFn('rankForTruncation'),
+    extractFn('runWaves'),
+    '({ set: o => { REVIEW_ONLY = o.reviewOnly; MAX_FIX_BATCH = o.maxFixBatch; FINDINGS_PER_CHUNK = o.findingsPerChunk; stopAfter = o.stopAfter || null },',
+    '  stageAgentCost, chunksThatFit, rankForTruncation, runWaves })',
+  ].join('\n')
+  let wf = null
+  try { wf = vm.runInNewContext(src, {}) } catch (e) { ck('the lifted helpers parse', false, e.message) }
+
+  if (wf) {
+    // chunksThatFit must be the EXACT inverse of stageAgentCost: every chunk it keeps has to fit,
+    // and one more must not. They disagreed once - cost said 1.1 agents per chunk while truncation
+    // kept headroom/2 - and the disagreement threw away nearly half the remaining budget.
+    let notMaximal = [], overspends = []
+    for (const reviewOnly of [false, true]) {
+      for (const maxFixBatch of [1, 3, 10]) {
+        for (const findingsPerChunk of [1, 2, 7]) {
+          wf.set({ reviewOnly, maxFixBatch, findingsPerChunk })
+          for (let h = -3; h <= 120; h++) {
+            const n = wf.chunksThatFit(h)
+            const tag = (reviewOnly ? 'ro' : 'fix') + ' b' + maxFixBatch + ' f' + findingsPerChunk + ' h' + h + ' -> ' + n
+            if (n < 0) { overspends.push(tag + ' (negative)'); continue }
+            if (n > 0 && wf.stageAgentCost(n) > h) overspends.push(tag)
+            if (h > 0 && wf.stageAgentCost(n + 1) <= h) notMaximal.push(tag)
+          }
+        }
+      }
+    }
+    ck('chunksThatFit never overspends the headroom', overspends.length === 0, overspends.slice(0, 4).join(' | '))
+    ck('chunksThatFit is maximal - one more chunk never fits', notMaximal.length === 0, notMaximal.slice(0, 4).join(' | '))
+
+    wf.set({ reviewOnly: false, maxFixBatch: 10, findingsPerChunk: 1 })
+    ck('no headroom means no chunks', wf.chunksThatFit(0) === 0 && wf.chunksThatFit(-5) === 0)
+
+    // Truncation spends what is left on the largest changes; chunks come off the chunker ordered by
+    // lock key, so slicing the manifest reviewed a-m and dropped n-z.
+    const ranked = wf.rankForTruncation([{ id: 'a', bytes: 10 }, { id: 'b', bytes: 900 }, { id: 'c' }, { id: 'd', bytes: 900 }])
+    ck('rankForTruncation is biggest-first and breaks ties by id',
+       ranked.map(c => c.id).join('') === 'bdac', ranked.map(c => c.id).join(''))
+
+    const chunks = n => Array.from({ length: n }, (_, i) => ({ id: String(i) }))
+    const twoFindings = async () => ({ findings: [{ f: 1 }, { f: 2 }] })
+
+    let r = await wf.runWaves(chunks(6), 2, twoFindings, 3)
+    ck('runWaves pauses between waves once the findings pile up',
+       r.paused === true && r.results.length === 2 && r.unreviewed.length === 4 && !r.halted,
+       'paused=' + r.paused + ' reviewed=' + r.results.length + ' left=' + r.unreviewed.length)
+    ck('the chunks it did not reach are returned, not dropped',
+       r.unreviewed.map(c => c.id).join('') === '2345')
+
+    r = await wf.runWaves(chunks(6), 2, twoFindings, Infinity)
+    ck('with no pause limit it reviews the whole stage',
+       r.paused === false && r.results.length === 6 && r.unreviewed.length === 0)
+
+    // A wave never pauses mid-flight: reviewers are read-only and must finish before a fixer edits
+    // the tree they are reading, so the whole wave lands even when the first result trips the limit.
+    r = await wf.runWaves(chunks(4), 4, twoFindings, 1)
+    ck('backpressure never cuts a wave short', r.results.length === 4 && r.paused === false)
+
+    wf.set({ reviewOnly: false, maxFixBatch: 10, findingsPerChunk: 1, stopAfter: 'agent-cap' })
+    r = await wf.runWaves(chunks(4), 2, twoFindings, Infinity)
+    ck('runWaves halts on the agent cap and reports the remainder',
+       r.halted === 'agent-cap' && r.results.length === 0 && r.unreviewed.length === 4)
+    wf.set({ reviewOnly: false, maxFixBatch: 10, findingsPerChunk: 1 })
+  }
 }
 
   fs.rmSync(TMP, { recursive: true, force: true })
