@@ -7,7 +7,7 @@ export const meta = {
     { title: 'Setup',      detail: 'install helper scripts, load or generate the per-repo reviewability rule, read the clean-hunk ledger' },
     { title: 'Baseline',   detail: 'discover build/lint/test commands, record pre-existing failures' },
     { title: 'Chunk',      detail: 'hunks -> lock-key groups -> size-capped chunks, ledger-filtered' },
-    { title: 'Review',     detail: 'read-only reviewers in parallel, each double-checking its own chunk' },
+    { title: 'Review',     detail: 'read-only reviewers in parallel, each double-checking its own chunk; paused once findings pile up' },
     { title: 'Fix',        detail: 'one fixer at a time, a batch of findings each, committed before the next' },
     { title: 'Validate',   detail: 'scoped build/lint/test, delta against the baseline' },
     { title: 'Commit',     detail: 'one commit per fix batch, never pushed' },
@@ -56,6 +56,17 @@ const DETAILED = ARGS.detailedReview === true
 const MODEL = (typeof ARGS.model === 'string' && ARGS.model.trim()) ? ARGS.model.trim() : null
 const MAX_FIX_BATCH = Number(ARGS.maxFixBatch) > 0 ? Math.floor(Number(ARGS.maxFixBatch)) : 10
 const REVIEW_CONCURRENCY = Number(ARGS.reviewConcurrency) > 0 ? Math.min(12, Math.floor(Number(ARGS.reviewConcurrency))) : 5
+// How many findings a chunk is assumed to yield, for the agent estimate only. 1 is a floor, not a
+// worst case: findings are pooled per stage and a dense stage yields more, so raise it on a PR you
+// expect to be findings-heavy and the stage will plan for the fixers it actually needs.
+const FINDINGS_PER_CHUNK = Number(ARGS.findingsPerChunk) > 0 ? Math.ceil(Number(ARGS.findingsPerChunk)) : 1
+// Backpressure. Once this many unfixed findings have piled up, no new review wave starts: the
+// in-flight wave is drained (reviewers are read-only, so they must finish before anything edits
+// the tree), the findings are fixed and committed, and the stage resumes on the chunks it had
+// not reached. Keeps a run that dies mid-way holding commits rather than a pile of findings, and
+// stops a later reviewer re-raising what an earlier one already got fixed. 0 or less restores
+// the old behaviour: review the whole stage, then fix it.
+const MAX_OUTSTANDING = Number(ARGS.maxOutstanding) > 0 ? Math.floor(Number(ARGS.maxOutstanding)) : (ARGS.maxOutstanding === undefined ? 10 : Infinity)
 // `confirm` was the old opt-in whole-PR panel. mode:'auto' now does it automatically, and only when
 // the chunked pass found nothing - which is the only time it can tell you something new.
 if (ARGS.confirm !== undefined) {
@@ -545,10 +556,12 @@ function chunk_(arr, n) {
 
 // parallel() is a barrier, so schedule in waves: greedily take queued chunks whose lock key is not
 // already claimed by this wave, up to `limit`. A key is held for exactly one wave, so no deadlock.
-async function runWaves(chunks, limit, makeThunk) {
+async function runWaves(chunks, limit, makeThunk, pauseAfter) {
   const queue = chunks.slice()
   const out = []
   let halted = null
+  let paused = false
+  let found = 0
   // NOTE: no lock key here, on purpose. The only agents that run in parallel are REVIEWERS, and they
   // are read-only (Write/Edit denied), so two of them cannot interfere whatever files they share.
   // The isolation expression still decides chunk COMPOSITION - which files may share a chunk - it
@@ -565,8 +578,16 @@ async function runWaves(chunks, limit, makeThunk) {
     log('  wave: ' + wave.map(c => c.id).join(' '))
     const res = await parallel(wave.map(c => () => makeThunk(c)))
     out.push(...res.map((r, k) => ({ chunk: wave[k], result: r })))
+    // Backpressure is applied BETWEEN waves, never inside one: the wave that is already running has
+    // to finish before a fixer may touch the tree those reviewers are reading.
+    found += res.reduce((n, r) => n + ((r && Array.isArray(r.findings)) ? r.findings.length : 0), 0)
+    if (queue.length && found >= pauseAfter) {
+      log('  pausing after ' + found + ' finding(s): ' + queue.length + ' chunk(s) wait for the fixer')
+      paused = true
+      break
+    }
   }
-  return { results: out, halted, unreviewed: queue.slice() }
+  return { results: out, halted, paused, unreviewed: queue.slice() }
 }
 
 function fullPrPrompt(scope, base, setup, foundNothing, reviewOnly, parentSha) {
@@ -680,35 +701,64 @@ function fullPrPrompt(scope, base, setup, foundNothing, reviewOnly, parentSha) {
   ].join('\n')
 }
 
+// What a stage costs in agents: one reviewer per chunk, plus the fixers that will work through
+// their findings. A fixer takes MAX_FIX_BATCH findings and drives its own validation and commit, so
+// a batch is exactly one agent. FINDINGS_PER_CHUNK is an ASSUMPTION, not a worst case - a stage's
+// findings are pooled across its chunks and a dense stage yields several per chunk, which is why
+// mustStop() still guards every wave. A review-only run spawns no fixer at all, so it reserves none.
+function stageAgentCost(nChunks) {
+  if (REVIEW_ONLY) return nChunks
+  return nChunks + Math.ceil(nChunks * FINDINGS_PER_CHUNK / MAX_FIX_BATCH)
+}
+
+// The inverse: the most chunks whose cost still fits in `headroom`. Truncation and the fit test have
+// to use ONE model - they used to disagree (cost said 1.1 agents per chunk, truncation kept
+// headroom/2, i.e. 2), and the disagreement threw away nearly half the remaining budget.
+function chunksThatFit(headroom) {
+  if (headroom <= 0) return 0
+  if (REVIEW_ONLY) return headroom
+  const per = MAX_FIX_BATCH + FINDINGS_PER_CHUNK
+  let n = Math.floor(headroom * MAX_FIX_BATCH / per)
+  while (n > 0 && stageAgentCost(n) > headroom) n--
+  return n
+}
+
+// Which chunks to keep when not all of them can be. Biggest first: a truncated run should spend what
+// is left on the largest changes, not on whichever directory sorts first - chunks come off the
+// chunker ordered by lock key, so slicing the manifest reviewed a-m and dropped n-z.
+function rankForTruncation(chunks) {
+  return chunks.slice().sort((a, b) => (b.bytes || 0) - (a.bytes || 0) ||
+    (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+}
+
 // Before committing to a stage, work out how many agents it will need and whether that fits in what
 // is left. If not, widen the byte caps so the same hunks pack into fewer, larger chunks and re-chunk.
 // Only if that still does not fit do we truncate - and then we say exactly what went unreviewed.
 async function fitStage(scope, setup, stage, chunks, stageSha) {
   let current = chunks
-  let caps = Object.assign({}, CAPS)
-  const deferredUnreviewed = []
 
+  const truncate = (why) => {
+    const headroom = MAX_AGENTS - agentsSpawned - PER_STAGE_OVERHEAD
+    const fits = chunksThatFit(headroom)
+    const ranked = rankForTruncation(current)
+    const kept = ranked.slice(0, fits)
+    const dropped = ranked.slice(fits)
+    log(stage + ': cannot fit ' + current.length + ' chunk(s) in the remaining budget (~' +
+        stageAgentCost(current.length) + ' agents needed, ' + headroom + ' available' + why +
+        ') - reviewing the ' + kept.length + ' largest, leaving ' + dropped.length + ' UNREVIEWED')
+    return { chunks: kept, unreviewed: dropped }
+  }
+
+  let caps = Object.assign({}, CAPS)
   for (let attempt = 0; ; attempt++) {
     const headroom = MAX_AGENTS - agentsSpawned - PER_STAGE_OVERHEAD
-    // One reviewer per chunk, plus ONE fixer per fix batch - the fixer drives its own validation and
-    // commit inside its own conversation, so a batch costs exactly one agent. Worst case is a
-    // finding per chunk, so ceil(chunks/batch) batches.
-    const batchesNeeded = Math.ceil(current.length / MAX_FIX_BATCH)
-    const need = current.length + batchesNeeded
+    const need = stageAgentCost(current.length)
     if (need <= headroom) {
       if (attempt > 0) log(stage + ': fits now - ' + current.length + ' chunk(s), ~' + need + ' agent(s), headroom ' + headroom)
-      return { chunks: current, unreviewed: deferredUnreviewed, caps }
+      return { chunks: current, unreviewed: [] }
     }
-    if (attempt >= MAX_RECHUNK_ATTEMPTS || headroom <= 2) {
-      // Out of options: take what fits, and be explicit about the rest.
-      const fits = Math.max(0, Math.floor(headroom / 2))
-      const kept = current.slice(0, fits)
-      const dropped = current.slice(fits)
-      log(stage + ': cannot fit ' + current.length + ' chunk(s) in the remaining budget (~' + need +
-          ' agents needed, ' + headroom + ' available) - reviewing ' + kept.length + ', leaving ' +
-          dropped.length + ' UNREVIEWED')
-      return { chunks: kept, unreviewed: deferredUnreviewed.concat(dropped), caps }
-    }
+    if (attempt >= MAX_RECHUNK_ATTEMPTS || headroom <= 2) return truncate('')
+
     for (const k of Object.keys(caps)) caps[k] = caps[k] * 2
     log(stage + ': ' + current.length + ' chunk(s) would need ~' + need + ' agents but only ' + headroom +
         ' are left - doubling caps to ' + JSON.stringify(caps) + ' and re-chunking')
@@ -720,10 +770,9 @@ async function fitStage(scope, setup, stage, chunks, stageSha) {
       continue
     }
     if (re.chunks.length >= current.length) {
-      log(stage + ': widening the caps did not reduce the chunk count (' + re.chunks.length + ') - it is ' +
-          'single oversize hunks, which are never split. Truncating instead.')
-      const fits = Math.max(0, Math.floor(headroom / 2))
-      return { chunks: current.slice(0, fits), unreviewed: current.slice(fits), caps }
+      // Single oversize hunks, which are never split. Truncation recomputes the headroom itself:
+      // the refit agent above spent one, so the value read at the top of this pass is already stale.
+      return truncate(', widening the caps did not reduce the chunk count (' + re.chunks.length + ')')
     }
     current = re.chunks
   }
@@ -1013,7 +1062,7 @@ function scopeRulesText(scope, detailed) {
   ].filter(x => x !== null && x !== undefined).join('\n')
 }
 
-function reviewerPrompt(scope, setup, chunk) {
+function reviewerPrompt(scope, setup, chunk, reviewKey) {
   return [
     workdir(scope.repoRoot),
     'You are REVIEWING one chunk of a pull request. You do not fix anything - a separate agent does',
@@ -1037,7 +1086,7 @@ function reviewerPrompt(scope, setup, chunk) {
     '=== HOW THIS WORKS ===',
     'A driver script walks you through it one step at a time. Run this now:',
     '',
-    '  node ' + shq(HOME_BIN + '/review-and-fix-pr-driver.js') + ' start --batch ' + shq(RUN_TAG + '-rv-' + chunk.id) + ' \\',
+    '  node ' + shq(HOME_BIN + '/review-and-fix-pr-driver.js') + ' start --batch ' + shq(RUN_TAG + '-rv-' + reviewKey) + ' \\',
     '    --root ' + shq(scope.repoRoot) + ' --mode review \\',
     '    ' + (DETAILED ? '--detailed ' : '') + '--scratch ' + shq('/tmp/prfix-rv-' + RUN_TAG + '-' + chunk.stage + '-' + chunk.id) + ' \\',
     '    --chunk ' + shq(chunk.path) + ' \\',
@@ -1921,37 +1970,50 @@ function absorbFix(res, stage, batchId) {
   }
 }
 
-if (RESOLVED_MODE === 'parallel') for (const stage of STAGES) {
+// One entry per stage, in order. A stage that pauses for the fixer puts itself back at the front
+// with the chunks it had not reached, so `code round 2` runs before `test` ever starts.
+const stageQueue = STAGES.map(st => ({ stage: st, only: null, round: 1 }))
+
+if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
+  const item = stageQueue.shift()
+  const stage = item.stage
+  const stageLabel = item.round > 1 ? stage + ' r' + item.round : stage
   const preStop = mustStop()
   if (preStop) {
     stopReason = preStop
-    log('stopping before the ' + stage + ' stage (' + preStop + '): ' + agentsSpawned + ' agents, ' + spentSoFar().toLocaleString() + ' tokens')
-    for (const st of STAGES.slice(STAGES.indexOf(stage))) {
-      for (const c of (chunksByStage.get(st) || [])) unreviewed.push({ chunk: c, why: preStop })
-    }
+    log('stopping before the ' + stageLabel + ' stage (' + preStop + '): ' + agentsSpawned + ' agents, ' + spentSoFar().toLocaleString() + ' tokens')
+    for (const c of (item.only || chunksByStage.get(stage) || [])) unreviewed.push({ chunk: c, why: preStop })
     break
   }
 
   const stageStartSha = headSha
-  let chunks = chunksByStage.get(stage) || []
+  let chunks = item.only || chunksByStage.get(stage) || []
   if (stageStartSha !== scope.headSha) {
     phase('Chunk')
-    log(stage + ': an earlier stage committed changes - re-chunking against ' + shortSha(stageStartSha) + ' so new and moved files are included')
+    log(stage + ': fixes have landed since the chunking - re-chunking against ' + shortSha(stageStartSha) + ' so new and moved files are included')
     const re = await agentSafe(chunkerPrompt(scope, setup, [stage], stageStartSha), {
       schema: MANIFEST_SCHEMA, label: 'rechunk ' + stage, effort: 'low', disallowedTools: DENY_READONLY,
     })
     if (!re || !Array.isArray(re.chunks) || (re.stderr && re.stderr !== 'none')) {
       stopReason = 'rechunk-failed'
       for (const c of chunks) unreviewed.push({ chunk: c, why: 'rechunk-failed' })
-      stageLog.push({ stage, chunks: 0, clean: 0, fixed: 0, stillPresent: 0,
+      stageLog.push({ stage: stageLabel, chunks: 0, clean: 0, fixed: 0, stillPresent: 0,
                       verdict: 'not run', commitSha: 'none', note: 'rechunk failed; stale chunks were not reviewed' })
       break
     }
-    chunks = re.chunks; ledgerSkipped += re.hunksInLedger || 0
+    ledgerSkipped += re.hunksInLedger || 0
+    // A resumed round is only responsible for what it had not reached. Re-chunking returns the whole
+    // stage, so keep the chunks that still carry one of those files and drop what was reviewed already.
+    if (item.only) {
+      const pending = new Set(item.only.flatMap(c => c.files || []))
+      chunks = re.chunks.filter(c => (c.files || []).some(f => pending.has(f)))
+    } else {
+      chunks = re.chunks
+    }
   }
   if (!chunks.length) {
     log(stage + ': nothing to review')
-    stageLog.push({ stage, chunks: 0, clean: 0, fixed: 0, stillPresent: 0, verdict: 'not run', commitSha: 'none', note: 'no reviewable hunks' })
+    stageLog.push({ stage: stageLabel, chunks: 0, clean: 0, fixed: 0, stillPresent: 0, verdict: 'not run', commitSha: 'none', note: 'no reviewable hunks' })
     continue
   }
 
@@ -1959,21 +2021,33 @@ if (RESOLVED_MODE === 'parallel') for (const stage of STAGES) {
   chunks = fitted.chunks
   for (const c of fitted.unreviewed) unreviewed.push({ chunk: c, why: 'did-not-fit-budget' })
   if (!chunks.length) {
-    stageLog.push({ stage, chunks: 0, clean: 0, fixed: 0, stillPresent: 0, verdict: 'not run', commitSha: 'none', note: 'skipped - no budget headroom' })
+    stageLog.push({ stage: stageLabel, chunks: 0, clean: 0, fixed: 0, stillPresent: 0, verdict: 'not run', commitSha: 'none', note: 'skipped - no budget headroom' })
     continue
   }
 
   // ---- REVIEW: up to REVIEW_CONCURRENCY at once. All read-only, so no lock is needed and no two
   // ---- agents can possibly interfere. This is the only phase that runs in parallel.
   phase('Review')
-  totalChunks += chunks.length
   log(stage + ': reviewing ' + chunks.length + ' chunk(s) with up to ' + REVIEW_CONCURRENCY + ' reviewer(s) at a time')
+  // Chunk ids restart at 0000 on every re-chunk, so the driver batch a reviewer opens - and the run
+  // tag its clean marks are recorded under - has to carry the stage and the round as well, or a later
+  // reviewer meets "state already exists for --batch" and a revocation hits the wrong run.
+  const reviewKey = (c) => c.stage + (item.round > 1 ? 'r' + item.round : '') + '-' + c.id
   const reviewed = await runWaves(chunks, REVIEW_CONCURRENCY, async (chunk) =>
-    agentSafe(reviewerPrompt(scope, setup, chunk), {
+    agentSafe(reviewerPrompt(scope, setup, chunk, reviewKey(chunk)), {
       schema: REVIEW_SCHEMA, phase: 'Review', label: 'review ' + chunk.id,
       effort: DETAILED ? 'high' : (chunk.stage === 'other' ? 'medium' : 'high'), disallowedTools: DENY_READONLY,
-    }))
-  for (const c of reviewed.unreviewed) unreviewed.push({ chunk: c, why: reviewed.halted || 'halted' })
+    }), REVIEW_ONLY ? Infinity : MAX_OUTSTANDING)   // nothing fixes anything on a review-only run, so nothing to wait for
+  if (reviewed.paused) {
+    // Not unreviewed - deferred to the next round of this same stage, ahead of every other stage.
+    stageQueue.unshift({ stage, only: reviewed.unreviewed, round: item.round + 1 })
+    log(stage + ': ' + reviewed.unreviewed.length + ' chunk(s) carried over to round ' + (item.round + 1) + ' after the fixes land')
+  } else {
+    for (const c of reviewed.unreviewed) unreviewed.push({ chunk: c, why: reviewed.halted || 'halted' })
+  }
+  // Only what this round actually reviewed, so a paused stage does not count its carry-over twice.
+  chunks = reviewed.results.map(r => r.chunk)
+  totalChunks += chunks.length
   if (reviewed.halted) stopReason = reviewed.halted
 
   // ---- ACCUMULATE: one pile of findings for the whole stage, deduped and ranked.
@@ -2004,7 +2078,7 @@ if (RESOLVED_MODE === 'parallel') for (const stage of STAGES) {
       if (r.kind === 'out-of-scope') setAside.set(norm(r.fingerprint), r.reason || 'set aside as not this PR\'s')
       else knownRejected.set(norm(r.fingerprint), r.reason || 'withdrawn after re-reading the code')
     }
-    if (!aborted) for (const f of (result.markedReviewed || [])) markedReviewed.push({ file: f, stage, chunk: chunk.id })
+    if (!aborted) for (const f of (result.markedReviewed || [])) markedReviewed.push({ file: f, stage, chunk: reviewKey(chunk) })
     for (const u of (result.followUps || [])) {
       if (!u || !u.title) continue
       followUpsRaw.push({ stage, chunkId: 'review-' + chunk.id, title: u.title, detail: u.detail || '',
@@ -2086,7 +2160,7 @@ if (RESOLVED_MODE === 'parallel') for (const stage of STAGES) {
   log(stage + ': ' + chunks.length + ' chunk(s) reviewed, ' + stageClean + ' clean, ' + findings.length + ' finding(s) to fix')
 
   if (!findings.length) {
-    stageLog.push({ stage, chunks: chunks.length, clean: stageClean, fixed: 0, stillPresent: 0,
+    stageLog.push({ stage: stageLabel, chunks: chunks.length, clean: stageClean, fixed: 0, stillPresent: 0,
                     verdict: 'not run', commitSha: 'none', note: 'nothing to fix' })
     if (reviewed.halted) break
     continue
@@ -2097,7 +2171,7 @@ if (RESOLVED_MODE === 'parallel') for (const stage of STAGES) {
     // fixes" - nobody tried - so they go to the deferred list with that reason, which is the
     // truthful bucket for "real, and not acted on".
     for (const f of findings) deferFinding(f, 'review-only run: this PR is not yours, so nothing was edited')
-    stageLog.push({ stage, chunks: chunks.length, clean: stageClean, fixed: 0, stillPresent: 0,
+    stageLog.push({ stage: stageLabel, chunks: chunks.length, clean: stageClean, fixed: 0, stillPresent: 0,
                     verdict: 'not run', commitSha: 'none',
                     note: findings.length + ' finding(s) reported, review-only' })
     if (reviewed.halted) break
@@ -2109,6 +2183,9 @@ if (RESOLVED_MODE === 'parallel') for (const stage of STAGES) {
   // ---- the same file. A fresh agent per batch is also what keeps each fixer's context small.
   phase('Fix')
   const batches = chunk_(findings, MAX_FIX_BATCH)
+  // Batch ids restart at 1 in every round, so the round has to be in the id: two rounds of the same
+  // stage would otherwise both own "code-b1" and the second would be credited with the first's work.
+  const batchPrefix = stage + (item.round > 1 ? 'r' + item.round : '') + '-b'
   log(stage + ': fixing in ' + batches.length + ' batch(es) of at most ' + MAX_FIX_BATCH + ', one agent at a time')
   let stageFixedCount = 0, lastCommit = 'none', stageVerdict = 'not run', stageNote = ''
 
@@ -2119,7 +2196,7 @@ if (RESOLVED_MODE === 'parallel') for (const stage of STAGES) {
       for (const f of batches.slice(bi).flat()) deferFinding(f, 'the run hit a ceiling before this could be fixed')
       break
     }
-    const batchId = stage + '-b' + (bi + 1)
+    const batchId = batchPrefix + (bi + 1)
     const parent = headSha
     const res = await agentSafe(fixerPrompt(scope, base, batches[bi], batchId, bi + 1, batches.length, parent), {
       schema: FIX_SCHEMA, phase: 'Fix', label: 'fix ' + batchId, effort: 'high', disallowedTools: DENY_COMMON,
@@ -2190,10 +2267,18 @@ if (RESOLVED_MODE === 'parallel') for (const stage of STAGES) {
     headSha = res.commitSha
   }
 
-  stageLog.push({ stage, chunks: chunks.length, clean: stageClean, fixed: stageFixedCount,
-                  stillPresent: stillPresent.filter(x => String(x.chunkId).startsWith(stage + '-b')).length,
+  stageLog.push({ stage: stageLabel, chunks: chunks.length, clean: stageClean, fixed: stageFixedCount,
+                  stillPresent: stillPresent.filter(x => String(x.chunkId).startsWith(batchPrefix)).length,
                   verdict: stageVerdict, commitSha: lastCommit, note: stageNote })
   if (stopReason !== 'completed' || reviewed.halted) break
+}
+
+// Whatever is still queued when the loop ends was never reviewed: stages the run stopped before, and
+// the chunks a paused stage carried over and never came back to. Neither reaches the ledger.
+if (RESOLVED_MODE === 'parallel') for (const it of stageQueue) {
+  for (const c of (it.only || chunksByStage.get(it.stage) || [])) {
+    unreviewed.push({ chunk: c, why: stopReason !== 'completed' ? stopReason : 'the stage did not run' })
+  }
 }
 
 anythingFound = !!sawSomething()

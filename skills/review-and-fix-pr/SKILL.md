@@ -17,7 +17,11 @@ Two shapes, picked by size:
   up to 5 **read-only reviewers** work on them at once. Reviewers never edit anything, so nothing they
   do can collide. Their findings are pooled per stage, then **one fixer at a time** takes a batch of
   10, fixes, re-reads its own work, validates it and commits it — all in its own conversation —
-  before a brand-new fixer starts the next 10.
+  before a brand-new fixer starts the next 10. Review does not run to the end of the stage first:
+  once **10 unfixed findings** have piled up (`maxOutstanding`) no new review wave starts, the wave in
+  flight is drained, those findings are fixed and committed, and the stage resumes on the chunks it
+  had not reached. A run that dies mid-way therefore holds commits rather than a list of findings, and
+  a later reviewer does not re-raise what an earlier one already had fixed.
 - **single** (small PRs) — one agent reviews and fixes the whole PR, driven through both loops by
   `review-and-fix-pr-driver.js` exactly as a reviewer and a fixer are. At or below 20KB of diff the
   per-agent overhead of splitting costs more than it saves.
@@ -153,21 +157,23 @@ is not the repository itself.
 | `mode` | `'auto'` | `parallel` \| `single` \| `full` \| `auto` (parallel above 20KB of diff, single at or below it; full forces one whole-PR pass) |
 | `reviewConcurrency` | 5 | read-only reviewers in flight at once |
 | `maxFixBatch` | 10 | findings per fixer; a fresh agent takes the next batch after this one commits |
+| `maxOutstanding` | 10 | unfixed findings that pause the review. The in-flight wave is drained first - reviewers are read-only, so they must finish before a fixer edits the tree they are reading - then the stage resumes on its remaining chunks, ahead of every later stage. `0` restores the old behaviour: review the whole stage, then fix it. Ignored on a review-only run. |
 | `chunkBytes` | `{code:20000, test:20000, cicd:20000, other:20000}` | per-stage cap on packed hunk bytes. A single hunk larger than the cap is **never split** — git emits a newly added file as one hunk, so a new 2,800-line file is one chunk by design. |
 | `isolation` | `'./../'` | which files may share a chunk: `.` the file, `./../`×n n levels up, `*/`×n n levels down from the root. It no longer constrains scheduling — reviewers are read-only and fixers are serial, so nothing can collide. |
 | `stages` | `['code','test','cicd','other']` | order and membership |
 | `detailedReview` | false | let reviewers leave the hunk: trace every caller, and **run experiments** in a throwaway clone (`git clone --no-hardlinks --no-local`) rather than reasoning about the code. Costs ~2× and finds caller-side defects a reading-only pass looks straight past. The repo under review stays read-only; nothing may be pushed. |
 | `ignoreLedger` | false | re-review files already recorded clean |
 | `refreshRules` | false | regenerate the per-repo `classify.json` |
-| `maxAgents` | 900 | hard stop on agents spawned (platform ceiling is 1000). Checked before every wave. |
+| `maxAgents` | 900 | hard stop on agents spawned (platform ceiling is 1000). Checked before every wave. A stage is planned as one reviewer per chunk plus one fixer per `maxFixBatch` findings; a review-only run reserves no fixers. |
+| `findingsPerChunk` | 1 | findings a chunk is assumed to yield, for the agent estimate only. 1 is a floor, not a worst case - raise it on a PR you expect to be findings-heavy so the stage plans for the fixers it will actually need. |
 | `maxTokens` | none | stop once this many tokens have been spent *by this run*. Measured as a delta of `budget.spent()`, because `budget.total`/`remaining()` are null unless a ceiling was configured. |
 | `repoRoot` | (session cwd) | absolute path to the repository |
 
 Before each stage the run estimates the agents it will need against the agents left. If it will not
 fit, it widens `chunkBytes` and re-chunks so the same hunks pack into fewer, larger chunks. If even
-that does not fit (a stage of single oversize hunks, which are never split), it reviews what fits and
-lists the rest under **NOT REVIEWED** — nothing silently disappears, and nothing skipped is written to
-the ledger, so a re-run picks it up.
+that does not fit (a stage of single oversize hunks, which are never split), it reviews **the largest
+chunks that fit** and lists the rest under **NOT REVIEWED** — nothing silently disappears, and nothing
+skipped is written to the ledger, so a re-run picks it up.
 
 ## How the driver runs an agent
 
