@@ -1,0 +1,16 @@
+schema_version: "1.1"
+name: draft-on-create-pr
+description: >
+  The same repo and cached prompt as draft-from-cached-prompt, asked for the action rather than for
+  the text: "create the PR". The skill is drafts-only, which is a limit on what it does and not on
+  when it runs, so the title and body still have to come from the cached prompt. Writing them by
+  hand because the request said create is the regression this case exists to catch. gh is
+  unauthenticated here, so the PR cannot actually be opened and the run has to say so.
+tags: [draft-pr-description, offline]
+runs: 2
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, Skill]

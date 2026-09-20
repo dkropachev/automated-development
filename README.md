@@ -26,7 +26,8 @@ after a build that verification did not fully pass, or on `--refresh-cache`. A l
 not retried for a day.
 
 It **drafts only**. It never runs `gh pr create` or `gh pr edit`; every `gh` call it makes is
-read-only.
+read-only. That is a limit on what it does, not on when it runs: asking to *create* or *open* the
+PR runs it too, and you open the PR with the text it printed.
 
 Run it in any git repo:
 
@@ -151,7 +152,8 @@ runs on `git log`; no `gh` is needed, so it works offline. Staleness, back-off a
 template or CONTRIBUTING changes.
 
 It **drafts only**. It never runs `git commit`, `--amend`, `rebase` or `push`. The message is
-printed and saved to a file for `git commit -F`.
+printed and saved to a file for `git commit -F` — including when the ask was "commit this", which
+runs the skill for the message and leaves the commit to you.
 
 ```
 /draft-commit-message
