@@ -37,7 +37,7 @@ write(path.join(cwd, 'README.md'), '# widget-service\n')
 write(path.join(cwd, '.github', 'ISSUE_TEMPLATE', 'bug.yml'), `name: Bug report
 description: Something that worked or should work does not
 title: "[Bug]: "
-labels: [bug]
+labels: [kind/bug, triage]
 body:
   - type: markdown
     attributes:
@@ -113,7 +113,7 @@ naming the component: \`[Bug]: pool: shutdown() leaves the process alive\`. Feat
 prefix: \`Let shutdown() take a join timeout\`. No trailing period, no version in the title.
 
 ## Kinds
-### \`bug\` — \`.github/ISSUE_TEMPLATE/bug.yml\`, title prefix \`[Bug]: \`, labels \`bug\`
+### \`bug\` — \`.github/ISSUE_TEMPLATE/bug.yml\`, title prefix \`[Bug]: \`, labels \`kind/bug\`, \`triage\` — triagers later add labels \`needs-info\` when the report is thin
 Something that worked or should work does not: a crash, a hang, a wrong result, a regression.
 ### \`feature\` — \`.github/ISSUE_TEMPLATE/feature.yml\`, labels \`enhancement\`
 Something widget-service does not do yet. A regression is a bug, not a feature.
@@ -133,7 +133,7 @@ block for a one-line command is fine. Required.
 
 ### \`### Version\`  <!-- covers: context -->
 The released version as a number, then platform and Python version where they could matter:
-\`2.3.1, Linux, Python 3.12\`. Never "latest". For a feature, the version the request is against.
+\`2.3.1, Linux/6.12.x, Python 3.12\`. Never "latest". For a feature, the version the request is against.
 
 ### \`### Problem\`  <!-- kinds: feature --> <!-- covers: problem -->
 What cannot be done today and who needs it, two to four sentences.
