@@ -220,7 +220,11 @@ lib/domains.js           everything that differs between the three domains: path
 lib/prompt-gate.js       coverage gate for a learned prompt, per kind where kinds exist; frontmatter helpers
 lib/draft-checks.js      the checks on a draft, and their regexes
 lib/repo.js              origin parsing, cache path, sources hash, staleness rule
-skills/<name>/           SKILL.md plus the procedure files it hands to agents
+skills/<name>/           SKILL.md plus the files read on demand: learn.md and verify.md (an agent's
+                         context), schema.md (the canonical field list), reference.md (internals)
+shared/learn-loop.md     the build loop the three draft skills share, read only on a cache miss -
+                         a SKILL.md is in context for the whole invocation, so what runs once every
+                         90 days does not live in one
 Makefile                 the entry point for CI, release and evals; every target is a node script
 scripts/                 check-consistency, syntax-check, eval-parse, eval, bump-version, release
 evals/                   `claude plugin eval` cases: a scaffolded repo, deterministic graders, one LLM grader

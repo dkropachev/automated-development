@@ -64,6 +64,68 @@ const driverByFile = new Map(DRIVERS.map((d) => [d.file, d]))
 const driver = rd('bin/promptgen-driver.js')
 const verbs = driverByFile.get('promptgen-driver.js').verbs
 const flags = driverByFile.get('promptgen-driver.js').flags
+// shared/ holds procedure a skill reads at runtime through ${CLAUDE_PLUGIN_ROOT}. It is prompt text
+// like a SKILL.md, full of driver commands, so it gets the same drift checks - without them the
+// verbs and flags moved out of the skills would be the only ones nothing compares against the code.
+function checkText(file, text, dir) {
+  // node "$DRIVER" <verb>   /   promptgen-driver.js" <verb>   /   promptgen-driver.js <verb>
+  for (const m of text.matchAll(/promptgen-driver\.js"?\s+([a-z][\w-]*)\b/g)) {
+    if (!verbs.has(m[1])) bad(`${file}: refers to driver verb "${m[1]}", which the driver does not have`)
+  }
+  for (const m of text.matchAll(/\$DRIVER"\s+([a-z][\w-]*)\b/g)) {
+    if (!verbs.has(m[1])) bad(`${file}: refers to driver verb "${m[1]}", which the driver does not have`)
+  }
+  // flags on driver command lines only - including backslash-continued lines of one
+  let inDriverCmd = false
+  for (const line of text.split('\n')) {
+    const isDriver = /promptgen-driver\.js|\$DRIVER/.test(line)
+    if (isDriver || inDriverCmd) {
+      for (const m of line.matchAll(/--([a-z][\w-]*)/g)) {
+        if (!flags.has(m[1])) bad(`${file}: passes --${m[1]} to the driver, which does not read it`)
+      }
+    }
+    inDriverCmd = (isDriver || inDriverCmd) && /\\\s*$/.test(line)
+  }
+  // the same two checks for every other driver this plugin ships
+  for (const d of DRIVERS) {
+    if (d.file === 'promptgen-driver.js') continue
+    const nameRe = d.file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    // Only real invocations - `node .../<driver> <verb>`. Matching the bare filename would read
+    // the next word of any sentence that names the file as a verb ("... -driver.js two state
+    // machines" reported a verb "two").
+    for (const m of text.matchAll(new RegExp('node\\s+\\S*' + nameRe + '"?\\s+([a-z][\\w-]*)\\b', 'g'))) {
+      if (!d.verbs.has(m[1])) bad(`${file}: refers to ${d.file} verb "${m[1]}", which it does not have`)
+    }
+    let inCmd = false
+    for (const line of text.split('\n')) {
+      const isCmd = new RegExp('node\\s+\\S*' + nameRe).test(line)
+      if (isCmd || inCmd) {
+        for (const m of line.matchAll(/--([a-z][\w-]*)/g)) {
+          if (!d.flags.has(m[1])) bad(`${file}: passes --${m[1]} to ${d.file}, which does not read it`)
+        }
+      }
+      inCmd = (isCmd || inCmd) && /\\\s*$/.test(line)
+    }
+  }
+
+  // sibling markdown files it names
+  for (const m of text.matchAll(/`([\w-]+\.md)`/g)) {
+    if (!fs.existsSync(path.join(ROOT, dir, m[1])) && !['CLAUDE.md', 'AGENTS.md', 'CONTRIBUTING.md', 'SKILL.md', 'README.md'].includes(m[1]) && !/PULL_REQUEST|_TEMPLATE/i.test(m[1])) {
+      bad(`${file}: names ${m[1]}, which is not next to it`)
+    }
+  }
+  // agent types it spawns
+  for (const m of text.matchAll(new RegExp('`(' + plugin.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':[\\w-]+)`', 'g'))) {
+    if (!agentTypes.includes(m[1])) bad(`${file}: spawns ${m[1]}, but no such agent is shipped under agents/`)
+  }
+  // files it points at through ${CLAUDE_PLUGIN_ROOT} - the only way one skill reaches another's
+  // file, so a rename that misses one is otherwise found by the model at runtime and not here
+  for (const m of text.matchAll(/\$\{CLAUDE_PLUGIN_ROOT\}\/([\w./-]+)/g)) {
+    const target = m[1].replace(/\/$/, '')
+    if (!fs.existsSync(path.join(ROOT, target))) bad(`${file}: points at \${CLAUDE_PLUGIN_ROOT}/${target}, which this plugin does not ship`)
+  }
+}
+
 const skillsDir = path.join(ROOT, 'skills')
 for (const d of fs.readdirSync(skillsDir)) {
   const dir = path.join('skills', d)
@@ -74,59 +136,13 @@ for (const d of fs.readdirSync(skillsDir)) {
     if (h.name !== d) bad(`${dir}/SKILL.md: name "${h.name}" does not match the directory`)
     if (!h.description) bad(`${dir}/SKILL.md: no description`)
   }
-  const texts = fs.readdirSync(path.join(ROOT, dir)).filter((f) => f.endsWith('.md')).map((f) => [path.join(dir, f), rd(path.join(dir, f))])
-  for (const [file, text] of texts) {
-    // node "$DRIVER" <verb>   /   promptgen-driver.js" <verb>   /   promptgen-driver.js <verb>
-    for (const m of text.matchAll(/promptgen-driver\.js"?\s+([a-z][\w-]*)\b/g)) {
-      if (!verbs.has(m[1])) bad(`${file}: refers to driver verb "${m[1]}", which the driver does not have`)
-    }
-    for (const m of text.matchAll(/\$DRIVER"\s+([a-z][\w-]*)\b/g)) {
-      if (!verbs.has(m[1])) bad(`${file}: refers to driver verb "${m[1]}", which the driver does not have`)
-    }
-    // flags on driver command lines only - including backslash-continued lines of one
-    let inDriverCmd = false
-    for (const line of text.split('\n')) {
-      const isDriver = /promptgen-driver\.js|\$DRIVER/.test(line)
-      if (isDriver || inDriverCmd) {
-        for (const m of line.matchAll(/--([a-z][\w-]*)/g)) {
-          if (!flags.has(m[1])) bad(`${file}: passes --${m[1]} to the driver, which does not read it`)
-        }
-      }
-      inDriverCmd = (isDriver || inDriverCmd) && /\\\s*$/.test(line)
-    }
-    // the same two checks for every other driver this plugin ships
-    for (const d of DRIVERS) {
-      if (d.file === 'promptgen-driver.js') continue
-      const nameRe = d.file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      // Only real invocations - `node .../<driver> <verb>`. Matching the bare filename would read
-      // the next word of any sentence that names the file as a verb ("... -driver.js two state
-      // machines" reported a verb "two").
-      for (const m of text.matchAll(new RegExp('node\\s+\\S*' + nameRe + '"?\\s+([a-z][\\w-]*)\\b', 'g'))) {
-        if (!d.verbs.has(m[1])) bad(`${file}: refers to ${d.file} verb "${m[1]}", which it does not have`)
-      }
-      let inCmd = false
-      for (const line of text.split('\n')) {
-        const isCmd = new RegExp('node\\s+\\S*' + nameRe).test(line)
-        if (isCmd || inCmd) {
-          for (const m of line.matchAll(/--([a-z][\w-]*)/g)) {
-            if (!d.flags.has(m[1])) bad(`${file}: passes --${m[1]} to ${d.file}, which does not read it`)
-          }
-        }
-        inCmd = (isCmd || inCmd) && /\\\s*$/.test(line)
-      }
-    }
-
-    // sibling markdown files it names
-    for (const m of text.matchAll(/`([\w-]+\.md)`/g)) {
-      if (!fs.existsSync(path.join(ROOT, dir, m[1])) && !['CLAUDE.md', 'AGENTS.md', 'CONTRIBUTING.md', 'SKILL.md', 'README.md'].includes(m[1]) && !/PULL_REQUEST|_TEMPLATE/i.test(m[1])) {
-        bad(`${file}: names ${m[1]}, which is not next to it`)
-      }
-    }
-    // agent types it spawns
-    for (const m of text.matchAll(new RegExp('`(' + plugin.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':[\\w-]+)`', 'g'))) {
-      if (!agentTypes.includes(m[1])) bad(`${file}: spawns ${m[1]}, but no such agent is shipped under agents/`)
-    }
+  for (const f of fs.readdirSync(path.join(ROOT, dir)).filter((f) => f.endsWith('.md'))) {
+    checkText(path.join(dir, f), rd(path.join(dir, f)), dir)
   }
+}
+const sharedDir = path.join(ROOT, 'shared')
+for (const f of fs.existsSync(sharedDir) ? fs.readdirSync(sharedDir).filter((f) => f.endsWith('.md')) : []) {
+  checkText(path.join('shared', f), rd(path.join('shared', f)), 'shared')
 }
 
 // ---- eval cases: the pieces a case needs, and graders that will actually load

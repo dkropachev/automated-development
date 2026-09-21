@@ -1,0 +1,17 @@
+schema_version: "1.1"
+name: draft-on-stale-cache-backoff
+description: >
+  The cache is 200 days old and a learn failed an hour ago, so `resolve` prints STALE=1 with
+  LEARN_NOW=0. That is the back-off branch: the skill must not start a build, must draft from the
+  stale cache it already has, and must say in its closing line that the prompt was not rebuilt and
+  why. It is the branch most easily lost when the learn loop moves out of SKILL.md into
+  shared/learn-loop.md -- a skill that no longer carries the build steps can just as easily stop
+  carrying the rule that says when to skip them.
+tags: [draft-pr-description, offline]
+runs: 2
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 40
+  timeout_seconds: 900
+  allowed_tools: [Bash, Read, Write, Edit, Glob, Grep, Skill]
