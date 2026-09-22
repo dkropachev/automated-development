@@ -580,6 +580,8 @@ ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'review-and
   // loudly instead of testing a truncated function.
   const src = [
     'let REVIEW_ONLY = false, MAX_FIX_BATCH = 10, FINDINGS_PER_CHUNK = 1, stopAfter = null',
+    'const HOME_BIN = "/plugin/bin", RUN_TAG = "test-run"',
+    "const shq = s => \"'\" + String(s) + \"'\"",
     'function mustStop() { return stopAfter }',
     'function log() {}',
     // Mirrors the real parallel(): a thunk that throws resolves to null, it never rejects.
@@ -588,8 +590,11 @@ ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'review-and
     extractFn('chunksThatFit'),
     extractFn('rankForTruncation'),
     extractFn('runWaves'),
+    extractFn('reviewBashClamp'),
+    extractFn('completedReadOnlyReview'),
+    extractFn('deferUnprocessedBatches'),
     '({ set: o => { REVIEW_ONLY = o.reviewOnly; MAX_FIX_BATCH = o.maxFixBatch; FINDINGS_PER_CHUNK = o.findingsPerChunk; stopAfter = o.stopAfter || null },',
-    '  stageAgentCost, chunksThatFit, rankForTruncation, runWaves })',
+    '  stageAgentCost, chunksThatFit, rankForTruncation, runWaves, reviewBashClamp, completedReadOnlyReview, deferUnprocessedBatches })',
   ].join('\n')
   let wf = null
   try { wf = vm.runInNewContext(src, {}) } catch (e) { ck('the lifted helpers parse', false, e.message) }
@@ -649,6 +654,38 @@ ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'review-and
     ck('runWaves halts on the agent cap and reports the remainder',
        r.halted === 'agent-cap' && r.results.length === 0 && r.unreviewed.length === 4)
     wf.set({ reviewOnly: false, maxFixBatch: 10, findingsPerChunk: 1 })
+
+    const reviewResult = { outcome: 'reviewed', commitSha: 'none', fixed: [], filesTouched: [] }
+    ck('read-only review result accepts only an explicit none commit sha',
+       wf.completedReadOnlyReview(reviewResult) &&
+       !wf.completedReadOnlyReview({ ...reviewResult, commitSha: 'abc123' }) &&
+       !wf.completedReadOnlyReview({ ...reviewResult, fixed: [{ fingerprint: 'x' }] }) &&
+       !wf.completedReadOnlyReview({ ...reviewResult, filesTouched: ['x.js'] }))
+
+    const clamp = wf.reviewBashClamp({
+      repoRoot: '/repo', mergeBaseSha: 'a'.repeat(40), headSha: 'b'.repeat(40), prNumber: 12,
+      changedFiles: [{ path: 'src/a.js' }, { path: '../escape' }],
+    }, { ledgerPath: '/state/reviewed.json' }, 'test-run-rv-full')
+    ck('the reviewer shell clamp is tied to its exact review batch and excludes write-capable tools',
+       clamp.some(x => x.includes("start --batch 'test-run-rv-full' --root '/repo' --mode review")) &&
+       clamp.some(x => x.includes("--run 'test-run-rv-full' --stage review")) &&
+       clamp.every(x => !/\b(?:commit|push|gh|sed|formatter)\b/.test(x)) &&
+       clamp.every(x => !x.includes('../escape')),
+       clamp.join(' | '))
+
+    const deferred = []
+    vm.runInNewContext([
+      'const deferred = globalThis.deferred',
+      'function deferFinding(f, reason) { deferred.push([f.id, reason]) }',
+      extractFn('deferUnprocessedBatches'),
+      'deferUnprocessedBatches([[{id:"a"}], [{id:"b"}], [{id:"c"}, {id:"d"}]], 0, "earlier failed")',
+    ].join('\n'), { deferred })
+    ck('a failed serial fix batch preserves every later reviewed finding',
+       deferred.map(x => x[0]).join('') === 'bcd' && deferred.every(x => x[1] === 'earlier failed'),
+       JSON.stringify(deferred))
+
+    ck('every early serial-fixer failure wires in later-batch preservation',
+       (WF.match(/deferUnprocessedBatches\(batches, bi,/g) || []).length === 7)
   }
 }
 

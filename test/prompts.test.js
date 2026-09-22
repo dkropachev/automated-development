@@ -68,10 +68,13 @@ test('review-and-fix-pr uses one read-only whole-PR reviewer and fails closed on
   assert.match(wf, /const RESOLVED_MODE = 'full'/)
   assert.match(wf, /const REVIEW_SKILL =/)
   assert.match(wf, /invoke that exact skill through the Skill tool/)
-  assert.match(wf, /disallowedTools: DENY_READONLY, requireToolScope: true/)
+  assert.match(wf, /bashCommandClamp: reviewBashClamp\(scope, setup, fullReviewBatch\)/)
+  assert.match(wf, /disallowedTools: DENY_READONLY, bashCommandClamp:/)
   assert.match(wf, /required read-only tool scope is unavailable - refusing to launch this agent/)
   assert.match(wf, /review-skill-unavailable/)
   assert.match(wf, /Do not silently substitute your own review or another skill/)
+  assert.doesNotMatch(wf, /Bash\((?:git|gh|node|sed) \*\)/,
+                      'the reviewer shell clamp must not admit a whole write-capable command family')
 })
 
 test('nothing injected into every session grew back', () => {

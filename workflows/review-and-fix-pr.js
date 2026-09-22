@@ -99,11 +99,43 @@ const shq = s => "'" + String(s).replace(/'/g, "'\"'\"'") + "'"
 const DENY_COMMON = ['Agent', 'Workflow', 'Artifact', 'ArtifactComments', 'ArtifactData',
                      'NotebookEdit', 'WebFetch', 'WebSearch', 'mcp__*']
 const DENY_READONLY = DENY_COMMON.concat(['Write', 'Edit'])
-// bashCommandClamp is deliberately NOT used. Measured 2026-09-17: a rule of the form
-// `Bash(git diff)` matches only the BARE command - every invocation carrying an argument or flag is
-// denied, including `cd <dir>`, `git -C <dir> ...` and `gh pr view 299`. It bricked a whole run for
-// the sake of deleting ~120 tokens of prose. Read-only enforcement comes from disallowedTools
-// (no Write/Edit), which is both meaningful and measured to work.
+
+// Write/Edit denial does not make Bash read-only. The whole-PR reviewer therefore gets a per-spawn
+// shell allowlist as well: exact review inputs, its exact driver batch, and the one ledger update the
+// review driver may request. There is deliberately no generic git/node/gh/sed/build rule here.
+// bashCommandClamp is fail-closed: a command form absent from this list is denied, and agentSafe()
+// refuses to launch the required reviewer if the platform cannot bind the clamp.
+function reviewBashClamp(scope, setup, batchId) {
+  const driver = shq(HOME_BIN + '/review-and-fix-pr-driver.js')
+  const reviewed = shq(HOME_BIN + '/review-and-fix-pr-reviewed.js')
+  const root = shq(scope.repoRoot)
+  const base = String(scope.mergeBaseSha || '')
+  const head = String(scope.headSha || '')
+  const ledger = shq(setup.ledgerPath || '')
+  const scratch = shq('/tmp/prfix-rv-' + RUN_TAG + '-full')
+  const batch = shq(batchId)
+  const rules = [
+    'Bash(cd ' + root + ')',
+    'Bash(git diff ' + base + '...' + head + ')',
+    'Bash(rm -rf -- ' + scratch + ')',
+    'Bash(git clone --no-hardlinks --no-local ' + root + ' ' + scratch + ')',
+    'Bash(cd ' + scratch + ')',
+    'Bash(node ' + driver + ' start --batch ' + batch + ' --root ' + root + ' --mode review *)',
+    'Bash(node ' + driver + ' found --batch ' + batch + ' *)',
+    'Bash(node ' + driver + ' checked --batch ' + batch + ' *)',
+    'Bash(node ' + driver + ' marked --batch ' + batch + ')',
+    'Bash(node ' + reviewed + ' --mark --root ' + root + ' --base ' + base + ' --ledger ' + ledger +
+      ' --pr ' + (scope.prNumber || 0) + ' --run ' + batch + ' --stage review *)',
+  ]
+  for (const entry of (scope.changedFiles || [])) {
+    const file = entry && String(entry.path || '')
+    if (!file || file.startsWith('/') || file.split('/').includes('..') || /[\r\n]/.test(file)) continue
+    rules.push('Bash(git diff ' + base + '...' + head + ' -- ' + shq(file) + ')')
+    rules.push('Bash(git log --oneline -- ' + shq(file) + ')')
+    rules.push('Bash(git blame -- ' + shq(file) + ')')
+  }
+  return rules
+}
 
 // -------------------------------------------------------------- run state ----
 
@@ -557,6 +589,17 @@ function deferFinding(f, reason) {
       primaryFile: f.primaryFile || '', symbol: f.symbol || '', detail: f.detail || '', fingerprint: k,
     })
   }
+}
+
+// A failed serial batch stops the loop, but it must not erase findings assigned to later batches.
+// Those findings were reviewed and accepted; only their fix attempt has not happened yet.
+function deferUnprocessedBatches(batches, failedIndex, reason) {
+  for (const f of batches.slice(failedIndex + 1).flat()) deferFinding(f, reason)
+}
+
+function completedReadOnlyReview(full) {
+  return !!full && full.outcome === 'reviewed' && full.commitSha === 'none' &&
+    !(full.fixed || []).length && !(full.filesTouched || []).length
 }
 
 function chunk_(arr, n) {
@@ -2206,6 +2249,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
     // would mean running `git reset --hard` on a tree nobody has looked at.
     if (!res) {
       for (const f of batches[bi]) deferFinding(f, 'the fixer agent returned nothing; its edits, if any, were left in place')
+      deferUnprocessedBatches(batches, bi, 'fixing stopped after an earlier batch returned nothing')
       stageNote = 'batch ' + (bi + 1) + ': the fixer returned nothing - the working tree may contain uncommitted edits'
       stopReason = 'fixer-lost'
       break
@@ -2229,6 +2273,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
       log('  ' + batchId + ': the build did not pass, so nothing was committed - its edits are still in the tree')
       for (const f of (res.filesTouched || [])) if (!uncommittedEdits.includes(f)) uncommittedEdits.push(f)
       discardBatch(batchId, res.fixed || [], batches[bi], 'the build did not pass, so this batch committed nothing')
+      deferUnprocessedBatches(batches, bi, 'fixing stopped after an earlier batch failed validation')
       stageVerdict = 'build failed - not committed'
       stageNote = 'batch ' + (bi + 1) + ' did not pass the build; its uncommitted edits are still in your working tree'
       stopReason = 'build-failed'
@@ -2240,6 +2285,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
       log('  ' + batchId + ': the driver aborted - ' + (res.notes || 'no reason given'))
       for (const f of (res.filesTouched || [])) if (!uncommittedEdits.includes(f)) uncommittedEdits.push(f)
       discardBatch(batchId, res.fixed || [], batches[bi], 'the driver aborted this batch before it could commit')
+      deferUnprocessedBatches(batches, bi, 'fixing stopped after an earlier batch aborted')
       stageNote = 'batch ' + (bi + 1) + ': the driver aborted (' + (res.notes || 'no reason given') +
                   ') - nothing was committed, but its edits may still be in your working tree'
       stopReason = 'driver-error'
@@ -2254,6 +2300,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
       log('  ' + batchId + ': reported "committed" but gave no sha - treating it as nothing landed')
       for (const f of (res.filesTouched || [])) if (!uncommittedEdits.includes(f)) uncommittedEdits.push(f)
       discardBatch(batchId, res.fixed || [], batches[bi], 'the batch claimed a commit the driver never confirmed')
+      deferUnprocessedBatches(batches, bi, 'fixing stopped after an earlier batch produced no confirmed commit')
       stageVerdict = 'claimed a commit with no sha - not trusted'
       stageNote = 'batch ' + (bi + 1) + ' said it committed but named no sha; nothing was counted as fixed'
       stopReason = 'commit-unconfirmed'
@@ -2288,9 +2335,11 @@ anythingFound = !!sawSomething()
 if (RESOLVED_MODE === 'full') {
   log('running one read-only whole-PR review')
   phase('Review')
+  const fullReviewBatch = RUN_TAG + '-rv-full'
   let full = await agentSafe(fullPrPrompt(scope, base, setup, false, true, headSha), {
     schema: FULL_SCHEMA, phase: 'Review', label: 'full-pr', effort: 'high',
-    disallowedTools: DENY_READONLY, requireToolScope: true,
+    disallowedTools: DENY_READONLY, bashCommandClamp: reviewBashClamp(scope, setup, fullReviewBatch),
+    requireToolScope: true,
   })
 
   if (!full) {
@@ -2308,7 +2357,7 @@ if (RESOLVED_MODE === 'full') {
                     note: full.notes || ('selected skill status: ' + status) })
     full = null
   }
-  if (full && (full.outcome !== 'reviewed' || (full.fixed || []).length || (full.filesTouched || []).length)) {
+  if (full && !completedReadOnlyReview(full)) {
     stopReason = 'review-driver-error'
     stageLog.push({ stage: 'whole-PR', chunks: 1, clean: 0, fixed: 0, stillPresent: 0,
                     verdict: 'NOT REVIEWED - read-only contract was not completed', commitSha: 'none',
@@ -2383,6 +2432,7 @@ if (RESOLVED_MODE === 'full') {
         })
         if (!res) {
           for (const f of batches[bi]) deferFinding(f, 'the fixer returned nothing; its edits, if any, were left in place')
+          deferUnprocessedBatches(batches, bi, 'fixing stopped after an earlier batch returned nothing')
           note = 'fix batch ' + (bi + 1) + ' returned nothing; working tree may contain edits'
           stopReason = 'fixer-lost'
           break
@@ -2400,6 +2450,9 @@ if (RESOLVED_MODE === 'full') {
           discardBatch(batchId, res.fixed || [], batches[bi], res.outcome === 'not-committed'
             ? 'the build did not pass, so this batch committed nothing'
             : 'the driver aborted this batch before it could commit')
+          deferUnprocessedBatches(batches, bi, res.outcome === 'not-committed'
+            ? 'fixing stopped after an earlier batch failed validation'
+            : 'fixing stopped after an earlier batch aborted')
           verdict = res.outcome === 'not-committed' ? 'build failed - not committed' : 'driver aborted - not committed'
           note = 'fix batch ' + (bi + 1) + ': ' + verdict
           stopReason = res.outcome === 'not-committed' ? 'build-failed' : 'driver-error'
@@ -2409,6 +2462,7 @@ if (RESOLVED_MODE === 'full') {
         if (!res.commitSha || res.commitSha === 'none') {
           for (const f of (res.filesTouched || [])) if (!uncommittedEdits.includes(f)) uncommittedEdits.push(f)
           discardBatch(batchId, res.fixed || [], batches[bi], 'the batch claimed a commit the driver never confirmed')
+          deferUnprocessedBatches(batches, bi, 'fixing stopped after an earlier batch produced no confirmed commit')
           verdict = 'claimed a commit with no sha - not trusted'
           note = 'fix batch ' + (bi + 1) + ' named no confirmed commit'
           stopReason = 'commit-unconfirmed'
