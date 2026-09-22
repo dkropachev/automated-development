@@ -54,6 +54,13 @@ At the other end, `/scoped-code-review` without `--detailed` raised **three** is
 PRs for $10.03, one of which was false. Cheap, and effectively silent; `--detailed` turns it into an
 ordinary reviewer (16 real issues for $11.15) and is the variant worth having.
 
+`review-and-fix-pr` ran at its default `mode: 'auto'` in all six runs, so it picked by diff size:
+the Rust PR (26.2KB) got the chunked parallel shape, the Go and C++ PRs (18.3KB and 15.9KB) got the
+whole-PR shape. That is not a single-agent price either - the whole-PR shape still runs its reviewer
+and fixer turns as separate agents, 2 to 5 of them per run by the runs' own count, and 4 to 11
+subagent transcripts land on disk per scored attempt. Only one of the three PRs was large enough to
+exercise chunking, and the other two cost what they cost without it.
+
 ### False positives cluster in the confident tools
 
 `mattpocock-review` (23%), `builtin-code-review` (23%) and `tob-rust-review` (25%) are the three
