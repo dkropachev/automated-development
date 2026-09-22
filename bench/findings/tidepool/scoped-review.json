@@ -1,0 +1,18 @@
+{
+  "target": "tidepool",
+  "tool": "scoped-review",
+  "label": "/scoped-code-review (read-only)",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 1015,
+      "title": "Dimension bound might not cover all vector allocation sites or could over-reject payloads",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The report checked whether the dimension bound protects every allocation site (vectorSliceReuse at marshal.go:1015/1026, reflect.MakeSlice at 1083), whether vectorElemMinSize could return 0 causing unsafe division, whether saturation at MaxInt32 is correct, and whether vectorFixedElemSize's type set could overlap with isVectorVariableLengthType's causing the floor to over-reject well-formed payloads; it also checked whether marshalVector needs an equivalent bound.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "note": "invoked as /pr-review-fix, which had just been renamed; Claude Code resolved it to the scoped-code-review skill - see the Skill call in the transcript"
+}

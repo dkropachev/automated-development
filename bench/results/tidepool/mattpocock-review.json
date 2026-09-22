@@ -1,0 +1,114 @@
+{
+  "target": "tidepool",
+  "language": "Go",
+  "fork": "dkropachev/tidepool",
+  "pr": 1,
+  "tool": "mattpocock-review",
+  "label": "Matt Pocock code-review",
+  "source": "mattpocock-skills@mattpocock",
+  "prompt": "/mattpocock-skills:code-review main\n\nYou are reviewing pull request #1 of this repository (dkropachev/tidepool) - a Go project. The PR branch `bound-vector-dimensions` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 398571,
+  "reportedCostUsd": 4.107126750000001,
+  "reportedUsage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 5276,
+    "cache_read_input_tokens": 330874,
+    "output_tokens": 5433,
+    "output_tokens_details": {
+      "thinking_tokens": 1552
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 5276,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 2681,
+        "cache_read_input_tokens": 84931,
+        "cache_creation_input_tokens": 503,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 503
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 116,
+      "outputTokens": 49827,
+      "cacheReadInputTokens": 2996986,
+      "cacheCreationInputTokens": 173073,
+      "webSearchRequests": 0,
+      "costUSD": 4.107126750000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 28751,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 4,
+  "subagentStats": {
+    "spawned": 2,
+    "requested": {
+      "background": 2,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 2,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 2,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "general-purpose": 2
+    }
+  },
+  "sessionId": "bf27923a-393f-4e74-9a8a-d71d1497eff0",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 222,
+    "output": 103445,
+    "thinking": 64972,
+    "cacheRead": 5930551,
+    "cacheCreation": 355783,
+    "costUsd": 8.340563,
+    "sessions": 2,
+    "models": {
+      "claude-opus-5[1m]": 8.340563
+    },
+    "rawMessages": 247,
+    "rawOutput": 181199,
+    "rawCacheRead": 12140256,
+    "subagentTranscripts": 4,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-tidepool-runs-mattpocock-review-repo",
+    "total": 6390001
+  },
+  "result": "Working tree is clean; nothing was edited, committed, or posted.\n\nNote: `docs/agents/issue-tracker.md` is absent, and every issue the PR cites (#1091, #1093, #1085, #1086, #1106) fails to resolve via `gh` on `dkropachev/tidepool`. The Spec axis therefore ran against the PR body itself as the spec. Run `/setup-matt-pocock-skills` if you want a real tracker wired in.\n\n## Standards\n\nSources: `CONTRIBUTING.md` only (no `CODING_STANDARDS.md`, `CLAUDE.md`, or `AGENTS.md`).\n\n**Documented-standard findings**\n\n1. **CHANGELOG entry missing — hard, but effectively dead** (`CONTRIBUTING.md`, Minimum Requirement Checklist: \"Notable changes (i.e. new features or changed behavior, bugfixes) are appropriately documented in CHANGELOG.md\"). Both commits are bugfixes with user-visible behaviour change and neither touches a changelog. Mitigating: `find . -iname 'CHANGELOG*'` returns nothing — the file the rule names does not exist in this fork, so repo practice has already retired the rule. Report, don't block. *Severity: informational.*\n\n2. **Godoc for a functional change — judgement call** (same checklist line: \"functional changes also in godoc\"). `helpers.go:280-284` changes what `getCassandraLongType` returns for an unrecognised basic type; that leaks into every `TypeInfo` consumer's `String()`/error text. Unexported, so godoc is arguably N/A, and the inline comment explains the why — acceptable as is. *Severity: low.*\n\n3. **Commit message format — not a violation.** `CONTRIBUTING.md` documents `<short description>` starting with a capital plus a `Patch by …; reviewed by …` trailer; these commits use lowercase conventional-commit subjects with no such trailer. Every commit on `main` does the same, so repo practice overrides the doc. Both commits carry a `Co-Authored-By: Claude Opus 5` trailer and the PR body ends with a \"🤖 Generated with Claude Code\" line — your global rule forbids both; strip them.\n\n4. Everything else on the checklist passes: gofmt/vet clean (tooling, skipped), test coverage rises, `marshal_vector_test.go` already carried the ASF header.\n\n**Baseline smells** (all judgement calls)\n\n- **Duplicated Code** — `marshal.go:996` and `marshal.go:1005`: `if info.Dimensions > 0 && data != nil {` appears twice back to back with different bodies and two separate explanatory comments. Folding the bound into the existing fast-path guard would cost the ordering argument the comment makes, so leaving it is defensible, but the repetition is the first thing a reader trips on.\n- **Repeated Switches** — `vectorElemMinSize` (`marshal.go:1121`) is the third function branching on vector element type, after `vectorFixedElemSize` and `isVectorVariableLengthType`, and it calls both plus its own `elemType.(VectorType)` assertion. A new element type must be added in three places. Consistent with existing file style, so low priority.\n- **Primitive Obsession / magic sentinel** — `return math.MaxInt32` at `marshal.go:1134` is a saturation sentinel returned as a plain `int` size; only the comment distinguishes \"huge\" from \"measured\".\n\nNo Feature Envy, Shotgun Surgery, Speculative Generality, Middle Man, or Mysterious Name worth filing. Test style matches the file's conventions.\n\n## Spec\n\n**(c) Implemented but wrong — the bound's headline claim is defeated by a zero or negative inner dimension. *Severity: high.***\n\n> \"Measured on `vector<vector<float,3>,N>`: 24 bytes allocated per payload byte before, 3.5 KB flat now.\"\n\n`vectorElemMinSize` only adds the nested vector's size when `vec.Dimensions > 0` (`marshal.go:1132`) and otherwise floors at 1 (`marshal.go:1139`). For `vector<vector<float,0>,N>` — or a negative inner dimension — `elemMin` is 1, the bound at `marshal.go:997-1001` permits `N == len(data)`, and `reflect.MakeSlice` takes the peer's whole count. I confirmed this against HEAD: a 1 MiB payload allocates **25,175,696 bytes — 24.0× per payload byte**, the exact amplification the spec says is gone. `getCassandraLongType` parses `…VectorType(…FloatType, 0)` without complaint, so a peer just sends `0`. Mitigated only by the companion \"#1093 rejects `dim < 1` in the metadata parsers\", which is not in this diff and does not resolve as an issue.\n\n**(a) Partial — the \"keeps that name\" fix does not cover the nested-vector case. *Severity: low.***\n\n> \"Two well-formed column types reach it: a nested vector … and any element type this driver does not know. `getCassandraLongType` now keeps that name so the error can say which type the server sent.\"\n\n`helpers.go:280-284` only fixes the unknown-basic-type case. The inner `VectorType` still carries the bare custom name (`helpers.go:271`, `frame.go:864`) and `VectorType` has no `String()`. Confirmed on the wire path: the nested case prints `no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)` — neither element type nor dimensions. The unknown-type case prints `custom(org.apache.cassandra.db.marshal.FooType)` correctly. The new test only asserts the message prefix for the nested case, so it doesn't catch this.\n\n**(a) Partial — verification claim is overstated. *Severity: low.***\n\n> \"Every new test fails against pristine `marshal.go`/`helpers.go`.\"\n\nReplaying the new test file onto `main`: `TestUnmarshalVectorAcceptsWellFormedPayloads` and `TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType` both **pass** there, and `TestVectorElemMinSize` doesn't compile (it tests a new unexported function). Three of five fail as claimed, with the stated panics.\n\n**(b) Scope creep — minor. *Severity: informational.***\n\n`info.Dimensions < 0` (`marshal.go:991`) is in no Scope-In bullet; the spec defers `dim < 1` to #1093. Defensible — it is the `MakeSlice: negative len` panic — but undeclared.\n\n**Verified clean**\n\nThe bound does precede every `Dimensions` consumer in `unmarshalVector`, including both float fast paths, making `Dimensions*8`/`*4` non-wrapping. The `helpers.go` return-type change is naming-only: `NewCustomType` returns the same concrete `NativeType` (`marshal.go:1954`), and `Custom()` is read in exactly two places (`helpers.go:55,59`), both requiring a `…VectorType(` prefix the new branch can never produce because `helpers.go:261` matches first. `vectorElemMinSize`'s saturation arithmetic is sound and `per` is always ≥ 1, so the division cannot panic. Full `-tags unit` suite passes apart from pre-existing TLS failures (`Failed parsing or appending certs` — `testdata/pki/generate_certs.sh` was never run in this checkout; unrelated to the diff).\n\n---\n\n**Summary** — Standards: 3 findings (worst: the dead CHANGELOG rule, informational) plus 3 judgement-call smells. Spec: 4 findings (worst: a zero inner dimension reduces `elemMin` to 1 and restores the full 24× allocation amplification the PR claims to have removed, empirically confirmed at `marshal.go:1132`).",
+  "stderrTail": "",
+  "finishedAt": "2026-09-20T19:39:04.729Z"
+}

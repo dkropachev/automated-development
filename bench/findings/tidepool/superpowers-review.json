@@ -1,0 +1,170 @@
+{
+  "target": "tidepool",
+  "tool": "superpowers-review",
+  "label": "Superpowers requesting-code-review",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 992,
+      "title": "Dimensions guard confirmed to precede every consumer of Dimensions",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The guard at marshal.go:992-1003 sits ahead of every consumer of Dimensions (both float fast paths, vectorSliceReuse, reflect.MakeSlice, the array check, elemSize = len(data)/Dimensions).",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 0,
+      "title": "vectorElemMinSize recursion confirmed to terminate and partition correctly",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "vectorElemMinSize's recursion terminates structurally and partitions correctly against isVectorVariableLengthType.",
+      "selfRejected": true
+    },
+    {
+      "file": "helpers.go",
+      "line": 55,
+      "title": "getCassandraLongType behaviour change confirmed safe, single gated consumer",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "getCassandraLongType's changed behaviour has one consumer (helpers.go:55,59), gated behind a prefix the earlier branch already intercepts.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 1136,
+      "title": "Overflow-saturation branch in vectorElemMinSize has zero test coverage",
+      "severity": "high",
+      "kind": "test-gap",
+      "claim": "The `return math.MaxInt32` overflow-saturation branch shows 0 hits in the coverage profile while every other block in vectorElemMinSize is covered; it is wire-reachable (e.g. vector<vector<float,600000000>,N> via strconv.Atoi at helpers.go:264) and is the only new arithmetic in a PR about arithmetic going silently wrong that remains unpinned by a test.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1046,
+      "title": "Nested-vector unknown-type error message omits element type and dimension",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "VectorType has no String(), so %v falls through to the promoted NativeType.String() and the error reads 'no Go type for element type custom(...VectorType)' with no element type or dimension; the commit's stated purpose is met for unknown basic types but not for the nested-vector case, and the same issue exists at marshal.go:1118.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 992,
+      "title": "Negative dimensions on a NULL payload now errors instead of returning nil",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Base code returned nil for negative dimensions on a NULL payload because the data==nil branch ran first; the new code now errors instead — deliberate, test-pinned, and arguably better, but a behaviour change absent from the description's list.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1141,
+      "title": "Zero-dimension inner vector floored at 1 byte rejects a payload that used to decode fine",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "vector<vector<int,0>,3> over an empty payload decoded to [[] [] []] on base but now errors '3 dimensions do not fit in 0 bytes' because the minimum-size floor is 1 byte while the true wire size is 0; pathological and moot once dim<1 is rejected, but it's a third unlisted behaviour change, and the code comment explains the divide-by-zero mechanism without noting the bound is stricter than the wire format.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 998,
+      "title": "vectorElemMinSize still nil-derefs on a nil SubType when Dimensions>0",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "vectorElemMinSize nil-derefs on a nil SubType when Dimensions>0; not a regression (exact parity with the old fast path) and unreachable from the wire, but VectorType/SubType/Dimensions are exported and the guard's comment already reasons about caller-supplied nil subtypes yet stops short of covering zero dimensions.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 836,
+      "title": "Allocation test asserts on process-global runtime.TotalAlloc",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The allocation assertion reads process-global runtime.TotalAlloc; held under -count=5, -shuffle=on with 128KB headroom against ~3.5KB actual, but the 'not parallel' comment only covers sibling subtests, not the suite's background dialers/loggers — the margin carries it, not isolation.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Trailing-byte distribution issue (#1086) left deferred, not investigated",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Trailing-byte distribution (#1086) is set aside as explicitly deferred or pre-existing and was not investigated in this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Vint-narrowing-to-negative path (#1106) left deferred, not investigated",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The vint-narrowing-to-negative path (#1106) is set aside as explicitly deferred or pre-existing and was not investigated in this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Nested vectors not decoding into interface{} (#1085) left deferred, not investigated",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Nested vectors not decoding into interface{} (#1085) is set aside as explicitly deferred or pre-existing and was not investigated in this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "dim < 1 metadata rejection (#1093) left deferred, not investigated",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "dim < 1 metadata rejection (#1093) is set aside as explicitly deferred or pre-existing and was not investigated in this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "frame.go",
+      "line": 855,
+      "title": "parseFrame-recovered slicing panic at frame.go:855-857 left deferred, not investigated",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A parseFrame-recovered slicing panic at frame.go:855-857 is set aside as explicitly deferred or pre-existing and was not investigated in this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "helpers.go",
+      "line": 265,
+      "title": "parseFrame-recovered slicing panic at helpers.go:265 left deferred, not investigated",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A parseFrame-recovered slicing panic at helpers.go:265 is set aside as explicitly deferred or pre-existing and was not investigated in this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "VectorType.Zero() yielding []*T left deferred, not investigated",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "VectorType.Zero() yielding []*T is set aside as explicitly deferred or pre-existing and was not investigated in this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "VectorType not overriding NewWithError left deferred, not investigated",
+      "severity": "low",
+      "kind": "design",
+      "claim": "VectorType not overriding NewWithError is set aside as explicitly deferred or pre-existing and was not investigated in this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Variable-length allocation amplification under floor-of-1 left deferred, not investigated",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "Variable-length allocation amplification under the floor-of-1 is set aside as explicitly deferred or pre-existing and was not investigated in this review.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null
+}

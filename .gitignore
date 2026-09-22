@@ -1,1 +1,4 @@
 node_modules/
+bench/work/
+bench/logs/
+bench/results/**/*.lock

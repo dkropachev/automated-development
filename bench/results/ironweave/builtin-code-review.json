@@ -1,0 +1,99 @@
+{
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "tool": "builtin-code-review",
+  "label": "Claude Code /code-review",
+  "source": "built-in",
+  "prompt": "/code-review 1\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 800293,
+  "reportedCostUsd": 3.84821025,
+  "reportedUsage": {
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "input_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 0,
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "",
+    "iterations": [],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 78,
+      "outputTokens": 57100,
+      "cacheReadInputTokens": 3247928,
+      "cacheCreationInputTokens": 127417,
+      "webSearchRequests": 0,
+      "costUSD": 3.84821025,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 47637,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 0,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "2c00c2f5-2b6e-4e23-9a08-5e76e3031bc4",
+  "isError": false,
+  "transcriptUsage": {
+    "input": 138,
+    "output": 106550,
+    "thinking": 90510,
+    "cacheRead": 5317729,
+    "cacheCreation": 229090,
+    "costUsd": 6.755117,
+    "sessions": 3,
+    "models": {
+      "claude-opus-5[1m]": 6.755117
+    },
+    "rawMessages": 137,
+    "rawOutput": 103426,
+    "rawCacheRead": 9692197,
+    "subagentTranscripts": 3,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-ironweave-runs-builtin-code-review-repo",
+    "total": 5653507
+  },
+  "result": "Reviewed `git diff main...HEAD` (3 commits: the `_stream_closing` guard, the reproducer test, the docs). The core fix is sound — I traced the `_outgoing_queue_ready` steal against `withdraw()`/`stop_send_loop()`'s promise-swapping and it still terminates; `_sink_closed_future` correctly covers the drain that `stop_send_loop()` no longer waits for; `stream_close()` can only run once and is mutually exclusive with `stop_send_loop()` via `_error`; the `_connected->write_buf` deref in the new deferred continuation cannot see a nullopt `_connected` (the only way `queue_drained` resolves is via `_negotiated`, which is only set after `set_socket()`, or exceptionally from `stop_send_loop()` which first sets `_error` and so prevents `stream_close()` from being entered). Test ordering is deterministic too — `make_stream_sink()` awaits the parent connection before creating the stream client, so `hooks.back()` is reliably the stream's hook.\n\nTwo findings:\n\n- `tests/unit/rpc_test.cc:1883` — `test_data_sink_impl` only implements the `SEASTAR_API_LEVEL >= 9` `put(std::span<...>)` overload; at API levels 7/8 (supported by `CMakeLists.txt:72` and `configure.py --api-level`) `data_sink_impl::put(net::packet)` is still pure virtual, so the class is abstract and the `override` refers to nothing — hard compile error. `tests/unit/loopback_socket.hh:144` guards the identical override with `#if SEASTAR_API_LEVEL >= 9`; CI only builds the default level, so this would only bite non-default builds.\n- `src/rpc/rpc.cc:562` — `stream_close()` now defers `stop()` (and therefore `abort()`/`shutdown_input()`) behind the outgoing-queue drain. Previously `write_buf.close()` returned promptly even with a write in flight (that was the bug), and the immediate `stop()` is what eventually got `stop_send_loop()` to call `shutdown_output()` and break a stalled send. Now a send stalled on a full send window (e.g. a compressor empty frame, with the peer no longer draining) leaves `sink.close()` / the source read hung until the connection is aborted from outside.\n\nOne non-finding worth noting: the change leaves `_outgoing_queue_ready` as a ready future while entries can still be linked in `_outgoing_queue`, breaking the invariant that it is the tail entry's `done` future. Nothing enqueues after that point today (`send()` is refused, `enqueue_zero_frame()` only runs from the client ctor), but any future enqueue path that misses the `_stream_closing` check would fire immediately and re-open exactly the race this PR fixes.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-21T01:46:38.635Z"
+}

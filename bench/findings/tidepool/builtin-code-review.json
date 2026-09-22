@@ -1,0 +1,44 @@
+{
+  "target": "tidepool",
+  "tool": "builtin-code-review",
+  "label": "Claude Code /code-review",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 1044,
+      "title": "Zero VectorType panics on nil-pointer deref for *any destination",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The new Dimensions > 0 guard prevents the bound check from dereferencing a nil SubType, but info.Zero() (via marshal.go:2046, v.SubType.NewWithError()) still panics; `var dst any; Unmarshal(VectorType{}, []byte{}, &dst)` panics with a nil-pointer dereference, verified by running it. The new test pins this input shape only for *[]float64, so it passes while the interface-destination case still crashes.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 271,
+      "title": "Nested vector's inner type keeps bare VectorType name, breaking parsing",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The PR teaches the basic-type branch to preserve the server's name but this branch still stores prefix+\"VectorType\" without the parenthesized subtype, so asVectorType cannot parse it, NewWithError fails, Zero() returns nil, and a nested-vector column errors out of MapScan/Scan(&any) with an unhelpful message. Passing name here would fix it; the PR defers this to #1085.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 2047,
+      "title": "VectorType.Zero() discards the NewWithError error, losing failure reason",
+      "severity": "nit",
+      "kind": "bug",
+      "claim": "VectorType.Zero() discards the error returned by NewWithError, so the new error message at marshal.go:1048 can only name the type and not the reason for the failure.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Non-NULL zero-length payload for Dimensions > 0 now errors instead of decoding to zero values",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The documented behavior change is correct but is a visible API break for anyone who relied on a non-NULL zero-length payload with Dimensions > 0 decoding to zero values instead of erroring.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null
+}

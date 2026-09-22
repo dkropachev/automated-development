@@ -1,0 +1,1107 @@
+{
+  "target": "ironweave",
+  "language": "C++",
+  "rawFindings": 119,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "New regression test is flaky: rpc::stream_closed escapes the test body at smp>1",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2028,
+      "kind": "test-gap",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "Built build/dev and ran the new case 60x with `-- -c2`: 4 runs failed with `fatal error: in \"test_stream_send_after_stream_close\": seastar::rpc::stream_closed: rpc stream was closed by peer` (0/40 at -c1). The client's stream_close()->stop() tears the connection down, the server's stream read loop hits EOF, sets _error and runs _stream_queue.abort(stream_closed()) (src/rpc/rpc.cc:1285) before the server fiber's `while (source().get()) {}` consumed the queued eof marker; the throw escapes seastar::async and surfaces at server_done.get().",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR adds this test; test.py's default --smp 2 makes it fail roughly 7% of runs.",
+      "reportedBy": [
+        "rafp-detailed",
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "rafp-detailed": "New regression test is flaky (~8% failure rate). The server fiber does sink.close() then drains source(); when stream_close() causes the reader to hit EOF, _stream_queue.abort() discards the queued eof marker and source() throws rpc::stream_closed, which escapes the test body uncaught (existing tests wrap this in check_exception). Measured 7/60 standalone failures and 2/12 whole-suite failures at --mode=dev -c2.",
+        "ce-code-review": "Test's server-handler read loop may raise stream_closed during normal shutdown and escape server_done.get() (retained as residual risk only, with no demonstrated trigger)."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "stream_close() now gates write_buf.close()/stop()/abort() behind an unbounded queue drain",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "src/rpc/rpc.cc:565-572 chains write_buf.close() and then stop() after `queue_drained`. Pre-PR write_buf.close() ran immediately and its `_fd.close()` is posix_data_sink_impl::close() = `_fd.shutdown(SHUT_WR)` (src/net/posix-stack.cc:894-897), which is exactly what unwedges a send_entry() parked in pollable_fd::write_all() on a full peer window; stop()->abort()->shutdown_input() (rpc.cc:353-359) is likewise what ends the receive loop so stop_send_loop() can call shutdown_output() (rpc.cc:200-202). Both escape hatches are now downstream of the very write they would have to break, so a frame parked on peer backpressure leaves the connection, its fd and its buffers hung with no timeout.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The drain wait is added by this PR's own hunk.",
+      "reportedBy": [
+        "builtin-code-review",
+        "ce-code-review",
+        "mattpocock-review",
+        "superpowers-review",
+        "anthropic-pr-review",
+        "rafp-review"
+      ],
+      "reportedAs": {
+        "builtin-code-review": "stream_close() now defers stop()/abort()/shutdown_input() behind outgoing-queue drain, allowing hangs. Previously write_buf.close() returned promptly even with a write in flight and the immediate stop() eventually caused stop_send_loop() to call shutdown_output() and break a stalled send.",
+        "ce-code-review": "stream_close() gates stop()/abort() behind an unbounded queue drain. abort() is the only mechanism that can fail a stuck low-level write; if a frame is parked on peer backpressure, queue_drained never resolves and the connection's fd, buffers, and teardown state leak forever with no timeout or cancellation.",
+        "mattpocock-review": "New outgoing-queue drain can gate/hang the abort path via sink.close(). A front entry stuck in send_entry() behind TCP backpressure from a live-but-not-reading peer can hang sink.close() with shutdown_output() sequestered behind it.",
+        "superpowers-review": "The drain wait is unbounded; the comment would be more useful naming what breaks it (stop_send_loop's shutdown_output) rather than only who no longer waits. Not a regression.",
+        "anthropic-pr-review": "(self-rejected) Reviewer checked for a new deadlock from deferring write_buf.close() and found none: pre-PR the same socket flush already gated stop().",
+        "rafp-review": "(withdrawn) Candidate risk that stream_close() could hang waiting on the drained _outgoing_queue_ready before stop() runs."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Unguarded put(std::span) override breaks the build at SEASTAR_API_LEVEL 7 and 8",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Compiled tests/unit/rpc_test.cc with -fsyntax-only at -DSEASTAR_API_LEVEL=8 and =7: three hard errors ('marked override, but does not override', 'no matching function for call to seastar::data_sink::put(std::span<...>&)', 'invalid new-expression of abstract class type'). The same file from main compiles clean at level 8. data_sink_impl::put(std::span) is behind `#if SEASTAR_API_LEVEL >= 9` (include/seastar/core/iostream.hh:110-128); loopback_socket.hh:144-153 already uses the required #if/#else pattern, and configure.py --api-level still accepts 7/8.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The offending override is added by this PR and main builds fine at those levels.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "builtin-code-review",
+        "ce-code-review",
+        "rafp-detailed",
+        "superpowers-review",
+        "tob-diff-review",
+        "scoped-detailed"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Unguarded put(span) override breaks build below API level 9; the build breaks with three errors since the test doesn't use the existing #if SEASTAR_API_LEVEL >= 9 fallback pattern used elsewhere.",
+        "builtin-code-review": "test_data_sink_impl fails to compile at SEASTAR_API_LEVEL 7/8; the class is abstract and the override refers to nothing, causing a hard compile error.",
+        "ce-code-review": "test_data_sink_impl's put(std::span) override isn't guarded by SEASTAR_API_LEVEL, breaking the build at levels CMakeLists.txt still offers.",
+        "rafp-detailed": "test_data_sink_impl override breaks build at SEASTAR_API_LEVEL < 9; compiling with --api-level 8 fails with 'marked override, but does not override'; loopback_socket.hh already guards the equivalent method.",
+        "superpowers-review": "put(std::span<temporary_buffer<char>>) override breaks builds at --api-level=7|8.",
+        "tob-diff-review": "The override is unguarded but that member only exists under SEASTAR_API_LEVEL >= 9; below 9 this causes an override-of-nothing error and leaves the class abstract.",
+        "scoped-detailed": "Test build is not portable across environments."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Regression test never asserts the send was refused; closed_error is swallowed",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "tests/unit/rpc_test.cc:2016-2021 is `try { stream_send_empty_frame().get(); } catch (const rpc::closed_error&) { }` with no assertion in either branch. The PR's whole added contract (send() fails once stream_close() has begun) is therefore unasserted; the only check left is the indirect BOOST_REQUIRE_MESSAGE(!st.put_after_close) at :2030. BOOST_REQUIRE_THROW would pin it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "ce-code-review",
+        "mattpocock-review",
+        "rafp-review",
+        "superpowers-review",
+        "tob-diff-review",
+        "scoped-detailed"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "try/catch around stream_send_empty_frame().get() asserts nothing in either branch, so if send() wrongly accepts the frame the test still passes; only a second-order check that depends on poller timing catches it.",
+        "ce-code-review": "The refused send()'s closed_error is caught by a bare try/catch and discarded with nothing asserted, so the test's only real signal is an indirect timing-dependent check.",
+        "mattpocock-review": "stream_send_empty_frame().get() is wrapped in a try with an empty catch(closed_error&), so nothing requires the throw; BOOST_REQUIRE_THROW would pin it properly.",
+        "rafp-review": "The new test calls the captured send_empty_frame hook inside a try/catch that silently swallows rpc::closed_error, so the PR's added contract is never actually asserted.",
+        "superpowers-review": "The test never asserts the send was refused; catch (closed_error&) {} swallows the success case too.",
+        "tob-diff-review": "The try/catch (const rpc::closed_error&) passes whether or not the frame is rejected; needs BOOST_REQUIRE_THROW or a BOOST_FAIL after the .get().",
+        "scoped-detailed": "Reproducer test is missing an assertion."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Queue-drain half of the fix has no test coverage at all",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Verified by experiment: reverting only the std::exchange/then_wrapped hunk (keeping _stream_closing) and rebuilding leaves the new test passing 20/20. The cause is structural: sink_impl::close() awaits the eof-marker send() before `f.finally([con]{ return con->close_sink(); })` (include/seastar/rpc/rpc_impl.hh:911-924), so _outgoing_queue is already empty and queue_drained is already resolved when stream_close() runs. The exceptional branch (then_wrapped/ignore_ready_future) and the concurrent stop_send_loop() interleaving are likewise never exercised.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is the riskier half of the PR's own fix (see I2) and the PR is where its test belongs.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "ce-code-review",
+        "rafp-detailed",
+        "tob-diff-review",
+        "scoped-detailed"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Deleting lines 562-568 (the queue_drained handling) leaves the new regression test passing, so this riskier half of the fix, which changes what stop_send_loop() sees, is untested.",
+        "ce-code-review": "The then_wrapped/ignore_ready_future() branch is never exercised because the new test only ever queues an eof marker that always succeeds; also no test drives _outgoing_queue_ready to be non-ready at the moment stream_close() runs, and no test covers stop_send_loop() running concurrently with a parked stream_close().",
+        "rafp-detailed": "The new test only exercises the case where close() is parked with an empty queue, so the drain logic is a no-op in that test; reverting just the drain leaves the whole suite green.",
+        "tob-diff-review": "_outgoing_queue is empty when the test reaches stream_close() because sink_impl::close() awaits the eof-marker send() before calling close_sink(); reverting the std::exchange/then_wrapped hunk while keeping _stream_closing still leaves the new test green.",
+        "scoped-detailed": "Drain path is untested."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Server compressor factory's hooks vector is mutated cross-shard by negotiate()",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "server_factory is a stack local on shard 0, but loopback_socket_impl::connect() round-robins server connections via _factory.next_shard() (tests/unit/loopback_socket.hh:343-345), so at --smp 2 the stream connection's server side negotiates on shard 1 and runs const_cast<...>(this)->hooks.push_back(...) against a shard-0 std::vector, concurrently with shard 0's own push_back for the parent connection. That is an unsynchronised cross-shard mutation plus a shard-1 allocation later freed on shard 0.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The factory and its cross-shard use are added by this PR.",
+      "reportedBy": [
+        "superpowers-review",
+        "rafp-detailed"
+      ],
+      "reportedAs": {
+        "superpowers-review": "server_factory lives on shard 0 but loopback_socket_impl::connect round-robins server connections, so at default --smp 2 the stream connection's negotiate() runs const_cast<...>(this)->hooks.push_back(...) on shard 1 against a shard-0 vector — unsynchronized mutation with a buffer allocated by shard 1's allocator and freed by shard 0, which is UB that ASan/UBSan won't catch.",
+        "rafp-detailed": "The factory is shared across shards, and negotiate() const_casts and push_backs into it from both shard 0 and shard 1; no failure is observable today because server hooks are unused."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Comment claims nothing else waits on _outgoing_queue_ready, but stop_send_loop() does",
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "src/rpc/rpc.cc:559-561 says 'Nothing else waits for _outgoing_queue_ready from here on: ... stop_send_loop() waits for _sink_closed_future.' stop_send_loop() literally does `when_all(std::move(_outgoing_queue_ready), std::move(_sink_closed_future))` at rpc.cc:225. The load-bearing property is that after the exchange that wait is vacuous and the drain guarantee flows through _sink_closed_future instead; the comment does not say that, which is what protects the pair from being reordered.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new in this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "tob-diff-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The comment says nothing else waits for _outgoing_queue_ready, but stop_send_loop() does wait on it; the real point (that the wait becomes vacuous after the exchange, with the drain guarantee flowing through _sink_closed_future) is nowhere stated.",
+        "mattpocock-review": "The comment claims stop_send_loop() waits only on _sink_closed_future, but it still waits on both futures; the real safety property is that the queue-ready wait is subsumed by _sink_closed_future.",
+        "tob-diff-review": "The comment states 'Nothing else waits for _outgoing_queue_ready from here on', but stop_send_loop() does wait on it, at src/rpc/rpc.cc:225; the code itself is correct, but the comment misstates it."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "Comment names the wrong cause for an exceptional _outgoing_queue_ready",
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "src/rpc/rpc.cc:566 says '_outgoing_queue_ready is exceptional if an entry failed'. send()'s own continuation swallows send_entry() failures (`if (f.failed()) { f.ignore_ready_future(); abort(); } p->done.set_value();`, rpc.cc:333-338), so a failed entry resolves the chain normally. The real sources are withdraw(it, ex) (rpc.cc:288) and stop_send_loop()'s `it->done.set_exception(ex)` / `_negotiated->set_exception(ex)` — which the neighbouring pre-existing comment at rpc.cc:226-227 states correctly.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new in this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "rafp-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The new comment claims _outgoing_queue_ready is exceptional if an entry failed, but entry failures are swallowed by send()'s continuation; the real causes are withdraw(it, ex) and _negotiated->set_exception() from a concurrent stop_send_loop().",
+        "rafp-review": "(left out of scope) The comment stating '_outgoing_queue_ready is exceptional if an entry failed' is inaccurate: a failed send_entry() calls abort() and then still calls p->done.set_value(), so entry failure resolves the chain normally."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "Lambda parameter f shadows the function-scope f it is being assigned to",
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "`auto f = make_ready_future<>();` at rpc.cc:549 and the continuation parameter `(future<> f)` at rpc.cc:565 inside the statement assigning that same f; the one place an exception is deliberately discarded reads as f = ...f....",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by this PR's hunk.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The lambda parameter f shadows the function-scope f being assigned, making the statement read as f = ...f... in the one place an exception is deliberately discarded; should be renamed to drained.",
+        "mattpocock-review": "The lambda parameter named f shadows the outer f declared at rpc.cc:549, inside the assignment to that same variable; should be renamed to drained.",
+        "superpowers-review": "The inner lambda param f shadows the auto f from line 549, in the statement assigning the outer one."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "Docs overstate that both halves of a stream must always be closed",
+      "file": "doc/rpc-streaming.md",
+      "line": 106,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "connection::_sink_closed and _source_closed both default to true (include/seastar/rpc/rpc.hh:300-301) and are only cleared by sink_impl's and source_impl's constructors (rpc_impl.hh:839, :494). A connection on which the application was only ever handed a sink therefore reaches stream_check_twoway_closed() with no source involved, so 'both halves' should read 'each half you were given'. Same wording on rpc::sink's new doxygen block (rpc_types.hh:341-342).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The sentence is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The doc and rpc_types.hh both claim shutdown requires both halves closed, but _sink_closed and _source_closed default to true and are only cleared by the respective impl constructors, so a connection with only a sink never needs a source to close for stream_close() to run.",
+        "superpowers-review": "\"Both halves of a stream must be closed\" overstates it; with no returned sink, _source_closed is true from construction (rpc.hh:301), so the doc should say \"each half you were given\"."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "\"Shut down only once both halves are closed\" ignores error and peer-driven teardown",
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "doc/rpc-streaming.md:115 says the connection is shut down 'only once both halves are closed', which contradicts the same file's line 49 ('closing the client aborts any stream still open on it') and the error paths in src/rpc/rpc.cc:1062-1067 and :1284-1289 that tear the stream down regardless. The word 'only' should go.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The sentence is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Line 115's claim that the stream shuts down only once both halves are closed contradicts line 49's statement that closing the client aborts any stream still open on it; error paths and peer shutdown also tear it down, so \"only\" should be dropped."
+      }
+    },
+    {
+      "id": "I12",
+      "title": "#closing-a-stream anchor does not resolve in the doxygen build",
+      "file": "doc/rpc-streaming.md",
+      "line": 51,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "doc/rpc-streaming.md is in doxygen's INPUT (doc/Doxyfile.in:764) and MARKDOWN_ID_STYLE is absent from Doxyfile.in, so doxygen 1.9.8 (the version installed here) uses its default DOXYGEN id style and gives headings autotoc_md<N> ids rather than GitHub slugs. The link is the only markdown anchor reference in any of the four doxygen-fed .md files, so there is no working precedent to copy.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The link is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Because MARKDOWN_ID_STYLE is unset in Doxyfile.in, header IDs become autotoc_md<N> rather than GitHub slugs, so the #closing-a-stream anchor resolves on GitHub but produces an unresolved-reference warning and renders as plain text in the generated API docs."
+      }
+    },
+    {
+      "id": "I13",
+      "title": "send_empty_frame's contract comment not updated for the widened closed_error window",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 318,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The comment at rpc_types.hh:318-320 documents only what send_empty_frame does and when it may not be called; it says nothing about failure. This PR makes it fail with closed_error for the whole of stream_close(), a window in which it previously succeeded, and the hook is the one API whose failure mode the change widens. Nothing tells callers the failure is expected rather than fatal.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR widens this API's failure window and commit 3 documents sink/source but not this.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "superpowers-review",
+        "rafp-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The PR makes send_empty_frame newly fail with closed_error in a window where it previously succeeded, but the doc comment still only describes the old behavior and doesn't warn callers not to treat the failure as fatal.",
+        "superpowers-review": "Commit 3 documents sink and source but not send_empty_frame, the one API whose failure mode this PR widens.",
+        "rafp-review": "(withdrawn) Candidate finding that the send_empty_frame contract comment lacks a note that it may fail."
+      }
+    },
+    {
+      "id": "I14",
+      "title": "New doxygen blocks stacked on top of retained legacy one-line comments",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 337,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "rpc_types.hh:337-343 leaves '// send data Out...' between the new /// \\brief block and `class sink`, and :384-390 leaves '// receive data In...' before `class source`, so each class carries two unsynchronised descriptions. Doxygen still associates the /// block correctly, so this is cosmetic.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new blocks are added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "ce-code-review",
+        "mattpocock-review",
+        "rafp-detailed"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The new doxygen blocks sit on top of legacy comment lines, leaving two comment blocks per class (cosmetic only, doxygen still associates correctly).",
+        "ce-code-review": "The new /// \\brief blocks on sink (:337-343) and source (:384-390) are stacked directly on top of the retained one-line comments, so each class carries two unsynced descriptions, unlike every other documented entity in the header.",
+        "mattpocock-review": "The new /// \\brief blocks (337-343, 384-389) are separated from class sink / class source by the legacy one-liner comments, which should be folded into the doxygen block.",
+        "rafp-detailed": "(rejected as a non-issue) The reviewer flagged the doxygen block placement in rpc_types.hh."
+      }
+    },
+    {
+      "id": "I15",
+      "title": "\\ref source in sink's doxygen is ambiguous with connected_socket_impl::source()",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 341,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "unproven",
+      "verdictReason": "rpc_types.hh:341 writes an unqualified `\\ref source`, and `source` is also a member function name on several socket impl classes, so `\\ref rpc::source` would be unambiguous. Whether doxygen actually emits an ambiguity warning here was not settled: I did not run a full doxygen build of the configured INPUT set.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The \\ref is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "\\ref source is ambiguous with connected_socket_impl::source() and should be qualified as \\ref rpc::source."
+      }
+    },
+    {
+      "id": "I16",
+      "title": "Class-level doxygen states the close contract but sink::close() itself still lacks it",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 337,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The new contract lives only on the class banner at rpc_types.hh:337-342; sink::close() further down still carries only its original one-line comment, so a reader who jumps to the method rather than the class does not see the requirement that close() must be called and awaited.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Commit 3 is the documentation commit; this is the same doc gap it set out to close.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "The new class-level doxygen on rpc::sink states the close contract, but sink::close() itself (unchanged by this diff) still carries only its one-line comment, so a reader who opens the method rather than the class banner does not see the contract."
+      }
+    },
+    {
+      "id": "I17",
+      "title": "Parked data_sink::close() is released on the happy path only, with no scope guard",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2026,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "tests/unit/rpc_test.cc:2026 `st.release_close.set_value();` is a bare straight-line statement after the try/catch at :2016-2021 and the yield loop at :2022-2024. Any exception other than rpc::closed_error escaping that region leaves the connection parked in output_stream::close() and stop_send_loop(), so the test hangs to the 300s harness timeout or trips ~sink_impl's SEASTAR_ASSERT instead of failing cleanly — even though seastar/util/defer.hh is already included by the file.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The parked-close mechanism is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "st.release_close.set_value() is a bare statement; any throw between lines 2011 and 2025 leaves it unsatisfied, causing ~sink_impl's SEASTAR_ASSERT to fire or the test to hang instead of producing a diagnosable failure, even though defer is already included.",
+        "ce-code-review": "st.release_close.set_value() sits on the straight-line happy path after the try/catch, so any exception other than closed_error escaping the guarded region leaves the connection blocked in output_stream::close() and stop_send_loop(), wedging the test until the 300s harness timeout."
+      }
+    },
+    {
+      "id": "I18",
+      "title": "close_entered_cv.wait() has no timeout, so a regression hangs rather than fails",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "tests/unit/rpc_test.cc:2011 is `st.close_entered_cv.wait([&] { return st.close_entered; }).get()` with no deadline; condition_variable::wait has timeout overloads. If a future change stops stream_close() from reaching the wrapped data_sink::close(), the test hangs to the harness timeout instead of reporting a failure.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The wait is added by this PR.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "st.close_entered_cv.wait(...) at :2011 has no timeout, so a regression preventing stream_close() from being entered hangs the test rather than failing it cleanly."
+      }
+    },
+    {
+      "id": "I19",
+      "title": "Test cannot distinguish a refusal caused by _stream_closing from one caused by _error",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2013,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "connection::send() returns make_exception_future<>(closed_error()) for both `_error` and `_stream_closing` (src/rpc/rpc.cc:293, :341). The comment at rpc_test.cc:2013-2015 asserts '_error is not yet set' but nothing checks it, so a future change that made the test pass because _error got set early would go unnoticed.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test and the claim it makes are added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "send() returns closed_error for both _stream_closing and _error, and the test comment claims _error is not yet set but nothing checks it; the ordering that makes the test pass for the right reason is a race the fix could lose without failing the test."
+      }
+    },
+    {
+      "id": "I20",
+      "title": "server_factory is wired up but never read; the server side of the fix is untested",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1966,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "server_factory.hooks is populated by negotiate() but never read anywhere in the test; only client_factory.hooks is consulted (rpc_test.cc:2000-2001). The fix sits in connection::stream_close(), shared by server::connection, whose teardown additionally runs abort_all_streams()/deregister_this_stream() (src/rpc/rpc.cc:1290-1294), so 'same base function' is not full coverage.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test is added by this PR and already builds the server-side scaffolding.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "server_factory is wired up and never read; the symmetric server-side case is untested, and server teardown (including abort_all_streams()) differs enough from the client's that \"same base function\" isn't a complete argument for coverage.",
+        "mattpocock-review": "Spec says the same code serves server::connection so the server side is exposed too, but the test only drives the client; server_factory's hooks are never read, existing only to make negotiation succeed."
+      }
+    },
+    {
+      "id": "I21",
+      "title": "server_done initialised to make_ready_future<>() makes its check vacuous",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1978,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "tests/unit/rpc_test.cc:1978 declares `future<> server_done = make_ready_future<>();` and only the handler body overwrites it, so server_done.get() at :2028 succeeds silently if the handler never ran. A std::optional<future<>> or an explicit 'handler ran' flag would catch that.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "future<> server_done = make_ready_future<>() means server_done.get() at line 2028 passes silently even if the server handler never ran."
+      }
+    },
+    {
+      "id": "I22",
+      "title": "test_sink_state is declared inside the lambda body but outlived by the rpc connection",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1977,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "`test_sink_state st;` is declared inside the do_with_thread body at rpc_test.cc:1977, while the wrappers holding `test_sink_state&` (test_socket_impl, test_connected_socket_impl, test_data_sink_impl) are owned by the rpc stream connection, which deferred_stop(cl) in rpc_test_env::do_with_thread (rpc_test.cc:268) tears down only after the body returns. Nothing touches _st on that path today, so this is latent, but server_factory/client_factory are already declared outside for exactly this reason and st should follow.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The declaration is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "test_sink_state st is declared inside the lambda body, but wrappers holding test_sink_state& are owned by the rpc connection, which deferred_stop(cl) tears down after the body returns; latent since nothing touches _st on that path today.",
+        "ce-code-review": "st is captured by reference by objects whose lifetime follows RPC-internal shared_ptr refcounting rather than C++ scope; declaring st first is protective only if dropping sink and source synchronously releases the last reference."
+      }
+    },
+    {
+      "id": "I23",
+      "title": "Hardcoded hooks.size()==2u plus hooks.back() pins the fixture's connection count and order",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "rpc_test.cc:2000-2001 asserts client_factory.hooks.size()==2u and then binds `auto&` to hooks.back(). Both client connections are created on shard 0 in a fixed order, so this is deterministic today and the reference cannot be invalidated between :2001 and its use at :2017 (no further client negotiation happens in between) — but a change to rpc_test_env setup would silently retarget the test, and recording the size before make_stream_sink and copying the std::function costs nothing.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both lines are added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "superpowers-review",
+        "tob-diff-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "BOOST_REQUIRE_EQUAL(hooks.size(), 2u) hardcodes the fixture's connection count rather than testing the code under test, and the reference from hooks.back() could dangle if a push_back happens before it's used 16 lines later.",
+        "superpowers-review": "hooks.size() == 2 plus hooks.back() hardcodes loopback's shard/ordering policy, and capturing auto& into a growing std::vector is invalidated by any later negotiation.",
+        "tob-diff-review": "BOOST_REQUIRE_EQUAL(hooks.size(), 2u) plus hooks.back() hard-codes both the count and order of client-side negotiations, so a change to rpc_test_env setup would silently retarget the test."
+      }
+    },
+    {
+      "id": "I24",
+      "title": "buffer_size() hardcodes 8192 instead of forwarding to _inner",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1895,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Every other member of test_data_sink_impl forwards to _inner; buffer_size() returns a literal 8192. The claimed behavioural divergence does not exist though: connection::socket_and_buffers builds write_buf with `fd.output()` (include/seastar/rpc/rpc.hh:247) and connected_socket::output takes `size_t buffer_size = 8192` (include/seastar/net/api.hh:226), so data_sink_impl::buffer_size() is never consulted on this path. It is dead code that should say so or forward.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The method is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "tob-diff-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "buffer_size() is hardcoded to 8192; verified dead since connected_socket::output() passes an explicit default of 8192 so the sink's value is never consulted, but this should be stated in a comment.",
+        "mattpocock-review": "Every sibling method forwards to _inner, but buffer_size() returns a hardcoded 8192 and should call _inner.buffer_size().",
+        "tob-diff-review": "connected_socket::output() passes buffer_size = 0, so the stream under test adopts 8192 instead of the real sink's size, an unnecessary divergence from production in a reproducer.",
+        "superpowers-review": "buffer_size() hardcodes the value 8192."
+      }
+    },
+    {
+      "id": "I25",
+      "title": "const_cast used to record hooks instead of a mutable member or a tracker reference",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "rpc_test.cc:1957 is `const_cast<hook_capturing_compressor_factory*>(this)->hooks.push_back(...)` inside a const virtual; declaring `mutable std::vector<...> hooks` removes it, and the adjacent factory near rpc_test.cc:1801 already does the same job via a tracker& member.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The const_cast is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "tob-diff-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "const_cast<...*>(this)->hooks.push_back(...) is used instead of declaring hooks mutable.",
+        "mattpocock-review": "const_cast<hook_capturing_compressor_factory*>(this)->hooks.push_back(...) dodges constness, while the adjacent factory (~line 1801) does the same job cleanly via a tracker& member.",
+        "tob-diff-review": "A const_cast is used only because the factories are non-const locals; making hooks mutable would avoid the const_cast."
+      }
+    },
+    {
+      "id": "I26",
+      "title": "negotiate(feature, is_server) calls abort(), killing the binary with no Boost.Test diagnostic",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1960,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "rpc_test.cc:1960 `std::unique_ptr<rpc::compressor> negotiate(sstring, bool) const override { abort(); }` terminates the whole test binary via SIGABRT with no test name or location. It copies existing precedent near rpc_test.cc:1817, but BOOST_FAIL plus a return would report which test and which overload.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The override is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "negotiate(feature, is_server) const override calls abort(), which kills the whole test binary with no Boost.Test diagnostic; it copies existing precedent at line 1817, but BOOST_FAIL is the right call."
+      }
+    },
+    {
+      "id": "I27",
+      "title": "10-iteration yield loop uses an unexplained magic count and its comment misstates what it does",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2022,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "rpc_test.cc:2022-2024 is `for (int i = 0; i < 10; i++) yield().get();` under the comment 'Let the batch flush poller run on whatever was written.' yield() only reschedules the current task; it does not force output_stream's batch-flush poller to run. What actually guarantees the write lands (or does not) before the assertion is sink_closed.get()/server_done.get() at :2027-2028.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The loop is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The magic 10-yield loop doesn't do what its comment says; yield() only reschedules a task and doesn't force the batch-flush poller to run. What actually guarantees progress is the sink_closed.get()/server_done.get() calls below.",
+        "mattpocock-review": "for (int i = 0; i < 10; i++) yield() uses an undocumented arbitrary count and is redundant since the subsequent sink_closed.get() is what actually lets the batch-flush poller run.",
+        "superpowers-review": "The for (i < 10) yield() loop uses a magic constant of 10."
+      }
+    },
+    {
+      "id": "I28",
+      "title": "Test's header comment describes the already-fixed bug in the present tense",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1852,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "rpc_test.cc:1852-1857 reads 'connection::stream_close() closes the connection's write buffer while _error is still false ... Until then connection::send() still accepts frames', but the same series changed src/rpc/rpc.cc:293 so it no longer does. A reader checking the claim against the code finds it false with no way to tell which is stale.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The block comment describes the bug in the present tense after it has been fixed; a reader checking against rpc.cc:293 finds the claim false and can't tell which is stale."
+      }
+    },
+    {
+      "id": "I29",
+      "title": "\"A pass-through compressor\" is inaccurate and the empty-snd_buf swap is uncommented",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1937,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The comment calls it 'a pass-through compressor' but compress()/decompress() delegate to rpc::lz4_fragmented_compressor. The genuinely subtle line is `data.size ? std::move(data) : rpc::snd_buf(temporary_buffer<char>())`: a default-constructed snd_buf holds the empty-vector variant while snd_buf(temporary_buffer<char>()) holds the temporary_buffer variant (include/seastar/rpc/rpc_types.hh:275-283), so the swap is load-bearing, not decorative — and it is uncommented both here and at the copy near rpc_test.cc:1764.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment and the copied line are added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "\"A pass-through compressor\" is inaccurate since it delegates to lz4_fragmented_compressor, and the genuinely subtle line swapping an empty snd_buf for rpc::snd_buf(temporary_buffer<char>()) before delegating is uncommented, both here and at the copy at line 1764.",
+        "superpowers-review": "The data.size ? … : snd_buf(...) ternary is a no-op that appears to have been copied from a neighbouring test."
+      }
+    },
+    {
+      "id": "I30",
+      "title": "All three commits and the PR body carry Claude/Anthropic attribution",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "git log main..HEAD shows four 'Co-Authored-By: Claude ...' trailers (two on 69da8f5b, one each on 5e25ebdb and f545c28a), and `gh pr view 1` shows the body ending with '🤖 Generated with [Claude Code](https://claude.com/claude-code)'. The repo's standing instructions say never to add either.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The trailers and the line are part of this PR's own commits and body.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "superpowers-review",
+        "scoped-review",
+        "rafp-detailed"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "All three commits carry Co-Authored-By: Claude trailers, and the PR body ends with the \"🤖 Generated with Claude Code\" line, both violating the attribution rule in effect for this repo.",
+        "mattpocock-review": "Four Co-Authored-By: Claude trailers appear across the three commits (two on 69da8f5b) and the PR body ends with a 'Generated with Claude Code' line, violating the standing attribution rule.",
+        "superpowers-review": "All three commits carry Co-Authored-By: Claude trailers (4 lines across f545c28a, 5e25ebdb, 69da8f5b), and the PR body has the \"🤖 Generated with Claude Code\" line; both should be stripped.",
+        "scoped-review": "All three commits carry 'Co-Authored-By: Claude ...' trailers and the PR body ends with the '🤖 Generated with Claude Code' line, which ~/.claude/CLAUDE.md says to never add.",
+        "rafp-detailed": "The PR description carries a '🤖 Generated with Claude Code' line, which the user's own global instructions say should never be added."
+      }
+    },
+    {
+      "id": "I31",
+      "title": "No DCO Signed-off-by trailer on any of the three commits",
+      "file": "doc/contributing.md",
+      "line": 6,
+      "kind": "style",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "doc/contributing.md:6-11 requires committing with -s to add a Developer Certificate of Origin sign-off; `git log main..HEAD --format=%B` shows no Signed-off-by trailer on f545c28a, 5e25ebdb or 69da8f5b. That blocks the seastar-dev submission path the file describes, though it does not block this repository's own PR.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The commits are this PR's.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "All three commits (f545c28a, 5e25ebdb, 69da8f5b) lack a Signed-off-by trailer required by doc/contributing.md, blocking upstream submission."
+      }
+    },
+    {
+      "id": "I32",
+      "title": "Fixes #3663 / Refs #3653 resolve to nonexistent issues in this repository",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "`gh api repos/dkropachev/ironweave/issues/3663` and `.../3653` both return 404. The commit message and PR body use the bare `#NNNN` form, which GitHub resolves against dkropachev/ironweave, so 'Fixes #3663' auto-closes nothing and links nowhere; the scylladb/seastar#3663 form would.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The references are written by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Fixes #3663 / Refs #3653 are upstream scylladb/seastar issue numbers that resolve to nonexistent issues in dkropachev/ironweave; should use the scylladb/seastar#3663 form."
+      }
+    },
+    {
+      "id": "I33",
+      "title": "_outgoing_queue_ready is left ready while the tail-entry invariant can still be re-established",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "After the exchange at rpc.cc:562, _outgoing_queue_ready is a ready future while entries may still be linked in _outgoing_queue, breaking its documented role as the tail entry's done future. Nothing enqueues after that point today — send() is refused by the new _stream_closing check and client::enqueue_zero_frame() (rpc.cc:866-884) only runs from the client constructor — but enqueue_zero_frame() guards on `_error` alone, so its exchange is not covered by the new flag, and any future enqueue path that misses the check would fire its continuation immediately and reopen the race this PR closes.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The exchange that breaks the invariant is added by this PR.",
+      "reportedBy": [
+        "builtin-code-review",
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "builtin-code-review": "The change leaves _outgoing_queue_ready as a ready future even though entries can still be linked into _outgoing_queue, breaking the invariant that it should be the tail entry's done future; a future enqueue path that misses the _stream_closing check would fire immediately and re-open the race this PR fixes.",
+        "mattpocock-review": "client::enqueue_zero_frame() also exchanges _outgoing_queue_ready and is guarded only by _error, not _stream_closing; harmless today since it's connect-time only, but the comment's claim is broader than the code guarantees."
+      }
+    },
+    {
+      "id": "I34",
+      "title": "Safety of the stream_close()/stop_send_loop() interleaving rests on an unrecorded ordering assumption",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "stop_send_loop() sets `_error = true` at rpc.cc:199 and reaches the `when_all(std::move(_outgoing_queue_ready), ...)` at :225 with no suspension point in between, which is the only reason stream_close()'s `if (!error())` guard at :550 reliably keeps the new std::exchange at :562 off a moved-from future. Nothing in either function records that dependency, so inserting a co_await or early return between :199 and :225 would silently break it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR adds the second move of _outgoing_queue_ready that makes the ordering load-bearing.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "The interleaving is safe only because stop_send_loop() sets _error = true synchronously with no suspension point before the when_all at :225; a future co_await or early return between those points would let stream_close()'s if (!error()) guard fail to protect the new std::exchange from a moved-from future, and nothing in the code records this dependency."
+      }
+    },
+    {
+      "id": "I35",
+      "title": "sink::close() can now fail where it previously succeeded, undocumented",
+      "file": "src/rpc/rpc.cc",
+      "line": 569,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "output_stream::close() rethrows a stored _ex (include/seastar/core/iostream-impl.hh:578-582) and its result propagates out of stream_close() through close_sink() to sink_impl::close() and the application. Deferring the call past the new suspension point at rpc.cc:565 widens the window in which the peer can tear the connection down and leave an _ex behind. The failure mode pre-dates the PR, but the widening is not mentioned in the commit message or PR body.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR widens the window; a sentence in the commit message would cover it.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Deferring write_buf.close() past a suspension point widens the failure window: if the peer tears down the connection while the drain is parked, output_stream::close() can rethrow a stored exception, a change not mentioned in the commit message or PR body."
+      }
+    },
+    {
+      "id": "I36",
+      "title": "Re-entry into stream_close() is still guarded only by error(), not by the new _stream_closing flag",
+      "file": "src/rpc/rpc.cc",
+      "line": 550,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "rpc.cc:550 guards only on `!error()`, which stays false for the whole of the new drain-and-close await, so a second close_sink()/close_source() reaching stream_close() in that window would overwrite _sink_closed_future and close write_buf twice. Reachability is low (it needs source::make_sink() to reopen the sink half after both halves closed), and the window existed before the PR because write_buf.close() was already asynchronous — but the PR lengthens it, and `&& !_stream_closing` is now free.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR lengthens the unguarded window and introduces the flag that would close it.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "Re-entry into stream_close() is guarded only by error(), which is false for the whole new await; reachability is low (needs source::make_sink() re-open) and the issue is pre-existing, but adding !error() && !_stream_closing is free."
+      }
+    },
+    {
+      "id": "I37",
+      "title": "_stream_closing's header comment omits that it is stream-only and never cleared",
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 305,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "include/seastar/rpc/rpc.hh:305-307 documents when the flag is set but not that it is terminal (nothing ever clears it), that it only ever applies to stream connections even though it lives on the base `connection` shared by both kinds, or why _sink_closed could not be reused — it cannot, since it defaults to true on every connection (rpc.hh:300).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The field and its comment are added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The comment for the new flag doesn't say it's stream-connection-only, never cleared, or why _sink_closed wasn't reused; the name reads as \"the stream is closing\" when it means \"this connection refuses further sends\".",
+        "mattpocock-review": "The field is correct as written (terminal, stop() always follows, connections aren't reused), but the header comment doesn't state this, and the field lives on the base connection, reachable by both connection kinds."
+      }
+    },
+    {
+      "id": "I38",
+      "title": "\"Dropping an unclosed sink is an error\" understates an unconditional abort",
+      "file": "doc/rpc-streaming.md",
+      "line": 109,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "~sink_impl uses SEASTAR_ASSERT (include/seastar/rpc/rpc_impl.hh:929-932), which include/seastar/util/assert.hh:29 documents as 'independent of NDEBUG. Active in all build modes' — so dropping an unclosed sink aborts the process in release, not merely 'is an error'. The assert also tests the connection's _sink_closed flag, so with two sink_impls on one connection closing either satisfies it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The sentence is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The doc says dropping an unclosed sink is an error, but SEASTAR_ASSERT is documented as active in all build modes, making it an abort in release; also the assert tests the connection's flag, so with two sinks on one connection closing either satisfies it."
+      }
+    },
+    {
+      "id": "I39",
+      "title": "Docs don't say a clean stream close can itself surface as a throw",
+      "file": "doc/rpc-streaming.md",
+      "line": 110,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The new section tells callers to read the source until eof 'or throws' but never says the clean close is frequently the thing that throws: src/rpc/rpc.cc:1285 runs _stream_queue.abort(stream_closed()) on the EOF that a normal peer-side stream_close() produces, discarding any unconsumed eof marker. That is exactly what makes the PR's own new test flaky (I1), so it is the normal case, not an edge case.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Commit 3 writes this contract down and this is the part it leaves out.",
+      "reportedBy": [
+        "rafp-detailed"
+      ],
+      "reportedAs": {
+        "rafp-detailed": "The new 'Closing a stream' section tells callers to read until eof 'or throws' but never states that a clean close can itself be the thing that throws; a sentence should be added there and on rpc::source since this is now the normal case."
+      }
+    },
+    {
+      "id": "I40",
+      "title": "_stream_queue.abort() discards the received eof marker on a clean stream close",
+      "file": "src/rpc/rpc.cc",
+      "line": 1285,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "src/rpc/rpc.cc:1284-1286 (and :1062-1064 on the client) abort the stream queue as soon as the read loop ends with _error set, which a clean peer close also produces, so a queued eof marker is dropped and source() raises rpc::stream_closed instead of returning an unengaged optional. Pre-dates the PR and is already worked around in apps/rpc_tester/rpc_tester.cc, but it is the root cause of I1.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Pre-existing rpc behaviour untouched by this diff; the PR's obligation is to make its own test tolerate it.",
+      "reportedBy": [
+        "rafp-detailed"
+      ],
+      "reportedAs": {
+        "rafp-detailed": "A cleanly closed stream can surface as rpc::stream_closed rather than an unengaged optional; this pre-dates the PR and is already worked around in apps/rpc_tester/rpc_tester.cc, but it is the root cause of the flaky test finding."
+      }
+    },
+    {
+      "id": "I41",
+      "title": "shared_promise used without including <seastar/core/shared_future.hh>",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1874,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "rpc_test.cc:1874 declares `shared_promise<> release_close;` and :1893 calls get_shared_future(), but none of the file's includes is <seastar/core/shared_future.hh>; it compiles only via a transitive include.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The first use of shared_promise in this file is added by this PR.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "shared_promise is used with no #include <seastar/core/shared_future.hh>; currently works only via a transitive include."
+      }
+    },
+    {
+      "id": "I42",
+      "title": "New comments use two spaces after a full stop, unlike every other comment in these files",
+      "file": "src/rpc/rpc.cc",
+      "line": 551,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "src/rpc/rpc.cc and tests/unit/rpc_test.cc on main contain zero comments matching '. [A-Z]' with two spaces; HEAD's rpc.cc has three, and the new blocks in rpc.hh, rpc_types.hh and rpc_test.cc use the same style.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "All the affected comments are added by this PR.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "New comments use two spaces after a full stop; both files use one space everywhere else."
+      }
+    },
+    {
+      "id": "I43",
+      "title": "doc/rpc-streaming.md line runs to 213 characters, inconsistent with its own paragraph",
+      "file": "doc/rpc-streaming.md",
+      "line": 51,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Measured line lengths in that paragraph: 48 is 67 chars, 49 is 76, 50 is 76, and 51 is 213. The edit reflowed the first lines but left the tail of the original long line in place.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The reflow is part of this PR's diff.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "The line is 217 characters and wraps inconsistently compared to the rest of its paragraph."
+      }
+    },
+    {
+      "id": "I44",
+      "title": "set_reuseaddr/get_reuseaddr silently dropped rather than forwarded to the inner socket",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1932,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "test_socket_impl::set_reuseaddr is an empty body and get_reuseaddr returns false unconditionally, while every other member forwards to _inner. It matches local precedent (loopback_socket_impl at tests/unit/loopback_socket.hh:363-364 does the same), so nothing in this test observes it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The wrapper is added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "set_reuseaddr/get_reuseaddr are silently dropped rather than forwarded, matching local precedent at lines 169-170."
+      }
+    },
+    {
+      "id": "I45",
+      "title": "test_connected_socket_impl is a 16-of-17-method delegating wrapper that belongs in loopback_socket.hh",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1900,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "tests/unit/rpc_test.cc:1900-1930 forwards every member to _inner except sink(), which is the only one that does anything. A reusable delegating base in tests/unit/loopback_socket.hh would let the next test of this shape write only the member it cares about. Judgement call, not a defect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The wrapper is added by this PR.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Only sink() does real work; a reusable delegating wrapper in loopback_socket.hh would serve future tests like this one."
+      }
+    },
+    {
+      "id": "I46",
+      "title": "test_sink_state reads as rpc::sink state in a file where sink means rpc::sink",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1870,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "rpc_test.cc:1870 names the struct test_sink_state, but it holds data_sink (i.e. output_stream backend) state, in a file where 'sink' otherwise means rpc::sink throughout. test_data_sink_state would say what it is.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The type is added by this PR.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "test_sink_state reads as rpc::sink state in a file where 'sink' means exactly that, but it actually holds data_sink state."
+      }
+    },
+    {
+      "id": "I47",
+      "title": "Whether in-the-field compressors tolerate send_empty_frame failing with closed_error is unverified",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 321,
+      "kind": "question",
+      "severity": "low",
+      "verdict": "unproven",
+      "verdictReason": "connection::send() now returns closed_error to every caller once _stream_closing is set (src/rpc/rpc.cc:293), and the compressor's send_empty_frame hook is the only unguarded caller by design. Whether out-of-tree compressors (Scylla's dictionary-announcing one in particular) handle an exceptional returned future rather than propagating it cannot be settled from this repository; an in-tree grep finds no other caller.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR creates the new failure mode; see I13 for the documentation half.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "connection::send() now returns closed_error once _stream_closing is set for any caller, not just sink-guarded ones, and whether every real-world compressor calling send_empty_frame tolerates an exceptional returned future could not be verified from the repository alone."
+      }
+    },
+    {
+      "id": "I48",
+      "title": "Unguarded _connected dereference in the new continuation is asymmetric with stop_send_loop()",
+      "file": "src/rpc/rpc.cc",
+      "line": 569,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "_connected is a std::optional that is only ever emplaced, in set_socket() (src/rpc/rpc.cc:235-240), and never reset; the guards at rpc.cc:200 and :1048 exist because stop_send_loop() and the client loop can run before set_socket() on a failed connect, which stream_close() cannot — it is only reachable once a sink_impl exists on a connected stream. The dereference at :569 cannot see a disengaged optional.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The same unguarded dereference existed pre-PR on the same line and is not a defect either way.",
+      "reportedBy": [
+        "ce-code-review",
+        "mattpocock-review",
+        "rafp-detailed"
+      ],
+      "reportedAs": {
+        "ce-code-review": "Line 569 dereferences _connected unguarded where stop_send_loop() guards the same call with _connected && at :231; no path disengaging _connected after set_socket() was found, but the call is now deferred behind a scheduling point and the asymmetry is unexplained.",
+        "mattpocock-review": "stop_send_loop guards the same call with _connected && (rpc.cc:231), but here it is unguarded and now runs after a suspension point; this unguardedness is pre-existing but newly deferred into a continuation.",
+        "rafp-detailed": "(rejected) The reviewer considered an unguarded _connected dereference in abort() but rejected it as pre-existing and an unreachable path."
+      }
+    },
+    {
+      "id": "I49",
+      "title": "Trailing comment about where ~output_stream() asserts is claimed inaccurate",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2031,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "rpc_test.cc:2031-2033 reads 'Without the fix, and with the above write still in flight, this is where ~output_stream() asserts on the pending batch flush.' The conditional clause already states the premise the finding says is missing — that the wrapper forwards put() so in this run the write completes and the failure lands on the BOOST_REQUIRE_MESSAGE at :2030 instead. The comment matches the commit message and the PR body.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is added by this PR, but it is correct as written.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The comment claiming \"this is where ~output_stream() asserts on the pending batch flush\" isn't accurate for this test, since the wrapper forwards put() so the write completes; it actually fails one line earlier at line 2030."
+      }
+    },
+    {
+      "id": "I50",
+      "title": "Drain logic would read better as a coroutine",
+      "file": "src/rpc/rpc.cc",
+      "line": 548,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "stream_close() is now a three-level continuation chain (rpc.cc:565-572) in a file that already uses coroutines for comparable teardown code at src/rpc/rpc.cc:1066 and :1289. Rewriting it would preserve behaviour only if the .finally ordering — rethrow the close error after stop() has run — is kept, which a naive co_await rewrite loses. Style preference, not a defect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The chain is introduced by this PR's hunk.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "This block would be clearer written as a coroutine, matching the shape already used elsewhere in the file at lines 1066 and 1289, provided the .finally rethrow-after-stop() ordering is preserved."
+      }
+    },
+    {
+      "id": "I51",
+      "title": "Documentation commit is scope creep beyond the issue the PR fixes",
+      "file": "doc/rpc-streaming.md",
+      "line": 104,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The doc/rpc-streaming.md and doxygen changes in 69da8f5b document the very shutdown contract the fix enforces, and the PR body already states 'Only the first two commits are needed for a backport', so the split is disclosed and the backport is unencumbered. Bundling related documentation with a fix is normal practice here.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The commit is part of this PR, but the bundling is not a defect.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "The doc/rpc-streaming.md and doxygen changes in commit 69da8f5b are not requested by #3663 and belong to #3653 (only 'Refs'); the PR itself states only commits 1-2 are needed for backport."
+      }
+    },
+    {
+      "id": "I52",
+      "title": "Claim that the drain incidentally fixes a second unclaimed bug",
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The observation is accurate — pre-PR stream_close() could call write_buf.close() while a queued send_entry() was inside write_buf.write()/flush() on the same output_stream, and the drain wait removes that overlap — but it describes a benefit of the change, not a defect in it, so there is nothing to fix.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "It reports an improvement the PR makes rather than a problem with it.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "The drain wait added by this PR incidentally removes a second, previously unclaimed bug: stream_close() could close the output_stream while a queued send_entry() was mid-write()/flush() on it."
+      }
+    }
+  ],
+  "judgeCostUsd": 6.169200000000001,
+  "judgedAt": "2026-09-22T03:52:21.478Z"
+}

@@ -1,0 +1,86 @@
+{
+  "context": "You are reviewing pull request #{pr} of this repository ({fork}) - a {language} project. The PR branch `{head}` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view {pr}`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "tools": [
+    {
+      "id": "builtin-code-review",
+      "label": "Claude Code /code-review",
+      "source": "built-in",
+      "prompt": "/code-review {pr}\n\n{context}"
+    },
+    {
+      "id": "ce-code-review",
+      "label": "Compound Engineering ce-code-review",
+      "source": "compound-engineering@compound-engineering-plugin",
+      "prompt": "/compound-engineering:ce-code-review {prUrl}\n\n{context}"
+    },
+    {
+      "id": "tob-diff-review",
+      "label": "Trail of Bits differential-review",
+      "source": "differential-review@trailofbits",
+      "prompt": "/differential-review:diff-review {prUrl}\n\n{context}"
+    },
+    {
+      "id": "tob-rust-review",
+      "label": "Trail of Bits rust-review",
+      "source": "rust-review@trailofbits",
+      "languages": [
+        "Rust"
+      ],
+      "prompt": "/rust-review:rust-review\n\nScope the audit strictly to the files this pull request changes; the rest of the crate is out of scope.\n\n{context}"
+    },
+    {
+      "id": "tob-c-review",
+      "label": "Trail of Bits c-review",
+      "source": "c-review@trailofbits",
+      "languages": [
+        "C++"
+      ],
+      "prompt": "/c-review:c-review\n\nScope the audit strictly to the files this pull request changes; the rest of the tree is out of scope.\n\n{context}",
+      "parked": true,
+      "parkedReason": "Its fan-out Workflow needs more tokens than one usage window holds, so every attempt was cut mid-workflow and none produced a report: 28 attempts, 184.9M tokens, $186 in that one cell. Kept in the matrix and in the report as a did-not-finish; the runner skips it unless --include-parked is passed."
+    },
+    {
+      "id": "anthropic-pr-review",
+      "label": "Anthropic pr-review-toolkit",
+      "source": "pr-review-toolkit@claude-plugins-official",
+      "prompt": "/pr-review-toolkit:review-pr all\n\n{context}"
+    },
+    {
+      "id": "superpowers-review",
+      "label": "Superpowers requesting-code-review",
+      "source": "superpowers@superpowers-dev",
+      "prompt": "Use the `requesting-code-review` skill to have this pull request reviewed.\n\n{context}"
+    },
+    {
+      "id": "mattpocock-review",
+      "label": "Matt Pocock code-review",
+      "source": "mattpocock-skills@mattpocock",
+      "prompt": "/mattpocock-skills:code-review main\n\n{context}"
+    },
+    {
+      "id": "scoped-review",
+      "label": "/scoped-code-review (read-only)",
+      "source": "user skill",
+      "prompt": "/scoped-code-review {pr} --no-fix --ignore-ledger\n\n{context}"
+    },
+    {
+      "id": "scoped-detailed",
+      "label": "/scoped-code-review (read-only, --detailed)",
+      "source": "user skill",
+      "prompt": "/scoped-code-review {pr} --no-fix --detailed --ignore-ledger\n\n{context}"
+    },
+    {
+      "id": "rafp-review",
+      "label": "review-and-fix-pr (review only)",
+      "source": "automated-development@automated-development",
+      "prompt": "/automated-development:review-and-fix-pr {pr}\n\nRun it read-only: `fix: false`, and `ignoreLedger: true` so nothing is skipped as already reviewed.\n\n{context}"
+    },
+    {
+      "id": "rafp-detailed",
+      "label": "review-and-fix-pr (review only, detailedReview)",
+      "source": "automated-development@automated-development",
+      "prompt": "/automated-development:review-and-fix-pr {pr}\n\nRun it read-only and detailed: `fix: false`, `detailedReview: true`, and `ignoreLedger: true` so nothing is skipped as already reviewed.\n\n{context}"
+    }
+  ],
+  "note": "`/pr-review-fix` was renamed to `review-and-fix-pr` while this matrix was running, and the runs that asked for it by the old name silently fell back to `scoped-code-review`. Those runs are kept and labelled as what actually ran; `rafp-*` invokes the renamed skill by its plugin name."
+}

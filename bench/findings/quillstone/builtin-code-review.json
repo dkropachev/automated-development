@@ -1,0 +1,107 @@
+{
+  "target": "quillstone",
+  "tool": "builtin-code-review",
+  "label": "Claude Code /code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 994,
+      "title": "Discarded excess shard-aware connection never decrements total_connections",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "This branch drops an already inc_total_connections()-counted Connection and retries on the regular port, leaving the one remaining hole in the decrement invariant the PR establishes elsewhere; under source-port-rewriting NAT the counter inflates without bound.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "title": "decrement_total_connections loops fetch_sub(1) instead of one bulk fetch_sub(count)",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "Since excess_connection_limit() is 10 * nr_shards, clearing the excess pool on a 64-shard node costs ~640 atomic RMWs where a single fetch_sub(count) would do; needs a bulk helper on Metrics/metrics_noop.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1114,
+      "title": "No Drop impl for PoolRefiller leaks connection count on pool teardown",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Tearing a pool down (node removed, session dropped) leaks the count of every connection still in conns/excess_connections; this is the same accounting class the PR is closing but is pre-existing/out of scope and not covered by the new tests.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "many_connections test failure is environmental, not a regression",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The many_connections test fails under cargo test, but it fails identically on main because the sandbox has no route to the simulated address, so the failure is environmental rather than a regression from this PR.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "--no-default-features build/test passes; metrics feature gating on new code is correct",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The crate builds and passes tests with --no-default-features, confirming the #[cfg(feature = \"metrics\")] gating on the new tests/helpers is correct.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "clippy clean for lib/lib-tests; benches/benchmark.rs failure is pre-existing",
+      "severity": "low",
+      "kind": "style",
+      "claim": "cargo clippy is clean for lib and lib-tests; the benches/benchmark.rs failure needs --cfg scylla_unstable and is pre-existing, unrelated to this change.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "New ConnectionError::UseKeyspaceError variant is safe to add",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The enum is #[non_exhaustive] with no exhaustive matches in-tree, and size_of::<ConnectionError>() is unchanged at 112 bytes on both branches, staying under the result_large_err clippy threshold, so the new variant is safe.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "New maybe_reshard decrement cannot double-count with remove_connection's decrement",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Cleared connections are no longer findable by ptr_eq, so the decrement in remove_connection is skipped in that path, preventing double-counting with the new maybe_reshard decrement.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Reordering keyspace check ahead of maybe_reshard/shard_aware_port only delays discovery by one round-trip",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Moving the keyspace check ahead of maybe_reshard/shard_aware_port only delays sharder discovery by one round-trip and actually avoids wiping the pool for a connection that is then discarded.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "evt.requested_shard survives the USE round-trip so block_advanced_shard_awareness still fires",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "evt.requested_shard survives the USE round-trip, so block_advanced_shard_awareness still fires correctly after the reordering.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "full_pool_clears_excess_connections_and_balances_metrics test is deterministic",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test is deterministic because the initial start_filling opens zero extra connections, since the pool is already full for PerShard(1).",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null
+}

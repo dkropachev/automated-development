@@ -1,0 +1,112 @@
+{
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "tool": "scoped-detailed",
+  "label": "/scoped-code-review (read-only, --detailed)",
+  "source": "user skill",
+  "prompt": "/scoped-code-review 1 --no-fix --detailed --ignore-ledger\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 803086,
+  "reportedCostUsd": 4.991218999999999,
+  "reportedUsage": {
+    "input_tokens": 84,
+    "cache_creation_input_tokens": 140158,
+    "cache_read_input_tokens": 4079188,
+    "output_tokens": 61985,
+    "output_tokens_details": {
+      "thinking_tokens": 46500
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 140158,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 80,
+        "cache_read_input_tokens": 147199,
+        "cache_creation_input_tokens": 3547,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 3547
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 84,
+      "outputTokens": 61985,
+      "cacheReadInputTokens": 4079188,
+      "cacheCreationInputTokens": 140158,
+      "webSearchRequests": 0,
+      "costUSD": 4.991218999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 46500,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 43,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "d302cab2-550e-453c-85f4-7f880df40753",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 286,
+    "output": 164151,
+    "thinking": 127591,
+    "cacheRead": 12086962,
+    "cacheCreation": 438397,
+    "costUsd": 13.872708500000003,
+    "sessions": 12,
+    "models": {
+      "claude-opus-5[1m]": 13.872708500000003
+    },
+    "rawMessages": 279,
+    "rawOutput": 273309,
+    "rawCacheRead": 21108542,
+    "subagentTranscripts": 2,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-ironweave-runs-scoped-detailed-repo",
+    "total": 12689796
+  },
+  "result": "7 findings reported above: 7 in-scope, 0 deferred, 0 out-of-scope. Three medium (test build-portability, the reproducer's missing assertion, the untested drain path), four low. No bug found in the production fix itself.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-21T20:42:31.451Z"
+}

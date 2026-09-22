@@ -1,0 +1,128 @@
+{
+  "target": "quillstone",
+  "tool": "anthropic-pr-review",
+  "label": "Anthropic pr-review-toolkit",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Failed USE keyspace permanently bricks pool with no recovery path",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "PoolRefiller::use_keyspace sets current_keyspace unconditionally and never clears it on a failed USE, so every newly opened connection is now discarded and the pool loops in Broken/backoff forever, whereas before a failed USE on a fresh connection was just logged and the connection stayed usable."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "title": "Keyspace-set failure log downgraded from warn! to debug!",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The removed code logged the keyspace-setting failure at warn!, but the new branch logs the same message at debug!, even though the consequence is now more severe (connection dropped, pool may go Broken)."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1114,
+      "title": "PoolRefiller has no Drop impl, leaking total_connections metric on pool teardown",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The PR adds metric decrements at three clear sites but there is no impl Drop for PoolRefiller and no decrement when the refiller task exits (run() returning on keyspace-channel-closed), so dropping a pool (node removal or session shutdown) leaks the full total_connections count."
+    },
+    {
+      "file": "scylla/src/errors.rs",
+      "line": 600,
+      "title": "UseKeyspaceError doesn't satisfy ConnectionError's documented 'connection must be dropped' contract",
+      "severity": "medium",
+      "kind": "design",
+      "claim": "ConnectionError's doc comment says it indicates the connection can no longer be used and should be dropped, but UseKeyspaceError::KeyspaceNameMismatch and RequestTimeout don't mean the transport is broken; flowing into ConnectionPoolError::Broken{last_connection_error} makes users see a healthy-connection error reported as a connection-level failure."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 913,
+      "title": "Deferring the sharding block behind keyspace setup loses shard discovery on the USE-failure path",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Moving the keyspace check above maybe_reshard/shard-aware-port update means a connection whose USE fails never contributes its ShardInfo, so the pool never learns sharder or shard_aware_port while keyspace setup keeps failing, compounding finding 1."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 2002,
+      "title": "New metrics test still wall-clock busy-polls despite its 'avoid busy-waiting' title",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test polls get_total_connections() in a 1ms sleep loop under a 5s tokio timeout on a real clock, making it load-sensitive on CI, even though pool_updated_notify is already wired into mock_pool_refiller but unused."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "title": "decrement_total_connections loops instead of a single bulk atomic update",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "for _ in 0..count { self.metrics.dec_total_connections(); } performs count separate atomic operations where a dec_total_connections_by(n) method would be one operation and read better at all three call sites."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "title": "'Decrement then clear excess' pattern duplicated across three call sites",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Three independent sites must remember to pair the metric decrement with clearing excess connections; a single clear_excess_connections helper would make a fourth site impossible to get wrong, especially since two sites previously omitted the decrement before this PR."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "title": "keyspace_setup_failure_triggers_refill test doesn't actually test a refill",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The refiller is never run(); the test only asserts need_filling() on a static struct, verifying the predicate rather than that a refill is actually scheduled, so the test name overstates coverage."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1534,
+      "title": "Undocumented magic frame bytes in test",
+      "severity": "low",
+      "kind": "style",
+      "claim": "Bytes::from_static(b\"\\0\\0\\0\\x03\\0\\x08keyspace\") is a hand-encoded Result/SetKeyspace body with no comment explaining the layout (result kind 3, short length 8, name), forcing anyone changing the keyspace name to rediscover the encoding."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1526,
+      "title": "Test duplicates start_simulated_node's rule-building and skips setup_tracing()",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "make_rules re-implements the OPTIONS/STARTUP rules that start_simulated_node already builds, and this is the only test in the module (along with keyspace_setup_failure_triggers_refill) that omits setup_tracing(), so its failures produce no log output."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1868,
+      "title": "Dead argument passed to start_simulated_node in resharding test",
+      "severity": "low",
+      "kind": "style",
+      "claim": "start_simulated_node(initial_shard_info) is immediately followed by change_request_rules that replaces SUPPORTED with a non-sharded response, so initial_shard_info has no effect and is misleading to a reader following the reshard sequence."
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description's 'Fixes: #1682' is a dangling issue reference",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "gh issue view 1682 fails in dkropachev/quillstone; the referenced issue number appears to be from upstream scylla-rust-driver instead."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "title": "No test covers pool recovery from Broken(UseKeyspaceError) back to Ready",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "No test covers that a pool which went Broken(UseKeyspaceError) flips back to Ready once a later refill's USE succeeds."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1157,
+      "title": "No test covers keyspace-failure-empties-pool triggering ConnectivityChangeEvent::Lost",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "No test covers the keyspace-failure-empties-the-pool path leading to emit_events firing a Lost connectivity event; the existing test deliberately keeps one connection alive so this path is never exercised."
+    }
+  ],
+  "extractError": null
+}

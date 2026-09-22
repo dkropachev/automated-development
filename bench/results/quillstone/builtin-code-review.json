@@ -1,0 +1,99 @@
+{
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "tool": "builtin-code-review",
+  "label": "Claude Code /code-review",
+  "source": "built-in",
+  "prompt": "/code-review 1\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 552246,
+  "reportedCostUsd": 2.1216715,
+  "reportedUsage": {
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "input_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 0,
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "",
+    "iterations": [],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 50,
+      "outputTokens": 33118,
+      "cacheReadInputTokens": 1507218,
+      "cacheCreationInputTokens": 86378,
+      "webSearchRequests": 0,
+      "costUSD": 2.1216715,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 24618,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 0,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "d613c7e0-bce2-482e-9cf0-5ad209aa0d72",
+  "isError": false,
+  "transcriptUsage": {
+    "input": 50,
+    "output": 33118,
+    "thinking": 24618,
+    "cacheRead": 1507218,
+    "cacheCreation": 86378,
+    "costUsd": 2.1216715,
+    "sessions": 2,
+    "models": {
+      "claude-opus-5[1m]": 2.1216715
+    },
+    "rawMessages": 47,
+    "rawOutput": 33187,
+    "rawCacheRead": 2729433,
+    "subagentTranscripts": 2,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-quillstone-runs-builtin-code-review-repo",
+    "total": 1626764
+  },
+  "result": "Reviewed `git diff main...HEAD` (2 files, +455/−36) plus surrounding context; built and ran the suite.\n\nFindings:\n\n- `scylla/src/network/connection_pool.rs:994` — medium: discarded excess shard-aware connection never decrements `total_connections`. This branch drops an already `inc_total_connections()`-counted `Connection` and retries on the regular port. The PR added decrements at lines 674, 901, 1031, 1114, covering every other discard path, so this is the one remaining hole in the invariant it establishes. Under source-port-rewriting NAT the counter inflates without bound.\n- `scylla/src/network/connection_pool.rs:1360` — low: `decrement_total_connections` loops `fetch_sub(1)` `count` times; `excess_connection_limit()` is `10 * nr_shards`, so clearing the excess pool on a 64-shard node is ~640 atomic RMWs where one `fetch_sub(count)` would do. Needs a bulk helper on `Metrics`/`metrics_noop`.\n- `scylla/src/network/connection_pool.rs:1114` — low, pre-existing/out of scope: no `Drop` for `PoolRefiller`, so tearing a pool down (node removed, session dropped) leaks the count of every connection still in `conns`/`excess_connections`. Same accounting class the PR is closing, not covered by the new tests.\n\nVerification notes:\n- `cargo test -p scylla --lib --features metrics network::connection_pool` — 8 pass; `many_connections` fails, but it fails identically on `main` (sandbox has no route to the simulated address), so it is environmental, not a regression.\n- Also builds and passes with `--no-default-features` (the `#[cfg(feature = \"metrics\")]` gating on the new tests/helpers is correct).\n- `cargo clippy -p scylla --all-targets --all-features` is clean for lib and lib-tests (the `benches/benchmark.rs` failure needs `--cfg scylla_unstable` and is pre-existing).\n- The new public `ConnectionError::UseKeyspaceError` variant is safe: the enum is `#[non_exhaustive]`, no exhaustive matches exist in-tree, and `size_of::<ConnectionError>()` is unchanged at 112 bytes on both branches (stays under the `result_large_err` threshold; `ConnectionError` is not in `clippy.toml`'s ignore list).\n\nThings I checked and cleared: the new `maybe_reshard` decrement cannot double-count with `remove_connection` (cleared connections are no longer findable by `ptr_eq`, so the dec there is skipped); moving the keyspace check ahead of `maybe_reshard`/`shard_aware_port` only delays sharder discovery by one round-trip and actually avoids wiping the pool for a connection that is then discarded; `evt.requested_shard` survives the USE round-trip so `block_advanced_shard_awareness` still fires; and the `full_pool_clears_excess_connections_and_balances_metrics` test is deterministic (the initial `start_filling` opens zero extra connections because the pool is already full for `PerShard(1)`).",
+  "stderrTail": "",
+  "finishedAt": "2026-09-20T20:09:47.460Z"
+}

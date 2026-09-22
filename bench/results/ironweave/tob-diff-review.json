@@ -1,0 +1,112 @@
+{
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "tool": "tob-diff-review",
+  "label": "Trail of Bits differential-review",
+  "source": "differential-review@trailofbits",
+  "prompt": "/differential-review:diff-review https://github.com/dkropachev/ironweave/pull/1\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 740057,
+  "reportedCostUsd": 3.9474449999999996,
+  "reportedUsage": {
+    "input_tokens": 74,
+    "cache_creation_input_tokens": 113847,
+    "cache_read_input_tokens": 2927510,
+    "output_tokens": 53794,
+    "output_tokens_details": {
+      "thinking_tokens": 41861
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 113847,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1354,
+        "cache_read_input_tokens": 119278,
+        "cache_creation_input_tokens": 5157,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 5157
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 74,
+      "outputTokens": 53794,
+      "cacheReadInputTokens": 2927510,
+      "cacheCreationInputTokens": 113847,
+      "webSearchRequests": 0,
+      "costUSD": 3.9474449999999996,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 41861,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 43,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "992858bd-7f72-4f11-9dd2-171c2a17c917",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 132,
+    "output": 105848,
+    "thinking": 84453,
+    "cacheRead": 5071433,
+    "cacheCreation": 225294,
+    "costUsd": 7.4355165,
+    "sessions": 2,
+    "models": {
+      "claude-opus-5[1m]": 7.4355165
+    },
+    "rawMessages": 123,
+    "rawOutput": 225638,
+    "rawCacheRead": 9116051,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-ironweave-runs-tob-diff-review-repo",
+    "total": 5402707
+  },
+  "result": "The core fix is sound — I verified the ordering claims in the PR description rather than taking them on trust (details in the report's non-findings section). Seven findings, none critical.\n\n**Report:** `/tmp/diffrev/DIFFERENTIAL_REVIEW_REPORT.md` (written outside the repo to keep the tree untouched). No build run — there's no `build/` directory in this worktree.\n\n### Findings\n\n**1. [Medium] Breaks the build at `Seastar_API_LEVEL` 7/8** — `tests/unit/rpc_test.cc:1883`\n`put(std::span<temporary_buffer<char>>) override` is unguarded. That member only exists under `#if SEASTAR_API_LEVEL >= 9` (`include/seastar/core/iostream.hh:110-127`); below 9 the pure virtual is `put(net::packet)`. Two errors follow: `override` overriding nothing, and the class staying abstract. `CMakeLists.txt:72-76` still lists 7 and 8 as valid, and the repo's own equivalent helper guards it (`tests/unit/loopback_socket.hh:142-153`).\n\n**2. [Medium] The queue-drain half of the fix is untested** — `tests/unit/rpc_test.cc:2004`, covering `src/rpc/rpc.cc:562-570`\n`_outgoing_queue` is empty when the test reaches `stream_close()` — `sink_impl::close()` awaits the eof-marker `send()` before calling `close_sink()` (`rpc_impl.hh:917-925`) — so `queue_drained` is already resolved and the drain is a no-op. Reverting the `std::exchange`/`then_wrapped` hunk while keeping `_stream_closing` leaves the new test green. The case it exists for is a frame accepted in the continuation hop before `close_sink()` runs, i.e. exactly the \"frames accepted just before the mark\" the description cites.\n\n**3. [Low] Test never asserts `send()` is refused** — `tests/unit/rpc_test.cc:2016`\nThe `try`/`catch (const rpc::closed_error&)` passes whether or not the frame is rejected; only the downstream `put_after_close` symptom is checked. `BOOST_REQUIRE_THROW`, or a `BOOST_FAIL` after the `.get()`.\n\n**4. [Low] Comment contradicts the code** — `src/rpc/rpc.cc:559`\n\"Nothing else waits for `_outgoing_queue_ready` from here on\" — `stop_send_loop()` does, at `src/rpc/rpc.cc:225`. The code is right (it waits on the ready replacement), but the comment states the opposite of what the reader finds one function up, in the one place the serialization argument matters.\n\n**5. [Low] `buffer_size()` hardcoded to 8192** — `tests/unit/rpc_test.cc:1895`\nEvery other method forwards to `_inner`. `connected_socket::output()` passes `buffer_size = 0` (`src/net/stack.cc:116-121`), so the stream under test adopts 8192 instead of the real sink's size — needless divergence from production in a reproducer.\n\n**6. [Low] `const_cast` away constness to record hooks** — `tests/unit/rpc_test.cc:1957`\nDefined only because the factories are non-const locals. Make `hooks` `mutable`.\n\n**7. [Low] Positional hook selection** — `tests/unit/rpc_test.cc:2000`\n`BOOST_REQUIRE_EQUAL(hooks.size(), 2u)` + `hooks.back()` hard-codes both the count and order of client-side negotiations; a change to `rpc_test_env` setup silently retargets the test.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-21T01:58:58.911Z"
+}

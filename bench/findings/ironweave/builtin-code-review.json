@@ -1,0 +1,35 @@
+{
+  "target": "ironweave",
+  "tool": "builtin-code-review",
+  "label": "Claude Code /code-review",
+  "findings": [
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "title": "test_data_sink_impl fails to compile at SEASTAR_API_LEVEL 7/8",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "test_data_sink_impl only implements the SEASTAR_API_LEVEL >= 9 put(std::span<...>) overload; at API levels 7/8 (which CMakeLists.txt:72 and configure.py --api-level support) data_sink_impl::put(net::packet) remains pure virtual, so the class is abstract and the override refers to nothing, causing a hard compile error. This would only affect non-default builds since CI only builds the default API level.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "stream_close() now defers stop()/abort()/shutdown_input() behind outgoing-queue drain, allowing hangs",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "Previously write_buf.close() returned promptly even with a write in flight and the immediate stop() eventually caused stop_send_loop() to call shutdown_output() and break a stalled send; now, with stop() deferred, a send stalled on a full send window (e.g. a compressor empty frame with the peer no longer draining) leaves sink.close()/the source read hung until the connection is aborted from outside.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "_outgoing_queue_ready becomes a ready future while entries can still be linked in _outgoing_queue, breaking its tail-entry invariant",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The change leaves _outgoing_queue_ready as a ready future even though entries can still be linked into _outgoing_queue, breaking the invariant that it should be the tail entry's done future; the report notes nothing enqueues after that point today (send() is refused, enqueue_zero_frame() only runs from the client ctor), but a future enqueue path that misses the _stream_closing check would fire immediately and re-open the race this PR fixes.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null
+}

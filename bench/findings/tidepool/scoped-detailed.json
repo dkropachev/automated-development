@@ -1,0 +1,135 @@
+{
+  "target": "tidepool",
+  "tool": "scoped-detailed",
+  "label": "/scoped-code-review (read-only, --detailed)",
+  "findings": [
+    {
+      "file": "",
+      "line": 0,
+      "title": "Referenced issues #1085, #1086, #1091, #1093, #1106 don't resolve in dkropachev/tidepool",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Every issue the PR description leans on \u2014 #1085, #1086, #1091, #1093, #1106 \u2014 returns \"Could not resolve to an issue\" in dkropachev/tidepool, making all four deferrals and the Refs: line unverifiable for anyone reviewing the repo.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body and commits carry Claude/Anthropic attribution against user's CLAUDE.md rule",
+      "severity": "medium",
+      "kind": "style",
+      "claim": "The PR body ends with \"\ud83e\udd16 Generated with [Claude Code]\" and both commits carry a Co-Authored-By: Claude Opus 5 (1M context) trailer, violating the instruction in ~/.claude/CLAUDE.md to never add Claude/Anthropic attribution to anything authored.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Nested vector decoding into interface{} not covered by this PR",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Nested vector decoding into interface{} is called out as a deferred issue (#1085), left un-investigated as out of scope for this PR.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Surplus trailing bytes handling not covered by this PR",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Surplus trailing bytes handling is called out as a deferred issue (#1086), left un-investigated as out of scope for this PR.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "vint length narrowing negative decodes to empty with nil error, deferred",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A vint length narrowing negative and decoding to empty with a nil error is called out as a deferred issue (#1106), left un-investigated as out of scope for this PR.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Rejecting dim < 1 in metadata parsers deferred to a separate change",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Rejecting dim < 1 in the metadata parsers is called out as deferred (#1093), landing separately and not addressed by this PR.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "vectorElemMinSize checked and confirmed to never allow division by zero",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reviewer confirms vectorElemMinSize returns \u22651 on every path, so there is no division-by-zero risk.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Saturation guard in bound calculation checked and confirmed not to overflow",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reviewer confirms the saturation guard in the new bound cannot overflow.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Nested arithmetic checked against marshalVector/isVectorVariableLengthType wire format",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reviewer confirms the nested arithmetic matches what marshalVector/isVectorVariableLengthType actually put on the wire.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Placing the bound before fast paths confirmed to make Dimensions*8/*4 non-wrapping",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reviewer confirms that placing the bound before the fast paths does make Dimensions*8 and Dimensions*4 provably non-wrapping.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Nil SubType panic behavior confirmed unchanged/consistent across nesting levels",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reviewer confirms nil SubType still panics only where it panicked before (Dimensions > 0, at every nesting level), so the zero-dimension carve-out is consistent.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Marshal-side make([]byte, dim*4) confirmed unreachable with a hostile dim",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reviewer confirms marshal-side make([]byte, dim*4) is unreachable with a hostile dim because the length check precedes it.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Test comment's 32-bit-target claim is untestable in this environment",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "GOARCH=386 cannot be checked because serialization/varint and serialization/cqlint don't compile for 32-bit on main either, making the test comment's claim that the fix \"lands on a 32-bit target too\" untestable here.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "TestSSL*/TestShardAwarePort* failures are pre-existing and unrelated to this PR",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The four TestSSL*/TestShardAwarePort* failures in the unit suite are due to missing test certs, are present on main, and are unrelated to this PR's changes.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "note": "invoked as /pr-review-fix, which had just been renamed; Claude Code resolved it to the scoped-code-review skill - see the Skill call in the transcript"
+}

@@ -1,0 +1,31 @@
+{
+  "comment": "Three ~20KB real PRs, one per language. Each is republished into a private repo of its own with every link repointed, so a reviewer cannot walk back to the upstream PR and read what the humans already said about it. `fork` is the blinded repo; `upstream`/`pr` are kept here for the ground-truth pass only and are never shown to a reviewer.",
+  "targets": [
+    {
+      "id": "ironweave",
+      "language": "C++",
+      "upstream": "scylladb/seastar",
+      "pr": 3664,
+      "fork": "dkropachev/ironweave",
+      "extraReplacements": {}
+    },
+    {
+      "id": "quillstone",
+      "language": "Rust",
+      "upstream": "scylladb/scylla-rust-driver",
+      "pr": 1801,
+      "fork": "dkropachev/quillstone",
+      "extraReplacements": {}
+    },
+    {
+      "id": "tidepool",
+      "language": "Go",
+      "upstream": "scylladb/gocql",
+      "pr": 1094,
+      "fork": "dkropachev/tidepool",
+      "extraReplacements": {
+        "github.com/gocql/gocql": "github.com/dkropachev/tidepool"
+      }
+    }
+  ]
+}

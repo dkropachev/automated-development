@@ -1,0 +1,955 @@
+{
+  "target": "quillstone",
+  "language": "Rust",
+  "rawFindings": 135,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Pool-level USE failure leaves pooled connections on the old keyspace while pool believes otherwise",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1287,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "PoolRefiller::use_keyspace (connection_pool.rs:1282-1325) sets self.current_keyspace optimistically before issuing any USE and never rolls it back or evicts a connection whose USE failed; Session::use_keyspace (session.rs:2007) and ClusterWorker (worker.rs:351) store it the same way. Already-pooled connections therefore keep serving the previous keyspace while the pool reports the new one, so unqualified statements silently hit the wrong keyspace.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The optimistic store and the missing per-connection retry predate the diff; the PR only closes this for newly opened connections.",
+      "reportedBy": [
+        "rafp-detailed",
+        "rafp-review",
+        "tob-diff-review"
+      ],
+      "reportedAs": {
+        "rafp-detailed": "PoolRefiller::use_keyspace sets current_keyspace before issuing anything and never removes or retries a connection whose USE failed with a non-broken-connection error, so the pool keeps publishing a connection on the old keyspace while believing it is on the new one, causing unqualified statements to silently hit the wrong keyspace; this is a pre-existing gap the PR closes only for new connections.",
+        "rafp-review": "Pre-existing, untouched by this PR: pool-level use_keyspace leaves already-pooled connections on the wrong keyspace when their USE fails.",
+        "tob-diff-review": "current_keyspace is stored optimistically and never rolled back (also at worker.rs:351, connection_pool.rs:1287)."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "Permanently failing USE now drains every pool to Broken with no recovery path",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "current_keyspace is set unconditionally in use_keyspace (connection_pool.rs:1287) and never cleared, and the new Err(ConnectionSetupError::Keyspace) arm (connection_pool.rs:900-909) discards every connection whose USE fails. If the keyspace becomes permanently inaccessible, no connection can ever enter the pool: the pool empties, publishes MaybePoolConnections::Broken, and emit_events (connection_pool.rs:1158-1190) fires ConnectivityChangeEvent::Lost for every node, so even fully-qualified queries fail. Pre-PR the connection stayed usable and only a warning was logged.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The discard-on-USE-failure arm added by this PR is what converts a degraded-but-usable session into a fully-down cluster.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "superpowers-review",
+        "mattpocock-review",
+        "tob-diff-review",
+        "scoped-detailed",
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "PoolRefiller::use_keyspace sets current_keyspace unconditionally and never clears it on a failed USE, so every newly opened connection is now discarded and the pool loops in Broken/backoff forever, whereas before a failed USE on a fresh connection was just logged and the connection stayed usable.",
+        "superpowers-review": "PoolRefiller::use_keyspace sets current_keyspace unconditionally before USE is attempted, and with discard-on-failure every new connection is rejected as long as USE keeps failing, draining pools, publishing Broken(UseKeyspaceError), and killing the session for all queries including fully-qualified ones; pre-PR this degraded gracefully, and the larger blast radius is undocumented.",
+        "mattpocock-review": "UseKeyspaceError includes permanently-failing variants; if the keyspace later becomes inaccessible, every new connection is discarded, the pool never fills, the node is reported down cluster-wide via ConnectivityChangeEvent::Lost, and reconnect backoff grows unboundedly - a larger blast radius than 'preserves the current pool' suggests, worth a deliberate retryable-vs-permanent distinction.",
+        "tob-diff-review": "post-PR every new connection with a failed use_keyspace is discarded, so pools never fill, the refiller churns full handshakes against every node forever at max_fill_backoff, and pools drain to Broken causing nodes to drop out of load balancing.",
+        "scoped-detailed": "Previously a connection with a failed USE still filled the pool, degrading gracefully; now it's discarded so a server-side-dropped keyspace empties every pool, publishes MaybePoolConnections::Broken, and emits ConnectivityChangeEvent::Lost for every node, converting a degraded-but-usable session into a fully-down cluster - an intended tradeoff that deserves an explicit line in the description.",
+        "ce-code-review": "A permanent USE KEYSPACE failure now prevents the pool from filling and publishes MaybePoolConnections::Broken (node reads as unreachable) instead of previously publishing a connection with the wrong keyspace; this user-visible trade-off is not called out anywhere discoverable in the PR."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Untimed use_keyspace await in start_setting_keyspace_for_connection can wedge the refiller forever",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1341,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "connection_pool.rs:1336 still carries '// TODO: There should be a timeout for this' and the await at 1341-1345 is unwrapped, unlike PoolRefiller::use_keyspace which wraps its USE in tokio::time::timeout(connect_timeout, ...) at 1310. A node that completes the handshake but never answers USE leaves the future pending in ready_connections, so is_filling() (connection_pool.rs:743) stays true and need_filling() never becomes true again.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The untimed await and its TODO are byte-identical in semantics to main; the PR changed only what the future resolves to, not whether it can hang.",
+      "reportedBy": [
+        "tob-rust-review",
+        "ce-code-review",
+        "rafp-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "tob-rust-review": "This await has no timeout (unlike the sibling PoolRefiller::use_keyspace, which wraps its USE in tokio::time::timeout), so a server that accepts the connection but never answers USE leaves the future pending forever, permanently stopping all refills for that node; the PR adds an explicit-failure path but doesn't close this silent-stall path.",
+        "ce-code-review": "The `connection.use_keyspace(&keyspace_name).await` call has no timeout, so a node that accepts TCP but never answers USE leaves the future pending inside ready_connections forever, keeping is_filling() true indefinitely and preventing any further refill from being scheduled.",
+        "rafp-review": "Pre-existing, untouched by this PR: the '// TODO: There should be a timeout for this' on keyspace setup means a hung USE wedges is_filling() forever.",
+        "superpowers-review": "The missing USE timeout at :1336 is a pre-existing TODO set aside as pre-existing/unrelated, though this PR enlarges its blast radius."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Shard-aware-miss discard drops a counted connection without decrementing total_connections",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 994,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "In the `else if evt.requested_shard.is_some()` arm (connection_pool.rs:994-1006) the owned Connection is dropped and replaced via start_opening_connection(None) with no dec_total_connections(); count_in_metrics already incremented it at open (connection_pool.rs:1046-1053) and nothing else decrements (grep shows the only dec sites are in connection_pool.rs). I added a probe test driving one accepted connection plus one shard-aware attempt onto the full shard: get_total_connections() read 2 with a single pooled connection.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "Commit de164845 explicitly sets out to balance total_connections across pool-discard sites and fixes three of four; this is the one it missed.",
+      "reportedBy": [
+        "builtin-code-review",
+        "ce-code-review",
+        "rafp-review",
+        "rafp-detailed",
+        "scoped-detailed",
+        "scoped-review",
+        "superpowers-review",
+        "tob-rust-review",
+        "tob-diff-review",
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "builtin-code-review": "This branch drops an already-inc_total_connections()-counted Connection and retries on the regular port, leaving the one remaining hole in the decrement invariant the PR establishes elsewhere; under source-port-rewriting NAT the counter inflates without bound.",
+        "ce-code-review": "In handle_ready_connection's shard-aware-port-miss branch, the connection is dropped without being stored anywhere, but inc_total_connections() was already called when it opened, so total_connections leaks upward on every shard-aware-port miss (e.g. behind NAT).",
+        "rafp-review": "In the shard-aware-port mismatch branch, a connection landing on the wrong shard is dropped and replaced via start_opening_connection(None), but unlike sibling drop sites the dec_total_connections() call is missing, so the total_connections gauge drifts permanently upward since Connection has no metrics-touching Drop.",
+        "rafp-detailed": "In the branch where evt.requested_shard.is_some(), the connection is dropped and start_opening_connection(None) is called with no dec_total_connections() call, the same imbalance class the PR fixes elsewhere but left out in this sibling branch; reproduced with the metric reading 2 where 1 is correct.",
+        "scoped-detailed": "In the `else if evt.requested_shard.is_some()` arm of handle_ready_connection, the connection is dropped without ever being decremented, even though count_in_metrics already incremented total_connections when it was opened; this is the same bug class the PR fixed at three other sites but missed here.",
+        "scoped-review": "In handle_ready_connection, the mis-sharded-connection arm is the only discard path that still drops a connection without decrementing the total_connections gauge.",
+        "superpowers-review": "A shard-aware connection landing on an already-full shard is dropped after inc_total_connections() charged it at :1051, with nothing decrementing it; reviewer reproduced the gauge drifting to 2 while the pool holds 1.",
+        "tob-rust-review": "In the else-if arm for a requested shard, the owned connection is dropped without decrementing total_connections even though it was counted at open, permanently inflating the metric on every shard-aware connection landing on a full bucket.",
+        "tob-diff-review": "The metrics-balancing commit fixes three of four discard sites, but the shard-mismatch drop at connection_pool.rs:994 still leaks.",
+        "mattpocock-review": "In the else if evt.requested_shard.is_some() branch (:994-1006), the excess shard-aware connection is dropped with no dec_total_connections() call, so the counter only ever drifts upward."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "PoolRefiller has no Drop impl, so pool teardown leaks the whole total_connections count",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 697,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "run() bare-returns at connection_pool.rs:697 when the use-keyspace channel closes, and there is no `impl Drop for PoolRefiller` anywhere (only connection.rs:217 OrphanhoodNotifier has a Drop). conns and excess_connections are dropped with no decrement. The new test at connection_pool.rs:2011 asserts get_total_connections() == 1 after `worker.await`, i.e. after the refiller has been dropped with one connection still in it, so it encodes the leak as expected behavior.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The teardown path and its missing decrement are unchanged from main; the PR neither introduced nor worsened it, though its new test now bakes the behaviour in.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "builtin-code-review",
+        "rafp-detailed",
+        "rafp-review",
+        "scoped-detailed",
+        "superpowers-review",
+        "tob-rust-review",
+        "tob-diff-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The PR adds metric decrements at three clear sites but there is no impl Drop for PoolRefiller and no decrement when the refiller task exits (run() returning on keyspace-channel-closed), so dropping a pool (node removal or session shutdown) leaks the full total_connections count.",
+        "builtin-code-review": "Tearing a pool down (node removed, session dropped) leaks the count of every connection still in conns/excess_connections; this is the same accounting class the PR is closing but is pre-existing/out of scope and not covered by the new tests.",
+        "rafp-detailed": "run() bare-returns when the use-keyspace channel closes (node removed or host-filtered); conns and excess_connections are dropped with no decrement and there is no impl Drop for PoolRefiller, so the session-scoped Metrics gauge stays inflated for the session's life.",
+        "rafp-review": "Pre-existing, untouched by this PR: run() returning on a dropped use-keyspace channel leaks the whole pool's count.",
+        "scoped-detailed": "When NodeConnectionPool is dropped (refiller cancelled via _refiller_handle) or run() returns because the keyspace channel closed, self.conns and self.excess_connections are dropped with no decrement, permanently inflating total_connections; the new test at :2011 even encodes this leak as expected behavior.",
+        "superpowers-review": "Tearing a pool down leaks its whole count because there's no Drop on PoolRefiller; this is pre-existing and a test actually depends on this behavior.",
+        "tob-rust-review": "When the keyspace-request channel closes and run() returns, PoolRefiller and all its Arc<Connection> entries are dropped with no decrement and no Drop impl, permanently inflating the gauge by the pool's size on every node removal or session drop.",
+        "tob-diff-review": "Refiller teardown still leaks (the fourth discard site not fixed by the metrics-balancing commit), which the new test at line 2011 actually encodes."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Keyspace-setup failure log downgraded from warn! to debug! as it became consequential",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The diff removes the warn!(\"[{}] Failed to set keyspace for new connection\") from start_setting_keyspace_for_connection and re-emits the same message at debug! in the new Keyspace arm (connection_pool.rs:902-906). update_shared_conns is only reached when `!self.is_filling() && self.is_empty()`, so with any surviving connection a persistently failing USE produces nothing at default log level while the pool silently stops growing.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR performed the downgrade in the same commit that made the failure fatal to the connection.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "rafp-detailed",
+        "rafp-review",
+        "scoped-detailed",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The removed code logged the keyspace-setting failure at warn!, but the new branch logs the same message at debug!, even though the consequence is now more severe (connection dropped, pool may go Broken).",
+        "mattpocock-review": "The spec said the pool logs the error but still reports success; the warn! at this site was replaced with debug!, so operators lose the only signal at default log level.",
+        "rafp-detailed": "The diff replaces a warn! log for a failed keyspace USE with debug!, so when the pool still holds at least one connection a persistently failing USE produces no user-visible signal while the pool never fills and keeps opening/dropping connections.",
+        "rafp-review": "A failed USE on a new connection was logged at warn! but is now logged at debug!, only surfacing otherwise via update_shared_conns when the pool is empty and not filling.",
+        "scoped-detailed": "A failed USE previously logged at warn! while the connection kept working; now the connection is discarded and the pool can go Broken, but the failure is only logged at debug!, so an operator sees silent endless reconnection with growing backoff and no explanation above debug level.",
+        "superpowers-review": "Old code warned while keeping the connection; new code debugs while discarding it, and with a non-empty pool update_shared_conns isn't called, so nothing surfaces the error at default levels and the pool silently stops growing."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Hoisting the keyspace check above maybe_reshard defers sharder and shard-aware-port discovery",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 911,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The diff moves the current_keyspace check (connection_pool.rs:911-926) above the sharding block that was previously first, so self.sharder and self.shard_aware_port are only adopted after a successful USE. keyspace_setup_failure_preserves_pool_state asserts exactly this with `assert!(refiller.sharder.is_none())` after the failed USE, so it is deliberate - but while USE keeps failing the refiller never learns the node is sharded and the PR description does not mention the change.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The reordering is part of this diff and its documented rationale is missing from the PR description.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "tob-rust-review",
+        "scoped-detailed",
+        "ce-code-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Moving the keyspace check above maybe_reshard/shard-aware-port update means a connection whose USE fails never contributes its ShardInfo, so the pool never learns sharder or shard_aware_port while keyspace setup keeps failing.",
+        "mattpocock-review": "Not requested by the spec: sharder and shard-aware port are no longer adopted from a connection until USE succeeds, so a resharded node's new sharder is never learned if its keyspace is unusable, and block_advanced_shard_awareness detection is deferred behind a USE round trip; defensible but needs stating in the description.",
+        "tob-rust-review": "Hoisting the keyspace check above the sharding block means self.sharder and self.shard_aware_port are no longer updated until USE succeeds, so while USE keeps failing the refiller never learns the node is sharded and keeps dialing the non-shard-aware port; the PR's own test suggests this is intended but the PR description doesn't mention this delay.",
+        "scoped-detailed": "Moving the keyspace check ahead of maybe_reshard means that when current_keyspace is set, the first connection's sharding info and shard-aware port aren't adopted until its USE completes, so the refill immediately following a use_keyspace cannot use the shard-aware port.",
+        "ce-code-review": "Sharder adoption, maybe_reshard, and shard-aware-port discovery now run only after a successful USE, so while USE keeps failing the refiller keeps a stale sharder and stale shard-aware port.",
+        "superpowers-review": "The reorder at :874-893 drops sharder / shard-aware-port learning on the USE-failure path; a test asserts this so it reads intentional, but it needs a one-line comment at the early return."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "decrement_total_connections does N fetch_sub(1) calls instead of one bulk Metrics helper",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "kind": "perf",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "connection_pool.rs:1360-1364 loops `self.metrics.dec_total_connections()`, which is a relaxed fetch_sub(1) on an AtomicU64 (metrics.rs:341-343). For PerShard pools excess_connection_limit() is 10 * nr_shards, so clearing on a 64-shard node is ~640 atomic RMWs, and a concurrent get_total_connections() can observe an intermediate value. A dec_total_connections_by(n) on Metrics/metrics_noop would be one operation and would also remove the feature-envy helper from PoolRefiller.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The helper is added by this diff.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "builtin-code-review",
+        "ce-code-review",
+        "mattpocock-review",
+        "scoped-detailed",
+        "tob-rust-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "for _ in 0..count { self.metrics.dec_total_connections(); } performs count separate atomic operations where a dec_total_connections_by(n) method would be one operation and read better at all three call sites.",
+        "builtin-code-review": "Since excess_connection_limit() is 10 * nr_shards, clearing the excess pool on a 64-shard node costs ~640 atomic RMWs where a single fetch_sub(count) would do; needs a bulk helper on Metrics/metrics_noop.",
+        "ce-code-review": "The helper issues one relaxed fetch_sub(1) per connection where a single fetch_sub(count) would suffice; only observable effect is a transient intermediate value on a relaxed counter.",
+        "mattpocock-review": "decrement_total_connections touches none of PoolRefiller's own data and is just a loop around another object's counter; it should be a Metrics method dec_total_connections_by(count) next to dec_total_connections.",
+        "scoped-detailed": "Since total_connections is read concurrently via Metrics::get_total_connections(), a scrape landing mid-loop can observe a value that never corresponded to real state; a single fetch_sub(count) would be atomic and cheaper.",
+        "tob-rust-review": "dec_total_connections() is called in a for loop over count instead of one fetch_sub(count) call; correct but does N atomic RMWs where one would suffice."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "dec_total_connections wraps rather than saturating, so a future off-by-one underflows the gauge",
+      "file": "scylla/src/observability/metrics.rs",
+      "line": 342,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "metrics.rs:341-343 is a bare `fetch_sub(1, ORDER_TYPE)` on an AtomicU64 with no saturation. The code is as described; no underflowing path is reachable today (every connection in conns/excess_connections was inc'd by count_in_metrics), so this is hardening against the four new decrement sites, two of which decrement by a computed count.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The unsaturated fetch_sub predates the diff and no over-decrement path exists today.",
+      "reportedBy": [
+        "ce-code-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "Metrics::dec_total_connections is a wrapping AtomicU64 fetch_sub with no saturation; this PR adds four new decrement sites, two by a computed count, so a future off-by-one would underflow the gauge to ~1.8e19 instead of clamping at 0.",
+        "superpowers-review": "decrement_total_connections loops N fetch_sub(1) calls against a raw AtomicU64 fetch_sub with no saturation, so one over-decrement wraps to ~1.8e19; a saturating sub_total_connections(n) would fail safe."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "'decrement then clear excess' pattern duplicated across three call sites, one of them drifted",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The pairing appears at connection_pool.rs:674-678 (run loop), :1031-1032 (excess limit) and :1113-1122 (maybe_reshard); the third folds in active_connection_count() and clears self.conns in between, so it is not the same shape. Two of the three sites omitted the decrement before this PR, which is exactly the failure mode a single clear_excess_connections helper would prevent.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The duplication is created by this diff's decrement additions.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Three independent sites must remember to pair the metric decrement with clearing excess connections; a single clear_excess_connections helper would make a fourth site impossible to get wrong, especially since two sites previously omitted the decrement before this PR.",
+        "mattpocock-review": "The pattern decrement_total_connections(excess.len()); excess_connections.clear(); appears three times at :674-677, :1031-1032, :1114-1122, and the third variant silently differs (folds in active_connection_count(), clears conns in between); should be extracted into one clear_excess_connections method."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "Private ConnectionSetupError overlaps the public ConnectionError::UseKeyspaceError added in the same PR",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "connection_pool.rs:1418-1421 defines `enum ConnectionSetupError { Connection(ConnectionError), Keyspace(UseKeyspaceError) }` while errors.rs:599-602 adds `ConnectionError::UseKeyspaceError(#[from] UseKeyspaceError)` in the same diff, so the same two-case split is now expressible in one type. Collapsing it would lose the exhaustive local match (ConnectionError is #[non_exhaustive]), so this is a trade-off rather than a clear win.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both types are introduced by this diff.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "The new private ConnectionSetupError enum overlaps the public ConnectionError::UseKeyspaceError variant added by the same PR; a nested match arm could carry both cases and the private enum could be deleted."
+      }
+    },
+    {
+      "id": "I12",
+      "title": "ConnectionSetupError is undocumented and name-collides with the public ConnectionSetupRequestError",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The new enum at connection_pool.rs:1418 has no doc comment, does not implement std::error::Error, and sits in a file that imports errors::ConnectionSetupRequestError - which it also wraps transitively via ConnectionError. It is really an outcome tag for OpenedConnectionEvent, so a name like OpenedConnectionError would read more honestly.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The type is added by this diff.",
+      "reportedBy": [
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "ConnectionSetupError sits one import away from the public ConnectionSetupRequestError and isn't an Error impl at all, just a two-way outcome tag for OpenedConnectionEvent; OpenedConnectionError would read more honestly.",
+        "superpowers-review": "ConnectionSetupError is undocumented and name-collides with the public errors::ConnectionSetupRequestError, which it also contains."
+      }
+    },
+    {
+      "id": "I13",
+      "title": "UseKeyspaceError under ConnectionError contradicts that type's 'connection must be dropped' doc contract",
+      "file": "scylla/src/errors.rs",
+      "line": 599,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "errors.rs:570-572 documents ConnectionError as indicating 'connection can no longer be used and should be dropped', but UseKeyspaceError::KeyspaceNameMismatch and ::RequestTimeout (errors.rs:192-208) do not mean the transport is broken. Since the pool feeds this into MaybePoolConnections::Broken(ConnectionError), users see a healthy-transport failure reported as a connection-level one. The pool does drop the connection, so the contract is honoured in practice - the mismatch is in what the public type communicates.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The variant is added by this diff.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "ConnectionError's doc comment says it indicates the connection can no longer be used and should be dropped, but UseKeyspaceError::KeyspaceNameMismatch and RequestTimeout don't mean the transport is broken; flowing into ConnectionPoolError::Broken{last_connection_error} makes users see a healthy-connection error reported as a connection-level failure."
+      }
+    },
+    {
+      "id": "I14",
+      "title": "Two new keyspace tests omit setup_tracing(), which CONTRIBUTING.md requires",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_triggers_refill (connection_pool.rs:1474) and keyspace_setup_failure_preserves_pool_state (:1526) have no setup_tracing() call, while every other test in the module does (lines 1728, 1781, 1869, 1945, 1973, 2047, 2082). CONTRIBUTING.md:84-92 ('Tracing in tests') states that any new tests should call it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both tests are added by this diff.",
+      "reportedBy": [
+        "mattpocock-review",
+        "rafp-review",
+        "superpowers-review",
+        "tob-rust-review",
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Two new tests at :1474 and :1526 don't call setup_tracing(), violating CONTRIBUTING.md's 'Tracing in tests' rule that any new tests should call it too; every other test in the module including three metrics tests added on this branch does.",
+        "rafp-review": "Neither new test calls setup_tracing(), unlike every other test in that module, so CI failures come with no driver logs.",
+        "superpowers-review": "The two keyspace tests at :1474 and :1526 skip setup_tracing(), unlike every other test in the module.",
+        "tob-rust-review": "The two new tests (at :1474 and :1526) don't call setup_tracing() like every other test in the module, so their tracing output is lost on failure.",
+        "anthropic-pr-review": "this is the only test in the module (along with keyspace_setup_failure_triggers_refill) that omits setup_tracing(), so its failures produce no log output."
+      }
+    },
+    {
+      "id": "I15",
+      "title": "keyspace_setup_failure_triggers_refill asserts need_filling(), which was already true before the event",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1494,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "need_filling() is `!is_filling() && !is_full()` (connection_pool.rs:760-762) and on the freshly constructed refiller ready_connections is empty and the pool is empty, so the assertion holds before handle_ready_connection is called. The refiller is never run(), so nothing verifies a refill is actually scheduled; the test's other assertions (had_error_since_last_refill, Broken shared_conns, metric 0, pool_updated) are meaningful, but the name overstates what is covered.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test is added by this diff.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "rafp-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The refiller is never run(); the test only asserts need_filling() on a static struct, verifying the predicate rather than that a refill is actually scheduled, so the test name overstates coverage.",
+        "rafp-review": "The test asserts refiller.need_filling(), but that was already true before the event was handled (empty pool, nothing in flight), so it doesn't demonstrate the 'schedules another refill' criterion; driving the event through PoolRefiller::run and observing a fresh connection attempt would."
+      }
+    },
+    {
+      "id": "I16",
+      "title": "Hand-forged SET_KEYSPACE frame bytes in test are undocumented and can silently desync from the parser",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1534,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "connection_pool.rs:1534 is `Bytes::from_static(b\"\\0\\0\\0\\x03\\0\\x08keyspace\")` with no comment explaining the layout (result kind 3 = SetKeyspace, [short] length 8, name). It is currently consistent with the RESULT parser - keyspace_setup_failure_preserves_pool_state passes - but a change to RESULT frame parsing would desync the fixture with no compile-time signal.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The fixture is added by this diff.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Bytes::from_static(b\"\\0\\0\\0\\x03\\0\\x08keyspace\") is a hand-encoded Result/SetKeyspace body with no comment explaining the layout (result kind 3, short length 8, name), forcing anyone changing the keyspace name to rediscover the encoding.",
+        "ce-code-review": "The test's hand-forged SET_KEYSPACE result frame was cross-checked against Connection::verify_use_keyspace_result and is currently consistent, but a future change to RESULT frame parsing would silently desync the fixture from the production wire format with no compile-time signal."
+      }
+    },
+    {
+      "id": "I17",
+      "title": "make_rules re-implements start_simulated_node's OPTIONS/STARTUP rules instead of parameterizing it",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1527,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The closure at connection_pool.rs:1527-1566 rebuilds the same OPTIONS->SUPPORTED and STARTUP->READY rules that start_simulated_node already constructs (connection_pool.rs:1809-1845). The duplication is not free to remove - start_simulated_node takes a non-optional ShardInfo and always advertises SIMULATED_SHARD_AWARE_PORT, while make_rules needs Option<ShardInfo>, no shard-aware port, and a QUERY rule - so parameterizing the existing helper is the suggested cleanup rather than a drop-in reuse.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The duplicated helper is added by this diff.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "make_rules re-implements the OPTIONS/STARTUP rules that start_simulated_node already builds.",
+        "superpowers-review": "make_rules at :1527-1566 re-implements start_simulated_node's OPTIONS/STARTUP rules instead of parameterizing the existing function."
+      }
+    },
+    {
+      "id": "I18",
+      "title": "initial_shard_info passed to start_simulated_node in the resharding test is dead",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1868,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "resharding_discards_old_connections_and_balances_metrics builds initial_shard_info, passes it to start_simulated_node (connection_pool.rs:1876), then immediately calls change_request_rules with a SUPPORTED reply carrying an empty options map before any connection is opened; the test then asserts refiller.sharder.is_none(). The value cannot affect the run and misleads a reader into thinking the first connection reports sharding.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test is added by this diff.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "rafp-detailed"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "start_simulated_node(initial_shard_info) is immediately followed by change_request_rules that replaces SUPPORTED with a non-sharded response, so initial_shard_info has no effect and is misleading to a reader following the reshard sequence.",
+        "rafp-detailed": "The test builds initial_shard_info and passes it to start_simulated_node, then immediately overwrites the node's rules with an empty SUPPORTED map before any connection opens, so the value has no effect and misleadingly implies the first connection reports sharding when the test actually covers the no-shard-info case; mutating the value to arbitrary shard numbers still passes."
+      }
+    },
+    {
+      "id": "I19",
+      "title": "unrequested_connection_event duplicates shard_aware_attempt_result apart from requested_shard",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1855,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "unrequested_connection_event (connection_pool.rs:1855-1866) has the same body as the pre-existing shard_aware_attempt_result (:2018-2033) except that requested_shard is None; generalizing the existing helper to take Option<RequestedShard> would remove the copy.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The duplicate helper is added by this diff.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "The new test helper has the same body as the pre-existing shard_aware_attempt_result helper except for requested_shard; generalizing the existing helper would remove the duplication."
+      }
+    },
+    {
+      "id": "I20",
+      "title": "full_pool metrics test still wall-clock busy-polls despite the 'avoid busy-waiting' commit",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 2000,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "connection_pool.rs:2000-2006 spins `while metrics.get_total_connections() != 1 { sleep(1ms) }` inside a real-clock 5s tokio::time::timeout, which is what commit 617139df claims to have fixed. The reviewers' suggested alternative of using pool_updated_notify is not directly available: mock_pool_refiller (connection_pool.rs:1754-1774) constructs both Notify handles inline and does not return them, so wiring an observable signal needs a helper change too.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test and the commit purporting to remove its busy-wait are both in this diff.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The test polls get_total_connections() in a 1ms sleep loop under a 5s tokio timeout on a real clock, making it load-sensitive on CI, even though pool_updated_notify is already wired into mock_pool_refiller but unused.",
+        "mattpocock-review": "Despite commit 617139df's stated goal of avoiding busy-waiting, the test at :1999-2005 (also flagged at :2002) still spins on get_total_connections() under a 5 second timeout, making it load-sensitive.",
+        "superpowers-review": "The avoid-busy-waiting fix at :1993-2000 is still a 1ms poll loop, and leans on select! picking the initial scheduled_refill branch with zero opens."
+      }
+    },
+    {
+      "id": "I21",
+      "title": "Unit test builds a Keyspace event shape (keyspace_name: None) that production never emits",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1499,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "start_setting_keyspace_for_connection always sets keyspace_name: Some(keyspace_name) (connection_pool.rs:1348-1352), but keyspace_setup_failure_triggers_refill pairs ConnectionSetupError::Keyspace with keyspace_name: None and also sets requested_shard: Some(..), which the Keyspace arm never reads. Harmless today, but the test would not catch a regression that made the arm depend on either field.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test is added by this diff.",
+      "reportedBy": [
+        "scoped-detailed"
+      ],
+      "reportedAs": {
+        "scoped-detailed": "The real code path always sets keyspace_name: Some(..), but the test pairs Keyspace with keyspace_name: None and also sets requested_shard: Some(..) which the keyspace branch never reads; harmless now but the test wouldn't catch a regression that made the branch depend on either field."
+      }
+    },
+    {
+      "id": "I22",
+      "title": "maybe_reshard's excess_connections decrement term is never exercised with a non-empty excess pool",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1113,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "resharding_discards_old_connections_and_balances_metrics feeds exactly one connection before resharding and then asserts excess_connections.is_empty(), so the `+ self.excess_connections.len()` half of the sum at connection_pool.rs:1113-1115 is always zero in the test; a miscount there would pass undetected.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both the decrement and its test are added by this diff.",
+      "reportedBy": [
+        "ce-code-review",
+        "rafp-detailed"
+      ],
+      "reportedAs": {
+        "ce-code-review": "The test reshards with an empty excess_connections, so a miscount in the excess half of the new decrement sum would pass undetected.",
+        "rafp-detailed": "The run recorded an open follow-up to cover the excess_connections term of the maybe_reshard decrement, implying it is not currently directly tested."
+      }
+    },
+    {
+      "id": "I23",
+      "title": "No test covers a pool going Broken(UseKeyspaceError) and recovering to Ready",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1526,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_preserves_pool_state deliberately keeps one connection alive throughout, so shared_conns never becomes Broken there; keyspace_setup_failure_triggers_refill reaches Broken but never drives a subsequent successful USE. The Broken -> Ready transition, and with it the emit_events Lost -> Established sequence (connection_pool.rs:1158-1190), is untested.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The Broken(UseKeyspaceError) state is newly reachable because of this diff.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "No test covers that a pool which went Broken(UseKeyspaceError) flips back to Ready once a later refill's USE succeeds."
+      }
+    },
+    {
+      "id": "I24",
+      "title": "No test covers keyspace failure emptying the pool and firing ConnectivityChangeEvent::Lost",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1157,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "update_shared_conns calls emit_events (connection_pool.rs:1152-1190), which produces ConnectivityChangeEvent::Lost when the pool transitions to empty. keyspace_setup_failure_preserves_pool_state keeps one connection alive so the transition never happens, and keyspace_setup_failure_triggers_refill constructs the refiller without a host_id, so no Lost event is produced or observed anywhere.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This diff is what makes a keyspace failure able to empty a pool and publish Lost.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "No test covers the keyspace-failure-empties-the-pool path leading to emit_events firing a Lost connectivity event; the existing test deliberately keeps one connection alive so this path is never exercised."
+      }
+    },
+    {
+      "id": "I25",
+      "title": "No test confirms refill backoff grows across repeated keyspace failures, or covers a USE that never answers",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_triggers_refill checks only that had_error_since_last_refill is set after a single forged failure; nothing drives multiple refill cycles to observe refill_delay_strategy.on_fill_error(), and the tests forge an already-returned keyspace error rather than a USE that never responds, which is the scenario behind I3.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both behaviours belong to the failure path this diff introduces.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "keyspace_setup_failure_triggers_refill checks only that the flag is set after a single failure; no test confirms refill_delay_strategy.on_fill_error() actually increases backoff across repeated failures. Existing tests forge an already-returned keyspace error rather than exercising the scenario where USE never responds."
+      }
+    },
+    {
+      "id": "I26",
+      "title": "No test drives the increment half of the total_connections invariant end to end",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1868,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "All three new metrics tests call metrics.inc_total_connections() by hand before handing an event to handle_ready_connection, rather than letting start_opening_connection's count_in_metrics closure (connection_pool.rs:1046-1053) do it, so the two halves of the invariant are never exercised together.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The tests establishing the invariant are added by this diff, though the manual-increment pattern was inherited from existing helpers.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "The two halves of the total_connections invariant are never exercised end-to-end, mirroring an existing pattern from prior commits rather than being introduced here."
+      }
+    },
+    {
+      "id": "I27",
+      "title": "PR description covers only one of four commits, omitting all the total_connections metric-balancing work",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The PR body describes only the keyspace-discard change (commit 7f48315d) and its Validation section lists only keyspace_setup_failure tests; commits de164845, 0d91aa54 and 617139df add decrement_total_connections, three decrement sites and three metrics tests (+415 lines) that are never mentioned, so a reader of the description alone would treat them as unexplained drive-by edits.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The description is part of this PR and does not cover three of its four commits.",
+      "reportedBy": [
+        "scoped-detailed",
+        "ce-code-review",
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "scoped-detailed": "Three commits (de164845, 0d91aa54, 617139df) covering metrics balancing on pool clear and their tests are not mentioned in the description or checklist, so a reviewer reading only the description would treat the maybe_reshard/excess-clear metric changes as unexplained drive-by edits.",
+        "ce-code-review": "The reviewed range contains four commits; two implement and test total_connections metric balancing on pool clears, but the PR description covers only the other two (keyspace-setup-failure discard).",
+        "mattpocock-review": "decrement_total_connections and total_connections rebalancing on resharding/excess-pool clearing (3 of 4 commits) are nowhere in the spec, which is confined to treating keyspace setup failure as connection setup failure; the PR description and validation section don't cover it, so it should be a separate issue/PR."
+      }
+    },
+    {
+      "id": "I28",
+      "title": "Stated validation commands never compile or run the three new metrics-gated tests",
+      "file": "scylla/Cargo.toml",
+      "line": 34,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "scylla/Cargo.toml:34 has `default = []` and the three new tests are behind #[cfg(feature = \"metrics\")] (connection_pool.rs:1867, 1943, 1971). Neither `cargo test -p scylla --lib network::connection_pool::tests::keyspace_setup_failure` (which matches only the two ungated keyspace tests) nor `cargo check -p scylla --lib` enables metrics. They do pass: I ran `cargo test -p scylla --lib --features metrics network::connection_pool` and all eight in-process tests passed (many_connections fails identically on main for lack of a reachable node).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The Validation section is part of this PR and misdescribes what was run.",
+      "reportedBy": [
+        "scoped-detailed",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "scoped-detailed": "default = [] in Cargo.toml and the three new tests are gated behind the metrics feature, but neither the stated `cargo test ... keyspace_setup_failure` nor `cargo check` commands enable metrics, so those tests were neither compiled nor executed by the described validation, even though they do pass with --features metrics.",
+        "superpowers-review": "The three metrics tests are behind the non-default metrics feature, so the quoted cargo test line never compiled them; they do run in CI's --all-features, so this is an accuracy issue in the PR description, not a coverage gap."
+      }
+    },
+    {
+      "id": "I29",
+      "title": "PR description's 'Fixes: #1682' points at an issue that does not exist in this repository",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "`gh issue view 1682` in dkropachev/quillstone returns 'Could not resolve to an issue or pull request with the number of 1682'; the number appears to come from upstream scylla-rust-driver. CONTRIBUTING.md requires a `Fixes: #XYZ` line, so the annotation is expected - it just resolves to nothing here.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The reference is written in this PR's description.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "gh issue view 1682 fails in dkropachev/quillstone; the referenced issue number appears to be from upstream scylla-rust-driver instead."
+      }
+    },
+    {
+      "id": "I30",
+      "title": "All four commit messages are subject-only, against CONTRIBUTING.md's what-and-why requirement",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "`git log --format='%B' main..HEAD` shows all four commits (617139df, 7f48315d, 0d91aa54, de164845) have a subject line and no body, while CONTRIBUTING.md:10 requires that messages 'clearly explain what is being changed in the commit, and what is the reason for the change'. The PR checklist nonetheless ticks 'The commit messages explain what changes and why.'",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "All four commits are this PR's.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "All four commits are subject-only even though CONTRIBUTING.md:10 requires what and why and repo history follows it; the PR checklist claims otherwise."
+      }
+    },
+    {
+      "id": "I31",
+      "title": "Commit 617139df is an unsquashed fixup of 0d91aa54",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "617139df ('avoid busy-waiting in metrics test') changes a single line inside the full_pool_clears_excess_connections_and_balances_metrics test that 0d91aa54 added two commits earlier, so it is not a logically coherent standalone change as CONTRIBUTING.md:9 requires.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both commits belong to this PR and can be squashed before merge.",
+      "reportedBy": [
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Commit 617139df changes one line (yield_now() -> sleep(1ms)) inside a test that 0d91aa54 added two commits earlier, violating CONTRIBUTING.md's 'each commit introduces one logically coherent change' rule; it should be squashed into 0d91aa54.",
+        "superpowers-review": "617139df is a fixup to 0d91aa54 and should be squashed."
+      }
+    },
+    {
+      "id": "I32",
+      "title": "Inline dec_total_connections at the keyspace arm is inconsistent with the new helper and proxy.finish() handling",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 901,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "connection_pool.rs:901 decrements exactly one connection, so calling dec_total_connections() directly is the natural form; decrement_total_connections(1) would be strictly worse. The proxy.finish() difference is real (connection_pool.rs:1685 matches on the result while other tests use `let _ = ...`), but the new test's version checks for unexpected proxy errors, which is an improvement rather than a defect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both sites are added by this diff.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": ":901 calls self.metrics.dec_total_connections() inline while three sibling sites use the new helper; :1689 matches on proxy.finish() while every other test uses let _ = proxy.finish().await;."
+      }
+    },
+    {
+      "id": "I33",
+      "title": "Keyspace arm sets had_error_since_last_refill even for shard-aware attempts, unlike the Connection arm",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 901,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "The Connection arm's carve-out (connection_pool.rs:865-883) exists because the shard-aware *port* may be unreachable while the regular port works. In the Keyspace arm the connection was established successfully and only USE failed, so the shard-aware port is demonstrably fine and the error is a genuine fill failure; setting the flag is the correct behaviour, not an unintended divergence.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The arm is added by this diff.",
+      "reportedBy": [
+        "mattpocock-review",
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "The Connection arm does an immediate non-shard-aware retry and deliberately doesn't set had_error_since_last_refill for shard-aware failures, but the Keyspace arm has neither carve-out, so a keyspace failure on a shard-aware attempt inflates reconnect backoff for a reason unrelated to connectivity.",
+        "ce-code-review": "No test covers the case where requested_shard is Some with a live connection, where the new arm's unconditional had_error_since_last_refill = true diverges from the deliberate no-flag policy of the shard-aware Connection-error arm."
+      }
+    },
+    {
+      "id": "I34",
+      "title": "New public ConnectionError variant added with no changelog entry",
+      "file": "scylla/src/errors.rs",
+      "line": 599,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The repository has no changelog: `find . -iname '*changelog*'` outside target/ returns nothing, and docs/source/migration-guides holds only major-version migration docs. There is no convention the PR could have violated, and the variant is doc-commented at errors.rs:599-602.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The variant is added by this diff, but there is no changelog to update.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "The new public variant on ConnectionError has no changelog entry despite the checklist asserting docs are unaffected."
+      }
+    },
+    {
+      "id": "I35",
+      "title": "Pool-full excess clear in the run loop has no test",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 673,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "full_pool_clears_excess_connections_and_balances_metrics (connection_pool.rs:1971-2012) pushes an event into ready_connections and then spawns refiller.run(), which drives exactly the is_full() branch at connection_pool.rs:668-678; the test watches the gauge fall from 3 to 1 and passed when I ran it with --features metrics.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The decrement site is added by this diff and is covered by its accompanying test.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "Its decrement is only reachable through the full async worker loop, which no unit test drives."
+      }
+    },
+    {
+      "id": "I36",
+      "title": "New total_connections tests unnecessarily gated behind the metrics feature",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1867,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The tests assert on Metrics::get_total_connections, which only exists under #[cfg(feature = \"metrics\")] (metrics.rs:527); without the feature the no-op shim in metrics_noop.rs has no getter at all, so the gating is required for the crate to compile with --no-default-features.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The gating is added by this diff and is correct.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "Testing reviewer claimed the new total_connections regression tests are unnecessarily gated behind the `metrics` feature."
+      }
+    },
+    {
+      "id": "I37",
+      "title": "connection_pool.rs is already large and grows another ~415 lines without being split",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1443,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The file goes from 1706 lines on main to 2121 at HEAD (+415), and the growth is almost entirely in the `mod tests` block. Factually accurate, but splitting a module is a refactor well outside what this change asks for.",
+      "introducedByPr": true,
+      "scope": "out-of-scope",
+      "scopeReason": "Module layout is a pre-existing structural choice; requiring a split here would be unrelated churn.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "Maintainability reviewer claimed the file is already large and this PR adds ~415 more lines without splitting it."
+      }
+    },
+    {
+      "id": "I38",
+      "title": "Broken intra-doc link to ClientRoutesConfig in session_builder",
+      "file": "scylla/src/client/session_builder.rs",
+      "line": 114,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "session_builder.rs:114 writes [`ClientRoutesConfig`] but the type is only referenced by its full path elsewhere in the file (`super::client_routes::ClientRoutesConfig` at :145), so it is not in scope for rustdoc resolution and emits an unresolved-link warning under --all-features.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The file is not touched by this PR's diff at all.",
+      "reportedBy": [
+        "rafp-detailed"
+      ],
+      "reportedAs": {
+        "rafp-detailed": "The doc comment references [`ClientRoutesConfig`] which is not in scope (it lives in crate::client::client_routes), causing cargo doc --all-features to emit an unresolved-link warning; file is untouched by this PR."
+      }
+    },
+    {
+      "id": "I39",
+      "title": "Pointer logging via {:p} flagged as a security issue",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 683,
+      "kind": "security",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The Arc::as_ptr traces at connection_pool.rs:683, :981 and :1247 are pre-existing, emitted at debug/trace level, and untouched by this diff; leaking a heap pointer into a disabled-by-default trace is not an exploitable disclosure in this codebase, and the reporting tool itself rejected the pipeline's MEDIUM rating.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "All three log statements predate the diff and are unmodified.",
+      "reportedBy": [
+        "tob-rust-review"
+      ],
+      "reportedAs": {
+        "tob-rust-review": "The automated pipeline rated PTREXPOSE-001/002/003 (pointer logging at :683, :981, :1247) as MEDIUM, but the reviewer disagrees, noting these are pre-existing Arc::as_ptr traces at debug/trace level, conventional in this driver and untouched by the PR."
+      }
+    },
+    {
+      "id": "I40",
+      "title": "tests::many_connections fails in this environment",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1720,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The test panics with ConnectTimeout at connection_pool.rs:1720 under `cargo test --features metrics`, but it needs a reachable node and fails identically on main; it is environmental, not a regression from this PR.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Pre-existing environmental dependency, unaffected by the diff.",
+      "reportedBy": [
+        "builtin-code-review",
+        "mattpocock-review",
+        "rafp-review",
+        "superpowers-review"
+      ],
+      "reportedAs": {
+        "builtin-code-review": "The many_connections test fails under cargo test, but it fails identically on main because the sandbox has no route to the simulated address, so the failure is environmental rather than a regression from this PR.",
+        "mattpocock-review": "The many_connections test fails with ConnectTimeout, but the report verified it fails identically on main, so it is pre-existing and not caused by this PR.",
+        "rafp-review": "Pre-existing, untouched by this PR: tests::many_connections needs a real cluster at SCYLLA_URI.",
+        "superpowers-review": "The many_connections failure needs a live SCYLLA_URI and was set aside as pre-existing/unrelated."
+      }
+    },
+    {
+      "id": "I41",
+      "title": "Double-decrement of total_connections between the new bulk-clear sites and remove_connection",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1230,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "remove_connection's maybe_remove_in_vec (connection_pool.rs:1224-1237) locates the connection by Arc::ptr_eq against self.conns[shard_id] and self.excess_connections. After a bulk clear the Arc is no longer in either vector, so the scan misses, the function falls through to the 'was already removed' trace, and no second decrement happens - even in the window where a stale shared_conns clone keeps the Arc alive so wait_for_error's Weak::upgrade succeeds.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The hypothesis concerns decrement sites added by this diff; it does not hold.",
+      "reportedBy": [
+        "builtin-code-review",
+        "mattpocock-review",
+        "rafp-detailed",
+        "rafp-review",
+        "scoped-detailed",
+        "scoped-review",
+        "superpowers-review",
+        "ce-code-review"
+      ],
+      "reportedAs": {
+        "builtin-code-review": "Cleared connections are no longer findable by ptr_eq, so the decrement in remove_connection is skipped in that path, preventing double-counting with the new maybe_reshard decrement.",
+        "mattpocock-review": "Report checked for double-decrements between maybe_reshard/excess-clear and remove_connection and found none: cleared connections either drop to refcount zero (Weak upgrade fails in wait_for_error) or survive only in shared_conns where maybe_remove_in_vec's ptr_eq scan no longer finds them.",
+        "rafp-detailed": "Suspected double-decrement between maybe_reshard and remove_connection was checked and ruled out because Arc::ptr_eq prevents it.",
+        "rafp-review": "A candidate finding of a double decrement in maybe_reshard/remove_connection was raised and withdrawn on re-reading; it is not a problem.",
+        "scoped-detailed": "The reviewer specifically checked whether the three new decrement_total_connections call sites could double-decrement with remove_connection, and found it cannot happen because remove_connection matches by Arc::ptr_eq and a cleared connection is no longer in conns/excess_connections.",
+        "scoped-review": "Checked each new decrement_total_connections site for double-counting caused by shared_conns keeping cleared Arcs alive; found no such issue because remove_connection's Arc::ptr_eq lookup fails in every such window.",
+        "superpowers-review": "remove_connection can't double-decrement because of Arc::ptr_eq against already-cleared vectors.",
+        "ce-code-review": "The three new bulk-clear decrement sites were checked against remove_connection's own decrement for double-counting under connection death and no double- or missing-decrement path was found, but the interaction depends on Arc lifetimes in stale shared_conns snapshots that was not exhaustively traced."
+      }
+    },
+    {
+      "id": "I42",
+      "title": "New ConnectionError::UseKeyspaceError variant is a semver break or breaks exhaustive matches",
+      "file": "scylla/src/errors.rs",
+      "line": 599,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "ConnectionError already carries #[non_exhaustive] (errors.rs:574), so adding a variant is semver-minor and downstream matches must already have a wildcard arm; there is no exhaustive in-crate match over it, and the crate builds and tests cleanly with the variant present.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The variant is added by this diff and is safe.",
+      "reportedBy": [
+        "builtin-code-review",
+        "mattpocock-review",
+        "rafp-detailed",
+        "superpowers-review",
+        "tob-rust-review"
+      ],
+      "reportedAs": {
+        "builtin-code-review": "The enum is #[non_exhaustive] with no exhaustive matches in-tree, and size_of::<ConnectionError>() is unchanged at 112 bytes on both branches, staying under the result_large_err clippy threshold, so the new variant is safe.",
+        "mattpocock-review": "Report checked whether adding the new public variant breaks semver and found ConnectionError is already #[non_exhaustive], so the addition is semver-minor, not a violation.",
+        "rafp-detailed": "Checked whether the new ConnectionError variant breaks callers; ruled out because the enum is #[non_exhaustive], there is no exhaustive in-crate match, and enum size is unchanged at 112 bytes.",
+        "superpowers-review": "#[non_exhaustive] was already on ConnectionError, so the new variant is not a semver break.",
+        "tob-rust-review": "ConnectionError is #[non_exhaustive], so the added variant is semver-minor, and #[from] UseKeyspaceError doesn't collide with existing impls."
+      }
+    }
+  ],
+  "judgeCostUsd": 3.4451715000000007,
+  "judgedAt": "2026-09-21T20:53:02.145Z"
+}

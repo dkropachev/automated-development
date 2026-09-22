@@ -1,0 +1,36 @@
+{
+  "target": "quillstone",
+  "tool": "scoped-review",
+  "label": "/scoped-code-review (read-only)",
+  "findings": [
+    {
+      "file": "connection_pool.rs",
+      "line": 1006,
+      "title": "Mis-sharded-connection discard path doesn't decrement total_connections gauge",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "In handle_ready_connection, the mis-sharded-connection arm is the only discard path that still drops a connection without decrementing the total_connections gauge.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Keyspace check moved ahead of maybe_reshard could race the sharder",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Checked whether moving the keyspace check ahead of maybe_reshard risks the sharder not being learned before a parallel fill; confirmed it costs nothing since start_filling opens only one connection while the pool is empty and is_filling() blocks a refill during the USE round-trip.",
+      "selfRejected": true
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 901,
+      "title": "Potential double-counting in decrement_total_connections via shared_conns",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Checked each new decrement_total_connections site for double-counting caused by shared_conns keeping cleared Arcs alive; found no such issue because remove_connection's Arc::ptr_eq lookup fails in every such window, which matters since the counter is an AtomicU64 and an over-decrement would wrap.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "note": "invoked as /pr-review-fix, which had just been renamed; Claude Code resolved it to the scoped-code-review skill - see the Skill call in the transcript"
+}

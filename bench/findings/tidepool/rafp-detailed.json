@@ -1,0 +1,98 @@
+{
+  "target": "tidepool",
+  "tool": "rafp-detailed",
+  "label": "review-and-fix-pr (review only, detailedReview)",
+  "findings": [
+    {
+      "file": "helpers.go",
+      "line": 271,
+      "title": "VectorType branch stores bare prefix, nested vectors have no Go type",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The VectorType branch still calls NewCustomType with just the prefix instead of the full name, so nested vector types resolve to a bare custom() type with no Go type, causing the PR's own new guard to emit an error and nested vectors can't decode into interface{} at all.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1136,
+      "title": "Saturation branch of vectorElemMinSize has no test coverage",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The overflow-saturation branch in vectorElemMinSize that returns math.MaxInt32 is never exercised by any test; mutation testing shows replacing it with 'return 1' leaves the suite green, unlike every other guard the diff adds.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 998,
+      "title": "New bound still nil-derefs when SubType is nil and Dimensions > 0",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The new guard's comment claims it protects against a nil SubType, but it only covers the Dimensions == 0 case; with Dimensions > 0 and non-nil data, vectorElemMinSize(nil) still panics via nil.Type(), leaving the stated invariant unmet.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 0,
+      "title": "unmarshalVector bound is based on payload bytes, not real allocation cost",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "The element-count bound caps against len(data) rather than modeling per-CQL-type allocation cost, leaving up to 56x allocation amplification possible.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 1563,
+      "title": "readBytes slices p[:size] with an unchecked server-supplied length",
+      "severity": "blocker",
+      "kind": "security",
+      "claim": "readBytes performs p[:size] using an attacker/server-controlled size with no bounds check, so a malformed length in any UDT field or tuple element panics on the Scan goroutine with no recover.",
+      "selfRejected": false
+    },
+    {
+      "file": "frame.go",
+      "line": 855,
+      "title": "readTypeInfo slices vector type name assuming trailing ')' and comma",
+      "severity": "blocker",
+      "kind": "security",
+      "claim": "readTypeInfo assumes the custom type spec has a trailing ) and a comma when slicing, so names like ...VectorType, ...VectorType(), or malformed variants cause 'slice bounds out of range' panics on the connection goroutine.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 247,
+      "title": "Unguarded indexing of split results in type-name parsing",
+      "severity": "blocker",
+      "kind": "security",
+      "claim": "names[1], make([]UDTField, len(names)-2), and spec[1] are indexed without checking the split produced enough parts, causing index-out-of-range or negative-length-slice panics reachable through framer.readTypeInfo; the sibling MapType branch guards the same pattern.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1635,
+      "title": "unmarshalTuple sets reflect values without an assignability check",
+      "severity": "blocker",
+      "kind": "bug",
+      "claim": "unmarshalTuple performs reflect.Set without checking assignability, so e.g. vector<tuple<int,text>,2> into *[][]float32 panics with 'value of type int is not assignable to type float32' instead of returning an unmarshal error.",
+      "selfRejected": false
+    },
+    {
+      "file": "frame.go",
+      "line": 861,
+      "title": "strconv.Atoi error for vector dimension is discarded",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The error from parsing the vector dimension via strconv.Atoi is discarded, so a non-numeric dimension silently becomes 0 and an out-of-range one becomes MaxInt64, producing a misleading 'N bytes of data for 0-dimension vector' error instead of surfacing the real parse failure.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 261,
+      "title": "Unbounded recursion in getCassandraLongType may hang on crafted custom type name",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "One reviewer reproduced an 80s+ hang with a 98-byte custom name causing thousands of recursive frames in getCassandraLongType, but a follow-up reconciler could not reproduce it on the same commit and downgraded the proposed depth guard to optional, leaving the finding unresolved rather than confirmed.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null
+}

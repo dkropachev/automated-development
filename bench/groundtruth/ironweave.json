@@ -1,0 +1,228 @@
+{
+  "upstream": "scylladb/seastar",
+  "pr": 3664,
+  "title": "rpc: refuse to send on a stream connection once stream_close() has begun",
+  "url": "https://github.com/scylladb/seastar/pull/3664",
+  "merged": "2026-09-03T16:13:51Z",
+  "base": "9db0f30e37f2fec72ca3099573464205804e88d2",
+  "head": "0b483ae26c68668e7ef60bfb4bea4664c7fb3da6",
+  "diffBytes": 15948,
+  "review": {
+    "inline": [
+      {
+        "user": "michoecho",
+        "path": "src/rpc/rpc.cc",
+        "line": 293,
+        "body": "It seems to me that it doesn't remove the race, only makes the race window more narrow.\r\n\r\nWhat if we pass through the `!_stream_closing` check and suspend at `_outgoing_queue_ready`, and `stream_close()` only runs at this moment? Won't we still try to write to the closed stream after we resume?\r\n"
+      },
+      {
+        "user": "michoecho",
+        "path": "tests/unit/rpc_test.cc",
+        "line": 1867,
+        "body": "> exactly as a dictionary announcement would\n\nNit: this remark is Scylla-specific. It's not appropriate here."
+      },
+      {
+        "user": "michoecho",
+        "path": "tests/unit/rpc_test.cc",
+        "line": 2015,
+        "body": "Too Scylla-specific."
+      },
+      {
+        "user": "michoecho",
+        "path": "tests/unit/rpc_test.cc",
+        "line": 1867,
+        "body": "> Backport: needed on every live Scylla version with advanced RPC compression: 2025.1, 2026.1, 2026.2, 2026.3.\r\n\r\nAlso applies to this."
+      },
+      {
+        "user": "bhalevy",
+        "path": "src/rpc/rpc.cc",
+        "line": 293,
+        "body": "You're right, thanks. The flag alone only stops new send() calls; an entry accepted just before it could still be queued behind _outgoing_queue_ready and be written after the close. Fixed by having stream_close() wait for the queue to drain before it closes the write buffer: it chains a barrier on _outgoing_queue_ready the way send() does, so the close runs only once every accepted entry has been written and flushed into the batch it covers. Setting _error early instead doesn't work: stop() would then skip the shutdown_input() that wakes the receive loop (abort() is a no-op once _error is set), and if stream_close() called abort() itself, stop_send_loop() would shutdown_output() before the eof marker written by this very close is flushed."
+      },
+      {
+        "user": "bhalevy",
+        "path": "tests/unit/rpc_test.cc",
+        "line": 1867,
+        "body": "Removed, along with the backport line in the cover letter."
+      },
+      {
+        "user": "bhalevy",
+        "path": "tests/unit/rpc_test.cc",
+        "line": 2015,
+        "body": "Removed."
+      },
+      {
+        "user": "gleb-cloudius",
+        "path": "doc/rpc-streaming.md",
+        "line": 112,
+        "body": "Claude loves to push implementation details everywhere. Not sure such details are appropriate for this doc."
+      },
+      {
+        "user": "xemul",
+        "path": "src/rpc/rpc.cc",
+        "line": 562,
+        "body": "Why is `drained` needed? It looks like `std::exchange(_outgoing_queue_ready, make_ready_future<>())` would work just as good"
+      },
+      {
+        "user": "xemul",
+        "path": "include/seastar/rpc/rpc.hh",
+        "line": 307,
+        "body": "It looks like `_stream_closing == _sink_closed || _source_closed` , is one more boolean really needed?"
+      },
+      {
+        "user": "bhalevy",
+        "path": "src/rpc/rpc.cc",
+        "line": 562,
+        "body": "AFAIU, `stop_send_loop` waits for `_outgoing_queue_ready` before calling `_connected->write_buf.close()`, so it wants it drained.\r\n"
+      },
+      {
+        "user": "bhalevy",
+        "path": "src/rpc/rpc.cc",
+        "line": 562,
+        "body": "You're right, the barrier isn't needed: send() is refused once the flag is set, and stop_send_loop() is held by _sink_closed_future until this close completes, so nothing else waits for _outgoing_queue_ready from here on. Replaced with a ready future."
+      },
+      {
+        "user": "bhalevy",
+        "path": "include/seastar/rpc/rpc.hh",
+        "line": 307,
+        "body": "Not quite: both default to true and only become false when a sink_impl or source_impl is created on the connection, so that expression is true on every stream connection between negotiation and the application creating its handles, and always true on the server side of a one-directional stream, which never has a sink. Refusing send() there would break the compressor's control frames on those connections. The flag marks one thing only: stream_close() has started closing the write buffer."
+      },
+      {
+        "user": "bhalevy",
+        "path": "doc/rpc-streaming.md",
+        "line": 112,
+        "body": "Trimmed to the contract itself, in the doc and in the sink/source doc comments."
+      },
+      {
+        "user": "xemul",
+        "path": "src/rpc/rpc.cc",
+        "line": 562,
+        "body": "The _connection->write_buf.close() happens in this code after queue is drained and stop_send_loop does\r\n\r\n```\r\nreturn when_all(std::move(_outgoing_queue_ready), std::move(_sink_closed_future)).then([] {\r\n    ... // calls _connection->write_buf.close() if it wasn't closed in stream_close()\r\n});\r\n```"
+      },
+      {
+        "user": "xemul",
+        "path": "include/seastar/rpc/rpc.hh",
+        "line": 307,
+        "body": ":exploding_head: It looks like you're right"
+      }
+    ],
+    "issue": [
+      {
+        "user": "bhalevy",
+        "body": "Changes since the first push, from @michoecho's review:\n\n- **Fix commit:** `stream_close()` now also drains `_outgoing_queue` before closing the write buffer. Setting `_stream_closing` only stops new `send()` calls; an entry `send()` accepted just before the mark could still be queued behind `_outgoing_queue_ready` and would be written into the closed buffer afterwards. `stream_close()` therefore chains on `_outgoing_queue_ready` the way `send()` does, and closes the buffer only once that resolves, i.e. once the last accepted entry has been written and flushed into the batch the close then covers. The commit message explains why setting `_error` early instead does not work.\n- **Test commit:** dropped the Scylla-specific remarks from the comments.\n- **Cover letter:** dropped the backport line; the targets live in the tracking ticket.\n\nVerification, `build/debug` (ASan, UBSan, vptr): full `rpc_test` passes on 1 and 2 shards; the new test passes 3/3 on 2 shards.\n"
+      },
+      {
+        "user": "michoecho",
+        "body": "One more thing:\r\n\r\n> Refs https://scylladb.atlassian.net/browse/CUSTOMER-666\r\n> Refs https://scylladb.atlassian.net/browse/CUSTOMER-678\r\n> Refs https://scylladb.atlassian.net/browse/SCYLLADB-4034\r\n\r\nThat's also Scylla-specific. Unless it changed, the usual convention was to put such links on the Scylla PR which updates the Seastar submodule."
+      },
+      {
+        "user": "bhalevy",
+        "body": "> One more thing:\r\n> \r\n> > Refs [scylladb.atlassian.net/browse/CUSTOMER-666](https://scylladb.atlassian.net/browse/CUSTOMER-666)\r\n> > Refs [scylladb.atlassian.net/browse/CUSTOMER-678](https://scylladb.atlassian.net/browse/CUSTOMER-678)\r\n> > Refs [scylladb.atlassian.net/browse/SCYLLADB-4034](https://scylladb.atlassian.net/browse/SCYLLADB-4034)\r\n> \r\n> That's also Scylla-specific. Unless it changed, the usual convention was to put such links on the Scylla PR which updates the Seastar submodule.\r\n\r\nI wish the integration of seastar and Jira would work better.\r\nI added those references to help track the seastar changes and make sure the Jira tickets are updated (manually) as the seastar fix reaches the right branches and the seastar submodule is updated in the respective scylla branches."
+      },
+      {
+        "user": "bhalevy",
+        "body": "Changes since the previous push, from review:\n\n- **Fix commit:** dropped the barrier promise in `stream_close()`. `_outgoing_queue_ready` is simply exchanged for a ready future and the old one is waited for before the write buffer is closed; nothing else waits for it from there on, since `send()` is refused and `stop_send_loop()` is held by `_sink_closed_future`. Comment and commit message reworded to match.\n- **Doc commit:** trimmed \"Closing a stream\" and the `rpc::sink`/`rpc::source` doc comments to the contract itself, without implementation details.\n\nVerification, `build/debug` (ASan, UBSan, vptr): `test_stream_send_after_stream_close` passes; full `rpc_test` passes on 2 shards.\n"
+      },
+      {
+        "user": "bhalevy",
+        "body": "@xemul can you please create scylla-seastar/branch-2026.3 and backport this fix to scylla-seastar/branch-2026.{2,1} and 2025.1?"
+      },
+      {
+        "user": "mykaul",
+        "body": "@bhalevy - https://github.com/scylladb/seastar/pull/3669 failed CI on test_stream_send_after_stream_close in tests/unit/rpc_test.cc . I think it has nothing to do with RPC, just exposes flakiness in the new test."
+      },
+      {
+        "user": "bhalevy",
+        "body": "https://github.com/scylladb/seastar/pull/3670 fixes flakiness in `test_stream_send_after_stream_close` that was added here."
+      }
+    ],
+    "reviews": [
+      {
+        "user": "michoecho",
+        "state": "CHANGES_REQUESTED",
+        "body": ""
+      },
+      {
+        "user": "michoecho",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "bhalevy",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "bhalevy",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "bhalevy",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "michoecho",
+        "state": "APPROVED",
+        "body": "The revised version looks okay to me.\r\n\r\nCan't say it's making the synchronization rules of `connection` any easier to comprehend, though.\r\n\r\n(Aside: this `_outgoing_queue` dance, for example, seems to be begging for some queue abstraction, in which you could call `enqueue` and `drain`, instead of the manual promise juggling. Not in this patch, though)."
+      },
+      {
+        "user": "gleb-cloudius",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "gleb-cloudius",
+        "state": "APPROVED",
+        "body": ""
+      },
+      {
+        "user": "xemul",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "xemul",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "bhalevy",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "bhalevy",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "bhalevy",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "bhalevy",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "xemul",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "xemul",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "xemul",
+        "state": "APPROVED",
+        "body": ""
+      }
+    ]
+  },
+  "author": "bhalevy"
+}

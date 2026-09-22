@@ -1,0 +1,125 @@
+{
+  "target": "quillstone",
+  "tool": "rafp-detailed",
+  "label": "review-and-fix-pr (review only, detailedReview)",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Keyspace-setup failure logged only at debug level once pool has any connection, hiding persistent USE failures",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The diff replaces a warn! log for a failed keyspace USE with debug!, so when the pool still holds at least one connection a persistently failing USE produces no user-visible signal while the pool never fills and keeps opening/dropping connections; the reviewer reproduced this with a proxy that always errors the QUERY.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1866,
+      "title": "initial_shard_info in new resharding test is dead code that misleads readers about what the test exercises",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The test builds initial_shard_info and passes it to start_simulated_node, then immediately overwrites the node's rules with an empty SUPPORTED map before any connection opens, so the value has no effect and misleadingly implies the first connection reports sharding when the test actually covers the no-shard-info case; mutating the value to arbitrary shard numbers still passes.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1283,
+      "title": "Failed pool-level USE leaves pooled connections serving the old keyspace while pool believes they're on the new one",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "PoolRefiller::use_keyspace sets current_keyspace before issuing anything and never removes or retries a connection whose USE failed with a non-broken-connection error, so the pool keeps publishing a connection on the old keyspace while believing it is on the new one, causing unqualified statements to silently hit the wrong keyspace; this is a pre-existing gap the PR closes only for new connections.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 693,
+      "title": "total_connections metric never decremented when PoolRefiller::run tears down via bare return",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "run() bare-returns when the use-keyspace channel closes (node removed or host-filtered); conns and excess_connections are dropped with no decrement and there is no impl Drop for PoolRefiller, so the session-scoped Metrics gauge stays inflated for the session's life, contradicting the PR's own stated acceptance criterion that metrics return to balanced after pools are cleared.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 993,
+      "title": "Discarded shard-aware connection in the else-if branch leaks the total_connections metric",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "In the branch where evt.requested_shard.is_some(), the connection is dropped and start_opening_connection(None) is called with no dec_total_connections() call, the same imbalance class the PR fixes elsewhere but left out in this sibling branch; reproduced with the metric reading 2 where 1 is correct.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/client/session_builder.rs",
+      "line": 114,
+      "title": "Broken intra-doc link to ClientRoutesConfig",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The doc comment references [`ClientRoutesConfig`] which is not in scope (it lives in crate::client::client_routes), causing cargo doc --all-features to emit an unresolved-link warning; file is untouched by this PR.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Possible gap: guards added by the diff (decrements, keyspace-arm handling, reorder) untested",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Reviewers mutation-tested every guard the diff adds (run-loop excess decrement, maybe_reshard decrement, excess-limit decrement, keyspace-arm dec_total_connections, reorder of keyspace check ahead of maybe_reshard) and found each deletion makes at least one new test fail, so nothing added is untested.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Possible double-decrement of total_connections between maybe_reshard and remove_connection",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Suspected double-decrement between maybe_reshard and remove_connection was checked and ruled out because Arc::ptr_eq prevents it.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "New ConnectionError variant could break existing callers via exhaustive matches",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Checked whether the new ConnectionError variant breaks callers; ruled out because the enum is #[non_exhaustive], there is no exhaustive in-crate match, and enum size is unchanged at 112 bytes.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Reorder of keyspace check ahead of maybe_reshard could degrade shard-aware filling",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Checked whether reordering the keyspace check ahead of maybe_reshard degrades shard-aware filling; ruled out because is_filling() stays true across the USE round-trip.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Reorder could take down the control connection",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Checked whether the reorder affects the control connection; ruled out because the control connection bypasses pools entirely.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Suspected race in full_pool_clears_excess_connections_and_balances_metrics test",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "A suspected race in full_pool_clears_excess_connections_and_balances_metrics was checked via 55 stress runs with zero failures, ruling it out.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "excess_connections term of the maybe_reshard decrement lacks direct test coverage",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The run recorded an open follow-up to cover the excess_connections term of the maybe_reshard decrement, implying it is not currently directly tested.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null
+}

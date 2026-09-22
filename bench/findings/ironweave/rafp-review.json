@@ -1,0 +1,71 @@
+{
+  "target": "ironweave",
+  "tool": "rafp-review",
+  "label": "review-and-fix-pr (review only)",
+  "findings": [
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "title": "Regression test swallows expected closed_error instead of asserting it",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The new test calls the captured send_empty_frame hook inside a try/catch that silently swallows rpc::closed_error, so the PR's added contract (send() fails once stream_close() has begun) is never actually asserted; the test would pass even if send() silently dropped the frame instead of throwing.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Possible hang from stream_close() blocking on drained _outgoing_queue_ready before stop()",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "Candidate risk that stream_close() could hang waiting on the drained _outgoing_queue_ready before stop() runs; withdrawn after tracing all callers showed close_sink()'s early-exit paths both imply con->error(), so stream_close() returns at if (!error()), and withdraw()/failed send_entry() both resolve the tail promise.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "stop_send_loop() could tear down mid-write if stream_close() swaps in a ready future",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "Candidate risk that stop_send_loop() tears down mid-write because stream_close() swapped in a ready future; withdrawn because it waits on when_all(_outgoing_queue_ready, _sink_closed_future) and _sink_closed_future is only resolved in the finally block after write_buf.close().",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "client_factory.hooks.back() could race the parent connection's negotiation",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Candidate race between client_factory.hooks.back() and the parent connection's negotiation; withdrawn as deterministic because make_stream_sink() awaits the parent's await_connection(), which resolves only after set_negotiated().",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "send_empty_frame contract comment missing a \"may fail\" note",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "Candidate finding that the send_empty_frame contract comment lacks a note that it may fail; withdrawn because that failure mode pre-dates the PR and the PR only widens an existing window.",
+      "selfRejected": true
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "New test handler captures server_done/st by reference despite possible cross-shard execution",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The new handler captures server_done and st by reference while register_handler installs on every shard and next_shard() round-robins, so under --smp 2 the handler could run on a foreign shard; noted as a pre-existing idiom elsewhere in the file (stream_test_func at rpc_test.cc:548) and left uninvestigated as out of scope.",
+      "selfRejected": true
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 558,
+      "title": "Comment claiming _outgoing_queue_ready is exceptional on entry failure is inaccurate",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment stating '_outgoing_queue_ready is exceptional if an entry failed' is inaccurate: a failed send_entry() calls abort() and then still calls p->done.set_value() (rpc.cc:333-338), so entry failure resolves the chain normally; flagged as wording-only and harmless, and left out of scope/uninvestigated for a verdict.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null
+}

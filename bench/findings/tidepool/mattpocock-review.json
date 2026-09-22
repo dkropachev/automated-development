@@ -1,0 +1,143 @@
+{
+  "target": "tidepool",
+  "tool": "mattpocock-review",
+  "label": "Matt Pocock code-review",
+  "findings": [
+    {
+      "file": "",
+      "line": 0,
+      "title": "CHANGELOG.md not updated for bugfix commits with user-visible behavior change",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "Both commits are bugfixes with user-visible behaviour change and neither touches a changelog, per CONTRIBUTING.md's checklist; however CHANGELOG.md doesn't exist in this fork, so repo practice has already retired the rule.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 280,
+      "title": "Functional change to getCassandraLongType lacks godoc per CONTRIBUTING checklist",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "helpers.go:280-284 changes what getCassandraLongType returns for an unrecognised basic type, which leaks into every TypeInfo consumer's String()/error text, but has no godoc; deemed acceptable since it's unexported and has an inline comment explaining why.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit messages don't follow CONTRIBUTING.md's capitalized subject + Patch-by/reviewed-by trailer format",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "CONTRIBUTING.md documents a capitalized short description plus a 'Patch by …; reviewed by …' trailer, but these commits use lowercase conventional-commit subjects with no such trailer; not a violation since every commit on main does the same.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commits and PR body carry Claude attribution trailers violating the user's global no-attribution rule",
+      "severity": "medium",
+      "kind": "style",
+      "claim": "Both commits carry a Co-Authored-By: Claude Opus 5 trailer and the PR body ends with a '🤖 Generated with Claude Code' line; the user's global rule forbids both, so they should be stripped.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 996,
+      "title": "Duplicated 'if info.Dimensions > 0 && data != nil' guard with different bodies",
+      "severity": "low",
+      "kind": "design",
+      "claim": "marshal.go:996 and marshal.go:1005 both contain 'if info.Dimensions > 0 && data != nil {' back to back with different bodies and separate explanatory comments; folding them would cost the ordering argument, so it's defensible, but the repetition is the first thing a reader trips on.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1121,
+      "title": "vectorElemMinSize is a third function branching on vector element type",
+      "severity": "low",
+      "kind": "design",
+      "claim": "vectorElemMinSize branches on vector element type like vectorFixedElemSize and isVectorVariableLengthType, and calls both plus its own type assertion, so a new element type must be added in three places; consistent with existing file style, so low priority.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1134,
+      "title": "math.MaxInt32 saturation sentinel returned as plain int with no type distinction",
+      "severity": "nit",
+      "kind": "design",
+      "claim": "return math.MaxInt32 at marshal.go:1134 is a saturation sentinel returned as a plain int size; only the comment distinguishes 'huge' from 'measured'.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1132,
+      "title": "Zero or negative inner vector dimension defeats the allocation bound, restoring 24x amplification",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "vectorElemMinSize only adds the nested vector's size when vec.Dimensions > 0 and otherwise floors at 1; for vector<vector<float,0>,N> (or a negative inner dimension), elemMin is 1, the bound at marshal.go:997-1001 permits N == len(data), and reflect.MakeSlice takes the peer's whole count — confirmed empirically at 24.0x amplification (25,175,696 bytes for a 1 MiB payload), defeating the PR's headline claim.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 280,
+      "title": "getCassandraLongType naming fix doesn't cover nested-vector element type in error messages",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "helpers.go:280-284 only fixes the unknown-basic-type case; the inner VectorType still carries the bare custom name and has no String(), so the nested-vector error path prints 'no Go type for element type custom(...VectorType)' without element type or dimensions, and the new test only checks the message prefix so it doesn't catch this.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR's claim that every new test fails against pristine code is overstated",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Replaying the new test file onto main shows TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType both pass on main, and TestVectorElemMinSize doesn't compile there; only three of five tests actually fail as claimed.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 991,
+      "title": "info.Dimensions < 0 check added but undeclared in PR's Scope-In bullets",
+      "severity": "nit",
+      "kind": "design",
+      "claim": "The info.Dimensions < 0 check at marshal.go:991 is not covered by any Scope-In bullet in the spec, which defers dim < 1 handling to issue #1093; defensible since it avoids a MakeSlice negative-len panic, but it's undeclared scope creep.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Bound placement relative to Dimensions consumers checked for wrap-around",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The bound was checked to precede every Dimensions consumer in unmarshalVector, including both float fast paths, making Dimensions*8/*4 non-wrapping.",
+      "selfRejected": true
+    },
+    {
+      "file": "helpers.go",
+      "line": 55,
+      "title": "getCassandraLongType return-type change confirmed naming-only, no behavioral impact",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The helpers.go return-type change was checked and found to be naming-only: NewCustomType returns the same concrete NativeType, and Custom() is read in exactly two places, both requiring a VectorType( prefix the new branch can never produce because helpers.go:261 matches first.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 1121,
+      "title": "vectorElemMinSize saturation arithmetic and division checked for panic risk",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "vectorElemMinSize's saturation arithmetic was checked and found sound; per is always >= 1, so the division cannot panic.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Full test suite passes aside from pre-existing unrelated TLS certificate failures",
+      "severity": "nit",
+      "kind": "test-gap",
+      "claim": "Full -tags unit suite passes apart from pre-existing TLS failures ('Failed parsing or appending certs') because testdata/pki/generate_certs.sh was never run in this checkout; unrelated to the diff.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null
+}

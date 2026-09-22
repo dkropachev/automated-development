@@ -1,0 +1,143 @@
+{
+  "target": "ironweave",
+  "tool": "superpowers-review",
+  "label": "Superpowers requesting-code-review",
+  "findings": [
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "title": "Server compressor factory mutated cross-shard, causing unsynchronized UB",
+      "severity": "blocker",
+      "kind": "bug",
+      "claim": "server_factory lives on shard 0 but loopback_socket_impl::connect round-robins server connections, so at default --smp 2 the stream connection's negotiate() runs const_cast<...>(this)->hooks.push_back(...) on shard 1 against a shard-0 vector — unsynchronized mutation with a buffer allocated by shard 1's allocator and freed by shard 0, which is UB that ASan/UBSan won't catch.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "title": "Test hardcodes hooks.size()==2/hooks.back() ordering and captures auto& into growing vector",
+      "severity": "blocker",
+      "kind": "bug",
+      "claim": "hooks.size() == 2 plus hooks.back() hardcodes loopback's shard/ordering policy, and capturing auto& into a growing std::vector is invalidated by any later negotiation.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commits and PR body carry Claude authorship trailers/attribution lines",
+      "severity": "blocker",
+      "kind": "docs",
+      "claim": "All three commits carry Co-Authored-By: Claude trailers (4 lines across f545c28a, 5e25ebdb, 69da8f5b), and the PR body has the \"🤖 Generated with Claude Code\" line; both should be stripped.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "title": "put(std::span<temporary_buffer<char>>) override breaks builds at --api-level=7|8",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The put(std::span<temporary_buffer<char>>) override only exists at SEASTAR_API_LEVEL >= 9 (guarded by an #if in loopback_socket.hh:144), which breaks --api-level=7|8 even though CMakeLists.txt:72 still accepts those levels.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "title": "Test never asserts the send was refused; success case is silently swallowed",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test never asserts the send was refused; catch (closed_error&) {} swallows the success case too, so a regression that accepted-and-dropped the frame would still pass. The throw should be asserted.",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 318,
+      "title": "Commit documents sink/source but omits send_empty_frame",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Commit 3 documents sink and source but not send_empty_frame, the one API whose failure mode this PR widens.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 550,
+      "title": "Re-entry into stream_close() guarded only by error(), not by _stream_closing",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Re-entry into stream_close() is guarded only by error(), which is false for the whole new await; reachability is low (needs source::make_sink() re-open) and the issue is pre-existing, but adding !error() && !_stream_closing is free.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "Drain wait is unbounded and its comment doesn't name what breaks it",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The drain wait is unbounded; the comment would be more useful naming what breaks it (stop_send_loop's shutdown_output) rather than only who no longer waits. Not a regression.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "title": "Inner lambda parameter f shadows outer auto f",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The inner lambda param f shadows the auto f from line 549, in the statement assigning the outer one.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 106,
+      "title": "Doc overstates that both halves of a stream must always be closed",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "\"Both halves of a stream must be closed\" overstates it; with no returned sink, _source_closed is true from construction (rpc.hh:301), so the doc should say \"each half you were given\".",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1895,
+      "title": "buffer_size() hardcodes 8192",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "buffer_size() hardcodes the value 8192.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1946,
+      "title": "Ternary data.size ? ... : snd_buf(...) is a no-op copied from a neighbour",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The data.size ? … : snd_buf(...) ternary is a no-op that appears to have been copied from a neighbouring test.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2022,
+      "title": "for (i < 10) yield() loop uses an unexplained magic constant",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The for (i < 10) yield() loop uses a magic constant of 10.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "New comments use two spaces after a full stop, inconsistent with rest of file",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "New comments use two spaces after a full stop; both files use one space everywhere else.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 0,
+      "title": "stream_close() could previously close output_stream while a queued send_entry() was mid-write/flush",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The drain wait added by this PR incidentally removes a second, previously unclaimed bug: stream_close() could close the output_stream while a queued send_entry() was mid-write()/flush() on it.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null
+}

@@ -1,0 +1,80 @@
+{
+  "target": "quillstone",
+  "tool": "tob-rust-review",
+  "label": "Trail of Bits rust-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1006,
+      "title": "Excess shard-aware connection dropped without dec_total_connections()",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "In the else-if arm for a requested shard, the owned connection is dropped without decrementing total_connections even though it was counted at open, permanently inflating the metric on every shard-aware connection landing on a full bucket; this is an incomplete fix compared to the three other drop sites balanced in commit de164845.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 697,
+      "title": "Pool teardown on keyspace-channel close leaks the entire total_connections count",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "When the keyspace-request channel closes and run() returns, PoolRefiller and all its Arc<Connection> entries are dropped with no decrement and no Drop impl, permanently inflating the gauge by the pool's size on every node removal or session drop; the new test drives this path but asserts before it, so it doesn't catch it.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1341,
+      "title": "Untimed use_keyspace await in start_setting_keyspace_for_connection can wedge the refiller",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "This await has no timeout (unlike the sibling PoolRefiller::use_keyspace, which wraps its USE in tokio::time::timeout), so a server that accepts the connection but never answers USE leaves the future pending forever, permanently stopping all refills for that node; the PR adds an explicit-failure path but doesn't close this silent-stall path.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 915,
+      "title": "Sharder/shard-aware-port learning now deferred behind USE success",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Hoisting the keyspace check above the sharding block means self.sharder and self.shard_aware_port are no longer updated until USE succeeds, so while USE keeps failing the refiller never learns the node is sharded and keeps dialing the non-shard-aware port; the PR's own test suggests this is intended but the PR description doesn't mention this delay.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "title": "New tests omit setup_tracing() used by every other test in the module",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The two new tests (at :1474 and :1526) don't call setup_tracing() like every other test in the module, so their tracing output is lost on failure.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "title": "decrement_total_connections loops fetch_sub(1) instead of a single fetch_sub(count)",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "dec_total_connections() is called in a for loop over count instead of one fetch_sub(count) call; correct but does N atomic RMWs where one would suffice.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 683,
+      "title": "Pointer logging via {:p} flagged as MEDIUM by pipeline, judged not a real issue",
+      "severity": "low",
+      "kind": "security",
+      "claim": "The automated pipeline rated PTREXPOSE-001/002/003 (pointer logging at :683, :981, :1247) as MEDIUM, but the reviewer disagrees, noting these are pre-existing Arc::as_ptr traces at debug/trace level, conventional in this driver and untouched by the PR; the judge's rationale for PTREXPOSE-003 is also factually wrong since the new UseKeyspaceError branch does not call remove_connection.",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/errors.rs",
+      "line": 574,
+      "title": "No finding in errors.rs: new ConnectionError variant is semver-safe",
+      "severity": "low",
+      "kind": "design",
+      "claim": "ConnectionError is #[non_exhaustive], so the added variant is semver-minor, and #[from] UseKeyspaceError doesn't collide with existing impls — reviewer checked and found no issue.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null
+}

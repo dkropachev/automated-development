@@ -1,0 +1,129 @@
+{
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "tool": "ce-code-review",
+  "label": "Compound Engineering ce-code-review",
+  "source": "compound-engineering@compound-engineering-plugin",
+  "prompt": "/compound-engineering:ce-code-review https://github.com/dkropachev/quillstone/pull/1\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 1974552,
+  "reportedCostUsd": 14.827542300000005,
+  "reportedUsage": {
+    "input_tokens": 104,
+    "cache_creation_input_tokens": 207745,
+    "cache_read_input_tokens": 5844403,
+    "output_tokens": 56208,
+    "output_tokens_details": {
+      "thinking_tokens": 15095
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 207745,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 6691,
+        "cache_read_input_tokens": 207581,
+        "cache_creation_input_tokens": 10752,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 10752
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 226,
+      "outputTokens": 125707,
+      "cacheReadInputTokens": 10135295,
+      "cacheCreationInputTokens": 504139,
+      "webSearchRequests": 0,
+      "costUSD": 12.141364999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 46772,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-sonnet-5": {
+      "inputTokens": 144,
+      "outputTokens": 83124,
+      "cacheReadInputTokens": 4939134,
+      "cacheCreationInputTokens": 346729,
+      "webSearchRequests": 0,
+      "costUSD": 2.6861773,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 54402,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 63,
+  "subagentStats": {
+    "spawned": 7,
+    "requested": {
+      "background": 0,
+      "foreground": 7,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 7,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "general-purpose": 7
+    }
+  },
+  "sessionId": "2c554219-f9a1-4714-9769-96ac5dc93498",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 736,
+    "output": 472513,
+    "thinking": 274475,
+    "cacheRead": 30543751,
+    "cacheCreation": 1696598,
+    "costUsd": 27.981038500000007,
+    "sessions": 13,
+    "models": {
+      "claude-opus-5[1m]": 20.542922999999995,
+      "claude-sonnet-5": 7.4381155
+    },
+    "rawMessages": 780,
+    "rawOutput": 655892,
+    "rawCacheRead": 59758417,
+    "subagentTranscripts": 13,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-quillstone-runs-ce-code-review-repo",
+    "total": 32713598
+  },
+  "result": "## Code Review Results\n\n**Scope:** PR #1 (dkropachev/quillstone), `fix/keyspace-setup-failure` -> `main`; merge-base `ec500386` to head `617139df` -- 2 files, 491 executable changed lines\n**Intent:** A failed `USE <keyspace>` on a newly opened connection becomes a distinct setup outcome (`ConnectionSetupError::Keyspace`): the connection is dropped, `total_connections` is decremented, `had_error_since_last_refill` is set, the error is surfaced through `shared_conns` when the pool is empty, and the pool refills instead of publishing a connection on the wrong keyspace. The keyspace check moved ahead of sharder adoption/resharding, a public `ConnectionError::UseKeyspaceError` variant was added, and `total_connections` is now decremented wherever the pool bulk-clears connections.\n**Mode:** markdown report-only (read-only review -- nothing was edited, committed, or posted to the PR)\n\n**Reviewers:** correctness, testing, reliability, maintainability, api-contract, adversarial-codex (cross-model)\n- testing -- the diff adds ~470 lines of new tests around a behavior change, and one test drives a live refiller task\n- reliability -- the change is error handling plus refill/backoff behavior on a connection pool\n- maintainability -- 491 executable changed lines introducing a new error type and restructuring the ready-connection handler\n- api-contract -- a new variant on the published crate's public `ConnectionError` enum\n- adversarial-codex -- independent cross-model pass (`independence_verified: true`)\n\n### Findings\n\n**No finding survived into the actionable set, and no finding blocks this PR.** That is a result, not an absence of review: seven candidates were raised across the six lenses and reconciled in Stage 5.\n\n| Disposition | Count | Where it is reported |\n|-------------|-------|----------------------|\n| Rejected (disproven or preference without consequence) | 2 (retired `#1`, `#2`) | Coverage -> Rejected candidates |\n| Demoted to residual risks (real, but single-reviewer maintainability with no violated contract and no user-facing defect) | 3 (retired `#3`, `#4`, `#5`) | Coverage -> Demoted candidates |\n| Reclassified pre-existing against the base blob `ec500386` | 2 (`#6`, `#7`) | Pre-existing Issues |\n| Remaining primary / actionable | 0 | -- |\n\nBecause the primary set was empty, Stage 5b selected nothing and no validator batch was launched (`validator-outcome.json`: `empty-batch`). Retired numbers `#1`-`#5` are not reused. No severity sections appear below because no finding carries a current severity against this change.\n\n### Actionable Findings\n\nActionable findings: none. The actionable queue (`gated_auto` / `manual` owned by `downstream-resolver`) is empty. `#7` below is a pre-existing item with a concrete fix the author may take at their discretion; it is reported outside the queue because it does not count toward this PR's verdict.\n\n### Pre-existing Issues\n\nBoth entries were filed by their reviewers as new and were moved to pre-existing by synthesis after comparing against `git show ec500386:scylla/src/network/connection_pool.rs`. They do not count toward the verdict.\n\n| # | Severity | File:line | Issue | Reviewer |\n|---|----------|-----------|-------|----------|\n| 6 | P1 | `scylla/src/network/connection_pool.rs:1343` | Silent USE response stalls pool refill forever | adversarial-codex |\n| 7 | P2 | `scylla/src/network/connection_pool.rs:1006` | Shard-aware miss drops connection without decrementing `total_connections` | correctness |\n\n- **#6 -- why it is wrong:** `connection.use_keyspace(&keyspace_name).await` has no timeout (the `// TODO: There should be a timeout for this` comment above it is untouched by this diff). A node that accepts TCP but never answers `USE` leaves that future pending inside `ready_connections` forever. `is_filling()` is `!ready_connections.is_empty()` and `need_filling()` is `!is_filling() && !is_full()`, so one stuck `USE` keeps `is_filling()` true indefinitely, no further refill is ever scheduled, and the host pool can stay empty or underfilled for the life of the session. **Pre-existing basis:** the base blob carries the identical un-timed `.await` under the identical TODO (base lines 1317-1322), and `is_filling()`/`need_filling()` have no hunk in this diff; the diff changes only the error mapping applied once the future resolves, never whether or when it resolves. **Response:** a design call for a human -- wrap the `use_keyspace` call in `tokio::time::timeout` with the configured connection timeout, map expiry to `UseKeyspaceError::RequestTimeout`, and let the new failure arm drop the connection and schedule the refill. Confidence 75, single-source (cross-model peer); the reliability lens independently judged the same mechanism pre-existing, which is what settled the classification.\n- **#7 -- why it is wrong:** in `handle_ready_connection`'s `} else if evt.requested_shard.is_some() {` branch, the `connection` moved out of `Ok((connection, error_receiver))` is neither stored in `self.conns` nor in `self.excess_connections`, so it is dropped at the end of the arm -- but `count_in_metrics` already called `inc_total_connections()` when it opened. `dec_total_connections` is a plain `AtomicU64` running balance, so each shard-aware-port miss leaks one count and `Metrics::get_total_connections()` drifts monotonically upward (notably on any node behind a NAT that rewrites source ports). **Pre-existing basis:** that branch is byte-identical in base and head (base lines 979-993), had no decrement in base either, and the diff neither changes how often it is reached nor what it does -- the leak rate is unchanged. It is worth noting precisely because this PR balances the counter at the four other discard sites and leaves the fifth unbalanced. **Response:** mechanical -- add `self.metrics.dec_total_connections();` immediately before `self.start_opening_connection(None);` at `connection_pool.rs:994-1006`, mirroring the new Keyspace arm at line 900. Confidence 75, single reviewer (correctness). Provenance: `b176bbeb` Piotr Dulikowski 2021-06-29.\n\n### Coverage\n\n**Rejected candidates (2)** -- recorded in `synthesized-findings.json` under `rejected_candidates`; neither was recycled into residual risks.\n\n| Retired # | Severity as filed | File:line | Claim | Why it was rejected |\n|-----------|-------------------|-----------|-------|---------------------|\n| 1 | P1 (testing) | `scylla/src/network/connection_pool.rs:1866` | New `total_connections` regression tests are needlessly gated behind the `metrics` feature | Disproven on inspection. `observability/mod.rs:15-19` swaps `metrics.rs` for `metrics_noop.rs` when the feature is off, `default = []` in `scylla/Cargo.toml` leaves it off, and `metrics_noop.rs` has no `get_total_connections` at all. Ungating the tests would break the default-feature build. |\n| 2 | P2 (maintainability) | `scylla/src/network/connection_pool.rs:1443` | `connection_pool.rs` is already over 1000 lines and gains ~415 more, unsplit | Preference without an established consequence. By the finding's own measurement the growth is ~388 lines of `#[cfg(test)] mod tests` against ~27 lines of production code; no defect, contract violation, or concrete maintenance cost was shown, and no standards file governs any changed path. |\n\n**Demoted candidates -> residual risks (3)** -- each is real and verified and carries a suggested fix, but none quotes a violated contract or proves a user-facing defect, so Stage 5 step 4 routes them out of the primary set. Informational; act on them at your discretion.\n\n| Retired # | Severity | File:line | Issue | Why it is wrong (and why it is only advisory) |\n|-----------|----------|-----------|-------|-----------------------------------------------|\n| 3 | P2 (recalibrated from P1) | `scylla/src/network/connection_pool.rs:1418` | Private `ConnectionSetupError` enum duplicates `ConnectionError::UseKeyspaceError` | The new private `enum ConnectionSetupError { Connection(ConnectionError), Keyspace(UseKeyspaceError) }` overlaps the public `ConnectionError::UseKeyspaceError(#[from] UseKeyspaceError)` this same PR adds at `errors.rs:600-602`; a nested `Err(ConnectionError::UseKeyspaceError(err))` arm placed ahead of the catch-all would carry both cases and the private enum could be deleted. No runtime defect and no broken contract -- `ConnectionError` is `#[non_exhaustive]` (`errors.rs:574`), so the added variant is not a breaking change. |\n| 4 | P3 (recalibrated from P1) | `scylla/src/network/connection_pool.rs:1855` | New test helper `unrequested_connection_event` duplicates `shard_aware_attempt_result` | The new helper has the same body as the pre-existing `shard_aware_attempt_result` (`connection_pool.rs:2018-2032`) except for `requested_shard`; generalizing the existing helper to take `requested_shard: Option<RequestedShard>` removes the copy. ~10 duplicated lines inside `#[cfg(test)] mod tests`, no production impact. |\n| 5 | P3 (recalibrated from P2) | `scylla/src/network/connection_pool.rs:1360` | `decrement_total_connections` loops single atomic decrements instead of one bulk subtract | The helper issues one relaxed `fetch_sub(1)` per connection where a single `fetch_sub(count)` would do. Counts are bounded by the excess-connection limit and the gauge is already `Ordering::Relaxed`, so the only observable difference is a transient intermediate value on a relaxed counter. |\n\n**Run facts**\n\n- Candidates: 7 entered Stage 5 (6 from the local roster, 1 from the cross-model peer). Primary after Stage 5 step 4: 0. Pre-existing: 2. Rejected: 2. Demoted to soft buckets: 3.\n- Validator (Stage 5b): no finding was selected -- the primary set was empty, so the batch was empty and no validator was launched; confirmed 0, rejected 0, unresolved 0, malformed 0, failed 0, shortcut-skipped 0. No P0/P1 is carrying degraded validation, and no protected-subject reclassification was needed.\n- Suppressed by confidence: 0 at anchor 50, 0 at anchor 25. `first_evidence_backfilled`: 0. Quote-the-line demotions of 75/100 findings for missing `first_evidence`: 0. Malformed findings: 0; malformed reviewer returns: 0.\n- Adversarial lens: independent cross-model pass via route codex; model_requested gpt-5.6-luna, effort_requested xhigh, receipt_supported false, model_actual unverified, effort_actual unverified, independence_verified true. Returned 1 finding.\n- Cross-model disagreement resolved: the peer filed the missing `USE` timeout as new while the reliability reviewer judged the same mechanism pre-existing. Synthesis resolved it against the base blob `ec500386`, which carries the same un-timed `.await` and the same TODO, and reclassified it pre-existing (`#6`).\n- Scope: local-aligned (PR #1; local tree diff against merge-base `ec500386`). No untracked files were excluded.\n- **The reviewed range contains four commits, not two.** Two of them implement and test the `total_connections` metric balancing on pool clears (`de164845` and `0d91aa54`); the other two implement and test the keyspace-setup-failure discard, and the PR description covers only that second pair. The metric-balancing work is in scope for this review but undescribed in the PR body -- a reader of the PR description alone will not know it is there.\n- Project standards: not run (no `CODING_STANDARDS.md`, `CLAUDE.md`, or `AGENTS.md` governs any changed path). Learnings: not run (no `docs/solutions/` corpus and no declared Compound Packs). No plan was discovered, so settlement suppression was not evaluated and no Requirements Completeness check applies.\n- Not assessed: learnings, agent-native, deployment, data-migration, security, performance, and previous-comments lenses were not selected.\n- Removable surface line omitted: the three deletion-oriented maintainability items left the primary set, so no deletion-oriented finding remains.\n\n**Residual risks** (beyond the three demoted candidates above)\n\n- Availability behavior change not spelled out in the PR body: a permanent `USE KEYSPACE` failure (keyspace dropped or renamed mid-session) now prevents the pool from filling and publishes `MaybePoolConnections::Broken`, so the node reads as unreachable rather than degraded. Previously the connection was published with the wrong keyspace. This is the PR's intended trade-off, but it is a user-visible change with no discoverable note -- the rustdoc on the new variant explains the error, not that it replaces a prior silent-success path. The repo has no per-PR CHANGELOG, so the PR's \"user documentation changes are not needed\" claim is consistent with repo convention.\n- `Metrics::dec_total_connections` (`scylla/src/observability/metrics.rs:342`) is a wrapping `AtomicU64` `fetch_sub` with no saturation. This PR adds four new decrement sites, two of which decrement by a computed count; a future off-by-one there underflows the gauge to ~1.8e19 instead of clamping at 0.\n- Sharder adoption, `maybe_reshard`, and shard-aware-port discovery now run only after a successful `USE`, so while `USE` keeps failing the refiller keeps a stale sharder and a stale shard-aware port. The added test asserts `refiller.sharder.is_none()` after the failure, so this reads as deliberate; the reordering's interaction with concurrent resharding was reviewed and no defect was found.\n- The three new bulk-clear decrement sites were checked against `remove_connection`'s own decrement for double-counting under connection death; no double-decrement or missing-decrement path was found. Recorded only because the interaction depends on `Arc` lifetimes in stale `shared_conns` snapshots that this review did not trace exhaustively through call sites outside `connection_pool.rs`.\n- API-surface check was grep-only: `ConnectionError` is `#[non_exhaustive]` and no exhaustive match over its variants was found outside `errors.rs`, but consumers reached through re-exports or from external crates were not resolved with a symbol-aware search.\n- `keyspace_setup_failure_preserves_pool_state` relies on a hand-forged `SET_KEYSPACE` result frame. It was cross-checked against `Connection::verify_use_keyspace_result` and the encoding is consistent, but a future change to RESULT frame parsing would silently desync the fixture from the production wire format with no compile-time signal.\n\n**Testing gaps** (informational; no umbrella coverage finding was warranted)\n\n- `maybe_reshard`'s new `+ self.excess_connections.len()` decrement term (`connection_pool.rs:1113-1115`) is never exercised -- the test reshards with an empty `excess_connections`, so a miscount in the excess half of that sum would pass.\n- The pool-full excess clear in the run loop (`connection_pool.rs:673-676`) has no test; its decrement is only reachable through the full async worker loop, which no unit test drives.\n- No test covers a keyspace failure on a connection opened through the shard-aware port (`requested_shard` `Some` with a live connection) -- the case where the new arm's unconditional `had_error_since_last_refill = true` diverges from the deliberate no-flag policy of the shard-aware `Connection`-error arm.\n- No test exercises a permanently failing `USE` across multiple refill cycles to confirm `refill_delay_strategy.on_fill_error()` actually increases backoff; `keyspace_setup_failure_triggers_refill` checks only that the flag is set after a single failure.\n- No test drives a metric increment through the real `start_opening_connection`/`count_in_metrics` path together with the new decrement sites, so the two halves of the `total_connections` invariant are never exercised end-to-end. This mirrors the existing pattern from `de164845`/`0d91aa54` rather than being introduced here.\n- No end-to-end refiller test where `USE` receives no response (the `#6` hang path); existing tests forge an already-returned keyspace error.\n\n---\n\n### Verdict\n\n> **Verdict:** Ready to merge.\n>\n> **Reasoning:** No P0, P1, P2, or P3 finding stands against this change. Of the seven candidates raised, two were rejected on inspection (one disproven against the crate's feature wiring, one preference without consequence), three were real but are single-reviewer maintainability items with no violated contract and no user-facing defect, and the two remaining -- the missing `USE` timeout (`#6`, P1) and the shard-aware-miss metric leak (`#7`, P2) -- were verified against the base blob `ec500386` as pre-existing and therefore do not count toward this PR. The behavior change is coherent, the new `ConnectionError` variant is additive on a `#[non_exhaustive]` enum, and the regression coverage exercises both the failure and success paths. Validation was not degraded: the validator batch was empty because nothing needed validating, not because a check failed.\n>\n> **Before you merge, two things worth knowing:** the reviewed range carries two commits (`de164845`, `0d91aa54`) implementing and testing the `total_connections` metric balancing that the PR description does not mention at all -- consider describing them or splitting them out. And `#7` is a one-line fix in the same function this PR already touches; taking it here would finish the counter-balancing theme the PR started.\n>\n> **Fix order:** nothing is required. If you take anything: `#7` (one line, mechanical) -> `#6` (needs a timeout design decision, and is a fair follow-up issue rather than PR work) -> retired `#3` (delete the duplicate private enum).\n\n### Actionable Findings (recap)\n\nActionable findings: none.\n\nOptional, reported outside the actionable queue (neither blocks the merge):\n\n| # | Severity | File:line | What | Response type |\n|---|----------|-----------|------|---------------|\n| 7 | P2 (pre-existing) | `scylla/src/network/connection_pool.rs:1006` | Shard-aware miss drops a counted connection without `dec_total_connections()`, so the gauge drifts up | Mechanical -- `suggested_fix` present, confidence 75 |\n| 6 | P1 (pre-existing) | `scylla/src/network/connection_pool.rs:1343` | Un-timed `use_keyspace().await` can stall pool refill forever | Decision for a human -- `suggested_fix` present, confidence 75 |\n\nRun artifacts: `/tmp/compound-engineering-1003/ce-code-review/20260920-204707-2c649152` (`report.md`, `synthesized-findings.json`, `validator-outcome.json`, `metadata.json`).",
+  "stderrTail": "",
+  "finishedAt": "2026-09-21T01:19:17.381Z"
+}

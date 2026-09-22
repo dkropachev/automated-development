@@ -1,0 +1,108 @@
+{
+  "target": "quillstone",
+  "tool": "scoped-detailed",
+  "label": "/scoped-code-review (read-only, --detailed)",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1006,
+      "title": "Excess shard-aware connection discarded without decrementing total_connections",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "In the `else if evt.requested_shard.is_some()` arm of handle_ready_connection, the connection is dropped without ever being decremented, even though count_in_metrics already incremented total_connections when it was opened; this is the same bug class the PR fixed at three other sites but missed here.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 696,
+      "title": "Pool teardown drops conns/excess_connections without decrementing total_connections gauge",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "When NodeConnectionPool is dropped (refiller cancelled via _refiller_handle) or run() returns because the keyspace channel closed, self.conns and self.excess_connections are dropped with no decrement, permanently inflating total_connections when a node is removed or the session is dropped; the new test at :2011 even encodes this leak as expected behavior.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "title": "Keyspace failure logged at debug! instead of warn! despite now being fatal to the connection",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A failed USE previously logged at warn! while the connection kept working; now the connection is discarded and the pool can go Broken, but the failure is only logged at debug!, so an operator sees silent endless reconnection with growing backoff and no explanation above debug level.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/Cargo.toml",
+      "line": 35,
+      "title": "New metrics tests were not compiled or run by the validation commands stated in the PR description",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "default = [] in Cargo.toml and the three new tests are gated behind the metrics feature, but neither the stated `cargo test ... keyspace_setup_failure` nor `cargo check` commands enable metrics, so those tests were neither compiled nor executed by the described validation, even though they do pass with --features metrics.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description covers only 1 of 4 commits in the PR",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Three commits (de164845, 0d91aa54, 617139df) covering metrics balancing on pool clear and their tests are not mentioned in the description or checklist, so a reviewer reading only the description would treat the maybe_reshard/excess-clear metric changes as unexplained drive-by edits.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "title": "decrement_total_connections does N separate fetch_sub(1) calls instead of one atomic fetch_sub(N)",
+      "severity": "nit",
+      "kind": "perf",
+      "claim": "Since total_connections is read concurrently via Metrics::get_total_connections(), a scrape landing mid-loop can observe a value that never corresponded to real state; a single fetch_sub(count) would be atomic and cheaper, requiring a new dec_total_connections_by in metrics.rs and metrics_noop.rs.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1499,
+      "title": "Unit test builds a ConnectionSetupError::Keyspace event shape that production code never emits",
+      "severity": "nit",
+      "kind": "test-gap",
+      "claim": "The real code path always sets keyspace_name: Some(..), but the test pairs Keyspace with keyspace_name: None and also sets requested_shard: Some(..) which the keyspace branch never reads; harmless now but the test wouldn't catch a regression that made the branch depend on either field.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 910,
+      "title": "Sharder discovery deferred by one USE round-trip due to reordering keyspace check ahead of maybe_reshard",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Moving the keyspace check ahead of maybe_reshard means that when current_keyspace is set, the first connection's sharding info and shard-aware port aren't adopted until its USE completes, so the refill immediately following a use_keyspace cannot use the shard-aware port; this is intentional and asserted by a test but worth noting.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Non-transient USE failure now takes the whole node down instead of degrading it, undocumented tradeoff",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Previously a connection with a failed USE still filled the pool, degrading gracefully; now it's discarded so a server-side-dropped keyspace empties every pool, publishes MaybePoolConnections::Broken, and emits ConnectivityChangeEvent::Lost for every node, converting a degraded-but-usable session into a fully-down cluster \u2014 an intended tradeoff that deserves an explicit line in the description.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Possible double-decrement between new decrement_total_connections call sites and remove_connection",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reviewer specifically checked whether the three new decrement_total_connections call sites could double-decrement with remove_connection, and found it cannot happen because remove_connection matches by Arc::ptr_eq and a cleared connection is no longer in conns/excess_connections, so a later wait_for_error event falls through to the already-removed path.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Possible underflow of total_connections counter",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reviewer checked whether total_connections could underflow and found it is not reachable, since every connection in those vectors was inc_total_connections'd by count_in_metrics.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "note": "invoked as /pr-review-fix, which had just been renamed; Claude Code resolved it to the scoped-code-review skill - see the Skill call in the transcript"
+}

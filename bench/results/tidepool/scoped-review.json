@@ -1,0 +1,38 @@
+{
+  "target": "tidepool",
+  "language": "Go",
+  "fork": "dkropachev/tidepool",
+  "pr": 1,
+  "tool": "scoped-review",
+  "label": "/scoped-code-review (read-only)",
+  "source": "user skill",
+  "salvaged": true,
+  "salvagedFrom": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-tidepool-runs-prf-review-repo",
+  "usageCwd": "/extra/dkropachev/automated-development/bench/work/tidepool/runs/prf-review/repo",
+  "exitCode": 0,
+  "isError": false,
+  "reportedCostUsd": 3.5401169999999995,
+  "transcriptUsage": {
+    "input": 72,
+    "output": 41768,
+    "thinking": 31988,
+    "cacheRead": 2820394,
+    "cacheCreation": 108536,
+    "costUsd": 3.5401169999999995,
+    "sessions": 2,
+    "models": {
+      "claude-opus-5[1m]": 3.5401169999999995
+    },
+    "rawMessages": 67,
+    "rawOutput": 82880,
+    "rawCacheRead": 4989758,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-tidepool-runs-prf-review-repo",
+    "total": 2970770
+  },
+  "result": "**Scope (from PR #1 body):**\n- **In scope:** (a) \"`info.Dimensions` is the peer's number and reaches `make` and `reflect.MakeSlice` unbounded… The bound now sits ahead of every consumer, dividing by `vectorElemMinSize`\"; (b) \"`reflect.TypeOf(info.Zero())` is nil whenever the element type has no Go type, and `.Kind()` dereferences it\"; (c) \"`getCassandraLongType` now keeps that name so the error can say which type the server sent\"; (d) declared behaviour change: \"a short or zero-length non-NULL payload … now errors\".\n- **Deferred:** \"Out — making a nested vector actually decode into `interface{}` … : #1085.\" / \"Out — surplus trailing bytes, left exactly as found: #1086.\" / \"Out — a variable-length element's vint length narrowing to a negative … which this bound does not catch: #1106.\"\n- **Untouched:** \"Lands with #1093, which rejects `dim < 1` in the metadata parsers.\"\n- **Confidence:** high\n\nCoverage: reviewed 6/6 hunks (18341 bytes), 0 carried from a previous session. Verified with `go vet -tags unit ./...` (clean) and `go test -tags unit` (all vector tests pass; the only failures are pre-existing TLS/PKI-setup tests unrelated to this diff). Finding 1 was reproduced against this branch in a scratch module.",
+  "finishedAt": "2026-09-20T19:48:21.136Z",
+  "attemptSince": 1789933144862,
+  "wallMs": 556274,
+  "wallMsDerived": true
+}

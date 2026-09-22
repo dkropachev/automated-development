@@ -1,0 +1,179 @@
+{
+  "target": "tidepool",
+  "tool": "anthropic-pr-review",
+  "label": "Anthropic pr-review-toolkit",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 1141,
+      "title": "vectorElemMinSize returns 1 floor for zero/negative-dimension inner vector, reopening the DoS",
+      "severity": "blocker",
+      "kind": "security",
+      "claim": "vectorElemMinSize returns 1 whenever an inner vector's Dimensions <= 0, because isVectorVariableLengthType recurses to the fixed leaf and the vec.Dimensions > 0 clause is skipped; a peer can pick that number to produce a 1 MB payload that allocates 26 MB, reopening the exact DoS the bound was written to close.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 937,
+      "title": "Zero-VectorType test doesn't pin the panic its own comment says it prevents",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "The comment says the dim-0 carve-out exists so a caller-supplied zero VectorType cannot panic on the Scan goroutine, but the table only uses `var dst []float64`, which never touches SubType; with `var dst any` both rows still panic with a nil pointer dereference in VectorType.Zero(), since the new `t == nil` guard never runs for that destination type.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 271,
+      "title": "\"keep the name\" fix applied to basic-type branch but not the VectorType branch with the same defect",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "NewCustomType(protoVer, TypeCustom, prefix+\"VectorType\") stores the bare prefix, so the PR's new error for a nested vector reads with no element type or dimension; storing `name` there instead would fix both the message and nested-vector decoding into interface{}, but the PR defers this to #1085 while adding a test that locks the bug in.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 990,
+      "title": "\"fewest bytes an element can occupy\" is a lower bound, not a minimum; description's behavior claim only holds for fixed-size elements",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "For every variable-length type vectorElemMinSize returns 1 regardless of body, so a vector<smallint,4> can still decode a short/zero-length payload to garbage values instead of erroring; the description's claim that such payloads now error is true only for fixed-size elements like vector<int,3> and false for nine variable-length element types.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 986,
+      "title": "\"every path below turns it into an allocation\" is false for the array path",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "*[N]T allocates nothing since marshal.go:1076 only compares rv.Len() != info.Dimensions, contradicting the stated rationale that the bound is purely an allocation guard, as the diff's own test comment elsewhere acknowledges.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1044,
+      "title": "New guard discards the real underlying error and reports a wrong cause",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "VectorType.Zero() drops the underlying error `e`; the real cause is that VectorType never overrides NewWithError, but the guard reports a misleading message. Calling info.SubType.NewWithError() directly and wrapping the returned error would report the real reason.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1136,
+      "title": "Saturating-multiply branch has no test coverage",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "vectorElemMinSize measures 92.3% coverage; the uncovered block is exactly `return math.MaxInt32`, the subtlest new line guarding a peer-supplied inner dimension, and needs a test like vector<vector<float,1<<40>,…> to cover it.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1001,
+      "title": "Asymmetric error messages: short payload loses exact byte count, surplus payload keeps it",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A short payload's error loses the exact byte count (\"3 dimensions do not fit in 4 bytes\") while a surplus payload's error keeps it (\"expected 12 bytes, got 16\"); including elemMin in the message would restore the arithmetic symmetry.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 772,
+      "title": "Test comment claims \"eight bytes\" per inner vector when it's actually four, contradicting another line",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "\"Eight bytes\" is wrong per inner vector since each is actually four (1 prefix + 3 zero vints); eight is only the total for the two the subtest marshals, contradicting line 660 where the same shape is costed at 4.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 835,
+      "title": "\"not parallel\" test rationale misnames the actual mechanism it's protecting against",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment's rationale is wrong because Go never runs a serial top-level test concurrently with parallel ones; the real exposure is leaked goroutines from earlier networked tests in the package, and a reader could \"fix\" this by mistakenly adding t.Parallel().",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 852,
+      "title": "Test's payload/8 budget is fragile relative to fixed overhead below ~32KB",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The payload/8 budget is coupled to payload against ~3 KB of fixed overhead, so below ~32 KB the test fails for unrelated reasons; an absolute budget would be sturdier.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 693,
+      "title": "Claim that a vector of N elements is never encoded in fewer than N bytes has a stated counterexample",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The unconditional claim is false because vector<vector<float,0>,N> encodes to zero bytes and the bound does narrow there, making the statement degenerate but still incorrect as written.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 998,
+      "title": "Identical condition evaluated twice in a row",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The identical `info.Dimensions > 0 && data != nil` check appears at both marshal.go:998 and marshal.go:1007 and should be merged into one block.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 587,
+      "title": "No dimension-bound test goes through the public Unmarshal with a readTypeInfo-parsed type, though that's the stated threat model",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No dimension-bound row in the 587-690 table goes through the public Unmarshal with a readTypeInfo-parsed type, even though the stated threat model is Scan's goroutine and the file already has wireVectorType available to do this.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body includes a Claude Code attribution line, against the user's conventions",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The PR body carries a \"🤖 Generated with Claude Code\" line, which the reviewer notes goes against the user's conventions forbidding such attribution in PR descriptions.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 264,
+      "title": "names[1] panics on a truncated vector spec, same crash class this PR exists to fix, unaddressed",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "names[1] panics with an index-out-of-range error on a truncated vector spec such as ...VectorType(...FloatType); it's reachable via asVectorType → goType → NewWithError → Iter.Scan, which is unrecovered — the same crash class this PR exists to fix, left unaddressed in the function it edits.",
+      "selfRejected": false
+    },
+    {
+      "file": "frame.go",
+      "line": 861,
+      "title": "dim, _ := strconv.Atoi(...) drops ErrRange, silently turning an overflowing dimension into MaxInt64",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "frame.go:861 discards ErrRange from strconv.Atoi, so an overflowing dimension becomes MaxInt64 and the operator never learns what string the server actually sent; helpers.go:222/267 still degrade to a nameless custom() on parse failure, now inconsistent with the change at helpers.go:279.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "#1106: vint length narrowing to negative makes vector<text,1> decode [\"\"] with nil error",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The reviewer confirms this issue (tracked as #1106) is reachable as described, but states it is correctly scoped out of this PR.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "#1086: surplus trailing bytes silently dropped in the generic path while fast paths reject them",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The reviewer confirms this issue (tracked as #1086) is reachable as described, but states it is correctly scoped out of this PR.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null
+}

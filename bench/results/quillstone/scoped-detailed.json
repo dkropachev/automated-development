@@ -1,0 +1,114 @@
+{
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "tool": "scoped-detailed",
+  "label": "/scoped-code-review (read-only, --detailed)",
+  "source": "user skill",
+  "prompt": "/pr-review-fix 1\n\nRun it read-only and detailed: `fix: false`, `detailedReview: true`, and `ignoreLedger: true` so nothing is skipped as already reviewed.\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 572213,
+  "reportedCostUsd": 2.5631894999999996,
+  "reportedUsage": {
+    "input_tokens": 42,
+    "cache_creation_input_tokens": 95209,
+    "cache_read_input_tokens": 1492329,
+    "output_tokens": 34589,
+    "output_tokens_details": {
+      "thinking_tokens": 27177
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 95209,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 2185,
+        "cache_read_input_tokens": 103147,
+        "cache_creation_input_tokens": 2650,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 2650
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 42,
+      "outputTokens": 34589,
+      "cacheReadInputTokens": 1492329,
+      "cacheCreationInputTokens": 95209,
+      "webSearchRequests": 0,
+      "costUSD": 2.5631894999999996,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 27177,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 32,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "e8277273-6766-455a-8b9c-76edb46f2b5d",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 42,
+    "output": 34589,
+    "thinking": 27177,
+    "cacheRead": 1492329,
+    "cacheCreation": 95209,
+    "costUsd": 2.5631894999999996,
+    "sessions": 2,
+    "models": {
+      "claude-opus-5[1m]": 2.5631894999999996
+    },
+    "rawMessages": 54,
+    "rawOutput": 89185,
+    "rawCacheRead": 3637847,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-quillstone-runs-prf-detailed-repo",
+    "total": 1622169
+  },
+  "result": "## Verified first\n\nBuilt clean with `--all-features` and with `--no-default-features --features unstable-testing`. All 8 `network::connection_pool::tests` pass under `--features metrics` (`many_connections` fails without a live cluster — pre-existing, unrelated).\n\nThe core fix is sound. I specifically checked for double-decrement between the three new `decrement_total_connections` call sites and `remove_connection`: it can't happen, because `remove_connection` matches by `Arc::ptr_eq` and a cleared connection is no longer in `conns`/`excess_connections`, so the `wait_for_error` event that fires afterwards falls through to the \"already removed\" path. Underflow is also not reachable — every connection in those vectors was `inc_total_connections`'d by `count_in_metrics`.\n\n## Findings\n\n**1. MEDIUM — `scylla/src/network/connection_pool.rs:1006` — excess shard-aware connection is discarded without decrementing `total_connections`**\nThis is the fourth discard site in `handle_ready_connection`, and the PR fixed the other three but not this one. In the `else if evt.requested_shard.is_some()` arm, `connection` is never moved into an `Arc` and never stored — it is dropped at the end of the match arm — yet `count_in_metrics` (`:1051`) already incremented the gauge when it was opened. Under the source-port-rewriting scenario the branch's own comment describes, every such connection permanently inflates `total_connections`. Same bug class the PR exists to fix, in the same function it rewrote.\n\n**2. MEDIUM — `scylla/src/network/connection_pool.rs:696` (and `:191`) — pool teardown leaks the entire gauge**\nWhen `NodeConnectionPool` is dropped, `_refiller_handle: Arc<RemoteHandle<()>>` cancels the refiller; `run()` also returns here when the keyspace channel closes. Either way `self.conns` and `self.excess_connections` are dropped with no decrement, so removing a node from the cluster or dropping the session inflates `total_connections` forever. The new test actually encodes this as expected behaviour: `:2011` asserts the gauge is still `1` after `worker.await` returned and the refiller (holding that connection) was dropped.\n\n**3. LOW-MEDIUM — `scylla/src/network/connection_pool.rs:903` — keyspace failure demoted from `warn!` to `debug!` at exactly the point it became fatal**\nPreviously a failed `USE` logged at `warn!` and the connection was still used, so the session kept working. Now the connection is discarded and the pool can go `Broken`, but the only record is at `debug!`. An operator whose keyspace was dropped server-side sees a node that silently reconnects forever with growing backoff and nothing above debug level explaining why.\n\n**4. LOW-MEDIUM — validation gap: none of the three new metrics tests ran under the commands in the PR description**\n`scylla/Cargo.toml:35` is `default = []`, and the new tests are gated at `:1866`, `:1942`, `:1970` (plus the helper at `:1854`). Neither `cargo test -p scylla --lib network::connection_pool::tests::keyspace_setup_failure` nor `cargo check -p scylla --lib` enables `metrics`, so those tests were neither compiled nor executed by the stated validation. They do pass with `--features metrics` — the claim just isn't backed by the commands listed.\n\n**5. LOW — PR description covers 1 of 4 commits**\n`de164845`, `0d91aa54`, `617139df` (metrics balancing on pool clear, plus its tests) are not mentioned anywhere in the description or the checklist. A reviewer reading the description alone would treat the `maybe_reshard` / excess-clear metric changes as unexplained drive-by edits.\n\n**6. NIT — `scylla/src/network/connection_pool.rs:1360` — `decrement_total_connections` does N separate `fetch_sub(1)`**\n`total_connections` is read concurrently through the public `Metrics::get_total_connections()`, so a scrape landing mid-loop reports a value that never corresponded to any real state. A single `fetch_sub(count)` would be atomic and cheaper; it needs a `dec_total_connections_by` in both `metrics.rs` and `metrics_noop.rs`.\n\n**7. NIT — `scylla/src/network/connection_pool.rs:1499` — unit test builds an event shape production never emits**\n`ConnectionSetupError::Keyspace` is only ever produced by `start_setting_keyspace_for_connection`, which always sets `keyspace_name: Some(..)` (`:1347`); the test pairs it with `None`, and also sets `requested_shard: Some(..)`, which the keyspace branch never reads. Harmless now, but the test wouldn't catch a regression that made the branch depend on either field.\n\n**8. INFO — sharder discovery is now deferred by one `USE` round-trip**\nMoving the keyspace check ahead of `maybe_reshard` (`:910`) means that when `current_keyspace` is set, the first connection's sharding info and shard-aware port aren't adopted until its `USE` completes. Intentional and asserted by `keyspace_setup_failure_preserves_pool_state`, but it does mean the refill immediately following a `use_keyspace` cannot use the shard-aware port.\n\n**9. INFO — non-transient `USE` failure now takes the node fully down rather than degrading it**\nBefore, a connection with a failed `USE` still filled the pool. Now it is discarded, so a keyspace dropped server-side leaves every pool empty, publishes `MaybePoolConnections::Broken(ConnectionError::UseKeyspaceError(..))`, and emits `ConnectivityChangeEvent::Lost` for every node. That is the intended trade-off of the fix, but it converts a degraded-but-usable session into a fully-down cluster and deserves an explicit line in the description.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-21T01:35:57.290Z",
+  "note": "invoked as /pr-review-fix, which had just been renamed; Claude Code resolved it to the scoped-code-review skill - see the Skill call in the transcript",
+  "usageCwd": "/extra/dkropachev/automated-development/bench/work/quillstone/runs/prf-detailed/repo"
+}

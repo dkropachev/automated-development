@@ -1,0 +1,112 @@
+{
+  "target": "tidepool",
+  "language": "Go",
+  "fork": "dkropachev/tidepool",
+  "pr": 1,
+  "tool": "tob-diff-review",
+  "label": "Trail of Bits differential-review",
+  "source": "differential-review@trailofbits",
+  "prompt": "/differential-review:diff-review https://github.com/dkropachev/tidepool/pull/1\n\nYou are reviewing pull request #1 of this repository (dkropachev/tidepool) - a Go project. The PR branch `bound-vector-dimensions` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 968870,
+  "reportedCostUsd": 4.14594,
+  "reportedUsage": {
+    "input_tokens": 82,
+    "cache_creation_input_tokens": 118330,
+    "cache_read_input_tokens": 3111510,
+    "output_tokens": 56259,
+    "output_tokens_details": {
+      "thinking_tokens": 40803
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 118330,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 969,
+        "cache_read_input_tokens": 125736,
+        "cache_creation_input_tokens": 3182,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 3182
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 82,
+      "outputTokens": 56259,
+      "cacheReadInputTokens": 3111510,
+      "cacheCreationInputTokens": 118330,
+      "webSearchRequests": 0,
+      "costUSD": 4.14594,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 40803,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 44,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "3e9b4070-1523-447f-ad55-a67df38836e0",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 82,
+    "output": 56259,
+    "thinking": 40803,
+    "cacheRead": 3111510,
+    "cacheCreation": 118330,
+    "costUsd": 4.14594,
+    "sessions": 1,
+    "models": {
+      "claude-opus-5[1m]": 4.14594
+    },
+    "rawMessages": 76,
+    "rawOutput": 113755,
+    "rawCacheRead": 5686117,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-tidepool-runs-tob-diff-review-repo",
+    "total": 3286181
+  },
+  "result": "**Verdict: the fix is sound.** No high or medium finding. The two defects the PR claims are real and closed; the bound never over-estimates the on-wire minimum for any known element type (so no legitimate payload is newly rejected), `elemMin` is provably ≥1 so the division can't fault, saturation is correct, and 17 wire-reachable type names × 10 payloads × 7 destination types produced no panics. Full unit suite shows only failures that are identical on `main`.\n\nFive findings, all low or informational:\n\n1. **Low — `marshal.go:1044`, the new guard reimplements `goType()` and pins a bug.** `reflect.TypeOf(info.Zero())` yields `[]*T` (slice of pointers), while `goType()` — which `unmarshalList` uses for exactly this at `marshal.go:802`, and which `MapScan` reaches via `NewWithError` — yields `[]T`. Measured on `vector<float,3>`: `Scan(&any)` gives `[]*float32`, `MapScan` gives `[]float32`. `goType(info)` here would have been equally nil-safe (its error already names the type) and consistent; instead `marshal_vector_test.go:928` asserts `want a 3-element []*float32`, freezing the anomaly.\n\n2. **Low — `marshal.go:995-1002`, the nil-`SubType` comment overstates the protection.** `unmarshalVector(VectorType{Dimensions: 3}, make([]byte,12), &dst)` still nil-derefs in `vectorFixedElemSize`. Not a regression (`main` panics on the same input at the fast path) and not wire-reachable, but the guard adds a second, earlier copy of that dereference under a comment reading as if it were handled.\n\n3. **Low — `marshal.go:1137`, the `math.MaxInt32` saturation branch has no test.** It's the only overflow guard in the new arithmetic; `TestVectorElemMinSize` covers `0` and `-3` dimensions but nothing large enough to saturate. Verified correct by hand.\n\n4. **Info — `helpers.go:271`, the message goal is half met.** The nested-vector case — one of the two the PR names — still reports `custom(org.apache.cassandra.db.marshal.VectorType)` with no element type or dimensions, because the inner type is built with `prefix+\"VectorType\"` rather than `name`.\n\n5. **Info — `marshal.go:1125`, `vectorElemMinSize` is recomputed per value at O(depth²).** 2.7 ms per 4-byte value for an 800-deep type; bounded in practice, and the pre-existing quadratic type-name parse (38 s for the same name) dwarfs it.\n\nReport written to `runs/tob-diff-review/DIFFERENTIAL_REVIEW_REPORT.md` (outside the repo — working tree untouched, nothing posted to the PR).",
+  "stderrTail": "Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.\n",
+  "finishedAt": "2026-09-20T17:41:27.106Z"
+}
