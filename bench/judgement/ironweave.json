@@ -71,8 +71,7 @@
         "ce-code-review",
         "rafp-detailed",
         "superpowers-review",
-        "tob-diff-review",
-        "scoped-detailed"
+        "tob-diff-review"
       ],
       "reportedAs": {
         "anthropic-pr-review": "Unguarded put(span) override breaks build below API level 9; the build breaks with three errors since the test doesn't use the existing #if SEASTAR_API_LEVEL >= 9 fallback pattern used elsewhere.",
@@ -80,8 +79,7 @@
         "ce-code-review": "test_data_sink_impl's put(std::span) override isn't guarded by SEASTAR_API_LEVEL, breaking the build at levels CMakeLists.txt still offers.",
         "rafp-detailed": "test_data_sink_impl override breaks build at SEASTAR_API_LEVEL < 9; compiling with --api-level 8 fails with 'marked override, but does not override'; loopback_socket.hh already guards the equivalent method.",
         "superpowers-review": "put(std::span<temporary_buffer<char>>) override breaks builds at --api-level=7|8.",
-        "tob-diff-review": "The override is unguarded but that member only exists under SEASTAR_API_LEVEL >= 9; below 9 this causes an override-of-nothing error and leaves the class abstract.",
-        "scoped-detailed": "Test build is not portable across environments."
+        "tob-diff-review": "The override is unguarded but that member only exists under SEASTAR_API_LEVEL >= 9; below 9 this causes an override-of-nothing error and leaves the class abstract."
       }
     },
     {
@@ -102,8 +100,7 @@
         "mattpocock-review",
         "rafp-review",
         "superpowers-review",
-        "tob-diff-review",
-        "scoped-detailed"
+        "tob-diff-review"
       ],
       "reportedAs": {
         "anthropic-pr-review": "try/catch around stream_send_empty_frame().get() asserts nothing in either branch, so if send() wrongly accepts the frame the test still passes; only a second-order check that depends on poller timing catches it.",
@@ -111,8 +108,7 @@
         "mattpocock-review": "stream_send_empty_frame().get() is wrapped in a try with an empty catch(closed_error&), so nothing requires the throw; BOOST_REQUIRE_THROW would pin it properly.",
         "rafp-review": "The new test calls the captured send_empty_frame hook inside a try/catch that silently swallows rpc::closed_error, so the PR's added contract is never actually asserted.",
         "superpowers-review": "The test never asserts the send was refused; catch (closed_error&) {} swallows the success case too.",
-        "tob-diff-review": "The try/catch (const rpc::closed_error&) passes whether or not the frame is rejected; needs BOOST_REQUIRE_THROW or a BOOST_FAIL after the .get().",
-        "scoped-detailed": "Reproducer test is missing an assertion."
+        "tob-diff-review": "The try/catch (const rpc::closed_error&) passes whether or not the frame is rejected; needs BOOST_REQUIRE_THROW or a BOOST_FAIL after the .get()."
       }
     },
     {
@@ -131,15 +127,13 @@
         "anthropic-pr-review",
         "ce-code-review",
         "rafp-detailed",
-        "tob-diff-review",
-        "scoped-detailed"
+        "tob-diff-review"
       ],
       "reportedAs": {
         "anthropic-pr-review": "Deleting lines 562-568 (the queue_drained handling) leaves the new regression test passing, so this riskier half of the fix, which changes what stop_send_loop() sees, is untested.",
         "ce-code-review": "The then_wrapped/ignore_ready_future() branch is never exercised because the new test only ever queues an eof marker that always succeeds; also no test drives _outgoing_queue_ready to be non-ready at the moment stream_close() runs, and no test covers stop_send_loop() running concurrently with a parked stream_close().",
         "rafp-detailed": "The new test only exercises the case where close() is parked with an empty queue, so the drain logic is a no-op in that test; reverting just the drain leaves the whole suite green.",
-        "tob-diff-review": "_outgoing_queue is empty when the test reaches stream_close() because sink_impl::close() awaits the eof-marker send() before calling close_sink(); reverting the std::exchange/then_wrapped hunk while keeping _stream_closing still leaves the new test green.",
-        "scoped-detailed": "Drain path is untested."
+        "tob-diff-review": "_outgoing_queue is empty when the test reaches stream_close() because sink_impl::close() awaits the eof-marker send() before calling close_sink(); reverting the std::exchange/then_wrapped hunk while keeping _stream_closing still leaves the new test green."
       }
     },
     {
@@ -664,14 +658,12 @@
         "anthropic-pr-review",
         "mattpocock-review",
         "superpowers-review",
-        "scoped-review",
         "rafp-detailed"
       ],
       "reportedAs": {
         "anthropic-pr-review": "All three commits carry Co-Authored-By: Claude trailers, and the PR body ends with the \"🤖 Generated with Claude Code\" line, both violating the attribution rule in effect for this repo.",
         "mattpocock-review": "Four Co-Authored-By: Claude trailers appear across the three commits (two on 69da8f5b) and the PR body ends with a 'Generated with Claude Code' line, violating the standing attribution rule.",
         "superpowers-review": "All three commits carry Co-Authored-By: Claude trailers (4 lines across f545c28a, 5e25ebdb, 69da8f5b), and the PR body has the \"🤖 Generated with Claude Code\" line; both should be stripped.",
-        "scoped-review": "All three commits carry 'Co-Authored-By: Claude ...' trailers and the PR body ends with the '🤖 Generated with Claude Code' line, which ~/.claude/CLAUDE.md says to never add.",
         "rafp-detailed": "The PR description carries a '🤖 Generated with Claude Code' line, which the user's own global instructions say should never be added."
       }
     },

@@ -58,18 +58,6 @@
       "prompt": "/mattpocock-skills:code-review main\n\n{context}"
     },
     {
-      "id": "scoped-review",
-      "label": "/scoped-code-review (read-only)",
-      "source": "user skill",
-      "prompt": "/scoped-code-review {pr} --no-fix --ignore-ledger\n\n{context}"
-    },
-    {
-      "id": "scoped-detailed",
-      "label": "/scoped-code-review (read-only, --detailed)",
-      "source": "user skill",
-      "prompt": "/scoped-code-review {pr} --no-fix --detailed --ignore-ledger\n\n{context}"
-    },
-    {
       "id": "rafp-review",
       "label": "review-and-fix-pr (review only)",
       "source": "automated-development@automated-development",
@@ -82,5 +70,5 @@
       "prompt": "/automated-development:review-and-fix-pr {pr}\n\nRun it read-only and detailed: `fix: false`, `detailedReview: true`, and `ignoreLedger: true` so nothing is skipped as already reviewed.\n\n{context}"
     }
   ],
-  "note": "`/pr-review-fix` was renamed to `review-and-fix-pr` while this matrix was running, and the runs that asked for it by the old name silently fell back to `scoped-code-review`. Those runs are kept and labelled as what actually ran; `rafp-*` invokes the renamed skill by its plugin name."
+  "note": "`/pr-review-fix` was renamed to `review-and-fix-pr` while this matrix was running; `rafp-*` invokes the renamed skill by its plugin name."
 }

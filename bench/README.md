@@ -1,6 +1,6 @@
 # bench - the review-tool bake-off
 
-Twelve review tools, three real pull requests in three languages, one report:
+Ten review tools, three real pull requests in three languages, one report:
 [`docs/review-bakeoff.md`](../docs/review-bakeoff.md).
 
 Every stage is a Node script behind a Makefile target, and every stage is resumable - a stage that
@@ -9,7 +9,7 @@ starting the matrix over.
 
 ```
 make bench-prepare   # republish each upstream PR into a blinded private repo, fetch ground truth
-make bench-run       # 32 tool x PR pairs, each in its own headless `claude -p` and its own cwd
+make bench-run       # 26 tool x PR pairs, each in its own headless `claude -p` and its own cwd
 make bench-extract   # turn each prose report into comparable JSON findings
 make bench-judge     # merge across tools, verify against the code, classify
 make bench-report    # render docs/review-bakeoff.md

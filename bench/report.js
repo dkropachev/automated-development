@@ -14,7 +14,7 @@ const tools = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools.json'), 'utf8'))
 const SHORT = {
   'builtin-code-review': 'CR', 'ce-code-review': 'CE', 'tob-diff-review': 'TB-D',
   'tob-rust-review': 'TB-R', 'tob-c-review': 'TB-C', 'anthropic-pr-review': 'ANT',
-  'superpowers-review': 'SP', 'mattpocock-review': 'MP', 'scoped-review': 'SCR', 'scoped-detailed': 'SCR-D',
+  'superpowers-review': 'SP', 'mattpocock-review': 'MP',
   'rafp-review': 'RAFP', 'rafp-detailed': 'RAFP-D',
 }
 const read = (p) => JSON.parse(fs.readFileSync(p, 'utf8'))
@@ -186,7 +186,8 @@ const totalCost = sumOver(r => r.usage.costUsd)
 const totalTok = sumOver(r => r.usage.total)
 const wastedCost = sumOver(r => r.wastedUsd)
 const wastedTok = sumOver(r => r.wastedTok)
-P(`**The 32 scored reviews cost ${fmt(totalTok)} tokens, ${money(totalCost)}.** A further`)
+const runCount = sumOver(() => 1)
+P(`**The ${runCount} scored reviews cost ${fmt(totalTok)} tokens, ${money(totalCost)}.** A further`)
 P(`**${fmt(wastedTok)} tokens, ${money(wastedCost)}** went on attempts the usage limit killed before they`)
 P(`reported, for a bill of ${money(totalCost + wastedCost)} across the matrix. Judging and extraction are`)
 P('counted separately.\n')

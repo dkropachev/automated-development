@@ -234,12 +234,10 @@
       "scopeReason": "Both artifacts are authored by this PR.",
       "reportedBy": [
         "mattpocock-review",
-        "scoped-detailed",
         "anthropic-pr-review"
       ],
       "reportedAs": {
         "mattpocock-review": "Both commits carry a Co-Authored-By: Claude Opus 5 trailer and the PR body ends with a '🤖 Generated with Claude Code' line; the user's global rule forbids both, so they should be stripped.",
-        "scoped-detailed": "The PR body ends with \"🤖 Generated with [Claude Code]\" and both commits carry a Co-Authored-By: Claude Opus 5 (1M context) trailer, violating the instruction in ~/.claude/CLAUDE.md.",
         "anthropic-pr-review": "The PR body carries a \"🤖 Generated with Claude Code\" line, which goes against the user's conventions forbidding such attribution in PR descriptions."
       }
     },
@@ -266,25 +264,6 @@
     },
     {
       "id": "I12",
-      "title": "Every issue the PR description defers to (#1085, #1086, #1091, #1093, #1106) is missing",
-      "file": "",
-      "line": 0,
-      "kind": "docs",
-      "severity": "low",
-      "verdict": "real",
-      "verdictReason": "`gh issue view` for 1085, 1086, 1091, 1093 and 1106 each returns \"Could not resolve to an issue or pull request\" against origin dkropachev/tidepool, so all four deferrals and the Refs: line are unverifiable.",
-      "introducedByPr": true,
-      "scope": "in-scope",
-      "scopeReason": "The unresolvable references are in this PR's description.",
-      "reportedBy": [
-        "scoped-detailed"
-      ],
-      "reportedAs": {
-        "scoped-detailed": "Every issue the PR description leans on — #1085, #1086, #1091, #1093, #1106 — returns \"Could not resolve to an issue\" in dkropachev/tidepool, making all four deferrals and the Refs: line unverifiable."
-      }
-    },
-    {
-      "id": "I13",
       "title": "getCassandraLongType indexes split results unguarded, panicking on a malformed type name",
       "file": "helpers.go",
       "line": 264,
@@ -311,7 +290,7 @@
       }
     },
     {
-      "id": "I14",
+      "id": "I13",
       "title": "readTypeInfo slices the vector custom name unchecked, panicking on the frame goroutine",
       "file": "frame.go",
       "line": 856,
@@ -336,7 +315,7 @@
       }
     },
     {
-      "id": "I15",
+      "id": "I14",
       "title": "readBytes slices p[:size] with an unchecked peer-supplied length",
       "file": "marshal.go",
       "line": 1563,
@@ -357,7 +336,7 @@
       }
     },
     {
-      "id": "I16",
+      "id": "I15",
       "title": "unmarshalTuple calls reflect.Set without an assignability check and panics",
       "file": "marshal.go",
       "line": 1631,
@@ -378,7 +357,7 @@
       }
     },
     {
-      "id": "I17",
+      "id": "I16",
       "title": "scanColumn returns 1 for a nil tuple destination, silently dropping every later column",
       "file": "session.go",
       "line": 2974,
@@ -397,7 +376,7 @@
       }
     },
     {
-      "id": "I18",
+      "id": "I17",
       "title": "vectorSliceReuse aliases one backing array across rows for float/double vectors",
       "file": "marshal.go",
       "line": 941,
@@ -416,7 +395,7 @@
       }
     },
     {
-      "id": "I19",
+      "id": "I18",
       "title": "getCassandraLongType parse cost is super-linear in nested type-name length (52s at 37 KB)",
       "file": "helpers.go",
       "line": 206,
@@ -437,7 +416,7 @@
       }
     },
     {
-      "id": "I20",
+      "id": "I19",
       "title": "frame.go discards strconv.Atoi's error for the vector dimension",
       "file": "frame.go",
       "line": 861,
@@ -458,7 +437,7 @@
       }
     },
     {
-      "id": "I21",
+      "id": "I20",
       "title": "Other getCassandraLongType degrade paths still return a nameless custom type",
       "file": "helpers.go",
       "line": 224,
@@ -479,7 +458,7 @@
       }
     },
     {
-      "id": "I22",
+      "id": "I21",
       "title": "Zero-dimension inner vector now errors on a payload that decoded on base",
       "file": "marshal.go",
       "line": 1141,
@@ -500,7 +479,7 @@
       }
     },
     {
-      "id": "I23",
+      "id": "I22",
       "title": "Negative dimensions on a NULL payload now error instead of returning nil, undocumented",
       "file": "marshal.go",
       "line": 992,
@@ -519,7 +498,7 @@
       }
     },
     {
-      "id": "I24",
+      "id": "I23",
       "title": "Non-NULL zero-length payloads now error, breaking driver-produced round-trips",
       "file": "marshal.go",
       "line": 1000,
@@ -540,7 +519,7 @@
       }
     },
     {
-      "id": "I25",
+      "id": "I24",
       "title": "marshalVector emits a wire-invalid value when an element under-marshals",
       "file": "marshal.go",
       "line": 920,
@@ -559,7 +538,7 @@
       }
     },
     {
-      "id": "I26",
+      "id": "I25",
       "title": "Allocation test asserts on process-global TotalAlloc with a payload-relative budget",
       "file": "marshal_vector_test.go",
       "line": 852,
@@ -582,7 +561,7 @@
       }
     },
     {
-      "id": "I27",
+      "id": "I26",
       "title": "Allocation-bound test covers only the nested fixed-size shape, not variable-length",
       "file": "marshal_vector_test.go",
       "line": 838,
@@ -601,7 +580,7 @@
       }
     },
     {
-      "id": "I28",
+      "id": "I27",
       "title": "No dimension-bound test goes through the public Unmarshal or Scan with a wire-parsed type",
       "file": "marshal_vector_test.go",
       "line": 587,
@@ -622,7 +601,7 @@
       }
     },
     {
-      "id": "I29",
+      "id": "I28",
       "title": "Guard comment claims every path below allocates, which is false for the array destination",
       "file": "marshal.go",
       "line": 986,
@@ -641,7 +620,7 @@
       }
     },
     {
-      "id": "I30",
+      "id": "I29",
       "title": "Test comment reads as if each inner vector costs eight bytes when it costs four",
       "file": "marshal_vector_test.go",
       "line": 773,
@@ -660,7 +639,7 @@
       }
     },
     {
-      "id": "I31",
+      "id": "I30",
       "title": "Dimension-bound error message names neither the element type nor the per-element minimum",
       "file": "marshal.go",
       "line": 1001,
@@ -681,7 +660,7 @@
       }
     },
     {
-      "id": "I32",
+      "id": "I31",
       "title": "VectorType.Zero() yields []*T while goType() yields []T, so Scan(&any) and MapScan differ",
       "file": "marshal.go",
       "line": 2050,
@@ -702,7 +681,7 @@
       }
     },
     {
-      "id": "I33",
+      "id": "I32",
       "title": "Element-failure error message reports []uint8 for every element type",
       "file": "marshal.go",
       "line": 1113,
@@ -721,7 +700,7 @@
       }
     },
     {
-      "id": "I34",
+      "id": "I33",
       "title": "Basic-type fallback change also widens Custom()/String() for list, map, tuple and UDT",
       "file": "helpers.go",
       "line": 280,
@@ -742,7 +721,7 @@
       }
     },
     {
-      "id": "I35",
+      "id": "I34",
       "title": "Test helper builds a TypeText descriptor for UTF8Type, which the parser maps to varchar",
       "file": "marshal_vector_test.go",
       "line": 557,
@@ -761,7 +740,7 @@
       }
     },
     {
-      "id": "I36",
+      "id": "I35",
       "title": "vectorElemMinSize is a third function branching on vector element type",
       "file": "marshal.go",
       "line": 1125,
@@ -780,7 +759,7 @@
       }
     },
     {
-      "id": "I37",
+      "id": "I36",
       "title": "math.MaxInt32 saturation sentinel is returned as a plain int size",
       "file": "marshal.go",
       "line": 1137,
@@ -799,7 +778,7 @@
       }
     },
     {
-      "id": "I38",
+      "id": "I37",
       "title": "vectorElemMinSize is recomputed for every value with cost quadratic in nesting depth",
       "file": "marshal.go",
       "line": 999,
@@ -820,7 +799,7 @@
       }
     },
     {
-      "id": "I39",
+      "id": "I38",
       "title": "Deferred #1106: oversized vint element length narrows to -1, decoding empty with nil error",
       "file": "marshal.go",
       "line": 1097,
@@ -834,18 +813,16 @@
       "reportedBy": [
         "ce-code-review",
         "anthropic-pr-review",
-        "scoped-detailed",
         "superpowers-review"
       ],
       "reportedAs": {
         "ce-code-review": "With the one-byte floor letting variable-length vectors through, a max-width VInt element length converts via int(m) to -1, so no payload bytes are consumed and the element silently decodes as an empty string with a nil error.",
         "anthropic-pr-review": "vint length narrowing to negative makes vector<text,1> decode [\"\"] with nil error; reachable as described but correctly scoped out of this PR.",
-        "scoped-detailed": "A vint length narrowing negative and decoding to empty with a nil error is called out as a deferred issue (#1106).",
         "superpowers-review": "The vint-narrowing-to-negative path (#1106) is set aside as explicitly deferred or pre-existing."
       }
     },
     {
-      "id": "I40",
+      "id": "I39",
       "title": "Deferred #1086: surplus trailing bytes dropped on the generic path, rejected on fast paths",
       "file": "marshal.go",
       "line": 1095,
@@ -859,18 +836,16 @@
       "reportedBy": [
         "anthropic-pr-review",
         "ce-code-review",
-        "scoped-detailed",
         "superpowers-review"
       ],
       "reportedAs": {
         "anthropic-pr-review": "surplus trailing bytes silently dropped in the generic path while fast paths reject them; reachable as described but correctly scoped out of this PR.",
         "ce-code-review": "Surplus trailing bytes in a generic (non-float-fast-path) vector payload are still accepted rather than rejected, unlike the float fast paths which reject the same malformed payload.",
-        "scoped-detailed": "Surplus trailing bytes handling is called out as a deferred issue (#1086), left un-investigated as out of scope for this PR.",
         "superpowers-review": "Trailing-byte distribution (#1086) is set aside as explicitly deferred or pre-existing."
       }
     },
     {
-      "id": "I41",
+      "id": "I40",
       "title": "Peer-controlled type descriptor text reaches error messages verbatim",
       "file": "marshal.go",
       "line": 1048,
@@ -889,7 +864,7 @@
       }
     },
     {
-      "id": "I42",
+      "id": "I41",
       "title": "No test pins the headline change: an empty non-NULL payload for vector<int,3>",
       "file": "marshal_vector_test.go",
       "line": 641,
@@ -908,7 +883,7 @@
       }
     },
     {
-      "id": "I43",
+      "id": "I42",
       "title": "No test covers a variable-length element whose real minimum exceeds the 1-byte floor",
       "file": "marshal_vector_test.go",
       "line": 693,
@@ -927,7 +902,7 @@
       }
     },
     {
-      "id": "I44",
+      "id": "I43",
       "title": "No test asserts the float fast-path message survives for longer-than-minimum payloads",
       "file": "marshal_vector_test.go",
       "line": 693,
@@ -946,7 +921,7 @@
       }
     },
     {
-      "id": "I45",
+      "id": "I44",
       "title": "No-Go-type test asserts only a message prefix, not the rendered type identifier",
       "file": "marshal_vector_test.go",
       "line": 891,
@@ -967,7 +942,7 @@
       }
     },
     {
-      "id": "I46",
+      "id": "I45",
       "title": "No benchmark covers nested or variable-length vectors that now run the recursive prologue",
       "file": "vector_bench_test.go",
       "line": 1,
@@ -986,7 +961,7 @@
       }
     },
     {
-      "id": "I47",
+      "id": "I46",
       "title": "No test drives the bound through three or more levels of vector nesting",
       "file": "marshal_vector_test.go",
       "line": 818,
@@ -1005,7 +980,7 @@
       }
     },
     {
-      "id": "I48",
+      "id": "I47",
       "title": "Unmarshal's doc comment still has no vector row despite two new error conditions",
       "file": "marshal.go",
       "line": 260,
@@ -1024,7 +999,7 @@
       }
     },
     {
-      "id": "I49",
+      "id": "I48",
       "title": "getCassandraLongType's standing TODO for unit tests remains unaddressed",
       "file": "helpers.go",
       "line": 204,
@@ -1045,7 +1020,7 @@
       }
     },
     {
-      "id": "I50",
+      "id": "I49",
       "title": "No fuzz target exists for the unmarshal codepaths",
       "file": "",
       "line": 0,
@@ -1064,7 +1039,7 @@
       }
     },
     {
-      "id": "I51",
+      "id": "I50",
       "title": "The \"not parallel\" comment's rationale is correct, not a misstatement of Go's scheduling",
       "file": "marshal_vector_test.go",
       "line": 835,
@@ -1083,7 +1058,7 @@
       }
     },
     {
-      "id": "I52",
+      "id": "I51",
       "title": "The info.Dimensions < 0 check is covered by the PR's declared scope",
       "file": "marshal.go",
       "line": 992,
@@ -1102,7 +1077,7 @@
       }
     },
     {
-      "id": "I53",
+      "id": "I52",
       "title": "CHANGELOG.md not updated, but the file does not exist in this fork",
       "file": "",
       "line": 0,
@@ -1123,7 +1098,7 @@
       }
     },
     {
-      "id": "I54",
+      "id": "I53",
       "title": "Commit subjects do not follow CONTRIBUTING.md's capitalized-subject + trailer format",
       "file": "",
       "line": 0,
