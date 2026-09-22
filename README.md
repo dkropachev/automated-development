@@ -90,9 +90,8 @@ the plausible version instead of the true one. It runs under the same driver.
 | `~/.claude/commit-style-cache/<host>/<owner>/<repo>.md` (+ `.work.<batch>`, `.attempt`) | the same three, for the commit skill |
 | `~/.claude/draft-commit-message/state/` | the commit skill's driver state |
 | `~/.claude/review-and-fix-pr/state/` | one file per live review or fix conversation, pruned after 7 days |
-| `~/.claude/review-and-fix-pr/<owner>__<repo>/classify.json` (+ `meta.json`) | the generated declarative reviewability rule and the repo fingerprint that invalidates it |
-| `~/.claude/review-and-fix-pr/<owner>__<repo>/reviewed.json` | files recorded clean, keyed on content, kept across runs |
-| `~/.claude/review-and-fix-pr/<owner>__<repo>/runs/<sha>/` | frozen chunk `.diff` files for one run |
+| `~/.claude/review-and-fix-pr/<owner>__<repo>/reviewed.json` | files a whole-PR reviewer recorded clean, keyed on content |
+| `~/.claude/review-and-fix-pr/<owner>__<repo>/runs/<sha>-<suffix>/` | isolated run identity and scratch state |
 
 Nothing else. It does not write to your repository, beyond a depth-limited `git fetch` when the base
 branch is genuinely absent from the clone.
@@ -181,14 +180,18 @@ or the repo's own commits carry them.
 
 ### `review-and-fix-pr`
 
-Reviews a PR and, on your own PRs, fixes what it finds. The diff is split into size-capped chunks of
-whole hunks, staged **code → tests → cicd → other** with a hard barrier between stages; read-only
-reviewers run in parallel, then one fixer at a time validates and commits its own batch. Nothing is
-ever reverted: a batch whose build fails leaves its edits in the tree for you to read.
+Reviews a whole PR with either its built-in method or any compatible loaded review skill, then
+optionally fixes what survives. One read-only reviewer covers complete diff; separate fixer agents
+validate and commit findings serially. Nothing is pushed or reverted: a batch whose build fails
+leaves its edits in tree for inspection.
 
 ```
 /review-and-fix-pr 1234
 ```
+
+To choose review expertise, name loaded skill in request, for example: “review and fix PR 1234 using
+`trailofbits:differential-review`.” Workflow invokes exact skill through Skill tool. Missing,
+user-only, or write-owning skills stop run as NOT REVIEWED instead of silently falling back.
 
 Every reviewer and every fixer is walked through its work one step at a time by
 `bin/review-and-fix-pr-driver.js`, which holds the decisions an agent should not make for itself:
@@ -201,8 +204,8 @@ rather than suppressed, so you can tell "you broke this" from "this was already 
 `detailedReview: true` reviewers may leave the hunk, trace callers, and *run* experiments in a
 throwaway clone — which is what finds caller-side defects that reading past them does not.
 
-Files a reviewer finds genuinely clean are recorded in a ledger keyed on content, so a later run
-skips them until they change.
+Review skill controls methodology only. Workflow keeps whole-PR scope, read-only review permissions,
+finding schema, fix batching, validation, commits, and reporting.
 
 ## Layout
 
@@ -211,9 +214,8 @@ agents/                  subagents the skills spawn, typed automated-development
                          :pr-style-verifier, :issue-style-builder, :issue-style-verifier,
                          :commit-style-builder, :commit-style-verifier (plugin name is part of the type)
 bin/promptgen-driver.js  the CLI: the two state machines and the orchestrator's verbs, --domain pr|issue|commit
-bin/review-and-fix-pr-*.js   the review pipeline's helpers: -driver (fix and review state machines),
-                         -chunker (diff -> capped chunks), -reviewed (the clean-file ledger),
-                         -repofp (repo-shape fingerprint), -meter (token accounting, manual)
+bin/review-and-fix-pr-*.js   review helpers: -driver (fix and review state machines), -reviewed
+                         (clean verdicts); dormant chunker/repofp remain for compatibility
 workflows/               Workflow scripts, run by scriptPath; not linted (see eslint.config.js)
 lib/domains.js           everything that differs between the three domains: paths, keys, source files,
                          which checks apply, and every instruction that talks about "the diff" or "the maintainer"

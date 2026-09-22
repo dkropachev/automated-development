@@ -50,19 +50,28 @@ test('the learn loop lives outside the skills, so none of them carries a second 
   }
 })
 
-test('review-and-fix-pr keeps the four arguments it passes and points at reference.md for the rest', () => {
+test('review-and-fix-pr passes the whole-PR skill contract and documents advanced arguments', () => {
   const skill = rd('skills/review-and-fix-pr/SKILL.md')
   const ref = rd('skills/review-and-fix-pr/reference.md')
-  for (const arg of ['pr', 'pluginRoot', 'mode', 'fix']) {
+  for (const arg of ['pr', 'pluginRoot', 'reviewSkill', 'fix']) {
     assert.match(skill, new RegExp('^\\s+' + arg + ':', 'm'), `SKILL.md no longer passes ${arg}`)
   }
   assert.match(skill, /`reference\.md`/, 'SKILL.md does not point at reference.md')
-  // Every argument the workflow reads is documented in one of the two, and the table is in the
-  // reference so the skill does not carry it.
-  for (const arg of ['detailedReview', 'ignoreLedger', 'maxTokens', 'maxAgents', 'chunkBytes']) {
+  for (const arg of ['detailedReview', 'maxTokens', 'maxAgents', 'maxFixBatch']) {
     assert.match(ref, new RegExp('\\| `' + arg + '` \\|'), `reference.md does not document ${arg}`)
     assert.doesNotMatch(skill, new RegExp('\\| `' + arg + '` \\|'), `SKILL.md still carries the ${arg} row`)
   }
+})
+
+test('review-and-fix-pr uses one read-only whole-PR reviewer and fails closed on selected skills', () => {
+  const wf = rd('workflows/review-and-fix-pr.js')
+  assert.match(wf, /const RESOLVED_MODE = 'full'/)
+  assert.match(wf, /const REVIEW_SKILL =/)
+  assert.match(wf, /invoke that exact skill through the Skill tool/)
+  assert.match(wf, /disallowedTools: DENY_READONLY, requireToolScope: true/)
+  assert.match(wf, /required read-only tool scope is unavailable - refusing to launch this agent/)
+  assert.match(wf, /review-skill-unavailable/)
+  assert.match(wf, /Do not silently substitute your own review or another skill/)
 })
 
 test('nothing injected into every session grew back', () => {
