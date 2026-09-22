@@ -82,6 +82,16 @@ function oneline(body) {
   return t.length > 220 ? t.slice(0, 217) + '...' : t
 }
 
+// What the token column is actually made of. Four classes priced an order of magnitude apart get
+// summed into one number, so the number needs its composition printed next to it.
+const tokenMix = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0, thinking: 0 }
+for (const t of targets) for (const rec of Object.values(results[t.id] || {})) {
+  for (const k of Object.keys(tokenMix)) tokenMix[k] += rec.usage[k] || 0
+}
+// Thinking is a subset of output, so it is left out of the denominator.
+const mixTotal = tokenMix.input + tokenMix.output + tokenMix.cacheRead + tokenMix.cacheCreation
+const pctOfTotal = (k) => (mixTotal ? (100 * tokenMix[k] / mixTotal).toFixed(1) : '0') + '%'
+
 const used = tools.filter(tl => targets.some(t => results[t.id] && results[t.id][tl.id]))
 const out = []
 const P = (s) => out.push(s)
@@ -129,6 +139,14 @@ P('*Tokens* and *Cost* are the attempt that produced the report being scored. *L
 P('the same cell spent on earlier attempts that the account\'s usage limit cut off mid-review: they')
 P('produced nothing and were retried from scratch. Both columns are real money; only the first is the')
 P('price of a review.\n')
+P('**Compare tools by cost, not by tokens.** The token figure is a raw sum of four classes that are')
+P(`priced an order of magnitude apart, and ${pctOfTotal('cacheRead')} of it is cache reads, which bill at a tenth of`)
+P(`input; cache creation, another ${pctOfTotal('cacheCreation')}, bills at 1.25x. Output - the tokens a reviewer`)
+P(`actually wrote - is ${pctOfTotal('output')} of the total. A tool that re-reads a large tree under a warm cache`)
+P('therefore looks enormous and costs little. The cost column is not computed from these counts: it is')
+P('the per-session figure Claude Code itself bills, already priced per class. Thinking tokens')
+P(`(${fmt(tokenMix.thinking)} across the matrix) are counted in the cost and reported by the model as part of`)
+P('its output, so they are deliberately not added on top of it here.\n')
 P('| Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Only this tool | Tokens | Cost | Wall | Lost to limits |')
 P('|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|')
 for (const tl of used) {

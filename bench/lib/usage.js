@@ -6,6 +6,12 @@
 // mentions. Every run gets a working directory nobody else uses, and Claude Code files transcripts
 // per working directory, so the directory IS the run.
 //
+// The four token classes are kept apart because they are priced apart - a cache read is a tenth of
+// an input token, a cache write is 1.25x - and `total` is their raw sum, useful for scale and
+// useless for comparing tools. `costUsd` is the figure to compare: Claude Code priced it per class.
+// Thinking tokens are summed for visibility but left OUT of `total`: the model reports them as part
+// of its output, so adding them would count them twice.
+//
 // Raw assistant-message usage is summed too, but only as a secondary figure: a retried request
 // appears once per attempt there, so it runs ahead of the billed total.
 //

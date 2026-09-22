@@ -183,6 +183,15 @@ the same cell spent on earlier attempts that the account's usage limit cut off m
 produced nothing and were retried from scratch. Both columns are real money; only the first is the
 price of a review.
 
+**Compare tools by cost, not by tokens.** The token figure is a raw sum of four classes that are
+priced an order of magnitude apart, and 96.2% of it is cache reads, which bill at a tenth of
+input; cache creation, another 2.9%, bills at 1.25x. Output - the tokens a reviewer
+actually wrote - is 0.9% of the total. A tool that re-reads a large tree under a warm cache
+therefore looks enormous and costs little. The cost column is not computed from these counts: it is
+the per-session figure Claude Code itself bills, already priced per class. Thinking tokens
+(1,796,030 across the matrix) are counted in the cost and reported by the model as part of
+its output, so they are deliberately not added on top of it here.
+
 | Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Only this tool | Tokens | Cost | Wall | Lost to limits |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | Claude Code /code-review | 3 | 13 | 10 | 3 | 0 | 9 | 4 | 0 | 7,114,203 | $8.61 | 32.5 min | $2.91 |
