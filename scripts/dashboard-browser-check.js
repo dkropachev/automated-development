@@ -39,50 +39,72 @@ function render(hash) {
 
 function count(text, pattern) { return [...text.matchAll(pattern)].length }
 
+function rankingCards(text, gridClass) {
+  const match = text.match(new RegExp(`<div class="landing-rank-grid ${gridClass}">([\\s\\S]*?)<\\/div><\\/div>`))
+  assert.ok(match, `${gridClass} must render as a ranked-card grid`)
+  return match[1]
+}
+
+function assertTopThree(cards) {
+  assert.equal(count(cards, /<article class="rank-card">/g), 3)
+  for (const rank of [1, 2, 3]) assert.match(cards, new RegExp(`<div class="rank-number">#${rank}<\\/div>`))
+}
+
 try {
   assert.ok(fs.existsSync(DASHBOARD), 'run make bench-dashboard before the browser check')
 
   const home = render('home')
   assert.match(home.app, /Find the code-review skill worth its price\./)
-  assert.match(home.app, /Findings \/ price/)
-  assert.match(home.app, /3\.02 \/ \$/)
-  assert.match(home.app, /Completeness \/ price/)
-  assert.match(home.app, /3\.12 pts \/ \$/)
+  assert.match(home.app, /<h2 id="leaders-title">Leaders<\/h2>/)
+  assert.doesNotMatch(home.app, /Completeness leaders/)
   assert.match(home.app, /Best return for the money · All issues/)
+  assert.match(home.app, /3\.02 findings \/ \$/)
   assert.equal(count(home.app, /id="completeness-scope"/g), 1)
+  assert.equal(count(home.app, /id="language-scope"/g), 1)
+  assert.match(home.app, /class="leader-pickers"[\s\S]*id="completeness-scope"[\s\S]*id="language-scope"/)
   assert.ok(home.app.indexOf('id="completeness-scope"') < home.app.indexOf('class="landing-rank-grid leader-grid"'), 'the count picker must appear above the leader cards')
-  const valueCards = home.app.match(/<div class="landing-rank-grid leader-grid">([\s\S]*?)<\/div><p class="method-note">/)
-  assert.ok(valueCards, 'the price leaders must render as a ranked-card grid')
-  assert.equal(count(valueCards[1], /<article class="rank-card">/g), 2)
-  assert.doesNotMatch(valueCards[1], /value-leader-card|class="eyebrow"|See leaderboard/)
+  const valueCards = rankingCards(home.app, 'leader-grid')
+  assertTopThree(valueCards)
+  assert.doesNotMatch(valueCards, /value-leader-card|class="eyebrow"|See leaderboard/)
   assert.equal(count(home.app, /class="skill-summary-card"/g), 8)
   assert.match(home.app, /href="#skills\/superpowers-review"/)
   assert.doesNotMatch(home.app, /review-bakeoff\.md/)
   assert.match(home.app, /Best coverage · All issues/)
   assert.match(home.app, /Compound Engineering ce-code-review<\/a><\/h3><strong>56\.8%/)
+  const coverageCards = rankingCards(home.app, 'completeness-grid')
+  assertTopThree(coverageCards)
+  assert.match(home.app, /Fastest useful review · All issues/)
+  assertTopThree(rankingCards(home.app, 'fastest-grid'))
+  assert.match(home.app, /Most unique discoveries · All issues/)
+  assertTopThree(rankingCards(home.app, 'unique-grid'))
+  assert.equal(count(home.app, /class="leader-section"/g), 4)
 
   const majorHome = render('home?completeness=major')
   assert.match(majorHome.app, /Best return for the money · Major only/)
-  assert.match(majorHome.app, /0\.45 \/ \$/)
-  assert.match(majorHome.app, /5\.03 pts \/ \$/)
-  assert.match(majorHome.app, /66\.7% of major verified findings/)
+  assert.match(majorHome.app, /0\.45 findings \/ \$/)
   assert.match(majorHome.app, /Best coverage · Major only/)
   assert.match(majorHome.app, /Compound Engineering ce-code-review<\/a><\/h3><strong>75\.0%/)
-  const majorValueCards = majorHome.app.match(/<div class="landing-rank-grid leader-grid">([\s\S]*?)<\/div><p class="method-note">/)
-  assert.ok(majorValueCards)
-  assert.equal(count(majorValueCards[1], /<article class="rank-card">/g), 1, 'one skill leading both price measures must render once')
-  assert.match(majorValueCards[1], /0\.45 \/ \$ · 5\.03 pts \/ \$/)
+  assertTopThree(rankingCards(majorHome.app, 'leader-grid'))
 
   const majorMinorHome = render('home?completeness=majorMinor')
   assert.match(majorMinorHome.app, /Best return for the money · Major \+ minor/)
-  assert.match(majorMinorHome.app, /1\.21 \/ \$/)
-  assert.match(majorMinorHome.app, /5\.25 pts \/ \$/)
-  assert.match(majorMinorHome.app, /69\.6% of major \+ minor verified findings/)
+  assert.match(majorMinorHome.app, /1\.21 findings \/ \$/)
   assert.match(majorMinorHome.app, /Best coverage · Major \+ minor/)
   assert.match(majorMinorHome.app, /Superpowers requesting-code-review<\/a><\/h3><strong>69\.6%/)
-  const majorMinorValueCards = majorMinorHome.app.match(/<div class="landing-rank-grid leader-grid">([\s\S]*?)<\/div><p class="method-note">/)
-  assert.ok(majorMinorValueCards)
-  assert.equal(count(majorMinorValueCards[1], /<article class="rank-card">/g), 1, 'duplicate winners must stay deduplicated across scopes')
+  assertTopThree(rankingCards(majorMinorHome.app, 'leader-grid'))
+
+  const goHome = render('home?language=Go')
+  assert.match(goHome.app, /Best return for the money · All issues · Go/)
+  assert.match(goHome.app, /Best coverage · All issues · Go/)
+  assert.match(goHome.app, /Fastest useful review · All issues · Go/)
+  assert.match(goHome.app, /Most unique discoveries · All issues · Go/)
+  assert.match(goHome.app, /<option value="Go" selected="">Go<\/option>/)
+  assertTopThree(rankingCards(goHome.app, 'completeness-grid'))
+  assert.doesNotMatch(rankingCards(goHome.app, 'completeness-grid'), /[23] targets/)
+
+  const rustMajorHome = render('home?completeness=major&language=Rust')
+  assert.match(rustMajorHome.app, /Fastest useful review · Major only · Rust/)
+  assert.match(rustMajorHome.app, /Most unique discoveries · Major only · Rust/)
 
   const choose = render('choose')
   for (const label of ['Candidate', 'Cost', 'Real / run', 'High + med', 'Precision', 'Completeness', 'Cost / real', 'Success']) {
