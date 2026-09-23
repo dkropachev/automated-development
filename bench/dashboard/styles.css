@@ -150,7 +150,7 @@ td.num, th.num { text-align: right; }
 .badge { display: inline-flex; align-items: center; gap: .3rem; width: fit-content; padding: .22rem .48rem; border: 1px solid var(--line); border-radius: 99px; background: #151b24; color: #c5d0dd; font-size: .69rem; font-weight: 720; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
 .badge::before { width: .4rem; height: .4rem; border-radius: 50%; background: currentColor; content: ""; }
 .badge.complete, .badge.real { border-color: #245b3b; color: var(--good); }
-.badge.salvaged, .badge.unproven { border-color: #665024; color: var(--warn); }
+.badge.unproven { border-color: #665024; color: var(--warn); }
 .badge.failed, .badge.dnf, .badge.false-positive { border-color: #693240; color: var(--danger); }
 .badge.in-scope { color: var(--accent); }
 .badge.out-of-scope { color: var(--muted); }
