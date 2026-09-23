@@ -271,8 +271,8 @@ function render(data, assets = ASSET_DIR) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark light">
-<meta name="description" content="Compare code-review skills by verified quality, cost, model stack, and language">
-<title>Review Bench · Skill selection workbench</title>
+<meta name="description" content="A verified benchmark of Claude Code review skills, with clear findings-per-dollar and completeness-per-dollar leaders">
+<title>Review Bench · Claude Code review skill benchmark</title>
 <style>\n${css}\n</style>
 </head>
 <body>

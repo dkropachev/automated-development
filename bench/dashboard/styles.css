@@ -57,6 +57,36 @@ h3 { margin: 0; font-size: 1rem; }
 .breadcrumb { display: flex; flex-wrap: wrap; gap: .45rem; color: var(--muted); font-size: .86rem; margin-top: 1.2rem; }
 .breadcrumb a { color: var(--muted); }
 
+.landing-hero { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(260px, .65fr); gap: 2rem; align-items: end; padding: 4rem 0 2rem; }
+.landing-hero h1 { max-width: 920px; }
+.landing-hero p { max-width: 760px; margin-bottom: 0; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1.35rem; }
+.hero-actions .button-link { padding: .7rem .9rem; }
+.landing-proof { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
+.landing-proof div { padding: .9rem; border-left: 1px solid var(--line); }
+.landing-proof strong, .landing-proof span { display: block; }
+.landing-proof strong { color: var(--accent); font-size: 1.45rem; }
+.landing-proof span { margin-top: .3rem; color: var(--muted); font-size: .75rem; }
+.landing-section { margin-top: 2.4rem; }
+.landing-section-head { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 1rem; }
+.landing-section-head h2 { font-size: 1.75rem; }
+.landing-section-head p { max-width: 680px; margin: .35rem 0 0; color: var(--muted); line-height: 1.5; }
+.leader-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.leader-card { padding: 1.35rem; border: 1px solid #397d6e; border-radius: var(--radius); background: linear-gradient(145deg, rgb(20 68 58 / 58%), rgb(17 22 30 / 95%)); box-shadow: var(--shadow); }
+.leader-card .eyebrow { font-size: .7rem; }
+.leader-card h3 { margin-top: .8rem; font-size: 1.35rem; }
+.leader-value { display: block; margin-top: 1rem; color: var(--accent); font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 800; letter-spacing: -.04em; line-height: 1; }
+.leader-card p { margin: .65rem 0 0; color: #c5cfda; line-height: 1.5; }
+.method-note { margin-top: .75rem; color: var(--muted); font-size: .78rem; line-height: 1.45; }
+.skill-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
+.skill-summary-card { display: flex; min-width: 0; flex-direction: column; padding: 1rem; border: 1px solid var(--line); border-radius: 10px; background: rgb(17 22 30 / 82%); }
+.skill-summary-card h3 { line-height: 1.35; }
+.skill-summary-card h3 a { color: var(--text); text-decoration: none; }
+.skill-summary-card h3 a:hover { color: var(--accent); }
+.skill-summary-card p { margin: .65rem 0; color: #c5cfda; font-size: .88rem; line-height: 1.5; }
+.skill-summary-card .skill-facts { margin-top: auto; color: var(--muted); font-size: .75rem; }
+.skill-summary-card .badge { margin-bottom: .7rem; }
+
 .kpis { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: .75rem; margin: 1rem 0; }
 .kpi { min-height: 106px; padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(150deg, rgb(26 36 48 / 85%), rgb(13 18 25 / 90%)); box-shadow: var(--shadow); }
 .kpi span { display: block; color: var(--muted); font-size: .76rem; letter-spacing: .06em; text-transform: uppercase; }
@@ -250,6 +280,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   .charts { grid-template-columns: 1fr; }
   .analysis-grid { grid-template-columns: 1fr; }
   .skill-grid { grid-template-columns: 1fr; }
+  .skill-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
   .header-actions { flex-wrap: wrap; justify-content: flex-end; }
   .finding-row { grid-template-columns: 1fr auto; }
@@ -261,6 +292,10 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   .topbar { align-items: flex-start; }
   .brand small, .header-actions .hide-mobile { display: none; }
   .hero { padding-top: 1.3rem; }
+  .landing-hero { grid-template-columns: 1fr; gap: 1.25rem; padding-top: 2rem; }
+  .landing-proof { grid-template-columns: repeat(3, 1fr); }
+  .leader-grid, .skill-summary-grid { grid-template-columns: 1fr; }
+  .landing-section-head { align-items: flex-start; flex-direction: column; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .decision-kpis { grid-template-columns: repeat(2, 1fr); }
   .controls { grid-template-columns: 1fr 1fr; }

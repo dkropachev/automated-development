@@ -42,6 +42,15 @@ function count(text, pattern) { return [...text.matchAll(pattern)].length }
 try {
   assert.ok(fs.existsSync(DASHBOARD), 'run make bench-dashboard before the browser check')
 
+  const home = render('home')
+  assert.match(home.app, /Find the code-review skill worth its price\./)
+  assert.match(home.app, /Findings \/ price/)
+  assert.match(home.app, /3\.02 \/ \$/)
+  assert.match(home.app, /Completeness \/ price/)
+  assert.match(home.app, /2\.38 pts \/ \$/)
+  assert.equal(count(home.app, /class="skill-summary-card"/g), 9)
+  assert.match(home.app, /href="#skills\/superpowers-review"/)
+
   const choose = render('choose')
   for (const label of ['Candidate', 'Cost', 'Real / run', 'High + med', 'Precision', 'Completeness', 'Cost / real', 'Success']) {
     assert.match(choose.app, new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*?class="hint-mark"`, 's'), `${label} needs a rendered hint`)

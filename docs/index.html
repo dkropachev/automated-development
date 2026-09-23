@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark light">
-<meta name="description" content="Compare code-review skills by verified quality, cost, model stack, and language">
-<title>Review Bench · Skill selection workbench</title>
+<meta name="description" content="A verified benchmark of Claude Code review skills, with clear findings-per-dollar and completeness-per-dollar leaders">
+<title>Review Bench · Claude Code review skill benchmark</title>
 <style>
 :root {
   color-scheme: dark;
@@ -65,6 +65,36 @@ h3 { margin: 0; font-size: 1rem; }
 .compact-hero p { max-width: 920px; margin-bottom: .5rem; }
 .breadcrumb { display: flex; flex-wrap: wrap; gap: .45rem; color: var(--muted); font-size: .86rem; margin-top: 1.2rem; }
 .breadcrumb a { color: var(--muted); }
+
+.landing-hero { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(260px, .65fr); gap: 2rem; align-items: end; padding: 4rem 0 2rem; }
+.landing-hero h1 { max-width: 920px; }
+.landing-hero p { max-width: 760px; margin-bottom: 0; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: 1.35rem; }
+.hero-actions .button-link { padding: .7rem .9rem; }
+.landing-proof { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; }
+.landing-proof div { padding: .9rem; border-left: 1px solid var(--line); }
+.landing-proof strong, .landing-proof span { display: block; }
+.landing-proof strong { color: var(--accent); font-size: 1.45rem; }
+.landing-proof span { margin-top: .3rem; color: var(--muted); font-size: .75rem; }
+.landing-section { margin-top: 2.4rem; }
+.landing-section-head { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 1rem; }
+.landing-section-head h2 { font-size: 1.75rem; }
+.landing-section-head p { max-width: 680px; margin: .35rem 0 0; color: var(--muted); line-height: 1.5; }
+.leader-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.leader-card { padding: 1.35rem; border: 1px solid #397d6e; border-radius: var(--radius); background: linear-gradient(145deg, rgb(20 68 58 / 58%), rgb(17 22 30 / 95%)); box-shadow: var(--shadow); }
+.leader-card .eyebrow { font-size: .7rem; }
+.leader-card h3 { margin-top: .8rem; font-size: 1.35rem; }
+.leader-value { display: block; margin-top: 1rem; color: var(--accent); font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 800; letter-spacing: -.04em; line-height: 1; }
+.leader-card p { margin: .65rem 0 0; color: #c5cfda; line-height: 1.5; }
+.method-note { margin-top: .75rem; color: var(--muted); font-size: .78rem; line-height: 1.45; }
+.skill-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
+.skill-summary-card { display: flex; min-width: 0; flex-direction: column; padding: 1rem; border: 1px solid var(--line); border-radius: 10px; background: rgb(17 22 30 / 82%); }
+.skill-summary-card h3 { line-height: 1.35; }
+.skill-summary-card h3 a { color: var(--text); text-decoration: none; }
+.skill-summary-card h3 a:hover { color: var(--accent); }
+.skill-summary-card p { margin: .65rem 0; color: #c5cfda; font-size: .88rem; line-height: 1.5; }
+.skill-summary-card .skill-facts { margin-top: auto; color: var(--muted); font-size: .75rem; }
+.skill-summary-card .badge { margin-bottom: .7rem; }
 
 .kpis { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: .75rem; margin: 1rem 0; }
 .kpi { min-height: 106px; padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(150deg, rgb(26 36 48 / 85%), rgb(13 18 25 / 90%)); box-shadow: var(--shadow); }
@@ -259,6 +289,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   .charts { grid-template-columns: 1fr; }
   .analysis-grid { grid-template-columns: 1fr; }
   .skill-grid { grid-template-columns: 1fr; }
+  .skill-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
   .header-actions { flex-wrap: wrap; justify-content: flex-end; }
   .finding-row { grid-template-columns: 1fr auto; }
@@ -270,6 +301,10 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   .topbar { align-items: flex-start; }
   .brand small, .header-actions .hide-mobile { display: none; }
   .hero { padding-top: 1.3rem; }
+  .landing-hero { grid-template-columns: 1fr; gap: 1.25rem; padding-top: 2rem; }
+  .landing-proof { grid-template-columns: repeat(3, 1fr); }
+  .leader-grid, .skill-summary-grid { grid-template-columns: 1fr; }
+  .landing-section-head { align-items: flex-start; flex-direction: column; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .decision-kpis { grid-template-columns: repeat(2, 1fr); }
   .controls { grid-template-columns: 1fr 1fr; }
@@ -328,7 +363,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   const languages = [...new Set(DATA.targets.map((target) => target.language))].sort()
   const targetColors = ['#67e8c1', '#77a7ff', '#f4bf62', '#dd8cff', '#fb7185']
   const svgNs = 'http://www.w3.org/2000/svg'
-  let activeView = 'choose'
+  let activeView = 'home'
 
   const el = (tag, attrs = {}, ...children) => {
     const node = document.createElement(tag)
@@ -374,6 +409,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
     'Cache read': 'Previously cached prompt tokens reused by the model.',
     'Claims': 'Raw findings extracted from a run before duplicate merging and verification.',
     'Completeness': 'Distinct real issues found divided by all real issues found by eligible complete or salvaged runs.',
+    'Completeness / dollar': 'Completeness percentage points divided by total recorded cost for every attempted run.',
     'Cost': 'Recorded API usage cost in U.S. dollars.',
     'Cost / real': 'Total recorded cost for attempted runs divided by distinct verified real issues.',
     'Δ': 'Right value minus left value.',
@@ -505,13 +541,13 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
     app.replaceChildren(
       el('div', { class: 'shell' },
         el('header', { class: 'topbar' },
-          hashLink('', '#choose', 'brand'),
+          hashLink('', '#home', 'brand'),
           el('nav', { class: 'header-actions', 'aria-label': 'Dashboard navigation' },
-            navLink('Choose', 'choose'),
+            navLink('Summary', 'home'),
+            navLink('Leaderboard', 'choose'),
             navLink('Compare', 'compare'),
             navLink('Insights', 'insights'),
             navLink('Findings', 'findings'),
-            navLink('Skills', 'skills'),
             navLink('Runs', 'runs'),
             el('a', { href: './review-bakeoff.md' }, 'Report'),
           ),
@@ -522,16 +558,17 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
     )
     const brand = document.querySelector('.brand')
     brand.append(el('span', { class: 'brand-mark', 'aria-hidden': 'true' }, 'RX'))
-    brand.append(el('span', {}, el('strong', {}, 'Review Bench'), el('small', {}, 'Skill selection workbench')))
+    brand.append(el('span', {}, el('strong', {}, 'Review Bench'), el('small', {}, 'Verified skill benchmark')))
   }
 
   function route() {
-    const raw = location.hash.slice(1) || 'choose'
+    const raw = location.hash.slice(1) || 'home'
     const [path, query = ''] = raw.split('?')
     const parts = path.split('/').map(decodeURIComponent)
     const params = new URLSearchParams(query)
     activeView = parts[0] === 'overview' ? 'runs' : parts[0]
-    if (parts[0] === 'run' && parts.length >= 3) renderRun(`${parts[1]}/${parts[2]}`)
+    if (activeView === 'home') renderLanding()
+    else if (parts[0] === 'run' && parts.length >= 3) renderRun(`${parts[1]}/${parts[2]}`)
     else if (parts[0] === 'compare' && parts.length >= 5) renderComparison(`${parts[1]}/${parts[2]}`, `${parts[3]}/${parts[4]}`)
     else if (activeView === 'choose') renderChoose(params)
     else if (activeView === 'compare') renderSkillCompare(params)
@@ -729,6 +766,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
       completeness: universe.size ? real.length / universe.size : null,
       costPerReal: cost > 0 && real.length ? cost / real.length : null,
       realPerDollar: cost > 0 ? real.length / cost : null,
+      completenessPerDollar: cost > 0 && universe.size ? (real.length / universe.size) * 100 / cost : null,
       qualityPerDollar: cost > 0 ? Math.max(0, weightedQuality) / cost : null,
       languages: [...new Set(rows.map((run) => targets.get(run.targetId)?.language).filter(Boolean))],
       modelStacks: [...new Set(rows.map(modelStack))],
@@ -773,6 +811,67 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
 
   function compactHero(eyebrow, title, text) {
     return el('section', { class: 'hero compact-hero' }, el('div', { class: 'eyebrow' }, eyebrow), el('h1', {}, title), el('p', {}, text))
+  }
+
+  function leaderCard(label, group, value, note) {
+    return el('article', { class: 'leader-card' },
+      el('div', { class: 'eyebrow' }, label),
+      el('h3', {}, group.label),
+      el('strong', { class: 'leader-value' }, value),
+      el('p', {}, note),
+      hashLink('See leaderboard →', '#choose', 'subline'),
+    )
+  }
+
+  function landingSkillCard(skill) {
+    const stats = aggregateRuns(skill.id, skill.label, 'Skill', skill.rows, DATA.runs)
+    return el('article', { class: 'skill-summary-card' },
+      skill.parked ? badge('did not finish', 'dnf') : null,
+      el('h3', {}, hashLink(skill.label, `#skills/${encodeURIComponent(skill.id)}`)),
+      el('p', {}, skill.description || 'No description is recorded for this skill.'),
+      el('span', { class: 'skill-facts' }, `${skill.rows.length} run${skill.rows.length === 1 ? '' : 's'} · ${stats.real} verified finding${stats.real === 1 ? '' : 's'} · ${fmt(stats.cost, 'money')} attempted cost`),
+    )
+  }
+
+  function renderLanding() {
+    const groups = groupedStats(DATA.runs, 'skill', DATA.runs).filter((group) => group.cost > 0)
+    const findingsLeader = [...groups].sort((a, b) => (b.realPerDollar ?? -1) - (a.realPerDollar ?? -1))[0]
+    const completenessLeader = [...groups].sort((a, b) => (b.completenessPerDollar ?? -1) - (a.completenessPerDollar ?? -1))[0]
+    const verifiedReal = new Set(DATA.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(issue.targetId, issue)))
+    const catalogue = skillCatalogue()
+    frame(el('div', {},
+      el('section', { class: 'landing-hero hero' },
+        el('div', {},
+          el('div', { class: 'eyebrow' }, 'Claude Code review benchmark'),
+          el('h1', {}, 'Find the code-review skill worth its price.'),
+          el('p', {}, 'We ran Claude Code review skills on real Go, Rust, and C++ pull requests. Every finding was merged, checked against the code, and compared with the recorded cost.'),
+          el('div', { class: 'hero-actions' },
+            hashLink('Explore the leaderboard', '#choose', 'button-link primary'),
+            el('a', { class: 'button-link', href: './review-bakeoff.md' }, 'Read the full report'),
+          ),
+        ),
+        el('div', { class: 'landing-proof', 'aria-label': 'Benchmark size' },
+          el('div', {}, el('strong', {}, fmt(catalogue.length)), el('span', {}, 'skills tested')),
+          el('div', {}, el('strong', {}, fmt(DATA.runs.length)), el('span', {}, 'review runs')),
+          el('div', {}, el('strong', {}, fmt(verifiedReal.size)), el('span', {}, 'verified findings')),
+        ),
+      ),
+      el('section', { class: 'landing-section', 'aria-labelledby': 'leaders-title' },
+        el('div', { class: 'landing-section-head' }, el('div', {}, el('div', { class: 'eyebrow' }, 'Leaders'), el('h2', { id: 'leaders-title' }, 'Best return for the money'), el('p', {}, 'Both measures include the cost of failed or interrupted attempts. Higher is better.'))),
+        el('div', { class: 'leader-grid' },
+          leaderCard('Findings / price', findingsLeader, `${findingsLeader.realPerDollar.toFixed(2)} / $`, `${findingsLeader.real} verified findings for ${fmt(findingsLeader.cost, 'money')}.`),
+          leaderCard('Completeness / price', completenessLeader, `${completenessLeader.completenessPerDollar.toFixed(2)} pts / $`, `${fmt(completenessLeader.completeness, 'percent')} of all verified findings for ${fmt(completenessLeader.cost, 'money')}.`),
+        ),
+        el('p', { class: 'method-note' }, 'Completeness means the share of distinct verified findings found on the targets a skill reviewed. This is a small benchmark: three pull requests, one per language.'),
+      ),
+      el('section', { class: 'landing-section', 'aria-labelledby': 'skills-title' },
+        el('div', { class: 'landing-section-head' },
+          el('div', {}, el('div', { class: 'eyebrow' }, 'Skill guide'), el('h2', { id: 'skills-title' }, 'What each skill does'), el('p', {}, 'Short descriptions of every tested skill. Open a card for setup, usage, and exact run evidence.')),
+          hashLink('Compare skills →', '#compare', 'button-link'),
+        ),
+        el('div', { class: 'skill-summary-grid' }, catalogue.map(landingSkillCard)),
+      ),
+    ))
   }
 
   function selectionFrom(params) { return values(params, 'compareSkills').filter((id) => tools.has(id)).slice(0, 5) }
