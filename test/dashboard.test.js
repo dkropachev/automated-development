@@ -153,6 +153,8 @@ test('HTML export is deterministic, self-contained, and script-data safe', () =>
   assert.match(first, /id="dashboard-data" type="application\/json"/)
   for (const view of ['Summary', 'Leaderboard', 'Compare', 'Insights', 'Findings', 'Runs']) assert.match(first, new RegExp(`navLink\\('${view}'`))
   assert.match(first, /function renderLanding\(params\)/)
+  assert.match(first, /function landingRankCard\(group, marker, value, note\)/)
+  assert.doesNotMatch(first, /value-leader-card|function leaderCard/)
   assert.doesNotMatch(first, /review-bakeoff\.md/)
   assert.doesNotMatch(first, /<script\s+[^>]*src=/i)
   assert.doesNotMatch(first, /<link\s+[^>]*href=/i)
