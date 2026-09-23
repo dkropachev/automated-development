@@ -1,0 +1,35 @@
+{
+  "target": "quillstone",
+  "tool": "tob-diff-review",
+  "label": "Trail of Bits differential-review",
+  "findings": [
+    {
+      "file": "session.rs",
+      "line": 2008,
+      "title": "current_keyspace stored optimistically and never rolled back on failed use_keyspace",
+      "severity": "blocker",
+      "kind": "bug",
+      "claim": "current_keyspace is stored optimistically and never rolled back (also at worker.rs:351, connection_pool.rs:1287); post-PR every new connection with a failed use_keyspace is discarded, so pools never fill, the refiller churns full handshakes against every node forever at max_fill_backoff, and pools drain to Broken causing nodes to drop out of load balancing.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 994,
+      "title": "Shard-mismatch drop site still leaks despite metrics-balancing fix",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The metrics-balancing commit fixes three of four discard sites, but the shard-mismatch drop at connection_pool.rs:994 still leaks.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Refiller teardown still leaks, encoded by new test at :2011",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "Refiller teardown still leaks (the fourth discard site not fixed by the metrics-balancing commit), which the new test at line 2011 actually encodes.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null
+}

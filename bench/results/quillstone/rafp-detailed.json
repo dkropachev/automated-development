@@ -1,0 +1,112 @@
+{
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "tool": "rafp-detailed",
+  "label": "review-and-fix-pr (review only, detailedReview)",
+  "source": "automated-development@automated-development",
+  "prompt": "/automated-development:review-and-fix-pr 1\n\nRun it read-only and detailed: `fix: false`, `detailedReview: true`, and `ignoreLedger: true` so nothing is skipped as already reviewed.\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 1246858,
+  "reportedCostUsd": 12.621321499999997,
+  "reportedUsage": {
+    "input_tokens": 94,
+    "cache_creation_input_tokens": 83760,
+    "cache_read_input_tokens": 2782473,
+    "output_tokens": 13106,
+    "output_tokens_details": {
+      "thinking_tokens": 2013
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 83760,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1919,
+        "cache_read_input_tokens": 89486,
+        "cache_creation_input_tokens": 4862,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 4862
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 380,
+      "outputTokens": 146065,
+      "cacheReadInputTokens": 11920068,
+      "cacheCreationInputTokens": 430986,
+      "webSearchRequests": 0,
+      "costUSD": 12.621321499999997,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 74466,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 48,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "36e23d21-4063-4f84-8430-2cf7e46b16fe",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 400,
+    "output": 149801,
+    "thinking": 76417,
+    "cacheRead": 12316720,
+    "cacheCreation": 475782,
+    "costUsd": 13.361107499999997,
+    "sessions": 2,
+    "models": {
+      "claude-opus-5[1m]": 13.361107499999997
+    },
+    "rawMessages": 381,
+    "rawOutput": 159823,
+    "rawCacheRead": 22651146,
+    "subagentTranscripts": 7,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-quillstone-runs-rafp-detailed-repo",
+    "total": 12942703
+  },
+  "result": "Review complete. 5 agents, read-only, nothing edited.\n\n## Findings in scope (introduced or owned by this PR)\n\n**1. Keyspace-setup failure downgraded from `warn!` to `debug!` — a pool that can never fill is now silent** — severity **low**\n`scylla/src/network/connection_pool.rs:900-909`\nThe diff deletes the `warn!(\"[{}] Failed to set keyspace for new connection: {}\")` that `start_setting_keyspace_for_connection` used to emit and replaces it with `debug!` in the new `ConnectionSetupError::Keyspace` arm. The error only reaches the user when `!self.is_filling() && self.is_empty()`. When the pool still holds at least one connection, a persistently failing `USE` produces no user-visible signal at all — no warning, no pool error — while the pool never reaches target size and keeps opening and dropping TCP connections on the reconnect schedule. Before the PR the operator at least got one warning per failure. Reproduced: a probe with `current_keyspace = Some(\"dropped_ks\")` against a proxy server-erroring every QUERY logged 3 connection attempts in 0.4s with nothing above debug level.\n\n**2. `initial_shard_info` in the new resharding test is dead and misleading** — severity **low**\n`scylla/src/network/connection_pool.rs:1866-1885`\n`resharding_discards_old_connections_and_balances_metrics` builds `initial_shard_info` (shard 0, 1 shard, msb 12), passes it to `start_simulated_node`, then immediately replaces the node's request rules with ones advertising an empty SUPPORTED map — before any connection is opened. The value has no effect; a reader is led to believe the first connection reports that sharding when the test actually exercises the \"node reports no shard info\" case. Proven dead: mutating it to `shard: 6, nr_shards: 7, msb_ignore: 3` still passes.\n\n## Real but pre-existing (this PR did not cause them)\n\n**3. Failed pool-level `USE` leaves connections serving the old keyspace** — severity **high**, pre-dates base\n`connection_pool.rs:1283`. `PoolRefiller::use_keyspace` sets `current_keyspace` before issuing anything, then never removes or retries a connection whose `USE` failed with a non-broken-connection error. The pool keeps publishing a connection on the old keyspace while believing it is on the new one, so unqualified statements silently hit the wrong keyspace. This is exactly the hole the PR closes for *new* connections, left open for pooled ones. Deferred by the reviewer as a design call (discarding on a transient timeout would empty every pool at once).\n\n**4. `total_connections` never decremented on `PoolRefiller` teardown** — severity **medium**, pre-dates base\n`connection_pool.rs:693-697`. `run()` bare-`return`s when the use-keyspace channel closes (node removed by topology refresh, or host-filtered); `conns` and `excess_connections` are dropped with no decrement, and `Metrics` is session-scoped, so the gauge stays inflated for the session's life. There is no `impl Drop for PoolRefiller`. Reproduced by appending `assert_eq!(metrics.get_total_connections(), 0)` after `drop(refiller)` in the PR's own `keyspace_setup_failure_preserves_pool_state` — fails 1 != 0. Relevant because the PR's stated acceptance criterion is \"open-connection metrics return to a balanced value after pools are cleared\".\n\n**5. Discarded shard-aware connection leaks the metric** — severity **low**, pre-dates base\n`connection_pool.rs:993-1006`. In the `else if evt.requested_shard.is_some()` branch the connection is dropped and `start_opening_connection(None)` called, with no `dec_total_connections()` — the same imbalance class the PR fixes at the two `excess_connections.clear()` sites and in `maybe_reshard`, but this sibling branch of the same if/else chain was left out. Reproduced: metric reads 2 where 1 is correct.\n\n**6. Broken intra-doc link** — severity **low**, pre-dates base, file untouched by the PR\n`scylla/src/client/session_builder.rs:114` — `[`ClientRoutesConfig`]` is not in scope (it lives in `crate::client::client_routes`), so `cargo doc --all-features` emits one unresolved-link warning.\n\n## Explicitly checked and cleared\n\nThe reviewers mutation-tested every guard the diff adds — the run-loop excess decrement, the `maybe_reshard` decrement, the excess-limit decrement, the keyspace-arm `dec_total_connections`, and the reorder of the keyspace check ahead of `maybe_reshard`. Each deletion makes at least one new test fail, so nothing added is untested. Also ruled out: double-decrement between `maybe_reshard` and `remove_connection` (`Arc::ptr_eq` prevents it); the new `ConnectionError` variant breaking callers (enum is `#[non_exhaustive]`, no exhaustive in-crate match, size unchanged at 112 bytes); the reorder degrading shard-aware filling (`is_filling()` stays true across the USE round-trip); the control connection being taken down (it bypasses pools entirely); and a suspected race in `full_pool_clears_excess_connections_and_balances_metrics` (55 stress runs, zero failures).\n\nOpen follow-ups the run recorded: decrement on refiller shutdown (before-merge), cover the `excess_connections` term of the `maybe_reshard` decrement, and decide the policy for pooled connections whose `USE` failed.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-21T10:57:26.413Z"
+}

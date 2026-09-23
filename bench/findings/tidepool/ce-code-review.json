@@ -1,0 +1,305 @@
+{
+  "target": "tidepool",
+  "tool": "ce-code-review",
+  "label": "Compound Engineering ce-code-review",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 1131,
+      "title": "Zero-length date/time vector elements pass bound, decode to minDate with nil error",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "Zero-length date/time elements pass the new bound and still allocate one Go value per claimed element, decoding to minDate with a nil error instead of being rejected.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1000,
+      "title": "Dimension bound counts wire bytes but allocation is sized in Go bytes (~16-24x amplification)",
+      "severity": "high",
+      "kind": "security",
+      "claim": "The bound compares Dimensions against len(data)/elemMin (wire bytes) while reflect.MakeSlice allocates using the Go element size, so a peer can still trigger allocation far larger than the payload (e.g. ~4GiB from a 256MiB body for vector<text,N>).",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1136,
+      "title": "Recursive per-element size floor's overflow-saturation branch has no test coverage",
+      "severity": "high",
+      "kind": "test-gap",
+      "claim": "The saturation branch in vectorElemMinSize guarding against a nested peer-controlled Dimensions overflow is never exercised by any test, so a bug in the comparison, boundary, or int64-to-int narrowing there would go uncaught.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 695,
+      "title": "PR body overstates how many new tests fail against pristine code (3 of 7 pass unchanged)",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The PR body's claim that every new test fails against pristine code is wrong for 3 of 7 test functions: two pass unchanged against base as regression guards, and one doesn't even compile against base.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1097,
+      "title": "Oversized VInt element length narrows to -1, silently decoding as an empty value",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "With the one-byte floor letting variable-length vectors through, a max-width VInt element length converts via int(m) to -1, so no payload bytes are consumed and the element silently decodes as an empty string with a nil error; pre-existing, deferred as issue #1106.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Nested vector element type does not decode into interface{} (deferred #1085)",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Nested vector support for interface{} destinations is deferred; the PR only turns the crash into an error rather than fully supporting nested vector decoding into interface{}.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 724,
+      "title": "Surplus trailing bytes in a generic vector payload are still silently accepted (deferred #1086)",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Surplus trailing bytes in a generic (non-float-fast-path) vector payload are still accepted rather than rejected, unlike the float fast paths which reject the same malformed payload; left as-is and out of scope.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Companion change rejecting dim<1 in metadata parsers (#1093) is not part of this PR",
+      "severity": "low",
+      "kind": "question",
+      "claim": "The companion change (#1093) rejecting dim < 1 in metadata parsers is not in this tree; the variable-length finding shapes are well-formed with dim>=1 and are not covered by it.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 1001,
+      "title": "Dimension-bound error message omits the element type unlike the fast-path errors it preempts",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The new dimension-bound error omits info.SubType, unlike the fast-path errors it preempts; validator judged this an unsupported wording preference rather than a defect since the message still names the operation and both peer-controlled numbers.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 0,
+      "title": "New bound rejects driver's own zero-byte marshaled payloads that no server would ever return",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The new bound rejects every payload marshalVector produces for a fixed-size element encoded in zero bytes (nil pointers, zero time.Time, UnsetValue), flipping from silent zero-filled decode to an error, but Cassandra's FixedLengthSerializer would reject such a write server-side so the read can never occur in practice.",
+      "selfRejected": true
+    },
+    {
+      "file": "serialization/timestamp/marshal_utils.go",
+      "line": 30,
+      "title": "marshalVector emits a wire-invalid vector value instead of erroring when an element under-marshals",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "marshalVector writes bytes with no prefix and no length check when an element (nil pointer, UnsetValue, or zero time.Time) marshals to fewer bytes than vectorFixedElemSize, producing a wire-invalid value the caller only learns about via the server's InvalidRequest; pre-existing, not touched by this diff.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 1010,
+      "title": "vectorElemMinSize(nil) panics on a caller-constructed VectorType with nil SubType",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "With Dimensions > 0 and non-nil data, a caller-constructed VectorType with a nil SubType reaches vectorFixedElemSize(nil) and panics calling Type() on a nil interface; pre-existing since the pre-diff fast-path switch sat behind an identical guard.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 2016,
+      "title": "Peer-controlled type descriptor text (up to 65535 bytes) reaches error messages verbatim (CWE-117)",
+      "severity": "low",
+      "kind": "security",
+      "claim": "The new error at marshal.go:1048 formats the peer's type descriptor with %v, and NativeType.String prints the raw custom name the server sent verbatim, up to 65535 bytes including newlines/escape sequences, reaching an error applications routinely log; not filed since the driver already prints info this way elsewhere.",
+      "selfRejected": true
+    },
+    {
+      "file": "frame.go",
+      "line": 855,
+      "title": "Malformed VectorType name parsing can panic on unguarded slice/index operations",
+      "severity": "low",
+      "kind": "security",
+      "claim": "frame.go does spec[1:len(spec)-1] and spec[:idx] where idx may be -1, and helpers.go:264 indexes names[1] unguarded; a malformed name from the wire panics there. Pre-existing and unchanged; reviewer could not rule out a string that survives frame-time parsing but panics in the Scan-goroutine parser.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 0,
+      "title": "vectorElemMinSize recursion depth is capped well below stack-overflow risk",
+      "severity": "low",
+      "kind": "security",
+      "claim": "Recursion in vectorElemMinSize follows peer type-descriptor nesting, but the descriptor is capped at 65535 bytes and each level costs ~43 characters, capping depth near 1500, far below a Go stack overflow; checked and not a finding.",
+      "selfRejected": true
+    },
+    {
+      "file": "helpers.go",
+      "line": 271,
+      "title": "Nested-vector 'no Go type' error cannot name the element type, only prints the bare custom prefix",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "For a nested vector, the new guard prints the bare prefix 'no Go type for element type custom(...)' because getCassandraLongType builds the nested VectorType's NativeType from a constant prefix rather than the parsed spec, so the PR's goal of naming what the server sent doesn't work for nested vectors; held back because a consumer might rely on the bare-prefix value.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Callsite completeness for changed getCassandraLongType output was verified only by manual grep",
+      "severity": "low",
+      "kind": "question",
+      "claim": "Every non-test reader of the TypeInfo returned by the changed getCassandraLongType was traced by hand since the repo has no symbol-aware search; a consumer reached through an interface or reflection, or comparing TypeInfo by equality, would not appear in that trace.",
+      "selfRejected": true
+    },
+    {
+      "file": "helpers.go",
+      "line": 279,
+      "title": "getCassandraLongType fallback change is broader than stated intent, affecting non-vector nested types too",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The basic-type fallback in getCassandraLongType is not scoped to vector elements: it also changes Custom()/String() for any unrecognized type resolved recursively through list, set, map, tuple, and UDT definitions, a wider change to exported TypeInfo output than the PR description states.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 260,
+      "title": "Unmarshal's doc comment has never documented vector decoding, including the new error conditions",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Unmarshal's doc comment has no 'vector' row in the CQL-to-Go table and VectorType's own comment covers only Zero(); this pre-existing gap now sits under two new error conditions the PR adds.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "No release-notes/changelog channel exists for communicating this decode-behaviour change",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The repository removed upstream's CHANGELOG.md and neither README.md nor CONTRIBUTING.md states a SemVer or breaking-change policy despite go.mod tagging v1.x.y releases, so there's no channel through which this decode-behavior change reaches a consumer pinning a released tag.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 557,
+      "title": "Test helper makeVectorType builds a TypeText descriptor for a wire name the real parser maps to TypeVarchar",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "makeVectorType(TypeText, \"UTF8Type\", dim), used for every vector<text,...> test case, sets typ=TypeText for a wire name that getApacheCassandraType actually maps to TypeVarchar; harmless today but a future divergence wouldn't be caught by these tests.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "No measurable performance regression from the new unconditional per-row vectorElemMinSize call",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "unmarshalVector now calls vectorElemMinSize(info.SubType) unconditionally ahead of the float fast paths and recomputes it every row uncached; benchmarks across dims 128-1536 show head and base indistinguishable within noise with 0 allocs/op on both.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "No test for the headline behavior change: empty non-NULL payload now errors instead of decoding silently",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test pins that unmarshalVector(vector<int,3>, []byte{}, &dst) changed from nil error with a zero-filled slice on base to an explicit 'do not fit' error on head; existing tests use a 2-byte payload or Dimensions==0, neither covering this case.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 0,
+      "title": "Accepted behaviour change is tested only for vector<int,3>, not the other fixed-size types it also affects",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The new bound also flips decoding for nil-pointer element slices of every fixed-size type and for zero time.Time / UnsetValue cases, but no table test round-trips Marshal then Unmarshal over those shapes to pin the new verdict deliberately.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "No test covers a variable-length element type whose real minimum wire size exceeds the 1-byte floor",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test uses vector<smallint,N> or vector<duration,N> to confirm the bound stays permissive enough to accept a real, well-formed server payload for such types.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "No test confirms the new bound leaves the float fast-path error message unaffected for longer-than-minimum payloads",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test asserts that a vector<double,3> payload of 32 bytes still produces 'expected 24 bytes, got 32' rather than the new bound's message, the boundary where the message substitution stops applying.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Allocation-bound test only covers nested fixed-size shapes, not variable-length elements",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating measures peak allocation only for the nested fixed-size shape; there's no allocation assertion for a variable-length element type (vector<text,N> into []string or any), where the 1-byte floor permits the largest Go-side allocation.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 1142,
+      "title": "No test covers a zero-dimension inner vector as an element type, the fallback path in vectorElemMinSize",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test covers vector<vector<float,0>,N>, the shape reaching the 'return 1' fallback; TestVectorElemMinSize pins the floor value but nothing pins what unmarshalVector then allocates for it.",
+      "selfRejected": true
+    },
+    {
+      "file": "session.go",
+      "line": 3012,
+      "title": "No test exercises the real Scan path end-to-end for the new dimension-bound rejections",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Every new dimension-bound and no-Go-type test calls unmarshalVector or Unmarshal directly; none exercises iterScanner.Scan -> scanColumn -> Unmarshal to pin that a hostile payload's error surfaces cleanly to a Scan caller with no panic in the intermediate plumbing.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "No test drives the new bound through a type nested three or more vector levels deep",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test confirms the recursion terminates with a sane floor for a type nested three-plus vector levels deep; described as minor since Dimensions is bounded before depth could matter in practice.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 519,
+      "title": "'No Go type' test for nested vector into interface{} asserts only a substring, not the rendered identifier",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "TestUnmarshalVectorRejectsAnElementTypeWithNoGoType/nested_vector_into_an_interface asserts only that the error contains 'no Go type for element type', not what identifier follows, so a regression in the rendered identifier would go unnoticed.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "No unit test exercises getCassandraLongType's basic-type fallback outside the vector path",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test covers a List<UnknownType>, an unknown map value, or a UDT field to confirm the widened Custom()/String() population behaves correctly for those positions, since the same function backs all of them.",
+      "selfRejected": true
+    },
+    {
+      "file": "vector_bench_test.go",
+      "line": 0,
+      "title": "Benchmarks cover only flat vector<float,N>, not nested or variable-length-element vectors",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "There is no benchmark for a nested vector or a variable-length element vector, both of which now exercise the recursive prologue on every value, so a future regression in that recursion would not show up.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null
+}

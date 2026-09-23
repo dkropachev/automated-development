@@ -1,0 +1,114 @@
+{
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "tool": "mattpocock-review",
+  "label": "Matt Pocock code-review",
+  "source": "mattpocock-skills@mattpocock",
+  "prompt": "/mattpocock-skills:code-review main\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 334798,
+  "reportedCostUsd": 4.1502395000000005,
+  "reportedUsage": {
+    "input_tokens": 60,
+    "cache_creation_input_tokens": 75754,
+    "cache_read_input_tokens": 1962155,
+    "output_tokens": 23837,
+    "output_tokens_details": {
+      "thinking_tokens": 13460
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 75754,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 2976,
+        "cache_read_input_tokens": 84369,
+        "cache_creation_input_tokens": 1973,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1973
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 104,
+      "outputTokens": 50534,
+      "cacheReadInputTokens": 2826459,
+      "cacheCreationInputTokens": 190250,
+      "webSearchRequests": 0,
+      "costUSD": 4.1502395000000005,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 31604,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 34,
+  "subagentStats": {
+    "spawned": 2,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 2
+    },
+    "started_in_background": 2,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 2,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "general-purpose": 2
+    }
+  },
+  "sessionId": "5d9d5e97-3f41-42ee-8724-1c1326039d86",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 104,
+    "output": 50534,
+    "thinking": 31604,
+    "cacheRead": 2826459,
+    "cacheCreation": 190250,
+    "costUsd": 4.1502395000000005,
+    "sessions": 14,
+    "models": {
+      "claude-opus-5[1m]": 4.1502395000000005
+    },
+    "rawMessages": 122,
+    "rawOutput": 76997,
+    "rawCacheRead": 5342155,
+    "subagentTranscripts": 2,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-ironweave-runs-mattpocock-review-repo",
+    "total": 3067347
+  },
+  "result": "Both sub-agents are back. Note: `docs/agents/issue-tracker.md` is absent — run `/setup-matt-pocock-skills` to configure it. I resolved the spec manually from the PR body and `scylladb/seastar#3663` / `#3653`.\n\nFixed point: `main` = `5cc62de6`, HEAD = `69da8f5b`, 3 commits, 5 files, +241/−4.\n\n## Standards\n\n**Hard violations**\n\n1. **No DCO sign-off on any of the three commits** — severity **high**. `doc/contributing.md:6,10` (\"Send patches … with a DCO sign-off … use `-s` in your Git command\"). `f545c28a`, `5e25ebdb`, `69da8f5b` all lack `Signed-off-by:`. Verified. Blocks upstream submission.\n2. **`Co-Authored-By: Claude …` trailers on all three commits** — severity **high**. Four trailers total (`69da8f5b` carries two); the PR body also ends with a \"Generated with Claude Code\" line. Violates your standing attribution rule. Verified.\n3. Commit subject area-prefixes (`rpc:`, `rpc_test:`) match the documented convention — no finding.\n\n**Comment/style** (`.claude/CLAUDE.md`: comment carefully, follow existing style)\n\n4. `src/rpc/rpc.cc:558-561` — **comment misstates the load-bearing invariant**, severity **medium**. It says \"Nothing else waits for `_outgoing_queue_ready` from here on: … `stop_send_loop()` waits for `_sink_closed_future`.\" `stop_send_loop()` still waits on *both* (`src/rpc/rpc.cc:225`). What makes the swap safe is that its wait on the now-ready queue future is subsumed by `_sink_closed_future`, which only resolves after the real drain.\n5. `src/rpc/rpc.cc:565` — **lambda parameter `f` shadows the outer `f`** declared at `src/rpc/rpc.cc:549`, inside the very assignment to that variable. Severity **low/medium**. Rename to `drained`.\n6. `include/seastar/rpc/rpc_types.hh:337-343, 384-389` — **doxygen block detached from its declaration**, severity **low/medium**. The new `/// \\brief` blocks are separated from `class sink` / `class source` by the legacy `// send data Out...` / `// receive data In...` one-liners. Fold those into the doxygen block.\n\n**Baseline smells** (judgement calls, all in the test)\n\n7. `tests/unit/rpc_test.cc:1900` — **Middle Man**: `test_connected_socket_impl` is 17 methods, 16 pure delegation; only `sink()` does work. A reusable delegating wrapper in `tests/unit/loopback_socket.hh` would serve the next such test.\n8. `tests/unit/rpc_test.cc:1895` — `buffer_size()` returns a hardcoded `8192` while every sibling method forwards to `_inner`. Should be `_inner.buffer_size()`.\n9. `tests/unit/rpc_test.cc:1957` — `const_cast<hook_capturing_compressor_factory*>(this)->hooks.push_back(...)` dodges constness; the adjacent factory in the same file (~`:1801`) does the same job cleanly via a `tracker&` member. \"Follow existing style.\"\n10. `tests/unit/rpc_test.cc:1870` — **Mysterious Name**: `test_sink_state` reads as `rpc::sink` state in a file where \"sink\" means exactly that; it is `data_sink` state.\n11. Nits: `tests/unit/rpc_test.cc:1874` uses `shared_promise` with no `#include <seastar/core/shared_future.hh>` (transitive only, verified); `:2021` `for (int i = 0; i < 10; i++) yield()` is an arbitrary, undocumented count (and, as it happens, redundant — the subsequent `sink_closed.get()` is what lets the batch-flush poller run); `doc/rpc-streaming.md:49` is a 217-char line wrapped inconsistently with its own paragraph.\n\n## Spec\n\n**(a) Missing / partial**\n\n1. `tests/unit/rpc_test.cc:1968` — **server side untested**, severity **low**. Spec: *\"The same code serves `server::connection`, so the server side is exposed too.\"* The fix is in shared `connection::` code so the server *is* covered, but the test only drives the client: `server_factory` is created and its `hooks` never read — it exists only to make negotiation succeed. Coverage gap, not a defect.\n2. `tests/unit/rpc_test.cc:2016-2020` — **the test never asserts the refusal**, severity **low**. `stream_send_empty_frame().get()` sits in a `try` with an empty `catch (closed_error&)`; nothing requires the throw. The sole assertion is `!st.put_after_close` (`:2031`). That assertion *does* genuinely depend on the fix — `output_stream::close()` runs `_fd.close()` in a trailing `.finally()` (`include/seastar/core/iostream-impl.hh:583`), so while the test sink parks there the stream is still writable and a `write()`+`flush()` re-arms `_in_batch`. Valid, just weaker than it reads; `BOOST_REQUIRE_THROW` would pin the spec's actual requirement.\n\n**(b) Scope creep**\n\n3. Commit `69da8f5b` (`doc/rpc-streaming.md`, doxygen on `include/seastar/rpc/rpc_types.hh:337` and `:384`) — **informational**. Not requested by #3663; it belongs to #3653, which is only \"Refs\". The PR itself says only commits 1–2 are needed for backport. Content is accurate (`~sink_impl` does assert, `source_impl` has no `close()`).\n\n**(c) Implemented but questionable**\n\n4. `src/rpc/rpc.cc:562-571` — **the drain now gates the abort path**, severity **medium**. `stop()` is chained as `f.finally(...)` *after* the drain, and `stop()`→`abort()`→`shutdown_input()` is what ends the receive loop, which is what calls `stop_send_loop()`→`shutdown_output()`. Previously `stop()` was gated only on `write_buf.close()`, which blocks on its own buffered data; it now also waits for every other queued `outgoing_entry`. A front entry stuck in `send_entry()` behind TCP backpressure from a live-but-not-reading peer hangs `sink.close()`, with the unblocking `shutdown_output()` sequestered behind it.\n5. `src/rpc/rpc.cc:558-561` — **stated invariant not enforced**, severity **low**. `client::enqueue_zero_frame()` (`src/rpc/rpc.cc:866`) also exchanges `_outgoing_queue_ready` and is guarded by `_error` only, not `_stream_closing`. Harmless today (connect-time only, `src/rpc/rpc.cc:977`), but the comment's claim is broader than the code.\n6. `src/rpc/rpc.cc:569` — **`_connected` deref moved into a continuation**, severity **low**. `stop_send_loop` guards the same call with `_connected &&` (`src/rpc/rpc.cc:231`); here it is unguarded and now runs after a suspension point. Pre-existing unguardedness, newly deferred.\n7. `include/seastar/rpc/rpc.hh:307` — **`_stream_closing` is never reset**, **informational**. Correct as written (terminal, `stop()` always follows, connections aren't reused), but the header comment doesn't say so, and the field lives on the base `connection`, reachable by both connection kinds.\n\n---\n\n**Standards: 11 findings** — worst: no DCO sign-off and `Co-Authored-By: Claude` trailers on all three commits (high). **Spec: 7 findings** — worst: `sink.close()` can now hang behind the new outgoing-queue drain because `stop()`'s `shutdown_output()` is chained after it (`src/rpc/rpc.cc:562-571`, medium).",
+  "stderrTail": "",
+  "finishedAt": "2026-09-21T15:52:14.491Z"
+}

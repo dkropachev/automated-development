@@ -1,0 +1,164 @@
+{
+  "target": "quillstone",
+  "tool": "ce-code-review",
+  "label": "Compound Engineering ce-code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1343,
+      "title": "Un-timed use_keyspace().await can stall pool refill forever",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "The `connection.use_keyspace(&keyspace_name).await` call has no timeout, so a node that accepts TCP but never answers USE leaves the future pending inside ready_connections forever, keeping is_filling() true indefinitely and preventing any further refill from being scheduled. Reclassified as pre-existing against base blob ec500386 since the un-timed await and TODO predate this diff."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1006,
+      "title": "Shard-aware miss drops connection without decrementing total_connections",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "In handle_ready_connection's shard-aware-port-miss branch, the connection is dropped without being stored anywhere, but inc_total_connections() was already called when it opened, so total_connections leaks upward on every shard-aware-port miss (e.g. behind NAT). Reclassified as pre-existing since the branch is byte-identical to the base."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1866,
+      "title": "New total_connections regression tests needlessly gated behind metrics feature",
+      "severity": "high",
+      "kind": "test-gap",
+      "claim": "Testing reviewer claimed the new total_connections regression tests are unnecessarily gated behind the `metrics` feature.",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1443,
+      "title": "connection_pool.rs already over 1000 lines and grows ~415 more, unsplit",
+      "severity": "medium",
+      "kind": "design",
+      "claim": "Maintainability reviewer claimed the file is already large and this PR adds ~415 more lines without splitting it.",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "title": "Private ConnectionSetupError enum duplicates ConnectionError::UseKeyspaceError",
+      "severity": "medium",
+      "kind": "design",
+      "claim": "The new private ConnectionSetupError enum overlaps the public ConnectionError::UseKeyspaceError variant added by the same PR; a nested match arm could carry both cases and the private enum could be deleted."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1855,
+      "title": "New test helper unrequested_connection_event duplicates shard_aware_attempt_result",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The new test helper has the same body as the pre-existing shard_aware_attempt_result helper except for requested_shard; generalizing the existing helper would remove the duplication."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "title": "decrement_total_connections loops single atomic decrements instead of one bulk subtract",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "The helper issues one relaxed fetch_sub(1) per connection where a single fetch_sub(count) would suffice; only observable effect is a transient intermediate value on a relaxed counter."
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Undocumented availability behavior change: failed USE now reads node as unreachable instead of degraded",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "A permanent USE KEYSPACE failure now prevents the pool from filling and publishes MaybePoolConnections::Broken (node reads as unreachable) instead of previously publishing a connection with the wrong keyspace; this user-visible trade-off is not called out anywhere discoverable in the PR."
+    },
+    {
+      "file": "scylla/src/observability/metrics.rs",
+      "line": 342,
+      "title": "dec_total_connections has no saturation, risking huge underflow on future off-by-one",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Metrics::dec_total_connections is a wrapping AtomicU64 fetch_sub with no saturation; this PR adds four new decrement sites, two by a computed count, so a future off-by-one would underflow the gauge to ~1.8e19 instead of clamping at 0."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "title": "Sharder/shard-aware port go stale while USE keeps failing on refill",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Sharder adoption, maybe_reshard, and shard-aware-port discovery now run only after a successful USE, so while USE keeps failing the refiller keeps a stale sharder and stale shard-aware port. Reviewed as deliberate (asserted by a new test) and the reordering's interaction with concurrent resharding was checked with no defect found.",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "title": "New bulk-clear decrement sites' interaction with remove_connection under Arc lifetimes not exhaustively traced",
+      "severity": "low",
+      "kind": "question",
+      "claim": "The three new bulk-clear decrement sites were checked against remove_connection's own decrement for double-counting under connection death and no double- or missing-decrement path was found, but the interaction depends on Arc lifetimes in stale shared_conns snapshots that was not exhaustively traced through call sites outside connection_pool.rs.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "keyspace_setup_failure_preserves_pool_state test relies on a hand-forged SET_KEYSPACE frame with no compile-time desync signal",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test's hand-forged SET_KEYSPACE result frame was cross-checked against Connection::verify_use_keyspace_result and is currently consistent, but a future change to RESULT frame parsing would silently desync the fixture from the production wire format with no compile-time signal."
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description omits two of the four reviewed commits (total_connections metric-balancing work)",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The reviewed range contains four commits; two implement and test total_connections metric balancing on pool clears, but the PR description covers only the other two (keyspace-setup-failure discard), so a reader of the PR description alone will not know the metric-balancing work is there."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1113,
+      "title": "maybe_reshard's new excess_connections.len() decrement term is never exercised by a test with nonempty excess_connections",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test reshards with an empty excess_connections, so a miscount in the excess half of the new decrement sum would pass undetected."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 673,
+      "title": "Pool-full excess clear in the run loop has no test",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Its decrement is only reachable through the full async worker loop, which no unit test drives."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "title": "No test covers a keyspace failure on a connection opened through the shard-aware port",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test covers the case where requested_shard is Some with a live connection, where the new arm's unconditional had_error_since_last_refill = true diverges from the deliberate no-flag policy of the shard-aware Connection-error arm."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "title": "No test exercises a permanently failing USE across multiple refill cycles to confirm backoff increases",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "keyspace_setup_failure_triggers_refill checks only that the flag is set after a single failure; no test confirms refill_delay_strategy.on_fill_error() actually increases backoff across repeated failures."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "title": "No end-to-end test drives a metric increment through start_opening_connection/count_in_metrics together with the new decrement sites",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The two halves of the total_connections invariant are never exercised end-to-end, mirroring an existing pattern from prior commits rather than being introduced here."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "title": "No end-to-end refiller test where USE receives no response (the stall/hang path)",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Existing tests forge an already-returned keyspace error rather than exercising the scenario where USE never responds, which is the path underlying the stalled-refill finding."
+    }
+  ],
+  "extractError": null
+}

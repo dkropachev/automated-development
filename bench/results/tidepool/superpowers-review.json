@@ -1,0 +1,114 @@
+{
+  "target": "tidepool",
+  "language": "Go",
+  "fork": "dkropachev/tidepool",
+  "pr": 1,
+  "tool": "superpowers-review",
+  "label": "Superpowers requesting-code-review",
+  "source": "superpowers@superpowers-dev",
+  "prompt": "Use the `requesting-code-review` skill to have this pull request reviewed.\n\nYou are reviewing pull request #1 of this repository (dkropachev/tidepool) - a Go project. The PR branch `bound-vector-dimensions` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 590791,
+  "reportedCostUsd": 2.86423125,
+  "reportedUsage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 34149,
+    "cache_read_input_tokens": 112449,
+    "output_tokens": 5062,
+    "output_tokens_details": {
+      "thinking_tokens": 210
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 34149,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1682,
+        "cache_read_input_tokens": 37020,
+        "cache_creation_input_tokens": 7717,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 7717
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 62,
+      "outputTokens": 41512,
+      "cacheReadInputTokens": 1839150,
+      "cacheCreationInputTokens": 124558,
+      "webSearchRequests": 0,
+      "costUSD": 2.86423125,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 24370,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 6,
+  "subagentStats": {
+    "spawned": 1,
+    "requested": {
+      "background": 0,
+      "foreground": 1,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 1,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "general-purpose": 1
+    }
+  },
+  "sessionId": "079cb02c-8459-4da3-acb3-c7ba34968cc0",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 130,
+    "output": 68492,
+    "thinking": 41744,
+    "cacheRead": 3697695,
+    "cacheCreation": 233333,
+    "costUsd": 5.248586250000001,
+    "sessions": 2,
+    "models": {
+      "claude-opus-5[1m]": 5.248586250000001
+    },
+    "rawMessages": 125,
+    "rawOutput": 74567,
+    "rawCacheRead": 6712133,
+    "subagentTranscripts": 2,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-tidepool-runs-superpowers-review-repo",
+    "total": 3999650
+  },
+  "result": "Review done (reviewer subagent, read-only; checkout untouched, still `bound-vector-dimensions` @ `78891dd`). Build, vet, gofmt clean; unit-suite failures are byte-identical to base (missing TLS certs). The new tests do fail against pristine `marshal.go`/`helpers.go` with the two claimed panics, and the acceptance tests pass on base unchanged — so the bound demonstrably narrows nothing that used to work.\n\n**No critical findings.** The guard at `marshal.go:992-1003` sits ahead of every consumer of `Dimensions` (both float fast paths, `vectorSliceReuse`, `reflect.MakeSlice`, the array check, `elemSize = len(data)/Dimensions`); `vectorElemMinSize`'s recursion terminates structurally and partitions correctly against `isVectorVariableLengthType`; `getCassandraLongType`'s changed behaviour has one consumer (`helpers.go:55,59`), gated behind a prefix the earlier branch already intercepts.\n\n**Important**\n\n1. `marshal.go:1136-1138` — *overflow-saturation branch is untested*. Severity: important. Coverage profile shows `return math.MaxInt32` with 0 hits; every other block in `vectorElemMinSize` is covered. It's wire-reachable (`vector<vector<float,600000000>,N>` via `strconv.Atoi` at `helpers.go:264`), and it's the only new arithmetic that can go silently wrong in a PR about arithmetic going silently wrong. Verified correct by hand, just unpinned. Fix: one row in `TestVectorElemMinSize` (`marshal_vector_test.go:797`) and one rejection row proving a saturated floor still rejects.\n\n**Minor**\n\n2. `marshal.go:1046` — *nested-vector error names nothing*. `VectorType` has no `String()`, so `%v` falls through to the promoted `NativeType.String()` and the message reads `no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)` — no element type, no dimension. Commit 2's stated purpose is met for unknown basic types but not for the nested-vector half. A `VectorType.String()` fixes this and the pre-existing message at `marshal.go:1118`.\n\n3. `marshal.go:992-994` — *negative dimensions on a NULL payload now error*, where base returned `nil` (the `data == nil` branch ran first). Deliberate and pinned by a test, and the better behaviour — but it's a behaviour change absent from the description's list.\n\n4. `marshal.go:1141-1143` — *zero-dimension inner vector floored at 1 byte*. `vector<vector<int,0>,3>` over an empty payload decoded to `[[] [] []], nil` on base, now errors `3 dimensions do not fit in 0 bytes`: the true wire size is 0, the floor says 1. Pathological and moot once #1093 rejects `dim < 1`, but it's a third unlisted behaviour change, and the comment explains the divide-by-zero mechanism without noting the bound is stricter than the wire format.\n\n5. `marshal.go:998,1134` — *`vectorElemMinSize` still nil-derefs on a nil `SubType` when `Dimensions > 0`*. Not a regression (exact parity with the old fast path) and unreachable from the wire, but `VectorType`/`SubType`/`Dimensions` are exported and the comment above the guard already reasons about caller-supplied nil subtypes — it just stops at zero dimensions.\n\n6. `marshal_vector_test.go:836` — *allocation assertion reads process-global `runtime.TotalAlloc`*. Held under `-count=5`, `-shuffle=on`, and 128 KB headroom against ~3.5 KB actual; the \"not parallel\" comment covers sibling subtests, not the suite's background dialers/loggers. It's the margin carrying it, not isolation.\n\nSet aside as explicitly deferred or pre-existing: trailing-byte distribution (#1086), the vint-narrowing-to-negative path (#1106), nested vectors not decoding into `interface{}` (#1085), `dim < 1` metadata rejection (#1093), the two `parseFrame`-recovered slicing panics at `frame.go:855-857` and `helpers.go:265`, `VectorType.Zero()` yielding `[]*T`, `VectorType` not overriding `NewWithError`, and variable-length allocation amplification under the floor-of-1.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-20T19:32:26.011Z"
+}

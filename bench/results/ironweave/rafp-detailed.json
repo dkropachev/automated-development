@@ -1,0 +1,112 @@
+{
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "tool": "rafp-detailed",
+  "label": "review-and-fix-pr (review only, detailedReview)",
+  "source": "automated-development@automated-development",
+  "prompt": "/automated-development:review-and-fix-pr 1\n\nRun it read-only and detailed: `fix: false`, `detailedReview: true`, and `ignoreLedger: true` so nothing is skipped as already reviewed.\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 5963879,
+  "reportedCostUsd": 26.259371499999997,
+  "reportedUsage": {
+    "input_tokens": 170,
+    "cache_creation_input_tokens": 111218,
+    "cache_read_input_tokens": 6760083,
+    "output_tokens": 27951,
+    "output_tokens_details": {
+      "thinking_tokens": 8936
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 111218,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1595,
+        "cache_read_input_tokens": 121609,
+        "cache_creation_input_tokens": 197,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 197
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 474,
+      "outputTokens": 173535,
+      "cacheReadInputTokens": 25721593,
+      "cacheCreationInputTokens": 1382522,
+      "webSearchRequests": 0,
+      "costUSD": 26.259371499999997,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 104951,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 85,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "42ceab3b-c005-4b21-bbe6-44d16507f7a4",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 474,
+    "output": 173535,
+    "thinking": 104951,
+    "cacheRead": 25721593,
+    "cacheCreation": 1382522,
+    "costUsd": 26.259371499999997,
+    "sessions": 1,
+    "models": {
+      "claude-opus-5[1m]": 26.259371499999997
+    },
+    "rawMessages": 381,
+    "rawOutput": 188449,
+    "rawCacheRead": 42081306,
+    "subagentTranscripts": 5,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-ironweave-runs-rafp-detailed-repo",
+    "total": 27278124
+  },
+  "result": "Review complete — read-only, nothing edited or committed. The reviewer validated everything experimentally in a throwaway clone (gcc-14, dev/debug/sanitize builds).\n\n**Verdict on the production change: correct, and both halves are load-bearing.** An ad-hoc stress test (a compressor fiber calling `send_empty_frame()` across 60 stream open/close rounds) hits the `!_in_batch` assertion 3/3 at base, is clean 10/10 at HEAD, and SIGSEGVs 3/5 with the `send()` guard alone but no queue drain. Removing the guard makes the PR's own new test fail.\n\n## Findings\n\n**1. [high] `tests/unit/rpc_test.cc:2028` — new regression test is flaky (~8%)**\nThe server fiber does `sink.close(); while (source().get()) {}` and the test then does a bare `server_done.get()`. When the client's `stream_close()` closes the socket, the server's reader hits EOF (`src/rpc/rpc.cc:588` sets `_error`), and `src/rpc/rpc.cc:1285-1286` aborts `_stream_queue`, discarding the already-queued application eof marker. `source()` throws `rpc::stream_closed` and the exception escapes the test body. Existing stream tests wrap the equivalent wait in `check_exception(...)` (`tests/unit/rpc_test.cc:637`) for exactly this reason.\nMeasured: 7/60 standalone runs failed, 2/12 whole-suite runs, at `--mode=dev -c2`. Passes 10/10 at `-c1` and 15/15 in debug.\n\n**2. [medium] `tests/unit/rpc_test.cc:1883` — breaks the build at `SEASTAR_API_LEVEL < 9`**\n`test_data_sink_impl` overrides `put(std::span<temporary_buffer<char>>)` unconditionally; below API level 9 the pure virtual is `put(net::packet)`. Confirmed: `--api-level 8` gives `marked 'override', but does not override`; the base commit compiles clean at the same level. `tests/unit/loopback_socket.hh:144` already guards this method with `#if SEASTAR_API_LEVEL >= 9`.\n\n**3. [medium, deferred] `src/rpc/rpc.cc:562-570` — the queue-drain half of the fix is untested**\nThe new test fires the hook only after `close()` is parked, so the queue is empty and the drain is a no-op. Reverting just the drain leaves the whole suite green, yet the stress case then segfaults 3/5. A deterministic test needs a parked `data_sink` plus enough queued bytes to block `write()` on `_in_batch`.\n\n**4. [low, deferred] `tests/unit/rpc_test.cc` — `hook_capturing_compressor_factory` mutates one vector from two shards**\nThe factory is shared across shards; `negotiate()` `const_cast`s and `push_back`s from shard 0 (parent connection) and shard 1 (stream connection). The server hooks are never used — `if (!is_server) hooks.push_back(...)` removes the cross-shard mutation. No failure observable today (the negotiations are ordered by the `smp::submit_to` chain; sanitize suite is clean).\n\n**5. [low, out of scope — pre-existing] `src/rpc/rpc.cc:1285-1286` — `_stream_queue.abort()` discards the received eof marker**\nA cleanly closed stream can surface as `rpc::stream_closed` rather than an unengaged optional. Pre-dates the PR (blame: 34bfd7aeb / fcce9d1f8, Aug 2025), already worked around in `apps/rpc_tester/rpc_tester.cc:668-674` — but it is the root cause of finding 1.\n\n**Open follow-up (before merge):** the new \"Closing a stream\" section in `doc/rpc-streaming.md:105-118` tells callers to read until eof \"or throws\" but never says a *clean* close can be the thing that throws. Worth a sentence there and on `rpc::source`, since finding 5 makes that the normal case.\n\n**Rejected after investigation:** a suspected `stream_close()` deadlock via the `_outgoing_queue_ready` exchange when `_negotiated` is unresolved (every path reaching `stream_close()` implies negotiation completed; `stop_send_loop()` still serializes via `_sink_closed_future`); the doxygen block placement in `rpc_types.hh`; and the unguarded `_connected` deref in `abort()` (pre-existing, unreachable path).\n\nOne unrelated note: the PR description carries a \"🤖 Generated with Claude Code\" line, which your global instructions say never to add.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-22T03:36:39.653Z"
+}

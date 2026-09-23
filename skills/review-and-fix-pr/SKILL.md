@@ -5,9 +5,10 @@ description: Review an entire PR with either the built-in method or any loaded u
 
 # Review and fix a whole PR
 
-Run the `review-and-fix-pr` workflow. One read-only agent reviews the complete PR. When the user
-names a loaded review skill, that agent invokes it and uses its methodology; otherwise it uses the
-workflow's built-in correctness review. The workflow normalizes every result into its finding schema.
+Run the `review-and-fix-pr` workflow. Read-only whole-PR discovery lenses run sequentially until the
+bounded finding budget is reached. When the user names a loaded review skill, it runs first;
+otherwise native correctness runs first. Applicable native risk lenses follow. The workflow
+normalizes, deduplicates, scores, and validates results before any fix begins.
 
 If fixing is enabled, fresh fixer agents take at most 10 findings each, one at a time. Each fixer
 re-reads its changes, validates them, and commits only after the driver confirms the checks passed.

@@ -1,0 +1,179 @@
+{
+  "target": "ironweave",
+  "tool": "mattpocock-review",
+  "label": "Matt Pocock code-review",
+  "findings": [
+    {
+      "file": "doc/contributing.md",
+      "line": 6,
+      "title": "No DCO sign-off (Signed-off-by) on any of the three commits",
+      "severity": "high",
+      "kind": "style",
+      "claim": "All three commits (f545c28a, 5e25ebdb, 69da8f5b) lack a Signed-off-by trailer required by doc/contributing.md, blocking upstream submission.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Co-Authored-By: Claude trailers present on all three commits",
+      "severity": "high",
+      "kind": "style",
+      "claim": "Four Co-Authored-By: Claude trailers appear across the three commits (two on 69da8f5b) and the PR body ends with a 'Generated with Claude Code' line, violating the standing attribution rule.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 558,
+      "title": "Comment misstates the load-bearing invariant for the queue/sink close swap",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The comment claims stop_send_loop() waits only on _sink_closed_future, but it still waits on both futures; the real safety property is that the queue-ready wait is subsumed by _sink_closed_future.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "title": "Lambda parameter f shadows outer variable f during its own assignment",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The lambda parameter named f shadows the outer f declared at rpc.cc:549, inside the assignment to that same variable; should be renamed to drained.",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 337,
+      "title": "New doxygen blocks detached from their declarations by legacy one-line comments",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The new /// \\brief blocks (337-343, 384-389) are separated from class sink / class source by the legacy one-liner comments, which should be folded into the doxygen block.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1900,
+      "title": "test_connected_socket_impl is a Middle Man with 16 of 17 methods pure delegation",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Only sink() does real work; a reusable delegating wrapper in loopback_socket.hh would serve future tests like this one.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1895,
+      "title": "buffer_size() returns hardcoded 8192 instead of forwarding to _inner",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Every sibling method forwards to _inner, but buffer_size() returns a hardcoded 8192 and should call _inner.buffer_size().",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "title": "const_cast used to push into hooks instead of following existing tracker& pattern",
+      "severity": "low",
+      "kind": "style",
+      "claim": "const_cast<hook_capturing_compressor_factory*>(this)->hooks.push_back(...) dodges constness, while the adjacent factory (~line 1801) does the same job cleanly via a tracker& member.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1870,
+      "title": "test_sink_state is a misleading name given rpc::sink meaning in this file",
+      "severity": "low",
+      "kind": "style",
+      "claim": "test_sink_state reads as rpc::sink state in a file where 'sink' means exactly that, but it actually holds data_sink state.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1874,
+      "title": "shared_promise used without its own header include",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "shared_promise is used with no #include <seastar/core/shared_future.hh>; currently works only via a transitive include.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2021,
+      "title": "Loop count of 10 in yield loop is arbitrary and redundant",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "for (int i = 0; i < 10; i++) yield() uses an undocumented arbitrary count and is redundant since the subsequent sink_closed.get() is what actually lets the batch-flush poller run.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 49,
+      "title": "217-char line wrapped inconsistently with the rest of its paragraph",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The line is 217 characters and wraps inconsistently compared to the rest of its paragraph.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1968,
+      "title": "Server side of the fix is not exercised by the test",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Spec says the same code serves server::connection so the server side is exposed too, but the test only drives the client; server_factory's hooks are never read, existing only to make negotiation succeed.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "title": "Test never asserts that the refusal actually throws",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "stream_send_empty_frame().get() is wrapped in a try with an empty catch(closed_error&), so nothing requires the throw; the only real assertion (!st.put_after_close) is weaker than the spec's requirement, and BOOST_REQUIRE_THROW would pin it properly.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 0,
+      "title": "Commit 69da8f5b introduces scope creep beyond the requested issue",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The doc/rpc-streaming.md and doxygen changes in commit 69da8f5b are not requested by #3663 and belong to #3653 (only 'Refs'); the PR itself states only commits 1-2 are needed for backport.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "New outgoing-queue drain can gate/hang the abort path via sink.close()",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "stop() is chained after the drain via f.finally(...), and stop()->abort()->shutdown_input() is what ends the receive loop that eventually calls shutdown_output(); a front entry stuck in send_entry() behind TCP backpressure from a live-but-not-reading peer can hang sink.close() with shutdown_output() sequestered behind it.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 558,
+      "title": "Stated invariant about _outgoing_queue_ready is broader than what the code enforces",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "client::enqueue_zero_frame() also exchanges _outgoing_queue_ready and is guarded only by _error, not _stream_closing; harmless today since it's connect-time only, but the comment's claim is broader than the code guarantees.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 569,
+      "title": "_connected dereference moved into a continuation without the existing guard",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "stop_send_loop guards the same call with _connected && (rpc.cc:231), but here it is unguarded and now runs after a suspension point; this unguardedness is pre-existing but newly deferred into a continuation.",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 307,
+      "title": "_stream_closing is never reset and the header comment doesn't document that",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The field is correct as written (terminal, stop() always follows, connections aren't reused), but the header comment doesn't state this, and the field lives on the base connection, reachable by both connection kinds.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null
+}

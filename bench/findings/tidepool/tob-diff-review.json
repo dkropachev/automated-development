@@ -1,0 +1,53 @@
+{
+  "target": "tidepool",
+  "tool": "tob-diff-review",
+  "label": "Trail of Bits differential-review",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 1044,
+      "title": "New guard reimplements goType() and pins a []*T vs []T mismatch",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "reflect.TypeOf(info.Zero()) yields []*T while goType() (used by unmarshalList and reached via MapScan) yields []T; Scan(&any) gives []*float32 but MapScan gives []float32 for vector<float,3>, and the test at marshal_vector_test.go:928 freezes this inconsistency instead of using goType(info) which would be nil-safe and consistent.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 995,
+      "title": "Nil-SubType comment overstates the protection it provides",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "unmarshalVector(VectorType{Dimensions: 3}, make([]byte,12), &dst) still nil-derefs in vectorFixedElemSize; the guard adds a second, earlier copy of the dereference under a comment that reads as if it were handled, though the report notes this is not a regression and not wire-reachable.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 1137,
+      "title": "math.MaxInt32 saturation branch has no test coverage",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The saturation branch is the only overflow guard in the new arithmetic, but TestVectorElemMinSize only covers 0 and -3 dimensions, nothing large enough to trigger saturation; the report says it was verified correct by hand.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 271,
+      "title": "Nested-vector error message still omits element type and dimensions",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "For the nested-vector case, the message still reports custom(org.apache.cassandra.db.marshal.VectorType) with no element type or dimensions, because the inner type is built with prefix+\"VectorType\" rather than name.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1125,
+      "title": "vectorElemMinSize recomputed per value at O(depth²)",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "vectorElemMinSize is recomputed per value with quadratic cost relative to depth, measured at 2.7ms per 4-byte value for an 800-deep type; the report notes this is bounded in practice and dwarfed by a pre-existing quadratic type-name parse (38s for the same name).",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null
+}

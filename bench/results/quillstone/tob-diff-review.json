@@ -1,0 +1,112 @@
+{
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "tool": "tob-diff-review",
+  "label": "Trail of Bits differential-review",
+  "source": "differential-review@trailofbits",
+  "prompt": "/differential-review:diff-review https://github.com/dkropachev/quillstone/pull/1\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 583421,
+  "reportedCostUsd": 3.3938585,
+  "reportedUsage": {
+    "input_tokens": 62,
+    "cache_creation_input_tokens": 112237,
+    "cache_read_input_tokens": 2420607,
+    "output_tokens": 42435,
+    "output_tokens_details": {
+      "thinking_tokens": 28618
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 112237,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 442,
+        "cache_read_input_tokens": 120217,
+        "cache_creation_input_tokens": 2608,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 2608
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 62,
+      "outputTokens": 42435,
+      "cacheReadInputTokens": 2420607,
+      "cacheCreationInputTokens": 112237,
+      "webSearchRequests": 0,
+      "costUSD": 3.3938585,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 28618,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 40,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "72bf197c-2f16-48db-9803-3b33f694b89d",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 62,
+    "output": 42435,
+    "thinking": 28618,
+    "cacheRead": 2420607,
+    "cacheCreation": 112237,
+    "costUsd": 3.3938585,
+    "sessions": 2,
+    "models": {
+      "claude-opus-5[1m]": 3.3938585
+    },
+    "rawMessages": 57,
+    "rawOutput": 89329,
+    "rawCacheRead": 4300109,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-quillstone-runs-tob-diff-review-repo",
+    "total": 2575341
+  },
+  "result": "Report written to `/tmp/diffreview/DIFFERENTIAL_REVIEW_REPORT.md` (kept out of the repo — read-only review). Verified with `cargo check --all-features` (clean) and `cargo test --lib --all-features network::connection_pool` (8 pass; `many_connections` fails identically on `main` — it needs a live cluster).\n\nThe headline issue is F1: `current_keyspace` is stored optimistically and never rolled back (`session.rs:2008`, `worker.rs:351`, `connection_pool.rs:1287`). Pre-PR, a failed `use_keyspace(\"does_not_exist\")` was merely a correctness bug — the connection got published anyway. Post-PR, every new connection is discarded, so pools never fill, the refiller churns full handshakes against every node forever at `max_fill_backoff`, and as existing connections die the pools drain to `Broken` and the nodes drop out of load balancing. The fix needs the permanent-vs-transient split that `use_keyspace_result` already makes at `cluster/worker.rs:783`.\n\nSecondary: the metrics-balancing commit fixes three of four discard sites — `connection_pool.rs:994` (shard-mismatch drop) still leaks, as does refiller teardown, which the new test at `:2011` actually encodes.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-20T20:19:30.992Z"
+}

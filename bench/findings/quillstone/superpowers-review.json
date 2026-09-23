@@ -1,0 +1,206 @@
+{
+  "target": "quillstone",
+  "tool": "superpowers-review",
+  "label": "Superpowers requesting-code-review",
+  "findings": [
+    {
+      "file": "connection_pool.rs",
+      "line": 994,
+      "title": "total_connections leaked when shard-aware connection lands on full shard",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "A shard-aware connection landing on an already-full shard is dropped after inc_total_connections() charged it at :1051, with nothing decrementing it; reviewer reproduced the gauge drifting to 2 while the pool holds 1. The 'probably due to NAT' comment shows this is not a rare path, so the gauge drifts up unbounded.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 900,
+      "title": "Unconditional current_keyspace set bricks pool when USE keyspace keeps failing",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "PoolRefiller::use_keyspace sets current_keyspace unconditionally before USE is attempted, and with discard-on-failure every new connection is rejected as long as USE keeps failing, draining pools, publishing Broken(UseKeyspaceError), and killing the session for all queries including fully-qualified ones; pre-PR this degraded gracefully, and the larger blast radius is undocumented.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 903,
+      "title": "USE-failure log downgraded from warn! to debug! exactly when it became consequential",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "Old code warned while keeping the connection; new code debugs while discarding it, and with a non-empty pool update_shared_conns isn't called, so nothing surfaces the error at default levels and the pool silently stops growing.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 0,
+      "title": "No Drop on PoolRefiller leaks the whole connection count on pool teardown",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Tearing a pool down leaks its whole count because there's no Drop on PoolRefiller; this is pre-existing and a test actually depends on this behavior.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1360,
+      "title": "decrement_total_connections loop can wrap AtomicU64 on over-decrement",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "decrement_total_connections loops N fetch_sub(1) calls against a raw AtomicU64 fetch_sub with no saturation, so one over-decrement wraps to ~1.8e19; a saturating sub_total_connections(n) would fail safe.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1418,
+      "title": "ConnectionSetupError is undocumented and name-collides with public ConnectionSetupRequestError",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "ConnectionSetupError is undocumented and name-collides with the public errors::ConnectionSetupRequestError, which it also contains.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit messages are subject-only, violating CONTRIBUTING.md's what-and-why requirement",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "All four commits are subject-only even though CONTRIBUTING.md:10 requires what and why and repo history follows it; the PR checklist claims otherwise.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Fixup commit 617139df should be squashed into 0d91aa54",
+      "severity": "low",
+      "kind": "style",
+      "claim": "617139df is a fixup to 0d91aa54 and should be squashed.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1474,
+      "title": "Two keyspace tests skip setup_tracing() unlike every other test in the module",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The two keyspace tests at :1474 and :1526 skip setup_tracing(), unlike every other test in the module.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR Validation section's cargo test line inaccurately implies metrics tests were run",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The three metrics tests are behind the non-default metrics feature, so the quoted cargo test line never compiled them; they do run in CI's --all-features, so this is an accuracy issue in the PR description, not a coverage gap.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 874,
+      "title": "Reorder drops sharder/shard-aware-port learning on the USE-failure path without a comment",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The reorder at :874-893 drops sharder / shard-aware-port learning on the USE-failure path; a test asserts this so it reads intentional, but it needs a one-line comment at the early return.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1993,
+      "title": "\"Avoid busy-waiting\" fix is still a 1ms poll loop reliant on select! branch ordering",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "The avoid-busy-waiting fix at :1993-2000 is still a 1ms poll loop, and leans on select! picking the initial scheduled_refill branch with zero opens.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1527,
+      "title": "make_rules re-implements start_simulated_node's OPTIONS/STARTUP rules instead of parameterizing it",
+      "severity": "low",
+      "kind": "design",
+      "claim": "make_rules at :1527-1566 re-implements start_simulated_node's OPTIONS/STARTUP rules instead of parameterizing the existing function.",
+      "selfRejected": false
+    },
+    {
+      "file": "errors.rs",
+      "line": 573,
+      "title": "New ConnectionError variant checked for semver break — none found",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "#[non_exhaustive] was already on ConnectionError, so the new variant is not a semver break.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Checked for new clippy warnings vs base — none found",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "No new clippy warnings vs base, including no new result_large_err.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Checked conns-sizing invariant around maybe_reshard — holds",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "maybe_reshard still runs before conns[shard_id] is indexed, so the conns-sizing invariant holds.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Checked remove_connection for double-decrement — cannot happen",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "remove_connection can't double-decrement because of Arc::ptr_eq against already-cleared vectors.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Checked keyspace_setup_failure_preserves_pool_state test authenticity — genuine",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "keyspace_setup_failure_preserves_pool_state is a genuine regression test against a real proxy node, not a mock.",
+      "selfRejected": true
+    },
+    {
+      "file": "cc_establisher.rs",
+      "line": 251,
+      "title": "-Dwarnings result_large_err expectation error set aside as pre-existing",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The -Dwarnings result_large_err expectation error in cc_establisher.rs:251 reproduces at base and was set aside as pre-existing/unrelated.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "many_connections test failure set aside as needing a live SCYLLA_URI",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The many_connections failure needs a live SCYLLA_URI and was set aside as pre-existing/unrelated.",
+      "selfRejected": true
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1336,
+      "title": "Missing USE timeout set aside as pre-existing TODO, though PR enlarges its blast radius",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The missing USE timeout at :1336 is a pre-existing TODO set aside as pre-existing/unrelated, though this PR enlarges its blast radius.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Stale shared_conns window in maybe_reshard set aside as pre-existing/unrelated",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The stale shared_conns window in maybe_reshard was set aside as pre-existing/unrelated.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null
+}

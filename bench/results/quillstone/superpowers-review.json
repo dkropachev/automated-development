@@ -1,0 +1,114 @@
+{
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "tool": "superpowers-review",
+  "label": "Superpowers requesting-code-review",
+  "source": "superpowers@superpowers-dev",
+  "prompt": "Use the `requesting-code-review` skill to have this pull request reviewed.\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 806891,
+  "reportedCostUsd": 3.6157327500000007,
+  "reportedUsage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 34537,
+    "cache_read_input_tokens": 111906,
+    "output_tokens": 5426,
+    "output_tokens_details": {
+      "thinking_tokens": 517
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 34537,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1950,
+        "cache_read_input_tokens": 36493,
+        "cache_creation_input_tokens": 8632,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 8632
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 78,
+      "outputTokens": 46655,
+      "cacheReadInputTokens": 2867858,
+      "cacheCreationInputTokens": 141684,
+      "webSearchRequests": 0,
+      "costUSD": 3.6157327500000007,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 29469,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 6,
+  "subagentStats": {
+    "spawned": 1,
+    "requested": {
+      "background": 0,
+      "foreground": 1,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 1,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "general-purpose": 1
+    }
+  },
+  "sessionId": "c5e5aba1-5c9c-467b-9847-acace1287dee",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 78,
+    "output": 46655,
+    "thinking": 29469,
+    "cacheRead": 2867858,
+    "cacheCreation": 141684,
+    "costUsd": 3.6157327500000007,
+    "sessions": 2,
+    "models": {
+      "claude-opus-5[1m]": 3.6157327500000007
+    },
+    "rawMessages": 75,
+    "rawOutput": 51671,
+    "rawCacheRead": 5383093,
+    "subagentTranscripts": 1,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-quillstone-runs-superpowers-review-repo",
+    "total": 3056275
+  },
+  "result": "Review complete. Verdict: **merge with fixes** — no Critical findings, three Important.\n\n## Important\n\n1. **`connection_pool.rs:994-1008` — `total_connections` leak in the branch next to the ones the PR fixes.** A shard-aware connection landing on an already-full shard is dropped after `start_opening_connection` charged `inc_total_connections()` at `:1051`; nothing decrements. Reviewer reproduced it at HEAD: 4 shards, `PerShard(1)`, two connections → pool holds 1, `excess_connections` empty, gauge reads 2. The \"probably due to NAT\" comment on that branch means it is not a rare path, so the gauge drifts up unbounded. Same bug class the metrics commits exist to fix, 20 lines above one of the new decrements. Fix: `dec_total_connections()` before `start_opening_connection(None)`.\n\n2. **`connection_pool.rs:900-909` (with `:1287`) — a permanently-unsatisfiable `current_keyspace` now bricks every pool.** `PoolRefiller::use_keyspace` sets `current_keyspace` unconditionally before the USE is attempted, and `Session::use_keyspace` documents that a *failed* call still changes it (`session.rs:1968`). With discard-on-failure, every new connection is rejected for as long as USE keeps failing: pools drain, publish `Broken(UseKeyspaceError)`, hosts go `Lost`, and the session dies for all queries including fully-qualified ones. Pre-PR it degraded gracefully. The fix direction is right, but the new blast radius is larger and undocumented — the checklist item \"User documentation changes are not needed\" should not stand without a deliberate decision.\n\n3. **`connection_pool.rs:903` — USE-failure log downgraded `warn!` → `debug!` exactly when it became consequential.** Old code warned while *keeping* the connection; new code debugs while *discarding* it. With a non-empty pool `update_shared_conns` isn't called, so nothing surfaces the error at default levels — the pool silently stops growing. `:1322` still uses `warn!` for the pool-wide case.\n\n## Minor\n\n4. `connection_pool.rs` (file) — no `Drop` on `PoolRefiller`; tearing a pool down leaks its whole count. Pre-existing, and `full_pool_clears_excess_connections_and_balances_metrics` actually depends on it.\n5. `connection_pool.rs:1360-1364` — `decrement_total_connections` loops N `fetch_sub(1)`; `Metrics::dec_total_connections` (`observability/metrics.rs:341`) is a raw `fetch_sub` on `AtomicU64`, so one over-decrement wraps to ~1.8e19. A saturating `sub_total_connections(n)` would fail safe.\n6. `connection_pool.rs:1418-1421` — `ConnectionSetupError` undocumented and name-collides with public `errors::ConnectionSetupRequestError`, which it also *contains*.\n7. All four commits are subject-only; `CONTRIBUTING.md:10` requires what and why, and repo history follows it. The checklist claims otherwise. `617139df` is a fixup to `0d91aa54` and should be squashed.\n8. `connection_pool.rs:1474, :1526` — the two keyspace tests skip `setup_tracing()`, unlike every other test in the module.\n9. PR Validation section is incomplete: the three metrics tests are behind the non-default `metrics` feature, so the quoted `cargo test` line never compiled them. They do run in CI's `--all-features`, so it's accuracy, not coverage.\n10. `connection_pool.rs:874-893` — the reorder drops sharder / shard-aware-port learning on the USE-failure path. The test asserts this, so it reads intentional; needs a one-line comment at the early `return`.\n11. `connection_pool.rs:1993-2000` — the \"avoid busy-waiting\" fix is still a 1ms poll loop, and leans on `select!` picking the initial `scheduled_refill` branch with zero opens.\n12. `connection_pool.rs:1527-1566` — `make_rules` re-implements `start_simulated_node`'s OPTIONS/STARTUP rules instead of parameterizing it.\n\n## Checked and cleared\n`#[non_exhaustive]` was already on `ConnectionError` (`errors.rs:573`), so the new variant is not a semver break; no new clippy warnings vs. base, including no new `result_large_err`; `maybe_reshard` still runs before `conns[shard_id]` is indexed, so the conns-sizing invariant holds; `remove_connection` can't double-decrement (`Arc::ptr_eq` against already-cleared vectors); `keyspace_setup_failure_preserves_pool_state` is a genuine regression test against a real proxy node, not a mock.\n\nSet aside as pre-existing/unrelated: the `-Dwarnings` `result_large_err` expectation error in `cc_establisher.rs:251` (reproduces at base), the `many_connections` failure (needs a live `SCYLLA_URI`), the missing USE timeout at `:1336` (pre-existing TODO, though this PR enlarges its blast radius), and the stale `shared_conns` window in `maybe_reshard`.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-21T01:25:46.514Z"
+}

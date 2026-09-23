@@ -1,0 +1,170 @@
+{
+  "target": "quillstone",
+  "tool": "mattpocock-review",
+  "label": "Matt Pocock code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "title": "New tests skip required setup_tracing() call",
+      "severity": "medium",
+      "kind": "style",
+      "claim": "Two new tests at :1474 and :1526 don't call setup_tracing(), violating CONTRIBUTING.md's 'Tracing in tests' rule that any new tests should call it too; every other test in the module including three metrics tests added on this branch does.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit 617139df is an unsquashed fixup of 0d91aa54",
+      "severity": "medium",
+      "kind": "style",
+      "claim": "Commit 617139df changes one line (yield_now() -> sleep(1ms)) inside a test that 0d91aa54 added two commits earlier, violating CONTRIBUTING.md's 'each commit introduces one logically coherent change' rule; it should be squashed into 0d91aa54.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "title": "Duplicated excess-connection-clearing logic across three sites, one drifted",
+      "severity": "medium",
+      "kind": "design",
+      "claim": "The pattern decrement_total_connections(excess.len()); excess_connections.clear(); appears three times at :674-677, :1031-1032, :1114-1122, and the third variant silently differs (folds in active_connection_count(), clears conns in between); should be extracted into one clear_excess_connections method.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "title": "decrement_total_connections is feature envy, belongs on Metrics",
+      "severity": "medium",
+      "kind": "design",
+      "claim": "decrement_total_connections touches none of PoolRefiller's own data and is just a loop around another object's counter; it should be a Metrics method dec_total_connections_by(count) next to dec_total_connections.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "title": "New private enum ConnectionSetupError has a misleading name",
+      "severity": "low",
+      "kind": "style",
+      "claim": "ConnectionSetupError sits one import away from the public ConnectionSetupRequestError and isn't an Error impl at all, just a two-way outcome tag for OpenedConnectionEvent; OpenedConnectionError would read more honestly.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 901,
+      "title": "Inconsistent style: inline metric decrement and mismatched proxy.finish() handling",
+      "severity": "low",
+      "kind": "style",
+      "claim": ":901 calls self.metrics.dec_total_connections() inline while three sibling sites use the new helper; :1689 matches on proxy.finish() while every other test uses let _ = proxy.finish().await;.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1999,
+      "title": "New metrics test still busy-polls get_total_connections() under 5s timeout",
+      "severity": "low",
+      "kind": "style",
+      "claim": "Despite commit 617139df's stated goal of avoiding busy-waiting, the test at :1999-2005 (also flagged at :2002) still spins on get_total_connections() under a 5 second timeout, making it load-sensitive.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "title": "warn! log downgraded to debug! for keyspace setup failure, losing default-level signal",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The spec said the pool logs the error but still reports success; the warn! at this site was replaced with debug!, so operators lose the only signal at default log level.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Keyspace failure on shard-aware attempt inflates reconnect backoff unlike shard-port retries",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The Connection arm does an immediate non-shard-aware retry and deliberately doesn't set had_error_since_last_refill for shard-aware failures, but the Keyspace arm has neither carve-out, so a keyspace failure on a shard-aware attempt inflates reconnect backoff for a reason unrelated to connectivity.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "title": "total_connections rebalancing work is undeclared scope creep beyond the spec",
+      "severity": "high",
+      "kind": "design",
+      "claim": "decrement_total_connections and total_connections rebalancing on resharding/excess-pool clearing (3 of 4 commits) are nowhere in the spec, which is confined to treating keyspace setup failure as connection setup failure; the PR description and validation section don't cover it, so it should be a separate issue/PR.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 912,
+      "title": "Hoisting keyspace check above maybe_reshard is undeclared behavior change",
+      "severity": "medium",
+      "kind": "design",
+      "claim": "Not requested by the spec: sharder and shard-aware port are no longer adopted from a connection until USE succeeds, so a resharded node's new sharder is never learned if its keyspace is unusable, and block_advanced_shard_awareness detection is deferred behind a USE round trip; defensible but needs stating in the description.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/errors.rs",
+      "line": 599,
+      "title": "New public ConnectionError variant added with no changelog entry",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The new public variant on ConnectionError has no changelog entry despite the checklist asserting docs are unaffected.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 994,
+      "title": "total_connections counter leaks on sibling shard-aware discard path",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "In the else if evt.requested_shard.is_some() branch (:994-1006), the excess shard-aware connection is dropped with no dec_total_connections() call, so the counter only ever drifts upward — the same class of imbalance the PR's own commit de164845 set out to fix.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Non-retryable USE failure can brick a node's entire connection pool",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "UseKeyspaceError includes permanently-failing variants; if the keyspace later becomes inaccessible, every new connection is discarded, the pool never fills, the node is reported down cluster-wide via ConnectivityChangeEvent::Lost, and reconnect backoff grows unboundedly — a larger blast radius than 'preserves the current pool' suggests, worth a deliberate retryable-vs-permanent distinction.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/errors.rs",
+      "line": 0,
+      "title": "New public error variant lacking documentation (checked, not an issue)",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Report checked whether the new public variant lacks documentation and found it is doc-commented, so this is not a violation.",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/errors.rs",
+      "line": 0,
+      "title": "New enum variant addition treated as a semver-breaking change (checked, not an issue)",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Report checked whether adding the new public variant breaks semver and found ConnectionError is already #[non_exhaustive], so the addition is semver-minor, not a violation.",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "title": "Possible double-decrement of metrics between excess-clear and remove_connection (checked, not found)",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Report checked for double-decrements between maybe_reshard/excess-clear and remove_connection and found none: cleared connections either drop to refcount zero (Weak upgrade fails in wait_for_error) or survive only in shared_conns where maybe_remove_in_vec's ptr_eq scan no longer finds them.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "many_connections test fails with ConnectTimeout (pre-existing on main, not caused by this PR)",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The many_connections test fails with ConnectTimeout, but the report verified it fails identically on main, so it is pre-existing and not caused by this PR.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null
+}

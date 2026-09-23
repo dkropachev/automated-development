@@ -1,0 +1,38 @@
+{
+  "target": "tidepool",
+  "language": "Go",
+  "fork": "dkropachev/tidepool",
+  "pr": 1,
+  "tool": "rafp-detailed",
+  "label": "review-and-fix-pr (review only, detailedReview)",
+  "source": "automated-development@automated-development",
+  "salvaged": true,
+  "salvagedFrom": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-tidepool-runs-rafp-detailed-repo",
+  "exitCode": 0,
+  "isError": false,
+  "reportedCostUsd": 56.676944250000005,
+  "transcriptUsage": {
+    "input": 1842,
+    "output": 232744,
+    "thinking": 87742,
+    "cacheRead": 92653276,
+    "cacheCreation": 608562,
+    "costUsd": 56.676944250000005,
+    "sessions": 2,
+    "models": {
+      "claude-opus-5[1m]": 56.676944250000005
+    },
+    "rawMessages": 1102,
+    "rawOutput": 243527,
+    "rawCacheRead": 106350235,
+    "subagentTranscripts": 11,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-tidepool-runs-rafp-detailed-repo",
+    "total": 93496424
+  },
+  "result": "Review complete. Read-only: tree clean, HEAD still `78891dd`, nothing committed or posted. 3 agents, 274k tokens, ~39 min. PR title: *fix(marshal): stop a vector value from crashing the Scan goroutine*.\n\n## Findings in the PR's own diff\n\n**1. `helpers.go:271` — VectorType branch still stores the bare prefix, so nested vectors have no Go type — MEDIUM**\nThe PR fixed the basic-type branch (`helpers.go:280-284`) to keep the unrecognised name so errors can report it, but left the sibling VectorType branch at `NewCustomType(protoVer, TypeCustom, prefix+\"VectorType\")`. `VectorType` doesn't override `NewWithError`, so `Zero()` resolves the inner vector through the embedded `NativeType`, `asVectorType` sees a custom string with no `(` and gives up. The PR's own new guard then emits `unmarshal vector: no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)` — exactly the bare `custom()` rendering the PR set out to remove — and a nested vector can't decode into `interface{}` at all. `frame.go:864` keeps the full spec, so the two producers of `VectorType` disagree. Reviewer verified: changing that one line to `NewCustomType(protoVer, TypeCustom, name)` makes `nested->any` decode cleanly, with only the PR's own new assertion failing.\n\n**2. `marshal.go:1136-1138` — the saturation branch of `vectorElemMinSize` is untested — LOW**\n`if int64(vec.Dimensions) > (math.MaxInt32-size)/per { return math.MaxInt32 }` never executes in any test; `TestVectorElemMinSize`'s deepest case is `vector<vector<float,3>,4>` = 48. Mutation-tested: replacing it with `return 1` leaves the suite green, while the same mutation on every other guard the diff adds (negative check, the bound itself, `t == nil`, the recursion, the `+1` for variable-length, the `size < 1` floor) fails at least one test. The collapse-to-1 case is precisely what the recursion was added for.\n\n**3. `marshal.go:998-999` — the new bound still nil-derefs a nil `SubType` once `Dimensions > 0` — LOW**\nThe new comment states the guard exists because a caller of `Unmarshal` may leave `SubType` nil, but it only covers `Dimensions == 0`. With `Dimensions > 0` and non-nil data, `vectorElemMinSize(nil)` → `vectorFixedElemSize(nil)` → `nil.Type()` panics at `marshal.go:1145`. Reproduced identically at HEAD and at merge-base `24c789e`, so the PR doesn't introduce it — but it does leave the stated invariant unmet.\n\n**4. `marshal.go` `unmarshalVector` — bound is by payload bytes, not allocation — LOW, deferred**\nThe bound caps element count against `len(data)`, leaving up to 56x allocation amplification. Deferred by the reviewer: a real fix needs a per-element cost model for every CQL type, and the bound as written already converts an unbounded allocation into a bounded multiple of an already-read payload.\n\n## Pre-existing, verified real, outside this PR\n\n- **`marshal.go:1563-1571` — `readBytes` slices `p[:size]` with an unchecked server length — HIGH.** Every UDT field and tuple element goes through it. A one-field UDT with `{0x7f,0xff,0xff,0xff,0x01}` panics for every destination; `parseFrame` explicitly re-panics `runtime.Error` and `Scan` has no recover. Same crash class the PR exists to close, in the decoders it didn't touch.\n- **`frame.go:855-859` — `readTypeInfo` slices a name that merely starts with the vector prefix — HIGH.** `spec[1:len(spec)-1]` assumes a trailing `)`, `spec[:idx]` assumes a comma. `...VectorType`, `...VectorType()`, `...VectorType(...FloatType)` and `...VectorTypeFoo` all give `slice bounds out of range [:-1]` on the connection goroutine. `asVectorType` (`helpers.go:44-81`) is the safe mirror of this code.\n- **`helpers.go:247,250-251,264` — unguarded indexing of split results — HIGH.** `names[1]` with no comma; `make([]UDTField, len(names)-2)` going negative; `spec[1]` with no `:`. Reproduced through `framer.readTypeInfo` as `makeslice: len out of range` and `index out of range [1] with length 1`. The MapType branch two blocks up *does* check — guarded and unguarded forms sit side by side.\n- **`marshal.go:1635-1636, 1670-1671` — `unmarshalTuple` sets without an assignability check — MEDIUM.** Reachable through the vector path this PR is about: `vector<tuple<int,text>,2>` into `*[][]float32` panics `reflect.Set: value of type int is not assignable to type float32` instead of returning an unmarshal error.\n- **`frame.go:861` — `strconv.Atoi` error discarded for the vector dimension — LOW.** A non-numeric dim yields 0, an out-of-range one yields `MaxInt64`. The PR's new bound rejects the `MaxInt64` case cleanly, but dim-0 turns every value of that column into \"N bytes of data for 0-dimension vector\", pointing the user at data rather than at unparseable metadata. `helpers.go:264-268` logs and degrades instead.\n\n## One internal contradiction worth your judgment\n\nThe reviewer reported **`helpers.go:261-263` — unbounded recursion in `getCassandraLongType`, HIGH**, claiming a reproduced hang: a 98-byte custom name still running at an 80s test timeout, with a goroutine dump showing thousands of frames and the name growing 3 bytes per level. The follow-up reconciler then re-checked HEAD and reported it **could not reproduce** it, concluding `splitCompositeTypes` always shrinks or the input loses the prefix, and downgraded a depth guard to optional. Both ran against `78891dd`. I did not independently adjudicate this; the reproduction transcript is the stronger evidence of the two, but treat the finding as unresolved rather than confirmed.\n\nThree items were flagged release-blockers, all pre-existing: panic-free vector type-name parsing, bound-checking `readBytes`, and the tuple assignability check. None are caused by this PR.",
+  "finishedAt": "2026-09-21T06:24:15.489Z",
+  "attemptSince": 1789968669223,
+  "usageCwd": "/extra/dkropachev/automated-development/bench/work/tidepool/runs/rafp-detailed/repo",
+  "wallMs": 3186266,
+  "wallMsDerived": true
+}

@@ -1,0 +1,64 @@
+{
+  "target": "ironweave",
+  "tool": "tob-diff-review",
+  "label": "Trail of Bits differential-review",
+  "findings": [
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "title": "Unguarded put(std::span<temporary_buffer<char>>) override breaks build at SEASTAR_API_LEVEL 7/8",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The override is unguarded but that member only exists under SEASTAR_API_LEVEL >= 9; below 9 the pure virtual is put(net::packet), so this causes an override-of-nothing error and leaves the class abstract, while CMakeLists.txt still lists 7 and 8 as valid levels."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2004,
+      "title": "Queue-drain half of the fix is untested",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "_outgoing_queue is empty when the test reaches stream_close() because sink_impl::close() awaits the eof-marker send() before calling close_sink(), so queue_drained is already resolved and the drain is a no-op; reverting the std::exchange/then_wrapped hunk while keeping _stream_closing still leaves the new test green."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "title": "Test never asserts send() is refused",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The try/catch (const rpc::closed_error&) passes whether or not the frame is rejected, since only the downstream put_after_close symptom is checked; needs BOOST_REQUIRE_THROW or a BOOST_FAIL after the .get()."
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "title": "Comment contradicts the code regarding who waits on _outgoing_queue_ready",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment states 'Nothing else waits for _outgoing_queue_ready from here on', but stop_send_loop() does wait on it, at src/rpc/rpc.cc:225; the code itself is correct, but the comment misstates it."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1895,
+      "title": "buffer_size() hardcoded to 8192 instead of forwarding to _inner",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Every other method forwards to _inner, but buffer_size() is hardcoded to 8192; connected_socket::output() passes buffer_size = 0, so the stream under test adopts 8192 instead of the real sink's size, an unnecessary divergence from production in a reproducer."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "title": "const_cast used to record hooks",
+      "severity": "low",
+      "kind": "style",
+      "claim": "A const_cast is used only because the factories are non-const locals; making hooks mutable would avoid the const_cast."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "title": "Positional hook selection hardcodes count and order of negotiations",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "BOOST_REQUIRE_EQUAL(hooks.size(), 2u) plus hooks.back() hard-codes both the count and order of client-side negotiations, so a change to rpc_test_env setup would silently retarget the test."
+    }
+  ],
+  "extractError": null
+}

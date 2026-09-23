@@ -1,0 +1,93 @@
+{
+  "target": "tidepool",
+  "language": "Go",
+  "fork": "dkropachev/tidepool",
+  "pr": 1,
+  "tool": "builtin-code-review",
+  "label": "Claude Code /code-review",
+  "source": "built-in",
+  "prompt": "/code-review 1\n\nYou are reviewing pull request #1 of this repository (dkropachev/tidepool) - a Go project. The PR branch `bound-vector-dimensions` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 595853,
+  "reportedCostUsd": 2.6361059999999994,
+  "reportedUsage": {
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "input_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 0,
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "",
+    "iterations": [],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 62,
+      "outputTokens": 42237,
+      "cacheReadInputTokens": 1912867,
+      "cacheCreationInputTokens": 99750,
+      "webSearchRequests": 0,
+      "costUSD": 2.6361059999999994,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 31476,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 0,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "15a34636-4bfa-4893-9c2d-521111fec8a6",
+  "isError": false,
+  "transcriptUsage": {
+    "input": 0,
+    "output": 0,
+    "cacheRead": 0,
+    "cacheCreation": 0,
+    "messages": 0,
+    "sidechainMessages": 0,
+    "models": {},
+    "sessions": 1,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-tidepool-runs-builtin-code-review-repo",
+    "total": 0
+  },
+  "result": "The change is sound: I could not find a way to break it from the wire. I built a panic sweep (11 wire-parsed vector type strings x dims `-3/0/1/3/1<<30/1<<61+1` x 7 payload sizes x 7 destination types) and a Marshal→Unmarshal roundtrip sweep over fixed, variable-length and nested element types — no panics and no false rejections. The dimension bound's arithmetic is overflow-safe (`Dimensions > len(data)/elemMin` rather than a product), `vectorElemMinSize` can never return 0 or a negative, and its saturation guard holds. Note the new tests are behind `//go:build unit`, so plain `go test ./...` does not run them; `go test -tags unit` passes (the TLS failures there are missing certs, unrelated).\n\nFindings:\n\n- `marshal.go:1044` — Zero VectorType still panics on an `*any` destination. The new `Dimensions > 0` guard stops the bound from dereferencing a nil `SubType`, but `info.Zero()` (→ `marshal.go:2046`, `v.SubType.NewWithError()`) does. `var dst any; Unmarshal(VectorType{}, []byte{}, &dst)` panics with a nil-pointer dereference — verified by running it. The new `TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType` pins this exact input shape but only for `*[]float64`, so it passes while the interface case still crashes on the Scan goroutine. Pre-existing, but it contradicts the invariant the new comment at `marshal.go:995-997` states. Medium.\n\n- `helpers.go:271` — the nested vector's inner type keeps a bare `...VectorType` name. The PR teaches the basic-type branch to preserve the server's name (`helpers.go:280-284`) but leaves this branch storing `prefix+\"VectorType\"` with no `(...)`, so `asVectorType` cannot parse it, `NewWithError` fails, `Zero()` returns nil, and a nested-vector column errors out of `MapScan`/`Scan(&any)` with a message naming nothing useful. Passing `name` here fixes both. The PR defers this to #1085, so it is a one-line miss rather than a regression. Low.\n\nTwo smaller notes not filed as findings: `VectorType.Zero()` (`marshal.go:2047-2049`) discards the `NewWithError` error, so the new message at `marshal.go:1048` can only name the type and not the reason; and the documented behaviour change — a non-NULL zero-length payload for `Dimensions > 0` now errors instead of decoding to zero values — is correct but is a visible API break for anyone who relied on it.",
+  "stderrTail": "Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.\n",
+  "finishedAt": "2026-09-20T17:24:01.879Z"
+}

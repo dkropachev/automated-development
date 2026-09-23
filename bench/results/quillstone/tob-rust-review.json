@@ -1,0 +1,131 @@
+{
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "tool": "tob-rust-review",
+  "label": "Trail of Bits rust-review",
+  "source": "rust-review@trailofbits",
+  "prompt": "/rust-review:rust-review\n\nScope the audit strictly to the files this pull request changes; the rest of the crate is out of scope.\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 1090531,
+  "reportedCostUsd": 9.242554600000004,
+  "reportedUsage": {
+    "input_tokens": 56,
+    "cache_creation_input_tokens": 167431,
+    "cache_read_input_tokens": 2965197,
+    "output_tokens": 76297,
+    "output_tokens_details": {
+      "thinking_tokens": 19659
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 167431,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1902,
+        "cache_read_input_tokens": 177062,
+        "cache_creation_input_tokens": 957,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 957
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 56,
+      "outputTokens": 76297,
+      "cacheReadInputTokens": 2965197,
+      "cacheCreationInputTokens": 167431,
+      "webSearchRequests": 0,
+      "costUSD": 5.064613499999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 19659,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-sonnet-5": {
+      "inputTokens": 344,
+      "outputTokens": 142196,
+      "cacheReadInputTokens": 6625628,
+      "cacheCreationInputTokens": 572067,
+      "webSearchRequests": 0,
+      "costUSD": 4.177941100000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 75977,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 53,
+  "subagentStats": {
+    "spawned": 19,
+    "requested": {
+      "background": 0,
+      "foreground": 19,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 19,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "rust-review:rust-review-worker": 17,
+      "rust-review:rust-review-dedup-judge": 1,
+      "rust-review:rust-review-fp-judge": 1
+    }
+  },
+  "sessionId": "174d4eca-460d-4288-b848-8fe9d619b60c",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 788,
+    "output": 448265,
+    "thinking": 190687,
+    "cacheRead": 17356481,
+    "cacheCreation": 1334143,
+    "costUsd": 22.869568850000004,
+    "sessions": 13,
+    "models": {
+      "claude-opus-5[1m]": 18.69162775,
+      "claude-sonnet-5": 4.177941100000003
+    },
+    "rawMessages": 856,
+    "rawOutput": 2219105,
+    "rawCacheRead": 35943293,
+    "subagentTranscripts": 36,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-quillstone-runs-tob-rust-review-repo",
+    "total": 19139677
+  },
+  "result": "Review complete. 16 cluster workers + dedup/FP judges ran clean (all validated, no truncation); I added a correctness read of the diff on top, since the cluster passes only cover fixed security bug classes.\n\n## Findings\n\n**MEDIUM — `scylla/src/network/connection_pool.rs:1006` — excess shard-aware connection dropped without `dec_total_connections()`**\nIn the `else if evt.requested_shard.is_some()` arm, the owned `connection` is dropped at end of block and only `start_opening_connection(None)` is called. That connection was counted by `count_in_metrics` at open (`:1051`), and `Connection` has no `Drop` impl touching metrics, so `total_connections` gains a permanent +1 every time a shard-aware connection lands on a full bucket — exactly the NAT scenario the comment above it describes. This is an incomplete fix: commit `de164845` (\"balance metrics when clearing pools\") balanced the three other drop sites in this function (`:671`, `:1028`, `:1112`) and missed this one.\n\n**MEDIUM — `scylla/src/network/connection_pool.rs:697` — pool teardown leaks the whole `total_connections` count**\nWhen the keyspace-request channel closes, `run()` returns, dropping `PoolRefiller` and with it every `Arc<Connection>` in `conns` and `excess_connections` — with no decrement and no `impl Drop for PoolRefiller`. Every node removal or session drop permanently inflates the gauge by that pool's size. Same class as the three sites the PR did fix; the new test `full_pool_clears_excess_connections_and_balances_metrics` (`:1990`) drives this path (`drop(use_keyspace_sender); worker.await`) but asserts before it, so it doesn't catch it.\n\n**HIGH (pre-existing, but on lines this PR rewrites) — `scylla/src/network/connection_pool.rs:1341` — untimed `use_keyspace` await wedges the refiller**\n`start_setting_keyspace_for_connection` awaits `connection.use_keyspace()` with no timeout (the `// TODO: There should be a timeout for this` is on `main` at `:1317`). A server that accepts the connection and never answers `USE` leaves the future in `ready_connections` forever, so `is_filling()` stays true, `need_filling()` stays false, and *all* refills for that node stop permanently. The sibling `PoolRefiller::use_keyspace` does wrap its `USE` in `tokio::time::timeout(connect_timeout, …)` (`:1307`). The PR adds the explicit-failure path here without closing the silent-stall path.\n\n**LOW — `scylla/src/network/connection_pool.rs:915` — sharder/shard-aware-port learning now deferred behind `USE`**\nHoisting the keyspace check above the sharding block means `self.sharder` and `self.shard_aware_port` are no longer updated from a connection until its `USE` succeeds. While a keyspace is set and `USE` keeps failing, the refiller never learns the node is sharded, keeps `conns` at size 1 and keeps dialing the non-shard-aware port. The PR's own test asserts this (`sharder.is_none()` after failure), so it looks intended — but it also delays shard-aware adoption on every first fill after `use_keyspace`, which the PR description doesn't mention.\n\n**LOW — `scylla/src/network/connection_pool.rs:1474` and `:1526` — new tests omit `setup_tracing()`**\nEvery other test in the module calls it; these two don't, so their tracing output is lost on failure.\n\n**LOW — `scylla/src/network/connection_pool.rs:1360` — `decrement_total_connections` loops `fetch_sub(1)`**\n`self.metrics.dec_total_connections()` in a `for _ in 0..count` instead of one `fetch_sub(count)`. Correct, just N atomic RMWs where one would do.\n\n**Informational — `PTREXPOSE-001/002/003` (`:683`, `:981`, `:1247`) — `{:p}` pointer logging**\nThe pipeline rated these MEDIUM; I don't agree. They're pre-existing `Arc::as_ptr` traces at `debug`/`trace` level, conventional in this driver, and untouched by the PR. Also, the judge's rationale for PTREXPOSE-003 is wrong: the new `UseKeyspaceError` branch does **not** call `remove_connection` — it drops the connection inline and calls `dec_total_connections()` directly (`:900-911`).\n\n**No finding in `scylla/src/errors.rs`.** `ConnectionError` is `#[non_exhaustive]` (`:574`), so the added variant is semver-minor, and `#[from] UseKeyspaceError` doesn't collide with the existing impls.\n\n## Artifacts\n`/extra/dkropachev/automated-development/bench/work/quillstone/runs/tob-rust-review/repo/.rust-review-results/20260921T004708Z/` — `REPORT.md`, `REPORT.sarif`, `findings/`, `findings-index.txt`, `coverage/`, `run-summary.md`, `dedup-summary.md`, `fp-summary.md`.\n\nTwo caveats recorded in `run-summary.md`: this harness has no `Task*` tools, so the Phase-5 ledger was tracked in-conversation (orchestrator-internal only, no effect on workers); and `errors.rs` was reviewed by me directly rather than delegated, because `build_run_plan.py` takes only one `--scope-subpath`. No edits, commits, or PR comments were made.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-21T01:04:33.418Z"
+}

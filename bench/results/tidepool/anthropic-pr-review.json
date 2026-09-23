@@ -1,0 +1,117 @@
+{
+  "target": "tidepool",
+  "language": "Go",
+  "fork": "dkropachev/tidepool",
+  "pr": 1,
+  "tool": "anthropic-pr-review",
+  "label": "Anthropic pr-review-toolkit",
+  "source": "pr-review-toolkit@claude-plugins-official",
+  "prompt": "/pr-review-toolkit:review-pr all\n\nYou are reviewing pull request #1 of this repository (dkropachev/tidepool) - a Go project. The PR branch `bound-vector-dimensions` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 1027319,
+  "reportedCostUsd": 12.565724999999993,
+  "reportedUsage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 12949,
+    "cache_read_input_tokens": 540554,
+    "output_tokens": 7510,
+    "output_tokens_details": {
+      "thinking_tokens": 2877
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 12949,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 3548,
+        "cache_read_input_tokens": 139770,
+        "cache_creation_input_tokens": 3165,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 3165
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 308,
+      "outputTokens": 166460,
+      "cacheReadInputTokens": 10485780,
+      "cacheCreationInputTokens": 426159,
+      "webSearchRequests": 0,
+      "costUSD": 12.565724999999993,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 101866,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 4,
+  "subagentStats": {
+    "spawned": 4,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 4
+    },
+    "started_in_background": 4,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 4,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "pr-review-toolkit:comment-analyzer": 1,
+      "pr-review-toolkit:pr-test-analyzer": 1,
+      "pr-review-toolkit:code-reviewer": 1,
+      "pr-review-toolkit:silent-failure-hunter": 1
+    }
+  },
+  "sessionId": "41b85270-dcb3-4b6a-957c-c72e2c9f32df",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 308,
+    "output": 166460,
+    "thinking": 101866,
+    "cacheRead": 10485780,
+    "cacheCreation": 426159,
+    "costUsd": 12.565724999999993,
+    "sessions": 1,
+    "models": {
+      "claude-opus-5[1m]": 12.565724999999993
+    },
+    "rawMessages": 309,
+    "rawOutput": 227869,
+    "rawCacheRead": 19925920,
+    "subagentTranscripts": 4,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-tidepool-runs-anthropic-pr-review-repo",
+    "total": 11078707
+  },
+  "result": "Repo untouched, scratch copies removed. Four review agents ran; every finding below I re-verified myself by executing code.\n\n# PR #1 Review — `fix(marshal): stop a vector value from crashing the Scan goroutine`\n\nThe core of the change is sound: the bound is correctly placed *ahead* of the float fast paths (so `Dimensions*8` can no longer wrap), the saturating multiply is arithmetically tight, and I could not construct any payload a real server sends that the bound falsely rejects. Round-trips through `Marshal`/`Unmarshal` for every element type and for two- and three-deep nested vectors decode identically to `main`. The two crashes named in the description are genuinely gone.\n\nBut the bound has a hole that reopens the exact DoS it was written to close, and one of the new tests certifies a hardening that isn't there.\n\n## Critical\n\n**1. `marshal.go:1141-1142` — the `return 1` floor defeats the bound for a zero- or negative-dimension inner vector.**\n`vectorElemMinSize` returns 1 whenever the inner vector's `Dimensions <= 0`: `isVectorVariableLengthType` recurses to the fixed leaf (so `size` stays 0) and the `vec.Dimensions > 0` clause is skipped. The peer picks that number. Measured on wire-derived types (`readTypeInfo`), 1 MB payload, `*[][]float32`:\n\n```\nVectorType(VectorType(FloatType,  3), 1<<20)  elemMin=12  alloc=1,051,760   rejected on the bound\nVectorType(VectorType(FloatType,  0), 1<<20)  elemMin=1   alloc=26,224,288  rejected after MakeSlice\nVectorType(VectorType(FloatType, -5), 1<<20)  elemMin=1   alloc=26,224,008  rejected after MakeSlice\n```\n\n26 MB for a 1 MB payload — the \"24 bytes per payload byte\" the description claims to have eliminated. `frame.go:861` does not reject `dim < 1`, so this is reachable today; #1093 is a different PR. The right answer is an error, not a floor: an inner vector of 0 or negative dimensions cannot decode either way (it errors on element 0), so reject the type at the guard rather than divide by 1. `TestVectorElemMinSize:814-815` currently pins `vector<float,0>` and `vector<float,-3>` to 1 as *expected*, so the suite blesses the hole.\n\n## High\n\n**2. `marshal_vector_test.go:937-958` — the zero-`VectorType` test does not pin the panic its comment names.**\nThe comment says the dim-0 carve-out exists so a caller-supplied zero `VectorType` cannot \"panic on the very goroutine the bound exists to keep alive\". The table only uses `var dst []float64` — the one destination that never touches `SubType`. With `var dst any`, both rows still panic:\n\n```\nunmarshalVector(VectorType{}, []byte{}, &dst)  → nil pointer dereference\nunmarshalVector(VectorType{}, nil,      &dst)  → nil pointer dereference\n```\n\n`VectorType.Zero()` (`marshal.go:2046`) calls `v.SubType.NewWithError()` on a nil `TypeInfo`, and the new `t == nil` guard four lines below never runs. The PR's sibling test at `marshal_vector_test.go:867` identifies the interface destination as \"the one the generic path resolves through `info.Zero()`\" — so this is the case that matters. Pre-existing panic, but the new test asserts it is handled.\n\n## Medium\n\n**3. `helpers.go:271` — the \"keep the name\" fix is applied to the basic-type branch but not to the `VectorType` branch ten lines above, which has the same defect.**\n`NewCustomType(protoVer, TypeCustom, prefix+\"VectorType\")` stores the bare prefix, so the PR's new error for a nested vector reads `no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)` — no element type, no dimension, not what the server sent. Storing `name` there instead fixes both: the message becomes useful *and* nested vectors actually decode into `interface{}` (verified: `[]*[]float32{...}` with correct values). In a scratch tree, that one-token change breaks exactly one test — `TestUnmarshalVectorRejectsAnElementTypeWithNoGoType/nested_vector_into_an_interface`. The PR defers that to #1085 while adding a test that locks the bug in.\n\n**4. `marshal.go:990` and `marshal.go:1121` — \"the fewest bytes an element can occupy\" is a lower bound, not a minimum, and the description's behaviour claim holds only for fixed-size elements.**\nFor every variable-length type `vectorElemMinSize` returns 1 regardless of body. A `vector<smallint,4>` really occupies 12 bytes on the wire; over 4 zero bytes it still decodes `[0 0 0 0], nil` after this change. Same for `tinyint`, `date` (four garbage year -5877641 timestamps), `time`, `inet`. The description states flatly that \"a short or zero-length non-NULL payload used to decode to zero values ... and now errors\"; that is true for `vector<int,3>` and false for all nine variable-length element types.\n\n**5. `marshal.go:986` — \"every path below turns it into an allocation\" is false for the array path.**\n`*[N]T` allocates nothing; `marshal.go:1076` only compares `rv.Len() != info.Dimensions`. The diff's own test comment at `marshal_vector_test.go:649` says the opposite (\"An array allocates nothing, but the loop derives its element size from `len(data)/Dimensions`\"), and the array case is the one real reason the bound isn't purely an allocation guard.\n\n**6. `marshal.go:1044-1048` — the new guard discards the real error and reports a wrong cause.**\n`VectorType.Zero()` (`marshal.go:2047`) drops `e` on the floor. The underlying error is `cannot create Go type for unknown CQL type custom(...VectorType)` — the inner type *does* have a Go type; the failure is that `VectorType` never overrides `NewWithError`. Calling `info.SubType.NewWithError()` directly at 1044 and wrapping the returned error reports the real reason for free.\n\n**7. `marshal.go:1136-1137` — the saturating-multiply branch has no test.** `vectorElemMinSize` measures 92.3%; the uncovered block is exactly `return math.MaxInt32`, the subtlest new line and the one guarding a peer-supplied inner dimension. A row like `vector<vector<float,1<<40>,…>` → `2147483647` covers it.\n\n## Low\n\n- `marshal.go:1001` — asymmetric errors: a short payload loses the exact byte count (`3 dimensions do not fit in 4 bytes`), a surplus one keeps it (`expected 12 bytes, got 16`). Including `elemMin` in the message restores the arithmetic.\n- `marshal_vector_test.go:772` — \"eight bytes\" is wrong per inner vector; each is four (1 prefix + 3 zero vints). Eight is the total for the two the subtest marshals, contradicting line 660 where the same shape is costed at 4.\n- `marshal_vector_test.go:835` — the \"not parallel\" rationale misnames the mechanism. Go never runs a serial top-level test concurrently with parallel ones; the real exposure is leaked goroutines from the networked tests earlier in the package (155 live at that point, 273 under `-count=3`). Not flaky today, but a reader could \"fix\" it by adding `t.Parallel()`.\n- `marshal_vector_test.go:852` — the `payload/8` budget is coupled to `payload` against ~3 KB fixed overhead; below ~32 KB the test fails for unrelated reasons. An absolute budget is sturdier.\n- `marshal_vector_test.go:693` — \"a vector of N elements is never encoded in fewer than N bytes\" has a counterexample: `vector<vector<float,0>,N>` encodes to zero bytes and the bound *does* narrow there (verified). Degenerate, but stated unconditionally.\n- `marshal.go:998` and `marshal.go:1007` — the identical `info.Dimensions > 0 && data != nil` is evaluated twice in a row; merge the blocks.\n- `marshal_vector_test.go:587-690` — no dimension-bound row goes through the public `Unmarshal` with a `readTypeInfo`-parsed type, though the stated threat model is Scan's goroutine. The file already has `wireVectorType`.\n- The PR body carries a `🤖 Generated with Claude Code` line, which your conventions forbid in PR descriptions.\n\n## Confirmed pre-existing, adjacent to the diff\n\n- `helpers.go:264` — `names[1]` panics (`index out of range [1] with length 1`) on a truncated vector spec such as `...VectorType(...FloatType)`. Reachable via `asVectorType` → `goType` → `NewWithError` → `Iter.Scan`, which is unrecovered: the same crash class this PR exists to fix, in the function it edits. `frame.go:857` has the matching `spec[1:len(spec)-1]` pair, but under `parseFrame`'s recover.\n- `frame.go:861` — `dim, _ := strconv.Atoi(...)` drops `ErrRange`; an overflowing dimension becomes `MaxInt64` and the operator never learns what string the server actually sent. Note `helpers.go:222`/`267` still degrade to a nameless `custom()` on parse failure — now inconsistent with the change at `helpers.go:279`, and those are the paths where naming the string matters most.\n- #1106 (vint length narrowing to negative → `vector<text,1>` decodes `[\"\"]` with nil error) and #1086 (surplus trailing bytes silently dropped in the generic path while the fast paths reject them) are both reachable as described. Correctly scoped out.\n\n## Recommended order\n\nFix 1 before merge — it reopens the DoS. Then 2 and 3, both small and both about tests/errors that currently mislead. 4-7 are follow-ups that can ride along. `go vet`, `gofmt` and `go build` are clean; the four `TestShardAwarePortMocked*/with_TLS` failures reproduce on `main` and are a local cert-fixture problem.",
+  "stderrTail": "Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.\n",
+  "finishedAt": "2026-09-20T17:42:25.674Z"
+}

@@ -1,0 +1,112 @@
+{
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "tool": "anthropic-pr-review",
+  "label": "Anthropic pr-review-toolkit",
+  "source": "pr-review-toolkit@claude-plugins-official",
+  "prompt": "/pr-review-toolkit:review-pr all\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 465949,
+  "reportedCostUsd": 2.5880355,
+  "reportedUsage": {
+    "input_tokens": 60,
+    "cache_creation_input_tokens": 84668,
+    "cache_read_input_tokens": 1967061,
+    "output_tokens": 30301,
+    "output_tokens_details": {
+      "thinking_tokens": 22026
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 84668,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 3262,
+        "cache_read_input_tokens": 91063,
+        "cache_creation_input_tokens": 4193,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 4193
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 60,
+      "outputTokens": 30301,
+      "cacheReadInputTokens": 1967061,
+      "cacheCreationInputTokens": 84668,
+      "webSearchRequests": 0,
+      "costUSD": 2.5880355,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 22026,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 30,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "14a493e5-4ff1-431f-9ea5-8cc02c07d374",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 60,
+    "output": 30301,
+    "thinking": 22026,
+    "cacheRead": 1967061,
+    "cacheCreation": 84668,
+    "costUsd": 2.5880355,
+    "sessions": 2,
+    "models": {
+      "claude-opus-5[1m]": 2.5880355
+    },
+    "rawMessages": 53,
+    "rawOutput": 59275,
+    "rawCacheRead": 3452205,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-quillstone-runs-anthropic-pr-review-repo",
+    "total": 2082090
+  },
+  "result": "## PR #1 Review — `connection: discard connections after keyspace setup failure`\n\nVerified locally: `cargo test -p scylla --lib --features metrics network::connection_pool` → 8 passed, including all 5 new tests. `many_connections` fails, but it fails identically on `main` (400-connection `ConnectTimeout`), so it's pre-existing/environmental, not this PR. `cargo clippy -p scylla --lib --all-features` is clean apart from one pre-existing unfulfilled-expectation warning.\n\n### High\n\n**1. `scylla/src/network/connection_pool.rs:900` — a permanently bad keyspace now bricks the pool forever, with no recovery path.**\n`PoolRefiller::use_keyspace` sets `self.current_keyspace = Some(...)` unconditionally (`connection_pool.rs:1287`) and never clears it, even when the `USE` fails. Before this PR a failed `USE` on a fresh connection was logged and the connection was still added, so the node stayed usable. Now every newly opened connection is discarded, `had_error_since_last_refill` is set, and the pool republishes `Broken` on an endless backoff loop. Concretely: `SessionBuilder::use_keyspace(\"typo\")` or `session.use_keyspace()` against a dropped keyspace poisons *every* node's pool permanently — existing connections keep working until they die, then the whole session is unreachable, including for fully-qualified queries against other keyspaces. This is a real behavior change beyond the stated fix, it isn't mentioned in the PR description, and nothing resets `current_keyspace` or caps the retry.\n\n### Medium\n\n**2. `scylla/src/network/connection_pool.rs:903` — failure log downgraded from `warn!` to `debug!`.**\nThe removed code at the old `start_setting_keyspace_for_connection` logged `warn!(\"Failed to set keyspace for new connection\")`. The new branch logs the same message at `debug!`. The consequence is now *more* severe (the connection is dropped and the pool may go `Broken`), yet the only signal is at debug level; the `ConnectionPoolError::Broken` surfaces to users only once the pool is fully empty. This is exactly the case where the visibility should go up, not down.\n\n**3. `scylla/src/network/connection_pool.rs:1114` — metric balancing is incomplete: `PoolRefiller` has no `Drop`.**\nThe PR adds decrements at the three clear sites (`:674`, `:1031`, `:1114`), but there is no `impl Drop for PoolRefiller` and no decrement when the refiller task exits (`run()` returns at the keyspace-channel-closed arm). Dropping a pool — node removed from the cluster, or session shutdown — still leaks the full `total_connections` count. Given the PR's own framing (\"balance metrics when clearing pools\"), leaving the largest imbalance unaddressed is a gap, and nothing in the new tests would catch it (they all `drop(refiller)` without asserting).\n\n**4. `scylla/src/errors.rs:600` — `UseKeyspaceError` doesn't satisfy `ConnectionError`'s documented contract.**\n`ConnectionError`'s doc comment (`errors.rs:570-572`) states it \"indicated that connection can no longer be used and should be dropped\". `UseKeyspaceError::KeyspaceNameMismatch` and `UseKeyspaceError::RequestTimeout` say nothing about the connection being broken — the transport is fine. Because this flows into `ConnectionPoolError::Broken { last_connection_error }` (`connection_pool.rs:481`), users now see a healthy-connection error reported as a connection-level failure. A pool-level variant (or a `ConnectionPoolError` variant) would model this correctly. Adding the variant is API-compatible thanks to `#[non_exhaustive]`, and no exhaustive `match` sites break.\n\n### Low\n\n**5. `scylla/src/network/connection_pool.rs:913` — deferring the sharding block behind keyspace setup loses shard discovery on the failure path.**\nMoving the keyspace check above `maybe_reshard` / shard-aware-port update means a connection whose `USE` fails never contributes its `ShardInfo`. While keyspace setup keeps failing, the pool never learns `sharder` or `shard_aware_port`, so `start_filling` stays on the single non-shard-aware path. Self-correcting once a `USE` succeeds, but it compounds finding 1.\n\n**6. `scylla/src/network/connection_pool.rs:2002` — the new metrics test wall-clock polls.**\n`while metrics.get_total_connections() != 1 { sleep(1ms) }` under a 5 s `tokio::time::timeout`, on a real clock. Despite the commit title \"avoid busy-waiting in metrics test\", this is still a 1 ms poll loop and is load-sensitive on CI. `pool_updated_notify` is already wired into `mock_pool_refiller` but unused.\n\n**7. `scylla/src/network/connection_pool.rs:1360` — `decrement_total_connections` loops instead of doing one bulk update.**\n`for _ in 0..count { self.metrics.dec_total_connections(); }` — the backing counter is atomic; a `dec_total_connections_by(n)` on `Metrics` (with a no-op twin in `metrics_noop.rs`) would be one operation and read better at all three call sites.\n\n**8. `scylla/src/network/connection_pool.rs:674`, `:1031`, `:1114` — \"decrement then clear excess\" is duplicated three times.**\nThree independent sites must remember to pair the decrement with the clear; a single `fn clear_excess_connections(&mut self)` helper would make the fourth site impossible to get wrong. This PR exists precisely because two of these sites were previously missing the decrement.\n\n**9. `scylla/src/network/connection_pool.rs:1474` — `keyspace_setup_failure_triggers_refill` doesn't test a refill.**\nThe refiller is never `run()`; the test asserts `need_filling()` on a static struct. It verifies the predicate, not that a refill is actually scheduled. The name overstates what is covered.\n\n**10. `scylla/src/network/connection_pool.rs:1534` — undocumented magic frame bytes.**\n`Bytes::from_static(b\"\\0\\0\\0\\x03\\0\\x08keyspace\")` is a hand-encoded `Result`/`SetKeyspace` body with no comment explaining the layout (result kind 3, `[short]` length 8, name). Anyone changing the keyspace name in this test has to rediscover the encoding.\n\n**11. `scylla/src/network/connection_pool.rs:1526` — test duplicates `start_simulated_node` and skips `setup_tracing()`.**\n`make_rules` re-implements the OPTIONS/STARTUP rules that `start_simulated_node` (`:1809`) already builds, and this is the only test in the module that omits `setup_tracing()`, so its failures produce no log output. `keyspace_setup_failure_triggers_refill` (`:1474`) omits it too.\n\n**12. `scylla/src/network/connection_pool.rs:1868` — dead argument in `resharding_discards_old_connections_and_balances_metrics`.**\n`start_simulated_node(initial_shard_info)` is immediately followed by `change_request_rules(...)` that replaces SUPPORTED with a non-sharded response, so `initial_shard_info` has no effect. Misleading to a reader trying to follow the reshard sequence.\n\n**13. PR description — `Fixes: #1682` is a dangling reference.** `gh issue view 1682` fails in `dkropachev/quillstone`; the number appears to be from upstream `scylla-rust-driver`.\n\n### Coverage gaps\n\nNo test covers recovery: that a pool which went `Broken(UseKeyspaceError)` flips back to `Ready` once a later refill's `USE` succeeds. No test covers the keyspace-failure-empties-the-pool → `ConnectivityChangeEvent::Lost` path (`emit_events`, `:1157`) — the existing test deliberately keeps one connection alive. Both are the paths finding 1 turns on.\n\n### Strengths\n\nThe `ConnectionSetupError` split is the right shape — it keeps the shard-aware-port fallback and `had_error_since_last_refill` semantics distinct per failure kind instead of overloading one error type. The three metric-decrement sites are individually correct and I could not construct a double-decrement: connections cleared from `conns`/`excess_connections` are only reachable via `Weak` in `wait_for_error`, and `remove_connection` finds nothing to `swap_remove` afterwards, so it falls through without decrementing again. `keyspace_setup_failure_preserves_pool_state` is a genuinely good test — it pins both the \"pool survives the failure\" and \"resharding happens after, not before, keyspace setup\" halves of the ordering change against a real proxy.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-21T01:12:19.501Z"
+}

@@ -1,0 +1,114 @@
+{
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "tool": "superpowers-review",
+  "label": "Superpowers requesting-code-review",
+  "source": "superpowers@superpowers-dev",
+  "prompt": "Use the `requesting-code-review` skill to have this pull request reviewed.\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 851088,
+  "reportedCostUsd": 4.392872,
+  "reportedUsage": {
+    "input_tokens": 10,
+    "cache_creation_input_tokens": 37268,
+    "cache_read_input_tokens": 164595,
+    "output_tokens": 5628,
+    "output_tokens_details": {
+      "thinking_tokens": 337
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 37268,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1530,
+        "cache_read_input_tokens": 47494,
+        "cache_creation_input_tokens": 362,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 362
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 76,
+      "outputTokens": 61253,
+      "cacheReadInputTokens": 3158724,
+      "cacheCreationInputTokens": 182728,
+      "webSearchRequests": 0,
+      "costUSD": 4.392872,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 44271,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 6,
+  "subagentStats": {
+    "spawned": 1,
+    "requested": {
+      "background": 0,
+      "foreground": 1,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 1,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "general-purpose": 1
+    }
+  },
+  "sessionId": "12ed34b5-352b-4cfc-969c-952f0971b597",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 76,
+    "output": 61253,
+    "thinking": 44271,
+    "cacheRead": 3158724,
+    "cacheCreation": 182728,
+    "costUsd": 4.392872,
+    "sessions": 3,
+    "models": {
+      "claude-opus-5[1m]": 4.392872
+    },
+    "rawMessages": 77,
+    "rawOutput": 65247,
+    "rawCacheRead": 6048401,
+    "subagentTranscripts": 1,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-ironweave-runs-superpowers-review-repo",
+    "total": 3402781
+  },
+  "result": "Review complete (read-only; nothing edited or posted).\n\n**Verdict: merge with fixes.** The production change in `src/rpc/rpc.cc` / `include/seastar/rpc/rpc.hh` is correct and minimal — `write_buf.close()` has exactly two callers, `stop_send_loop` already sets `_error` first, and `stream_close` was the one unguarded one. The reasoning for not setting `_error` checks out (`abort()` is a no-op once `_error` is set, so `stop()` would never `shutdown_input()`). The drain wait also removes a second, unclaimed bug: `stream_close()` could previously close the `output_stream` while a queued `send_entry()` was mid-`write()`/`flush()` on it. `_stream_closing` and `stop_send_loop` cannot interleave — neither prologue has a suspension point. Blockers are all in the test and commit metadata.\n\n**Important**\n\n1. `tests/unit/rpc_test.cc:1957` — server compressor factory mutated cross-shard. `server_factory` lives on shard 0 but `loopback_socket_impl::connect` (`tests/unit/loopback_socket.hh:343`) round-robins server connections, so at the default `--smp 2` the stream connection's `negotiate()` runs `const_cast<...>(this)->hooks.push_back(...)` on shard 1 against a shard-0 vector — unsynchronized mutation, buffer allocated by shard 1's allocator and freed by shard 0. UB; ASan/UBSan don't catch it, so \"passes on 2 shards\" doesn't clear it. The server only needs to advertise `COMPRESS`; give it a non-recording factory.\n2. `tests/unit/rpc_test.cc:2000` — `hooks.size() == 2` + `hooks.back()` hardcodes loopback's shard/ordering policy, and `auto&` into a growing `std::vector` is invalidated by any later negotiation. Capture the stream hook explicitly, or at least by value.\n3. All three commits carry `Co-Authored-By: Claude …` trailers (verified: 4 lines across `f545c28a`, `5e25ebdb`, `69da8f5b`). The PR body also has the \"🤖 Generated with Claude Code\" line. Strip both.\n\n**Minor**\n\n4. `tests/unit/rpc_test.cc:1883` — the `put(std::span<temporary_buffer<char>>)` override only exists at `SEASTAR_API_LEVEL >= 9`; `loopback_socket.hh:144` `#if`s exactly this. Breaks `--api-level=7|8`, still accepted by `CMakeLists.txt:72`.\n5. `tests/unit/rpc_test.cc:2016` — the test never asserts the send was refused; the `catch (closed_error&) {}` swallows the success case, so a regression that accepted-and-dropped the frame would still pass. Assert the throw.\n6. `include/seastar/rpc/rpc_types.hh:318` — commit 3 documents `sink` and `source` but not `send_empty_frame`, the one API whose failure mode this PR widens.\n7. `src/rpc/rpc.cc:550` — re-entry into `stream_close()` is guarded only by `error()`, false for the whole new await. Low reachability (needs `source::make_sink()` re-open), pre-existing, but `!error() && !_stream_closing` is free.\n8. `src/rpc/rpc.cc:562` — drain wait is unbounded; the comment would be more useful naming what breaks it (`stop_send_loop`'s `shutdown_output`) rather than only who no longer waits. Not a regression.\n9. `src/rpc/rpc.cc:565` — inner lambda param `f` shadows the `auto f` from line 549, in the statement assigning the outer one.\n10. `doc/rpc-streaming.md:106` — \"Both halves of a stream must be closed\" overstates it; with no returned sink, `_source_closed` is `true` from construction (`rpc.hh:301`). Say \"each half you were given\".\n11. Test nits: `buffer_size()` hardcodes 8192 (`:1895`); the `data.size ? … : snd_buf(...)` ternary at `:1946` is a no-op copied from a neighbour; the `for (i < 10) yield()` at `:2022` is a magic constant.\n12. New comments use two spaces after a full stop; both files use one everywhere else.\n\nNothing Critical — no hang, leak, double-close, or lifetime bug was constructible in the production change.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-21T11:30:53.760Z"
+}

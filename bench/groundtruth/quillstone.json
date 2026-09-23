@@ -1,0 +1,242 @@
+{
+  "upstream": "scylladb/scylla-rust-driver",
+  "pr": 1801,
+  "title": "connection: discard connections after keyspace setup failure",
+  "url": "https://github.com/scylladb/scylla-rust-driver/pull/1801",
+  "merged": "2026-08-21T13:15:25Z",
+  "base": "d129fceb7a2ce855aa7d10075c437e9f271c522c",
+  "head": "ef9dcae6d0afb58ccb2e7ae14bba81e2d5d04fdd",
+  "diffBytes": 26191,
+  "review": {
+    "inline": [
+      {
+        "user": "coderabbitai[bot]",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 1347,
+        "body": "_🎯 Functional Correctness_ | _🟡 Minor_ | _⚡ Quick win_\n\n**Balance the connection metric when `USE` fails.**\n\n`start_opening_connection` increments the connection metric after a successful socket open (Lines 950-956), but this error result drops the connection before it is tracked by `connection_errors`; consequently, no later removal decrements it. Repeated keyspace failures will inflate the active-connection metric. Decrement on this failure path, or count connections only once they are retained.\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@scylla/src/network/connection_pool.rs` around lines 1239 - 1245, Update the\nUSE-failure path in start_opening_connection, specifically the\nConnectionSetupError::Keyspace mapping, to decrement or otherwise balance the\nconnection metric before the failed connection is dropped. Preserve normal\nmetric accounting for successful keyspace setup and ensure repeated keyspace\nfailures cannot inflate the active-connection count.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:poseidon:terra -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:8aa019a5c515e938163d3e04 -->\n\n<!-- This is an auto-generated comment by CodeRabbit -->\n\n✅ Addressed in commit 0c52e29"
+      },
+      {
+        "user": "Copilot",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 902,
+        "body": "When keyspace setup fails for the first connection, this branch leaves `shared_conns` as `Initializing` and never notifies `pool_updated_notify`. Consequently, `wait_until_all_pools_are_initialized()` can block forever during session startup or metadata refresh when `USE` fails persistently. Connection-open failures transition an empty pool to `Broken` via `update_shared_conns`; keyspace setup failures also need to complete initialization (while retaining the refill/backoff behavior), with an error representation that can preserve the keyspace failure."
+      },
+      {
+        "user": "coderabbitai[bot]",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 911,
+        "body": "_🩺 Stability & Availability_ | _🟠 Major_ | _🏗️ Heavy lift_\n\n**Persistent keyspace failure can leave the pool stuck in `Initializing`.**\n\nThis arm never touches `shared_conns` nor signals `pool_updated_notify`. If the first connection to a node always fails at `USE` (missing keyspace, no permission), every refill lands here, so the pool stays `Initializing` forever: `wait_until_initialized()` (Line 433) never wakes and `with_connections` keeps returning `ConnectionPoolError::Initializing` instead of a `Broken` error naming the real cause.\n\nThe connection-failure arm handles this via `update_shared_conns(Some(err))` when `!self.is_filling() && self.is_empty()`, but that path needs a `ConnectionError` while `Broken` cannot carry a `UseKeyspaceError` today. Consider widening the error stored in `MaybePoolConnections::Broken` (or at minimum notifying `pool_updated_notify` so waiters stop hanging) when this is the terminal failure of a fill attempt on an empty pool.\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@scylla/src/network/connection_pool.rs` around lines 897 - 904, Update the\nConnectionSetupError::Keyspace arm to handle a terminal fill failure when the\npool is empty and no refill is active, using update_shared_conns to transition\nMaybePoolConnections::Broken and preserve the UseKeyspaceError cause. Widen the\nBroken error representation as needed, and ensure pool_updated_notify is\nsignaled so wait_until_initialized and with_connections stop reporting\nInitializing; retain the current metrics and logging behavior for nonterminal\nfailures.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:medusa:komodo -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:aa7ea9106b7f5ac33a716493 -->\n\n<!-- This is an auto-generated comment by CodeRabbit -->\n\n✅ Addressed in commit 27ed7d1"
+      },
+      {
+        "user": "Guflly",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 902,
+        "body": "Fixed in 27ed7d10. The last failed keyspace setup now marks an empty pool as broken and wakes initialization waiters. The original UseKeyspaceError is kept, and the test covers both the state and notification."
+      },
+      {
+        "user": "Guflly",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 911,
+        "body": "Fixed in 27ed7d10. The last failed keyspace setup now marks an empty pool as broken and wakes initialization waiters. The original UseKeyspaceError is kept, and the test covers both the state and notification."
+      },
+      {
+        "user": "coderabbitai[bot]",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 1692,
+        "body": "_🎯 Functional Correctness_ | _🟡 Minor_ | _⚡ Quick win_\n\n<details>\n<summary>🧩 Analysis chain</summary>\n\n🏁 Script executed:\n\n```shell\n#!/bin/bash\n# Description: Confirm all metric decrement call sites for dropped connections in connection_pool.rs\nrg -n 'dec_total_connections|fn maybe_reshard|excess_connections\\.clear\\(\\)|conns\\.clear\\(\\)' scylla/src/network/connection_pool.rs\n```\n\nRepository: scylladb/scylla-rust-driver\n\nLength of output: 557\n\n---\n\n🏁 Script executed:\n\n```shell\n#!/bin/bash\nset -eu\nprintf '%s\\n' '--- maybe_reshard and connection bookkeeping ---'\nsed -n '620,710p;850,920p;990,1045p;1070,1130p;1190,1240p' scylla/src/network/connection_pool.rs\nprintf '%s\\n' '--- test context around the resharding step ---'\nsed -n '1570,1690p' scylla/src/network/connection_pool.rs\nprintf '%s\\n' '--- all relevant metric and connection lifecycle references ---'\nrg -n -C 3 'inc_total_connections|dec_total_connections|active_connection_count|handle_ready_connection|maybe_reshard|excess_connections|conns\\.clear' scylla/src/network/connection_pool.rs\n```\n\nRepository: scylladb/scylla-rust-driver\n\nLength of output: 31990\n\n---\n\n🏁 Script executed:\n\n```shell\n#!/bin/bash\nset -eu\nprintf '%s\\n' '--- metric implementation and all call sites ---'\nrg -n -C 4 'fn (inc|dec)_total_connections|get_total_connections|inc_total_connections|dec_total_connections' scylla\nprintf '%s\\n' '--- connection ownership and drop-related hooks ---'\nrg -n -C 4 'struct Connection|impl Drop for Connection|Connection \\{' scylla/src/network\nprintf '%s\\n' '--- all Vec-clearing paths in the pool refiller ---'\nrg -n -C 6 'clear\\(\\)' scylla/src/network/connection_pool.rs\n```\n\nRepository: scylladb/scylla-rust-driver\n\nLength of output: 18312\n\n---\n\n\n\n</details>\n\n**Balance metrics when clearing pool connections**\n\n`maybe_reshard` and both `excess_connections.clear()` paths drop connections without calling `dec_total_connections()`. The metric therefore remains higher than the pool count. Decrement once for each discarded connection and assert `metrics.get_total_connections()` after the final reshard.\n\n<details>\n<summary>🤖 Prompt for AI Agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@scylla/src/network/connection_pool.rs` around lines 1639 - 1677, Update\nmaybe_reshard and both excess_connections.clear() paths to call\nmetrics.dec_total_connections() once for every connection discarded, keeping the\ntotal-connection metric aligned with the pool count. After the final reshard in\nthis test, assert metrics.get_total_connections() matches the remaining\nconnection count.\n```\n\n</details>\n\n<!-- fingerprinting:phantom:medusa:beignet -->\n\n<!-- cr-indicator-types:potential_issue -->\n\n<!-- cr-comment:v1:0e2c69b8d7c00628718fde35 -->\n\n<!-- This is an auto-generated comment by CodeRabbit -->\n\n✅ Addressed in commits 00380d3 to c841dea"
+      },
+      {
+        "user": "wprzytula",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 1692,
+        "body": "Oh, this was a pre-existing bug, right? @Guflly"
+      },
+      {
+        "user": "wprzytula",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 1692,
+        "body": "cc @Lorak-mmk "
+      },
+      {
+        "user": "wprzytula",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 2004,
+        "body": "🔧 Using `tokio::timeout::sleep(Duration::from_millis(1))` could decrease CPU burn."
+      },
+      {
+        "user": "wprzytula",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 2004,
+        "body": "Especially that otherwise we keep burning the CPU for 5 seconds."
+      },
+      {
+        "user": "Guflly",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 2004,
+        "body": "Updated in 1f58e5b4. The loop now sleeps for 1 ms between checks."
+      },
+      {
+        "user": "Lorak-mmk",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 930,
+        "body": "Commit: connection: discard connections after keyspace setup failure\n\nThis is the only thing that is not clear to me. Why is this block moved?\nThe thing we do between the two locactions:\n- Blocking shard awareness if necessary\n- Resharding if necessary\n- Updating shard-aware port\n\nNeither of those requires keyspace to be set, and they all benefit from being done sooner rather than later.\n\nWhat am I missing?"
+      },
+      {
+        "user": "Lorak-mmk",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 930,
+        "body": "If there is some reason for the block to be moved, can you put it in the comment, so noone accidentaly moves it back?"
+      },
+      {
+        "user": "Lorak-mmk",
+        "path": "scylla/src/network/connection_pool.rs",
+        "line": 930,
+        "body": "After analysis, I don't think the ordering matters. Either is fine."
+      }
+    ],
+    "issue": [
+      {
+        "user": "coderabbitai[bot]",
+        "body": "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- review_stack_entry_start -->\n\n[![Review Change Stack](https://storage.googleapis.com/coderabbit_public_assets/review-stack-in-coderabbit-ui.svg)](https://app.coderabbit.ai/change-stack/scylladb/scylla-rust-driver/pull/1801?utm_source=github_walkthrough&utm_medium=github&utm_campaign=change_stack)\n\n<!-- review_stack_entry_end -->\n<!-- This is an auto-generated comment: review paused by coderabbit.ai -->\n\n> [!NOTE]\n> ## Reviews paused\n> \n> It looks like this branch is under active development. To avoid overwhelming you with review comments due to an influx of new commits, CodeRabbit has automatically paused this review. You can configure this behavior by changing the `reviews.auto_review.auto_pause_after_reviewed_commits` setting.\n> \n> Use the following commands to manage reviews:\n> - `@coderabbitai resume` to resume automatic reviews.\n> - `@coderabbitai review` to trigger a single review.\n> \n> Use the checkboxes below for quick actions:\n> - [ ] <!-- {\"checkboxId\": \"7f6cc2e2-2e4e-497a-8c31-c9e4573e93d1\"} --> ▶️ Resume reviews\n> - [ ] <!-- {\"checkboxId\": \"e9bb8d72-00e8-4f67-9cb2-caf3b22574fe\"} --> 🔍 Trigger review\n\n<!-- end of auto-generated comment: review paused by coderabbit.ai -->\n<!-- walkthrough_start -->\n\n<details>\n<summary>📝 Walkthrough</summary>\n\n## Walkthrough\n\nConnection setup now distinguishes connection failures from keyspace setup failures with typed errors. Failed keyspace setup updates metrics and refill state. Empty pools become broken, while existing healthy connections remain available. Tests cover pool state, waiter notification, and recovery after a later successful setup.\n\n### Sequence Diagram(s)\n\n```mermaid\nsequenceDiagram\n  participant ConnectionOpener\n  participant KeyspaceSetup\n  participant PoolRefiller\n  participant ConnectionPool\n  ConnectionOpener->>KeyspaceSetup: Configure keyspace\n  KeyspaceSetup->>PoolRefiller: Return typed setup result\n  PoolRefiller->>ConnectionPool: Discard failed new connection\n  PoolRefiller->>ConnectionPool: Update metrics and pool state\n```\n\n**Possibly related issues**\n- scylladb/java-driver#940: Related to connection-pool keyspace setup failure propagation and retry accounting.\n\n**Possibly related PRs**\n- [scylladb/scylla-rust-driver#1804](https://github.com/scylladb/scylla-rust-driver/pull/1804): Directly related to shard-awareness mismatch handling.\n- [scylladb/scylla-rust-driver#1806](https://github.com/scylladb/scylla-rust-driver/pull/1806): Directly related to immediate keepalive handling in `NodeConnectionPool`.\n- [scylladb/scylla-rust-driver#1712](https://github.com/scylladb/scylla-rust-driver/pull/1712): Related to shard-aware connection handling in `connection_pool.rs`.\n\n**Suggested labels:** `bug`, `area/testing`\n\n**Suggested reviewers:** `lorak-mmk`, `wprzytula`\n\n</details>\n\n<!-- walkthrough_end -->\n<!-- pre_merge_checks_walkthrough_start -->\n\n<details>\n<summary>🚥 Pre-merge checks | ✅ 4 | ❌ 1</summary>\n\n### ❌ Failed checks (1 warning)\n\n|     Check name     | Status     | Explanation                                                                           | Resolution                                                                         |\n| :----------------: | :--------- | :------------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------- |\n| Docstring Coverage | ⚠️ Warning | Docstring coverage is 28.57% which is insufficient. The required threshold is 80.00%. | Write docstrings for the functions missing them to satisfy the coverage threshold. |\n\n<details>\n<summary>✅ Passed checks (4 passed)</summary>\n\n|         Check name         | Status   | Explanation                                                                                                                                                   |\n| :------------------------: | :------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ |\n|     Linked Issues check    | ✅ Passed | The changes satisfy issue `#1682` by treating keyspace setup failures as connection setup failures and replacing failed connections instead of publishing them. |\n| Out of Scope Changes check | ✅ Passed | The changes remain within scope by updating connection pool failure handling, error typing, metrics, refill behavior, and related regression tests.           |\n|         Title check        | ✅ Passed | The title clearly summarizes the main change: discard newly opened connections after keyspace setup failure.                                                  |\n|      Description check     | ✅ Passed | The description explains the behavior change, motivation, tests, validation, checklist status, and issue reference.                                           |\n\n</details>\n\n</details>\n\n<!-- pre_merge_checks_walkthrough_end -->\n<!-- tips_start -->\n\n---\n\n\n\n\n<sub>Comment `@coderabbitai help` to get the list of available commands.</sub>\n\n<!-- tips_end -->"
+      },
+      {
+        "user": "github-actions[bot]",
+        "body": "`cargo semver-checks` found no API-breaking changes in this PR.\nChecked commit: ef9dcae6d0afb58ccb2e7ae14bba81e2d5d04fdd"
+      },
+      {
+        "user": "Guflly",
+        "body": "Fixed both failure paths. Keyspace setup now finishes before sharding state is changed, and dropped connections balance the active connection metric. Added regression coverage for both."
+      },
+      {
+        "user": "Guflly",
+        "body": "Updated. I added coverage for successful keyspace setup before resharding, switched the setup-failure log to debug, and corrected the public API checklist item. Both focused keyspace setup tests pass."
+      },
+      {
+        "user": "Guflly",
+        "body": "Added those two notes. The success-path test, debug log, and public API checklist update are also in place.\n"
+      },
+      {
+        "user": "Guflly",
+        "body": "Updated this. The success path is now covered and the checklist calls out the new public variant. Discarding on any `USE` failure is intentional, and the keyspace path stays at `warn!` because an opened connection is being dropped. Could you take another look?"
+      },
+      {
+        "user": "Guflly",
+        "body": "Yes, the metrics imbalance was pre-existing. I rewrote the branch into the two requested commits."
+      },
+      {
+        "user": "Guflly",
+        "body": "My plan is to add a focused proxy-backed test for the reshard path: start with one non-sharded connection and total_connections at 1, open a second connection with a different sharder, process it, then verify the old connection is removed, the new one is retained, and the metric stays at 1. Does that cover the case you had in mind, or should the test also cover the excess-connection clearing paths?"
+      },
+      {
+        "user": "wprzytula",
+        "body": "> My plan is to add a focused proxy-backed test for the reshard path: start with one non-sharded connection and total_connections at 1, open a second connection with a different sharder, process it, then verify the old connection is removed, the new one is retained, and the metric stays at 1. Does that cover the case you had in mind, or should the test also cover the excess-connection clearing paths?\r\n\r\nThe direction is IMO good. Excess-connection logic is unfortunately rarely tested, so it will be great if you improve the coverage of it."
+      },
+      {
+        "user": "Guflly",
+        "body": "Added in f746e4c7. It covers resharding, the excess-limit clear, and the full-pool clear. The focused tests, existing keyspace tests, fmt, and clippy pass."
+      },
+      {
+        "user": "Guflly",
+        "body": "Reordered. The metric-balance test now comes before the discard change, and the final tree is unchanged. Formatting passes; the focused test hits the existing Unix-only socket code on Windows, so CI will cover the Linux run."
+      }
+    ],
+    "reviews": [
+      {
+        "user": "coderabbitai[bot]",
+        "state": "COMMENTED",
+        "body": "**Actionable comments posted: 2**\n\n<details>\n<summary>🤖 Prompt for all review comments with AI agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nInline comments:\nIn `@scylla/src/network/connection_pool.rs`:\n- Around line 1239-1245: Update the USE-failure path in\nstart_opening_connection, specifically the ConnectionSetupError::Keyspace\nmapping, to decrement or otherwise balance the connection metric before the\nfailed connection is dropped. Preserve normal metric accounting for successful\nkeyspace setup and ensure repeated keyspace failures cannot inflate the\nactive-connection count.\n- Around line 822-828: Update the connection setup flow around the\nConnectionSetupError::Keyspace arm and the earlier maybe_reshard call so\nsharder/port changes and connection clearing are deferred until keyspace setup\nsucceeds. Ensure the keyspace-error path does not invoke maybe_reshard or\notherwise mutate the pool before update_shared_conns can publish a consistent\nconnection set, while preserving the existing error handling and successful\nsetup behavior.\n```\n\n</details>\n\n<details>\n<summary>🪄 Autofix (Beta)</summary>\n\nFix all unresolved CodeRabbit comments on this PR:\n\n- [ ] <!-- {\"checkboxId\": \"4b0d0e0a-96d7-4f10-b296-3a18ea78f0b9\"} --> Push a commit to this branch (recommended)\n- [ ] <!-- {\"checkboxId\": \"ff5b1114-7d8c-49e6-8ac1-43f82af23a33\"} --> Create a new PR with the fixes\n\n</details>\n\n---\n\n<details>\n<summary>ℹ️ Review info</summary>\n\n<details>\n<summary>⚙️ Run configuration</summary>\n\n**Configuration used**: Organization UI\n\n**Review profile**: CHILL\n\n**Plan**: Pro Plus\n\n**Run ID**: `780dc1fd-d1ba-40cf-8aed-e1a78b51ff5d`\n\n</details>\n\n<details>\n<summary>📥 Commits</summary>\n\nReviewing files that changed from the base of the PR and between 85fd9914c4586d4629e25104b29ff5a20e58e307 and 1aacb61022bf7f92f6d56b355fc8ca5e3181917c.\n\n</details>\n\n<details>\n<summary>📒 Files selected for processing (1)</summary>\n\n* `scylla/src/network/connection_pool.rs`\n\n</details>\n\n</details>\n\n<!-- This is an auto-generated comment by CodeRabbit for review status -->"
+      },
+      {
+        "user": "copilot-pull-request-reviewer[bot]",
+        "state": "COMMENTED",
+        "body": "## Pull request overview\n\nEnsures newly opened connections are discarded when keyspace setup fails rather than published to the connection pool.\n\n**Changes:**\n- Distinguishes connection-opening and keyspace setup errors.\n- Defers sharding-state updates until keyspace setup succeeds.\n- Adds regression tests for refill and pool-state preservation.\n\n\n\n\n\n\n\n---\n\n💡 <a href=\"/scylladb/scylla-rust-driver/new/main?filename=.github/instructions/*.instructions.md\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Add Copilot custom instructions</a> for smarter, more guided reviews. <a href=\"https://docs.github.com/en/copilot/customizing-copilot/adding-repository-custom-instructions-for-github-copilot\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn how to get started</a>."
+      },
+      {
+        "user": "coderabbitai[bot]",
+        "state": "COMMENTED",
+        "body": "**Actionable comments posted: 1**\n\n<details>\n<summary>🤖 Prompt for all review comments with AI agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nInline comments:\nIn `@scylla/src/network/connection_pool.rs`:\n- Around line 897-904: Update the ConnectionSetupError::Keyspace arm to handle a\nterminal fill failure when the pool is empty and no refill is active, using\nupdate_shared_conns to transition MaybePoolConnections::Broken and preserve the\nUseKeyspaceError cause. Widen the Broken error representation as needed, and\nensure pool_updated_notify is signaled so wait_until_initialized and\nwith_connections stop reporting Initializing; retain the current metrics and\nlogging behavior for nonterminal failures.\n```\n\n</details>\n\n<details>\n<summary>🪄 Autofix (Beta)</summary>\n\nFix all unresolved CodeRabbit comments on this PR:\n\n- [ ] <!-- {\"checkboxId\": \"4b0d0e0a-96d7-4f10-b296-3a18ea78f0b9\"} --> Push a commit to this branch (recommended)\n- [ ] <!-- {\"checkboxId\": \"ff5b1114-7d8c-49e6-8ac1-43f82af23a33\"} --> Create a new PR with the fixes\n\n</details>\n\n---\n\n<details>\n<summary>ℹ️ Review info</summary>\n\n<details>\n<summary>⚙️ Run configuration</summary>\n\n**Configuration used**: Organization UI\n\n**Review profile**: CHILL\n\n**Plan**: Pro Plus\n\n**Run ID**: `062de07a-3371-4617-b3ba-47d5bc43934d`\n\n</details>\n\n<details>\n<summary>📥 Commits</summary>\n\nReviewing files that changed from the base of the PR and between 0c52e2923146fedf112c19c58480edfb3a9769f2 and fde9ac5d0d997aa4b257e5221358a6d40a995814.\n\n</details>\n\n<details>\n<summary>📒 Files selected for processing (1)</summary>\n\n* `scylla/src/network/connection_pool.rs`\n\n</details>\n\n</details>\n\n<!-- This is an auto-generated comment by CodeRabbit for review status -->"
+      },
+      {
+        "user": "Guflly",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "Guflly",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "wprzytula",
+        "state": "CHANGES_REQUESTED",
+        "body": "I reviewed this manually and it looks good.\r\n\r\nThen I ran Opus review and the important insights are the following:\r\n\r\n1. > One design note (not a bug): a transient `UseKeyspaceError::RequestTimeout` now discards an otherwise-healthy TCP connection rather than retrying the `USE` on it. That's safe and simpler, but slightly wasteful. Worth a one-line comment acknowledging the choice.\r\n\r\n2. Error handling:\r\n>   - Log level inconsistency: keyspace arm uses `warn!`, the connection arm uses `debug!`. Defensible, but worth aligning intentionally.\r\n>   - The new `ConnectionError::UseKeyspaceError` is a **new public enum variant**, so the checklist item \"No public items were introduced\" is technically inaccurate. It's non-breaking (`ConnectionError` is `#[non_exhaustive]`), and semantically fits (\"connection can no longer be used and should be dropped\"). Just flag it as a public-API addition.\r\n\r\n3. > Tests — correct, readable, non-flaky, but one coverage gap\r\n>  Gaps / suggestions:\r\n>   - **No unit test for the success path after the reorder** (keyspace set OK → connection added, pool resharded correctly). The happy path is covered by `scylla/tests/integration/session/use_keyspace.rs`, but a focused unit test would round out coverage of the reordered branch and guard against future regressions.\r\n>   - In test 1, `requested_shard: Some(...)` is used specifically to prove no shard-aware fallback fires on keyspace failure — good — but a short comment would make that intent explicit to readers.\r\n\r\n<details><summary>Full review here.</summary>\r\n<p>\r\n\r\n\r\n# Assistant (Plan · Claude Opus 4.8 · 36.5s)\r\n\r\n## Summary of the PR\r\n\r\nThe PR fixes issue #1682: a connection whose `USE keyspace` failed during setup was still being added to the pool (the old `start_setting_keyspace_for_connection` returned `Ok((connection, ...))` even on failure). Such a connection could serve queries against the wrong/default keyspace. The fix threads a new `ConnectionSetupError { Connection, Keyspace }` enum through `OpenedConnectionEvent`, so a keyspace failure is now a distinct error variant that discards the connection and triggers a refill.\r\n\r\nThree commits:\r\n1. `discard connections after keyspace setup failure` — core fix\r\n2. `finish setup before updating pool` — moves the keyspace-check to the **top** of the `Ok` arm, before `maybe_reshard`/shard-awareness/shard-port updates\r\n3. `report terminal keyspace setup failures` — reports the error into `shared_conns` and adds `ConnectionError::UseKeyspaceError`\r\n\r\n## 1. Connection pool logic correctness\r\n\r\nThe logic is sound. The key insight of commit 2 (reordering) is correct and important:\r\n\r\n- Previously, a connection needing keyspace setup would run `maybe_reshard(sharder)` **before** its setup finished. If the node had resharded, this would **clear the existing healthy pool** (`maybe_reshard` calls `self.conns.clear()` at connection_pool.rs:1110), and then if keyspace setup failed, the pool would be left empty. The reorder defers all sharding side-effects until the connection is fully ready.\r\n- `evt.requested_shard` and `evt.keyspace_name` are correctly threaded through `start_setting_keyspace_for_connection`, so the advanced-shard-awareness mismatch check still runs (just deferred to when the connection comes back ready). No information is lost.\r\n- The single-actor model (all `&mut self` on one task) means the `!self.is_filling() && self.is_empty()` guard and the `is_empty()` re-check inside `update_shared_conns` are race-free.\r\n\r\nOne design note (not a bug): a transient `UseKeyspaceError::RequestTimeout` now discards an otherwise-healthy TCP connection rather than retrying the `USE` on it. That's safe and simpler, but slightly wasteful. Worth a one-line comment acknowledging the choice.\r\n\r\n## 2. Metrics inc/dec correctness — the subtle part, done right\r\n\r\nThe asymmetry between the two error arms is **correct and non-obvious**:\r\n\r\n- `count_in_metrics` only calls `inc_total_connections()` on a **successful** open (connection_pool.rs:1046). A failed *connect* was never counted, so the `Connection` error arm correctly does **not** decrement.\r\n- A keyspace failure happens on a connection that already opened successfully (already inc'd), so the new `dec_total_connections()` at connection_pool.rs:898 correctly rebalances.\r\n- On the `Err(Keyspace)` path, the `connection`/`error_receiver` are dropped inside the async task's `.map(|()| (connection, error_receiver))` closure (never added to `conns`/`excess_connections`), so `remove_connection` won't double-decrement. Balanced.\r\n\r\n`dec_total_connections` is a raw `fetch_sub` (would wrap on underflow), but every dec here is paired with a prior inc, so no underflow in practice — consistent with the existing `remove_connection` usage.\r\n\r\n## 3. Error handling — uniform where it should be\r\n\r\nThe keyspace arm mirrors the non-shard-aware connection arm (`had_error_since_last_refill = true`; `if !is_filling && is_empty → update_shared_conns(Some(err.into()))`). The differences are all justified:\r\n\r\n- **No shard-aware fallback** in the keyspace arm even when `requested_shard.is_some()` — correct, since the connection itself succeeded (the shard-aware port works); only the keyspace `USE` failed.\r\n- **Sets `had_error_since_last_refill` unconditionally**, unlike the shard-aware *connect* failure which deliberately skips it — correct, a keyspace failure is a genuine error that would recur on the regular port too.\r\n\r\nMinor nits:\r\n- Log level inconsistency: keyspace arm uses `warn!`, the connection arm uses `debug!`. Defensible, but worth aligning intentionally.\r\n- The new `ConnectionError::UseKeyspaceError` is a **new public enum variant**, so the checklist item \"No public items were introduced\" is technically inaccurate. It's non-breaking (`ConnectionError` is `#[non_exhaustive]`), and semantically fits (\"connection can no longer be used and should be dropped\"). Just flag it as a public-API addition.\r\n\r\n## 4. Tests — correct, readable, non-flaky, but one coverage gap\r\n\r\nBoth tests are correct and non-flaky:\r\n\r\n- **`keyspace_setup_failure_triggers_refill`** (unit): verifies `had_error`, empty `ready_connections` (i.e. **no** shard-aware fallback was started), `is_empty`, `need_filling`, `Broken(UseKeyspaceError::RequestTimeout)`, `pool_updated` notified, and metrics decremented to 0. Good, self-contained, no timing.\r\n- **`keyspace_setup_failure_preserves_pool_state`** (proxy): the important regression test for commit 2. `change_request_rules` writes under a `Mutex` synchronously (proxy.rs:413), and the second `open_connection` starts *after* it, so the new connection **deterministically** reports 2 shards — the test genuinely exercises the reshard-deferral. It asserts the pool is *not* resharded/cleared before setup completes and is *preserved* after the failure. No sleeps; `ready_connections.next().await` resolves off the proxy's `server_error` response. Non-flaky. `connection_errors` is never polled, so the kept connection can't be spuriously removed.\r\n\r\nGaps / suggestions:\r\n- **No unit test for the success path after the reorder** (keyspace set OK → connection added, pool resharded correctly). The happy path is covered by `scylla/tests/integration/session/use_keyspace.rs`, but a focused unit test would round out coverage of the reordered branch and guard against future regressions.\r\n- In test 1, `requested_shard: Some(...)` is used specifically to prove no shard-aware fallback fires on keyspace failure — good — but a short comment would make that intent explicit to readers.\r\n\r\n## Verdict\r\n\r\nThe change is correct, the tricky bits (metrics balance and the reorder-before-reshard) are handled properly, and tests are deterministic. I'd recommend only minor follow-ups: align the log level, correct the \"no public items\" checklist claim (or note the non-breaking variant), and consider adding a success-path unit test for the reordered branch.\r\n\r\n\r\n</p>\r\n</details> "
+      },
+      {
+        "user": "coderabbitai[bot]",
+        "state": "COMMENTED",
+        "body": "**Actionable comments posted: 1**\n\n<details>\n<summary>🤖 Prompt for all review comments with AI agents</summary>\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nInline comments:\nIn `@scylla/src/network/connection_pool.rs`:\n- Around line 1639-1677: Update maybe_reshard and both\nexcess_connections.clear() paths to call metrics.dec_total_connections() once\nfor every connection discarded, keeping the total-connection metric aligned with\nthe pool count. After the final reshard in this test, assert\nmetrics.get_total_connections() matches the remaining connection count.\n```\n\n</details>\n\n<details>\n<summary>🪄 Autofix (Beta)</summary>\n\nFix all unresolved CodeRabbit comments on this PR:\n\n- [ ] <!-- {\"checkboxId\": \"4b0d0e0a-96d7-4f10-b296-3a18ea78f0b9\"} --> Push a commit to this branch (recommended)\n- [ ] <!-- {\"checkboxId\": \"ff5b1114-7d8c-49e6-8ac1-43f82af23a33\"} --> Create a new PR with the fixes\n\n</details>\n\n---\n\n<details>\n<summary>ℹ️ Review info</summary>\n\n<details>\n<summary>⚙️ Run configuration</summary>\n\n**Configuration used**: Organization UI\n\n**Review profile**: CHILL\n\n**Plan**: Pro Plus\n\n**Run ID**: `3093e064-ae18-40ea-9349-29f867f0c74e`\n\n</details>\n\n<details>\n<summary>📥 Commits</summary>\n\nReviewing files that changed from the base of the PR and between 27ed7d10b3c3b78be58892ee59378a0ff4f2df4f and 00380d399b84cc58cae21518cf33c575c820e6d7.\n\n</details>\n\n<details>\n<summary>📒 Files selected for processing (1)</summary>\n\n* `scylla/src/network/connection_pool.rs`\n\n</details>\n\n</details>\n\n<!-- This is an auto-generated comment by CodeRabbit for review status -->"
+      },
+      {
+        "user": "wprzytula",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "wprzytula",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "wprzytula",
+        "state": "CHANGES_REQUESTED",
+        "body": "The commit history is tangled, while this PR really consists of two parts:\n1. Bug fix for connection metrics imbalance. This solves a pre-existing bug.\n2. Behaviour change: discarding connection upon keyspace setup failure.\n\nCould you rewrite the code to consist of these two commits? Right now it's hard to review:\n- in \"all changes\" view, both parts are mixed together;\n- per-commit view is even worse with current commits."
+      },
+      {
+        "user": "wprzytula",
+        "state": "COMMENTED",
+        "body": "Thank you for the commit rewrite! Now it was very clean to read.\r\n\r\nI think we're still missing a (regression) test for the bug fix in the first commit. Could you trigger/mock the scenario that was fixed to make sure the metrics imbalance is gone?\r\n\r\nIf you decide to write it, I encourage you to first share your test idea, then we'll discuss it, only then let's jump into implementation."
+      },
+      {
+        "user": "wprzytula",
+        "state": "CHANGES_REQUESTED",
+        "body": "One last request from me: please put the metrics balance test's commit before the commit that changes the logic wrt discarding connections after keyspace setup failure. This way we will be sure that the test passes with both the old logic and with the new logic. "
+      },
+      {
+        "user": "wprzytula",
+        "state": "APPROVED",
+        "body": ""
+      },
+      {
+        "user": "Guflly",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "Lorak-mmk",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "Lorak-mmk",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "Lorak-mmk",
+        "state": "COMMENTED",
+        "body": ""
+      },
+      {
+        "user": "Lorak-mmk",
+        "state": "APPROVED",
+        "body": ""
+      },
+      {
+        "user": "Lorak-mmk",
+        "state": "APPROVED",
+        "body": ""
+      }
+    ]
+  },
+  "author": "Guflly"
+}

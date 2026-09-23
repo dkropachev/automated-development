@@ -1,0 +1,114 @@
+{
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "tool": "mattpocock-review",
+  "label": "Matt Pocock code-review",
+  "source": "mattpocock-skills@mattpocock",
+  "prompt": "/mattpocock-skills:code-review main\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 427364,
+  "reportedCostUsd": 3.114468,
+  "reportedUsage": {
+    "input_tokens": 38,
+    "cache_creation_input_tokens": 81466,
+    "cache_read_input_tokens": 1237787,
+    "output_tokens": 23766,
+    "output_tokens_details": {
+      "thinking_tokens": 13335
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 81466,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 3226,
+        "cache_read_input_tokens": 90441,
+        "cache_creation_input_tokens": 1613,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1613
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5[1m]": {
+      "inputTokens": 64,
+      "outputTokens": 35812,
+      "cacheReadInputTokens": 1665601,
+      "cacheCreationInputTokens": 172888,
+      "webSearchRequests": 0,
+      "costUSD": 3.114468,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 20658,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 30,
+  "subagentStats": {
+    "spawned": 2,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 2
+    },
+    "started_in_background": 2,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 2,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "general-purpose": 2
+    }
+  },
+  "sessionId": "92a29ef5-8f91-4fce-937e-82c532def8b2",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 64,
+    "output": 35812,
+    "thinking": 20658,
+    "cacheRead": 1665601,
+    "cacheCreation": 172888,
+    "costUsd": 3.114468,
+    "sessions": 2,
+    "models": {
+      "claude-opus-5[1m]": 3.114468
+    },
+    "rawMessages": 77,
+    "rawOutput": 75659,
+    "rawCacheRead": 3736517,
+    "subagentTranscripts": 2,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-quillstone-runs-mattpocock-review-repo",
+    "total": 1874365
+  },
+  "result": "Verified the diff myself first: `cargo check -p scylla --lib --all-features` is clean, all 8 new/touched pool tests pass, and the one failing test (`many_connections`, `ConnectTimeout`) fails identically on `main` — pre-existing, not this PR. Spec source found: upstream `scylladb/scylla-rust-driver#1682`. Note `docs/agents/issue-tracker.md` is absent (run `/setup-matt-pocock-skills` if you want the tracker workflow wired up).\n\n## Standards\n\n**Documented-standard violations (hard)**\n\n- **`scylla/src/network/connection_pool.rs:1474`, `:1526` — new tests skip `setup_tracing()` — medium.** CONTRIBUTING.md, \"Tracing in tests\": *\"any new tests should too.\"* Every other test in this module calls it (`:1728, :1781, :1869, :1945, :1973, :2047, :2082`), including the three metrics tests added on this same branch.\n- **Commit `617139df` is a fixup of `0d91aa54` — medium.** CONTRIBUTING.md, \"Pre-review checklist\": *\"Each commit introduces one, logically coherent change.\"* `617139df` (\"avoid busy-waiting in metrics test\") changes one line — `yield_now()` → `sleep(1ms)` — inside a test `0d91aa54` added two commits earlier. It should be squashed into it.\n\n**Baseline smells (judgement calls)**\n\n- **Duplicated Code — `:674-677`, `:1031-1032`, `:1114-1122` — medium.** The shape `decrement_total_connections(excess.len()); excess_connections.clear();` now appears three times, and the third variant silently differs (folds in `active_connection_count()`, clears `conns` in between, with `excess_connections.clear()` eight lines later at `:1122`). Extract one `clear_excess_connections(&mut self)`; the drift between copies is exactly the failure mode this smell predicts.\n- **Feature Envy — `:1360` — medium.** `decrement_total_connections` touches none of `PoolRefiller`'s own data; it is a loop around another object's counter. It belongs on `Metrics` as `dec_total_connections_by(count)` — one `fetch_sub`, next to `dec_total_connections` at `scylla/src/observability/metrics.rs:341`.\n- **Mysterious Name — `:1418` — low.** The new private `enum ConnectionSetupError` sits one import away from the public `ConnectionSetupRequestError` (`errors.rs:598`) and is not an `Error` impl at all — it is a two-way outcome tag for `OpenedConnectionEvent`. `OpenedConnectionError` would read honestly.\n- **Inconsistency — low.** `:901` calls `self.metrics.dec_total_connections()` inline while three sibling sites use the new helper; `:1689` matches on `proxy.finish()` while every other test uses `let _ = proxy.finish().await;`.\n- **Test polling — `:1999-2005` — low.** Despite `617139df`, the test still spins on `get_total_connections()` under a 5 s timeout.\n\nNot violations: the new public variant is doc-commented, and `ConnectionError` is already `#[non_exhaustive]` so the addition is semver-minor.\n\n## Spec\n\nCore requirement is met: `USE` failure on a fresh connection now returns `ConnectionSetupError::Keyspace`, the connection is dropped instead of published, and `need_filling()` schedules a retry.\n\n**(a) Missing / partial**\n\n1. **`connection_pool.rs:903` — `warn!` downgraded to `debug!` — medium.** Spec: *\"the pool logs the error but still reports the ready connection as successful.\"* The complaint was about the *reporting*, not the logging. The `warn!` at the permalinked site was replaced by `debug!` in the new branch, so operators lose the only signal at default log level.\n2. **`connection_pool.rs:900-911` — no shard-aware-port carve-out — low.** Spec: *\"so the pool retries or drops the connection.\"* The `Connection` arm does an immediate non-shard-aware retry when `evt.requested_shard.is_some()` and deliberately does *not* set `had_error_since_last_refill`; the `Keyspace` arm has neither, so a keyspace failure on a shard-aware attempt inflates reconnect backoff for a reason unrelated to connectivity.\n\n**(b) Scope creep**\n\n3. **`connection_pool.rs:674, 1031, 1114, 1360` (+ tests at `1868`, `1944`, `1972`) — high.** `decrement_total_connections` and the `total_connections` rebalancing on resharding / excess-pool clearing are nowhere in the spec, which is confined to *\"treat keyspace setup failure as a connection setup failure.\"* Three of the four commits are this. The PR description doesn't mention it, and its Validation section runs only the `keyspace_setup_failure` tests — the three new metrics tests are unclaimed. This is a separate user-visible metric bug that should be its own issue/PR.\n4. **`connection_pool.rs:912-928` — hoisting the keyspace check above `maybe_reshard` — medium.** Not requested. Consequence: sharder and shard-aware port are no longer adopted from a connection until `USE` succeeds, so a node that resharded while its keyspace is unusable never has its new sharder learned, and `block_advanced_shard_awareness` detection is deferred behind a `USE` round trip. Defensible (it is what preserves the pool on failure) but it needs stating in the description.\n\n**(c) Implemented but looks wrong**\n\n5. **`connection_pool.rs:2002` — low.** Busy-wait plus 5 s timeout in the new metrics test is load-sensitive.\n6. **`errors.rs:599` — low.** New public variant on `ConnectionError` with no changelog entry, despite the checklist asserting docs are unaffected.\n\n## My own verification pass\n\nTwo findings neither axis raised, both confirmed by reading the code:\n\n- **`connection_pool.rs:994-1006` — `total_connections` still leaks on the sibling discard path — medium.** In the `else if evt.requested_shard.is_some()` branch the excess shard-aware connection is dropped at end of scope and `start_opening_connection(None)` is called, with no `dec_total_connections()`. That is precisely the class of imbalance commit `de164845` set out to fix, and it is the only remaining unbalanced discard in `handle_ready_connection`. `Metrics::dec_total_connections` is a plain `fetch_sub` on `AtomicU64` (`metrics.rs:341`), so the counter only ever drifts upward here. Pre-existing, but the PR's own stated goal makes leaving it inconsistent.\n- **`connection_pool.rs:900-911` — a non-retryable `USE` failure now bricks the node's pool — medium.** `UseKeyspaceError` includes permanently-failing variants (`BadKeyspaceName`, `KeyspaceNameMismatch`, a server error on `USE`). If `current_keyspace` is set and the keyspace is later dropped or becomes inaccessible, every new connection is now discarded, the pool never fills, `update_shared_conns` publishes `MaybePoolConnections::Broken`, and `emit_events` fires `ConnectivityChangeEvent::Lost` — so the node is reported down cluster-wide and reconnect backoff grows unboundedly, breaking even fully-qualified queries that would have worked. The spec asked for exactly this drop-and-retry direction, so it is not a defect in the fix, but the blast radius is larger than \"preserves the current pool\" suggests and is worth a deliberate decision (e.g. distinguishing retryable from permanent `USE` failures).\n\nI checked the metric accounting for double-decrements between `maybe_reshard`/excess-clear and `remove_connection` and found none: cleared connections either drop to refcount zero (so the `Weak` in `wait_for_error` fails to upgrade) or survive only in `shared_conns`, where `maybe_remove_in_vec`'s `Arc::ptr_eq` scan no longer finds them.\n\n**Summary:** Standards — 7 findings, worst: two hard CONTRIBUTING.md breaches (missing `setup_tracing()` in the two new keyspace tests; `617139df` is an unsquashed fixup). Spec — 6 findings, worst: the `total_connections` rebalancing work (3 of 4 commits) is undeclared scope creep belonging to a separate issue. Plus 2 confirmed findings from my own pass, worst: a non-retryable `USE` failure now takes the whole node's pool down.",
+  "stderrTail": "",
+  "finishedAt": "2026-09-21T01:26:24.963Z"
+}

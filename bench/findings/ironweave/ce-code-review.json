@@ -1,0 +1,152 @@
+{
+  "target": "ironweave",
+  "tool": "ce-code-review",
+  "label": "Compound Engineering ce-code-review",
+  "findings": [
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "stream_close() gates stop()/abort() behind an unbounded queue drain",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "stop()'s abort() is chained strictly after the new outgoing-queue drain wait, but abort() is the only mechanism that can fail a stuck low-level write; if a frame is parked on peer backpressure, queue_drained never resolves and the connection's fd, buffers, and teardown state leak forever with no timeout or cancellation.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "title": "Exceptional queue-drain branch in stream_close() has no test coverage",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The then_wrapped/ignore_ready_future() branch that keeps stream_close() completing when a queued send failed is never exercised because the new test only ever queues an eof marker that always succeeds; a future regression letting the exception propagate or skipping write_buf.close() on that path would hang teardown undetected.",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 337,
+      "title": "New doxygen block leaves a stale duplicate one-line comment beneath it on sink and source",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The new /// \\brief blocks on sink (:337-343) and source (:384-390) are stacked directly on top of the retained one-line comments, so each class carries two unsynced descriptions, unlike every other documented entity in the header.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "title": "Unguarded put(std::span) override breaks compilation at SEASTAR_API_LEVEL < 9",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "test_data_sink_impl's put(std::span) override isn't guarded by SEASTAR_API_LEVEL, but at API level 7 or 8 data_sink_impl has no such overload (only put(net::packet)), so the override matches nothing and the class stays abstract, breaking the build at those levels which CMakeLists.txt still offers.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2017,
+      "title": "Regression test swallows closed_error from send() without asserting it",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The refused send()'s closed_error is caught by a bare try/catch and discarded with nothing asserted, so the test's only real signal is an indirect timing-dependent check (put_after_close) that can pass even if the fix regresses, if the batch-flush poller happens to run within a fixed yield budget.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2026,
+      "title": "Test releases parked close() only on the happy path, so unexpected exceptions hang to timeout",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "st.release_close.set_value() sits on the straight-line happy path after the try/catch, so any exception other than closed_error escaping the guarded region leaves the connection blocked in output_stream::close() and stop_send_loop(), wedging the test until the 300s harness timeout instead of failing cleanly.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Whether real-world compressors tolerate send() now returning closed_error broadly is unverified",
+      "severity": "low",
+      "kind": "question",
+      "claim": "connection::send() now returns closed_error once _stream_closing is set for any caller, not just sink-guarded ones, and whether every real-world compressor calling send_empty_frame tolerates an exceptional returned future could not be verified from the repository alone.",
+      "selfRejected": true
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "stream_close()/stop_send_loop() interleaving safety depends on an undocumented ordering assumption",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The interleaving is safe only because stop_send_loop() sets _error = true synchronously with no suspension point before the when_all at :225; a future co_await or early return between those points would let stream_close()'s if (!error()) guard fail to protect the new std::exchange(_outgoing_queue_ready, ...) from a moved-from future, and nothing in the code records this dependency.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 569,
+      "title": "_connected dereferenced unguarded, asymmetric with stop_send_loop()'s guarded check",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Line 569 dereferences _connected unguarded where stop_send_loop() guards the same call with _connected && at :231; no path disengaging _connected after set_socket() was found, but the call is now deferred behind a scheduling point and the asymmetry is unexplained.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "Test's test_sink_state captured by reference may outlive RPC-internal shared_ptr teardown",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "st is captured by reference by objects whose lifetime follows RPC-internal shared_ptr refcounting rather than C++ scope; declaring st first is protective only if dropping sink and source synchronously releases the last reference.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "title": "close_entered_cv.wait() has no timeout, so a regression hangs instead of failing cleanly",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "st.close_entered_cv.wait(...) at :2011 has no timeout, so a regression preventing stream_close() from being entered hangs the test rather than failing it cleanly.",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 337,
+      "title": "Class-level doxygen states the close contract but sink::close() itself still lacks it",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The new class-level doxygen on rpc::sink states the close contract, but sink::close() itself (unchanged by this diff) still carries only its one-line comment, so a reader who opens the method rather than the class banner does not see the contract.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2028,
+      "title": "Test's server-handler read loop may raise stream_closed during normal shutdown and escape server_done.get()",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Peer claim: while (source().get()) {} in the new test's server handler may raise rpc::stream_closed during normal client-side shutdown and escape server_done.get() at :2028; retained as risk only, with no demonstrated trigger since the file's stream_closed precedent covers reads issued past end-of-stream and this loop stops at the first unengaged optional.",
+      "selfRejected": true
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1988,
+      "title": "Peer drain exception may escape regression test teardown",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "A single-source peer finding held that a peer drain exception escapes the regression test's teardown; demoted to residual risk as advisory-routed, with no violated contract quoted and no current user-facing defect.",
+      "selfRejected": true
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "No test drives the outgoing queue to be non-ready when stream_close() runs",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test drives _outgoing_queue_ready to be non-ready at the moment stream_close() runs, so neither a chain walk over several in-flight frames nor an entry stuck on peer backpressure (the trigger for finding #1) is covered.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "No test covers stop_send_loop() running concurrently with a parked stream_close()",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test covers stop_send_loop() running concurrently with a parked stream_close(); a peer reset while stream_close() waits on queued_drained would exercise exactly the serialization this diff rewrites between :225-231 and :562-570.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null
+}

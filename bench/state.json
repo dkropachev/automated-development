@@ -1,0 +1,66 @@
+{
+  "targets": {
+    "tidepool": {
+      "id": "tidepool",
+      "language": "Go",
+      "upstream": "scylladb/gocql",
+      "pr": 1094,
+      "fork": "dkropachev/tidepool",
+      "extraReplacements": {
+        "github.com/gocql/gocql": "github.com/dkropachev/tidepool"
+      },
+      "forkPr": 1,
+      "forkPrUrl": "https://github.com/dkropachev/tidepool/pull/1",
+      "forkHead": "bound-vector-dimensions",
+      "upstreamPrUrl": "https://github.com/scylladb/gocql/pull/1094",
+      "upstreamTitle": "fix(marshal): stop a vector value from crashing the Scan goroutine",
+      "upstreamDiffBytes": 18347,
+      "localDiffBytes": 18335,
+      "commits": 2,
+      "rewrittenFiles": 162,
+      "residualLeakFiles": 264,
+      "residualLeakHits": 1534,
+      "preparedAt": "2026-09-20T17:09:11.592Z"
+    },
+    "quillstone": {
+      "id": "quillstone",
+      "language": "Rust",
+      "upstream": "scylladb/scylla-rust-driver",
+      "pr": 1801,
+      "fork": "dkropachev/quillstone",
+      "extraReplacements": {},
+      "forkPr": 1,
+      "forkPrUrl": "https://github.com/dkropachev/quillstone/pull/1",
+      "forkHead": "fix/keyspace-setup-failure",
+      "upstreamPrUrl": "https://github.com/scylladb/scylla-rust-driver/pull/1801",
+      "upstreamTitle": "connection: discard connections after keyspace setup failure",
+      "upstreamDiffBytes": 26191,
+      "localDiffBytes": 26179,
+      "commits": 4,
+      "rewrittenFiles": 34,
+      "residualLeakFiles": 5,
+      "residualLeakHits": 6,
+      "preparedAt": "2026-09-20T17:10:23.066Z"
+    },
+    "ironweave": {
+      "id": "ironweave",
+      "language": "C++",
+      "upstream": "scylladb/seastar",
+      "pr": 3664,
+      "fork": "dkropachev/ironweave",
+      "extraReplacements": {},
+      "forkPr": 1,
+      "forkPrUrl": "https://github.com/dkropachev/ironweave/pull/1",
+      "forkHead": "rpc-stream-close-send-window",
+      "upstreamPrUrl": "https://github.com/scylladb/seastar/pull/3664",
+      "upstreamTitle": "rpc: refuse to send on a stream connection once stream_close() has begun",
+      "upstreamDiffBytes": 15948,
+      "localDiffBytes": 15931,
+      "commits": 3,
+      "rewrittenFiles": 15,
+      "residualLeakFiles": 596,
+      "residualLeakHits": 7597,
+      "preparedAt": "2026-09-20T17:11:37.492Z"
+    }
+  }
+}
