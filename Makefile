@@ -6,7 +6,7 @@ NPM  ?= npm
 CLAUDE ?= claude
 
 .PHONY: help install test lint check ci validate-plugin eval-parse validate eval release \
-	bench-prepare bench-run bench-extract bench-judge bench-report
+	bench-prepare bench-run bench-extract bench-judge bench-report bench-dashboard
 
 help:
 	@$(NODE) -e "const fs=require('fs');for(const l of fs.readFileSync('Makefile','utf8').split('\n')){const m=/^([a-z-]+):.*## (.*)$$/.exec(l);if(m)console.log(m[1].padEnd(16),m[2])}"
@@ -58,3 +58,9 @@ bench-report: ## render docs/review-bakeoff.md from what is on disk
 	@mkdir -p docs
 	$(NODE) bench/report.js > docs/review-bakeoff.md
 	@echo docs/review-bakeoff.md
+
+bench-dashboard: ## render the offline dashboard and GitHub Pages entry point
+	@mkdir -p docs
+	$(NODE) bench/dashboard.js > docs/index.html
+	cp docs/index.html docs/run-explorer.html
+	@echo docs/index.html
