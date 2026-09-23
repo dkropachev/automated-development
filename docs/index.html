@@ -80,9 +80,7 @@ h3 { margin: 0; font-size: 1rem; }
 .landing-section-head { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 1rem; }
 .landing-section-head h2 { font-size: 1.75rem; }
 .landing-section-head p { max-width: 680px; margin: .35rem 0 0; color: var(--muted); line-height: 1.5; }
-.leader-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-.value-leader-card .eyebrow { margin-bottom: .8rem; font-size: .7rem; }
-.value-leader-card .subline { margin-top: .75rem; }
+.landing-rank-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; }
 .method-note { margin-top: .75rem; color: var(--muted); font-size: .78rem; line-height: 1.45; }
 .skill-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
 .skill-summary-card { display: flex; min-width: 0; flex-direction: column; padding: 1rem; border: 1px solid var(--line); border-radius: 10px; background: rgb(17 22 30 / 82%); }
@@ -93,7 +91,6 @@ h3 { margin: 0; font-size: 1rem; }
 .skill-summary-card .skill-facts { margin-top: auto; color: var(--muted); font-size: .75rem; }
 .skill-summary-card .badge { margin-bottom: .7rem; }
 .landing-picker { min-width: 180px; }
-.completeness-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
 .rank-card { position: relative; padding: 1.1rem; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg, rgb(26 36 48 / 85%), rgb(13 18 25 / 90%)); }
 .rank-card h3 { max-width: calc(100% - 2.5rem); line-height: 1.35; }
 .rank-card h3 a { color: var(--text); text-decoration: none; }
@@ -308,7 +305,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   .hero { padding-top: 1.3rem; }
   .landing-hero { grid-template-columns: 1fr; gap: 1.25rem; padding-top: 2rem; }
   .landing-proof { grid-template-columns: repeat(3, 1fr); }
-  .leader-grid, .skill-summary-grid, .completeness-grid { grid-template-columns: 1fr; }
+  .landing-rank-grid, .skill-summary-grid { grid-template-columns: 1fr; }
   .landing-section-head { align-items: flex-start; flex-direction: column; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .decision-kpis { grid-template-columns: repeat(2, 1fr); }
@@ -828,13 +825,12 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
     return el('section', { class: 'hero compact-hero' }, el('div', { class: 'eyebrow' }, eyebrow), el('h1', {}, title), el('p', {}, text))
   }
 
-  function leaderCard(label, group, value, note) {
-    return el('article', { class: 'rank-card value-leader-card' },
-      el('div', { class: 'eyebrow' }, label),
+  function landingRankCard(group, marker, value, note) {
+    return el('article', { class: 'rank-card' },
+      el('div', { class: 'rank-number' }, marker),
       el('h3', {}, hashLink(group.label, skillHash(group.id))),
       el('strong', {}, value),
       el('p', {}, note),
-      hashLink('See leaderboard →', '#choose', 'subline'),
     )
   }
 
@@ -850,12 +846,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
 
   function completenessRankCard(group, rank, scope) {
     const score = group.completenessBreakdown[scope]
-    return el('article', { class: 'rank-card' },
-      el('div', { class: 'rank-number' }, `#${rank}`),
-      el('h3', {}, hashLink(group.label, skillHash(group.id))),
-      el('strong', {}, fmt(score.value, 'percent')),
-      el('p', {}, `${score.found} of ${score.possible} verified issues · ${group.coverage} target${group.coverage === 1 ? '' : 's'}`),
-    )
+    return landingRankCard(group, `#${rank}`, fmt(score.value, 'percent'), `${score.found} of ${score.possible} verified issues · ${group.coverage} target${group.coverage === 1 ? '' : 's'}`)
   }
 
   function renderLanding(params) {
@@ -876,6 +867,24 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
     })
     const findingsLeader = [...scopedGroups].sort((a, b) => b.scopedFindingsPerDollar - a.scopedFindingsPerDollar || a.label.localeCompare(b.label))[0]
     const completenessLeader = [...scopedGroups].sort((a, b) => (b.scopedCompletenessPerDollar ?? -1) - (a.scopedCompletenessPerDollar ?? -1) || a.label.localeCompare(b.label))[0]
+    const valueMetrics = [
+      {
+        label: 'Findings / price', group: findingsLeader,
+        value: `${findingsLeader.scopedFindingsPerDollar.toFixed(2)} / $`,
+        detail: `${findingsLeader.completenessBreakdown[completenessScope].found} verified findings`,
+      },
+      {
+        label: 'Completeness / price', group: completenessLeader,
+        value: `${completenessLeader.scopedCompletenessPerDollar.toFixed(2)} pts / $`,
+        detail: `${fmt(completenessLeader.completenessBreakdown[completenessScope].value, 'percent')} of ${scopeIssueLabels[completenessScope]} verified findings`,
+      },
+    ]
+    const valueLeadersById = new Map()
+    for (const metric of valueMetrics) {
+      if (!valueLeadersById.has(metric.group.id)) valueLeadersById.set(metric.group.id, { group: metric.group, metrics: [] })
+      valueLeadersById.get(metric.group.id).metrics.push(metric)
+    }
+    const valueLeaders = [...valueLeadersById.values()]
     const completenessGroups = [...scopedGroups]
       .filter((group) => group.completenessBreakdown[completenessScope].value != null)
       .sort((a, b) => b.completenessBreakdown[completenessScope].value - a.completenessBreakdown[completenessScope].value || a.label.localeCompare(b.label))
@@ -902,17 +911,19 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
           el('div', {}, el('div', { class: 'eyebrow' }, 'Leaders'), el('h2', { id: 'leaders-title' }, `Best return for the money · ${scopeLabels[completenessScope]}`), el('p', {}, 'Both measures include the cost of failed or interrupted attempts. Higher is better.')),
           completenessPicker,
         ),
-        el('div', { class: 'leader-grid' },
-          leaderCard('Findings / price', findingsLeader, `${findingsLeader.scopedFindingsPerDollar.toFixed(2)} / $`, `${findingsLeader.completenessBreakdown[completenessScope].found} verified findings for ${fmt(findingsLeader.cost, 'money')}.`),
-          leaderCard('Completeness / price', completenessLeader, `${completenessLeader.scopedCompletenessPerDollar.toFixed(2)} pts / $`, `${fmt(completenessLeader.completenessBreakdown[completenessScope].value, 'percent')} of ${scopeIssueLabels[completenessScope]} verified findings for ${fmt(completenessLeader.cost, 'money')}.`),
-        ),
+        el('div', { class: 'landing-rank-grid leader-grid' }, valueLeaders.map((leader) => landingRankCard(
+          leader.group,
+          '#1',
+          leader.metrics.map((metric) => metric.value).join(' · '),
+          `${leader.metrics.map((metric) => `${metric.label} · ${metric.detail}`).join(' · ')} · ${fmt(leader.group.cost, 'money')} attempted cost.`,
+        ))),
         el('p', { class: 'method-note' }, 'Count applies to every leader calculation. Completeness means the share of distinct verified findings found on the targets a skill reviewed. This is a small benchmark: three pull requests, one per language.'),
       ),
       el('section', { class: 'landing-section', 'aria-labelledby': 'completeness-title' },
         el('div', { class: 'landing-section-head' },
           el('div', {}, el('div', { class: 'eyebrow' }, 'Completeness leaders'), el('h2', { id: 'completeness-title' }, `Best coverage · ${scopeLabels[completenessScope]}`), el('p', {}, 'Major means high severity. Major + minor includes high and medium severity.')),
         ),
-        el('div', { class: 'completeness-grid' }, completenessGroups.map((group, index) => completenessRankCard(group, index + 1, completenessScope))),
+        el('div', { class: 'landing-rank-grid completeness-grid' }, completenessGroups.map((group, index) => completenessRankCard(group, index + 1, completenessScope))),
       ),
       el('section', { class: 'landing-section', 'aria-labelledby': 'skills-title' },
         el('div', { class: 'landing-section-head' },

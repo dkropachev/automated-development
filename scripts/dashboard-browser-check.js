@@ -50,7 +50,11 @@ try {
   assert.match(home.app, /3\.12 pts \/ \$/)
   assert.match(home.app, /Best return for the money · All issues/)
   assert.equal(count(home.app, /id="completeness-scope"/g), 1)
-  assert.ok(home.app.indexOf('id="completeness-scope"') < home.app.indexOf('class="leader-grid"'), 'the count picker must appear above the leader cards')
+  assert.ok(home.app.indexOf('id="completeness-scope"') < home.app.indexOf('class="landing-rank-grid leader-grid"'), 'the count picker must appear above the leader cards')
+  const valueCards = home.app.match(/<div class="landing-rank-grid leader-grid">([\s\S]*?)<\/div><p class="method-note">/)
+  assert.ok(valueCards, 'the price leaders must render as a ranked-card grid')
+  assert.equal(count(valueCards[1], /<article class="rank-card">/g), 2)
+  assert.doesNotMatch(valueCards[1], /value-leader-card|class="eyebrow"|See leaderboard/)
   assert.equal(count(home.app, /class="skill-summary-card"/g), 8)
   assert.match(home.app, /href="#skills\/superpowers-review"/)
   assert.doesNotMatch(home.app, /review-bakeoff\.md/)
@@ -64,6 +68,10 @@ try {
   assert.match(majorHome.app, /66\.7% of major verified findings/)
   assert.match(majorHome.app, /Best coverage · Major only/)
   assert.match(majorHome.app, /Compound Engineering ce-code-review<\/a><\/h3><strong>75\.0%/)
+  const majorValueCards = majorHome.app.match(/<div class="landing-rank-grid leader-grid">([\s\S]*?)<\/div><p class="method-note">/)
+  assert.ok(majorValueCards)
+  assert.equal(count(majorValueCards[1], /<article class="rank-card">/g), 1, 'one skill leading both price measures must render once')
+  assert.match(majorValueCards[1], /0\.45 \/ \$ · 5\.03 pts \/ \$/)
 
   const majorMinorHome = render('home?completeness=majorMinor')
   assert.match(majorMinorHome.app, /Best return for the money · Major \+ minor/)
@@ -72,6 +80,9 @@ try {
   assert.match(majorMinorHome.app, /69\.6% of major \+ minor verified findings/)
   assert.match(majorMinorHome.app, /Best coverage · Major \+ minor/)
   assert.match(majorMinorHome.app, /Superpowers requesting-code-review<\/a><\/h3><strong>69\.6%/)
+  const majorMinorValueCards = majorMinorHome.app.match(/<div class="landing-rank-grid leader-grid">([\s\S]*?)<\/div><p class="method-note">/)
+  assert.ok(majorMinorValueCards)
+  assert.equal(count(majorMinorValueCards[1], /<article class="rank-card">/g), 1, 'duplicate winners must stay deduplicated across scopes')
 
   const choose = render('choose')
   for (const label of ['Candidate', 'Cost', 'Real / run', 'High + med', 'Precision', 'Completeness', 'Cost / real', 'Success']) {

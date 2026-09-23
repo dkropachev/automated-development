@@ -71,9 +71,7 @@ h3 { margin: 0; font-size: 1rem; }
 .landing-section-head { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 1rem; }
 .landing-section-head h2 { font-size: 1.75rem; }
 .landing-section-head p { max-width: 680px; margin: .35rem 0 0; color: var(--muted); line-height: 1.5; }
-.leader-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-.value-leader-card .eyebrow { margin-bottom: .8rem; font-size: .7rem; }
-.value-leader-card .subline { margin-top: .75rem; }
+.landing-rank-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; }
 .method-note { margin-top: .75rem; color: var(--muted); font-size: .78rem; line-height: 1.45; }
 .skill-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
 .skill-summary-card { display: flex; min-width: 0; flex-direction: column; padding: 1rem; border: 1px solid var(--line); border-radius: 10px; background: rgb(17 22 30 / 82%); }
@@ -84,7 +82,6 @@ h3 { margin: 0; font-size: 1rem; }
 .skill-summary-card .skill-facts { margin-top: auto; color: var(--muted); font-size: .75rem; }
 .skill-summary-card .badge { margin-bottom: .7rem; }
 .landing-picker { min-width: 180px; }
-.completeness-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
 .rank-card { position: relative; padding: 1.1rem; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg, rgb(26 36 48 / 85%), rgb(13 18 25 / 90%)); }
 .rank-card h3 { max-width: calc(100% - 2.5rem); line-height: 1.35; }
 .rank-card h3 a { color: var(--text); text-decoration: none; }
@@ -299,7 +296,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   .hero { padding-top: 1.3rem; }
   .landing-hero { grid-template-columns: 1fr; gap: 1.25rem; padding-top: 2rem; }
   .landing-proof { grid-template-columns: repeat(3, 1fr); }
-  .leader-grid, .skill-summary-grid, .completeness-grid { grid-template-columns: 1fr; }
+  .landing-rank-grid, .skill-summary-grid { grid-template-columns: 1fr; }
   .landing-section-head { align-items: flex-start; flex-direction: column; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .decision-kpis { grid-template-columns: repeat(2, 1fr); }
