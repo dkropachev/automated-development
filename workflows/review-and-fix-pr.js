@@ -1,13 +1,12 @@
 export const meta = {
   name: 'review-and-fix-pr',
-  description: 'Review a PR with read-only reviewers in parallel, then fix in serial batches, staged code -> tests -> cicd -> other, remembering reviewed files across runs',
-  whenToUse: 'When a PR should be reviewed AND the findings actually fixed in-tree, with provable per-hunk coverage rather than a whole-PR skim, and without re-reviewing hunks that were already clean.',
+  description: 'Review a whole PR with the user-selected review skill, then fix findings in serial validated batches',
+  whenToUse: 'When a PR should be reviewed with a chosen review methodology and the findings optionally fixed in-tree.',
   phases: [
     { title: 'Scope',      detail: 'PR body + refs -> intent, in/out of scope, changed files; safety gates' },
-    { title: 'Setup',      detail: 'install helper scripts, load or generate the per-repo reviewability rule, read the clean-hunk ledger' },
+    { title: 'Setup',      detail: 'check helper scripts and create isolated run state' },
     { title: 'Baseline',   detail: 'discover build/lint/test commands, record pre-existing failures' },
-    { title: 'Chunk',      detail: 'hunks -> lock-key groups -> size-capped chunks, ledger-filtered' },
-    { title: 'Review',     detail: 'read-only reviewers in parallel, each double-checking its own chunk; paused once findings pile up' },
+    { title: 'Review',     detail: 'one read-only whole-PR reviewer using the selected skill' },
     { title: 'Fix',        detail: 'one fixer at a time, a batch of findings each, committed before the next' },
     { title: 'Validate',   detail: 'scoped build/lint/test, delta against the baseline' },
     { title: 'Commit',     detail: 'one commit per fix batch, never pushed' },
@@ -22,35 +21,32 @@ const ARGS = (args && typeof args === 'object') ? args : (args === undefined || 
 const PR_ARG = (ARGS.pr === undefined || ARGS.pr === null) ? '' : String(ARGS.pr)
 
 const DEFAULT_CAPS = { code: 20000, test: 20000, cicd: 20000, other: 20000 }
-const CAPS = Object.assign({}, DEFAULT_CAPS, (ARGS.chunkBytes && typeof ARGS.chunkBytes === 'object') ? ARGS.chunkBytes : {})
-const STAGES = Array.isArray(ARGS.stages) && ARGS.stages.length ? ARGS.stages.map(String) : ['code', 'test', 'cicd', 'other']
-for (const [stage, cap] of Object.entries(CAPS)) {
-  if (!Number.isSafeInteger(Number(cap)) || Number(cap) <= 0) throw new Error('review-and-fix-pr: chunkBytes.' + stage + ' must be a positive integer')
-  CAPS[stage] = Number(cap)
-}
-if (STAGES.some(s => !/^[a-z][a-z0-9-]*$/.test(s))) throw new Error('review-and-fix-pr: stages must be lowercase slugs')
-const ISOLATION = ARGS.isolation === undefined ? './../' : String(ARGS.isolation)
-// "none" is rejected on purpose: it bucketed every file under one key and waived same-file
-// exclusion, so two agents could edit one file at once. "." is the loosest safe setting.
-if (ISOLATION === 'none') {
-  throw new Error('review-and-fix-pr: isolation "none" is not supported - it would allow two agents to ' +
-                  'edit the same file concurrently. Use "." for per-file locking.')
-}
-const IGNORE_LEDGER = ARGS.ignoreLedger === true
-const REFRESH_RULES = ARGS.refreshRules === true
+// Defaults remain for dormant chunk helpers, so restoring that path stays a small change. Legacy
+// chunk arguments are intentionally ignored while whole-PR mode is active.
+const CAPS = DEFAULT_CAPS
+const STAGES = ['code', 'test', 'cicd', 'other']
+const ISOLATION = './../'
+const IGNORE_LEDGER = false
 const REPO_ROOT_ARG = ARGS.repoRoot ? String(ARGS.repoRoot) : ''
-// 'chunked' = hunk-by-hunk stages. 'full' = one whole-PR pass, no chunking.
-// 'auto' (default) = chunked, escalating to a full pass if the chunked pass found NOTHING.
-// 'single'   = one agent reviews and fixes the whole PR. Right for a small diff.
-// 'parallel' = up to REVIEW_CONCURRENCY read-only reviewers, then ONE fixer at a time in batches.
-// 'auto'     = single at or below FULL_PR_MIN_BYTES, parallel above it.
-const MODE = ['auto', 'single', 'parallel', 'full'].includes(ARGS.mode) ? ARGS.mode : 'auto'
+// Chunking is intentionally dormant. Keep accepting the old `mode` argument so saved invocations
+// do not break, but every run now uses one whole-PR reviewer and separate serial fixers.
+const MODE = 'full'
 // Fixing is explicit. Omitting `fix` is review-only; an agent-produced ownership field never grants writes.
 const FIX_ARG = ARGS.fix === true
 // --detailed-review: let reviewers leave the hunk, trace callers, and RUN experiments in a clone.
 // Measured on gocql#1968: reviewers that only read looked straight at two caller-side panics and
 // reported neither; reviewers that ran the malformed input found both. Costs more, finds more.
 const DETAILED = ARGS.detailedReview === true
+// Optional loaded skill name, for example "code-review" or "my-plugin:security-review".
+// It is prompt data, never a shell operand, but constrain it so logs and skill dispatch stay clear.
+const REVIEW_SKILL = (typeof ARGS.reviewSkill === 'string' && ARGS.reviewSkill.trim())
+  ? ARGS.reviewSkill.trim() : null
+if (REVIEW_SKILL && (!/^[A-Za-z0-9][A-Za-z0-9_./:-]*$/.test(REVIEW_SKILL) || REVIEW_SKILL.length > 200)) {
+  throw new Error('review-and-fix-pr: reviewSkill must be a loaded skill name such as "code-review" or "plugin:skill"')
+}
+if (REVIEW_SKILL && REVIEW_SKILL.split(':').pop() === 'review-and-fix-pr') {
+  throw new Error('review-and-fix-pr: reviewSkill cannot select review-and-fix-pr itself')
+}
 // Run every agent on one model instead of inheriting the session's. For measuring how much of the
 // result depends on model tier rather than on the harness. Omit to inherit, which is the default.
 const MODEL = (typeof ARGS.model === 'string' && ARGS.model.trim()) ? ARGS.model.trim() : null
@@ -67,13 +63,10 @@ const FINDINGS_PER_CHUNK = Number(ARGS.findingsPerChunk) > 0 ? Math.ceil(Number(
 // stops a later reviewer re-raising what an earlier one already got fixed. 0 or less restores
 // the old behaviour: review the whole stage, then fix it.
 const MAX_OUTSTANDING = Number(ARGS.maxOutstanding) > 0 ? Math.floor(Number(ARGS.maxOutstanding)) : (ARGS.maxOutstanding === undefined ? 10 : Infinity)
-// `confirm` was the old opt-in whole-PR panel. mode:'auto' now does it automatically, and only when
-// the chunked pass found nothing - which is the only time it can tell you something new.
+// `confirm` belonged to the old chunked mode. Whole-PR review is now unconditional.
 if (ARGS.confirm !== undefined) {
-  throw new Error("review-and-fix-pr: `confirm` is gone - mode:'auto' (the default) already escalates to " +
-                  "a whole-PR pass when the chunked pass finds nothing. Use mode:'full' to force one.")
+  throw new Error('review-and-fix-pr: `confirm` is gone - every run now performs one whole-PR review')
 }
-const FULL_PR_MIN_BYTES = 20000  // at or below this a diff is not worth chunking at all
 
 // Where the helper scripts live. They ship with this plugin, so the path comes from the plugin
 // root; the caller passes it because a workflow script has no filesystem access of its own and no
@@ -106,11 +99,56 @@ const shq = s => "'" + String(s).replace(/'/g, "'\"'\"'") + "'"
 const DENY_COMMON = ['Agent', 'Workflow', 'Artifact', 'ArtifactComments', 'ArtifactData',
                      'NotebookEdit', 'WebFetch', 'WebSearch', 'mcp__*']
 const DENY_READONLY = DENY_COMMON.concat(['Write', 'Edit'])
-// bashCommandClamp is deliberately NOT used. Measured 2026-09-17: a rule of the form
-// `Bash(git diff)` matches only the BARE command - every invocation carrying an argument or flag is
-// denied, including `cd <dir>`, `git -C <dir> ...` and `gh pr view 299`. It bricked a whole run for
-// the sake of deleting ~120 tokens of prose. Read-only enforcement comes from disallowedTools
-// (no Write/Edit), which is both meaningful and measured to work.
+
+// Write/Edit denial does not make Bash read-only. The whole-PR reviewer therefore gets a per-spawn
+// shell allowlist as well: exact review inputs, its exact driver batch, and the one ledger update the
+// review driver may request. Detailed review additionally gets a wildcard only after an exact `cd`
+// into its disposable clone; there is no generic git/node/gh/sed/build rule in the repository.
+// bashCommandClamp is fail-closed: a command form absent from this list is denied, and agentSafe()
+// refuses to launch the required reviewer if the platform cannot bind the clamp.
+function reviewBashClamp(scope, setup, batchId, detailed) {
+  const driver = shq(HOME_BIN + '/review-and-fix-pr-driver.js')
+  const reviewed = shq(HOME_BIN + '/review-and-fix-pr-reviewed.js')
+  const root = shq(scope.repoRoot)
+  const baseRaw = String(scope.mergeBaseSha || '')
+  const base = shq(baseRaw)
+  const head = String(scope.headSha || '')
+  const ledger = shq(setup.ledgerPath || '')
+  const scratch = shq('/tmp/prfix-rv-' + RUN_TAG + '-full')
+  // start comes from this workflow prompt and quotes the batch. Later steps come from cmd() in the
+  // driver, which deliberately prints its validated batch id without quotes. Keep both forms here:
+  // these are exact-text rules, so making every operand look uniformly quoted breaks the loop.
+  const batchRaw = String(batchId)
+  const batch = shq(batchRaw)
+  const driverStep = (verb, suffix) =>
+    'Bash(node ' + driver + ' ' + verb + ' --batch ' + batchRaw + (suffix || '') + ')'
+  const rules = [
+    'Bash(cd ' + root + ')',
+    'Bash(git diff ' + baseRaw + '...' + head + ')',
+    'Bash(rm -rf -- ' + scratch + ')',
+    'Bash(git clone --no-hardlinks --no-local ' + root + ' ' + scratch + ')',
+    'Bash(cd ' + scratch + ')',
+    'Bash(rm -rf -- ' + scratch + ' && git clone --no-hardlinks --no-local ' + root + ' ' + scratch +
+      ' && cd ' + scratch + ')',
+    'Bash(node ' + driver + ' start --batch ' + batch + ' --root ' + root + ' --mode review *)',
+    driverStep('found', ' *'),
+    driverStep('checked', ' *'),
+    driverStep('marked', ''),
+    'Bash(node ' + reviewed + ' --mark --root ' + root + ' --base ' + base + ' --ledger ' + ledger +
+      ' --pr ' + shq(scope.prNumber || 0) + ' --run ' + batch + ' --stage review *)',
+  ]
+  // Detailed review intentionally writes and runs throwaway probes. Requiring this exact prefix
+  // keeps that shell capability rooted in the disposable clone; Write/Edit stay denied globally.
+  if (detailed) rules.push('Bash(cd ' + scratch + ' && *)')
+  for (const entry of (scope.changedFiles || [])) {
+    const file = entry && String(entry.path || '')
+    if (!file || file.startsWith('/') || file.split('/').includes('..') || /[\r\n]/.test(file)) continue
+    rules.push('Bash(git diff ' + baseRaw + '...' + head + ' -- ' + shq(file) + ')')
+    rules.push('Bash(git log --oneline -- ' + shq(file) + ')')
+    rules.push('Bash(git blame -- ' + shq(file) + ')')
+  }
+  return rules
+}
 
 // -------------------------------------------------------------- run state ----
 
@@ -181,9 +219,9 @@ const SCOPE_SCHEMA = {
     authoredByMe: { type: 'boolean', description: 'true only if prAuthor and ghUser are both known and equal' },
     blocker: { type: 'string', description: 'reason the run must not proceed, or exactly "none"' },
 
-    binOk: { type: 'boolean', description: 'review-and-fix-pr-chunker.js, review-and-fix-pr-driver.js, review-and-fix-pr-reviewed.js and review-and-fix-pr-repofp.js are all present' },
+    binOk: { type: 'boolean', description: 'review-and-fix-pr-driver.js and review-and-fix-pr-reviewed.js are both present' },
     classifyPath: { type: 'string' },
-    classifyAction: { type: 'string', enum: ['reused', 'needs-generation', 'failed'],
+    classifyAction: { type: 'string', enum: ['unused', 'reused', 'needs-generation', 'failed'],
                       description: '"needs-generation" means you stopped and left chunks empty' },
     fingerprint: { type: 'string' },
     ledgerPath: { type: 'string' },
@@ -390,6 +428,11 @@ const FIX_SCHEMA = {
 const FULL_SCHEMA = {
   type: 'object',
   properties: {
+    reviewSkillStatus: {
+      type: 'string',
+      enum: ['built-in', 'used', 'unavailable', 'incompatible'],
+      description: 'whether the requested review skill was successfully used; built-in when none was requested',
+    },
     fixed: FIX_SCHEMA.properties.fixed,
     // Same shape as the fixer's, but scopeLabel is REQUIRED here: the whole-PR agent decides scope
     // itself, and an omitted label would silently become "in". The fixer never decides scope.
@@ -412,8 +455,8 @@ const FULL_SCHEMA = {
     commitSha: { type: 'string', description: 'the sha the driver confirmed, or exactly "none"' },
     notes: { type: 'string' },
   },
-  required: ['fixed', 'stillOpen', 'rejected', 'followUps', 'markedReviewed', 'filesTouched',
-             'outcome', 'commitSha'],
+  required: ['reviewSkillStatus', 'fixed', 'stillOpen', 'rejected', 'followUps', 'markedReviewed',
+             'filesTouched', 'outcome', 'commitSha'],
 }
 
 const CLASSIFY_GEN_SCHEMA = {
@@ -485,8 +528,16 @@ function mustStop() {
 // entry. Rather than assume they work, try once and fall back for the rest of the run.
 async function agentSafe(prompt, opts) {
   const o = Object.assign({}, opts)
+  const requireToolScope = o.requireToolScope === true
+  delete o.requireToolScope
   if (MODEL) o.model = MODEL
-  if (!toolOptsWork) { delete o.disallowedTools; delete o.bashCommandClamp }
+  if (!toolOptsWork) {
+    if (requireToolScope) {
+      log('required read-only tool scope is unavailable - refusing to launch this agent')
+      return null
+    }
+    delete o.disallowedTools; delete o.bashCommandClamp
+  }
   agentsSpawned++
   try {
     return await agent(prompt, o)
@@ -494,9 +545,15 @@ async function agentSafe(prompt, opts) {
     const msg = String((e && e.message) || e)
     if (toolOptsWork && (o.disallowedTools || o.bashCommandClamp) &&
         /disallowedTools|bashCommandClamp|tool|clamp/i.test(msg)) {
+      if (requireToolScope) {
+        log('required read-only tool scope was refused by the platform (' + msg.slice(0, 160) + ') - refusing to launch this agent')
+        toolOptsWork = false
+        return null
+      }
       log('tool-scoping opts were refused by the platform (' + msg.slice(0, 160) + ') - continuing without them for the rest of the run')
       toolOptsWork = false
       const bare = Object.assign({}, opts)
+      delete bare.requireToolScope
       delete bare.disallowedTools; delete bare.bashCommandClamp
       if (MODEL) bare.model = MODEL
       agentsSpawned++
@@ -545,6 +602,17 @@ function deferFinding(f, reason) {
       primaryFile: f.primaryFile || '', symbol: f.symbol || '', detail: f.detail || '', fingerprint: k,
     })
   }
+}
+
+// A failed serial batch stops the loop, but it must not erase findings assigned to later batches.
+// Those findings were reviewed and accepted; only their fix attempt has not happened yet.
+function deferUnprocessedBatches(batches, failedIndex, reason) {
+  for (const f of batches.slice(failedIndex + 1).flat()) deferFinding(f, reason)
+}
+
+function completedReadOnlyReview(full) {
+  return !!full && full.outcome === 'reviewed' && full.commitSha === 'none' &&
+    !(full.fixed || []).length && !(full.filesTouched || []).length
 }
 
 function chunk_(arr, n) {
@@ -597,6 +665,24 @@ function fullPrPrompt(scope, base, setup, foundNothing, reviewOnly, parentSha) {
       ? 'A hunk-by-hunk pass over this PR just finished and found NOTHING. Your job is to disbelieve\nthat. Assume it was lazy, and look specifically for what a per-hunk review structurally CANNOT\nsee: interactions between changes reviewed separately, an invariant that holds in each file but\nnot across them, and "if this shipped, what is the most likely way it breaks in production?".'
       : 'You are the only reviewer of this PR, so cover it completely.',
     '',
+    '=== REVIEW METHOD ===',
+    ...(REVIEW_SKILL ? [
+      'The user selected the loaded skill ' + JSON.stringify(REVIEW_SKILL) + '.',
+      'Before reviewing, invoke that exact skill through the Skill tool. Give it this task: review the',
+      'whole PR diff for concrete defects, read-only, and return evidence-backed findings. Use its',
+      'methodology and domain knowledge, but this prompt owns scope, safety, driver steps and output.',
+      'Do not let the selected skill edit files, post comments, create another workflow, or replace the',
+      'structured result required below. Tool restrictions enforce the read-only boundary.',
+      'If the Skill tool says it is missing, disabled, user-only, or otherwise cannot run here, STOP.',
+      'Set reviewSkillStatus to "unavailable" (or "incompatible" when it cannot perform a read-only',
+      'whole-PR review), outcome "driver-error", every array empty, commitSha "none", and put the exact',
+      'reason in notes. Do not silently substitute your own review or another skill.',
+      'If it loads successfully, set reviewSkillStatus to "used".',
+    ] : [
+      'No reviewSkill was requested. Use the built-in review method below and set reviewSkillStatus',
+      'to "built-in".',
+    ]),
+    '',
     '=== THE PULL REQUEST ===',
     'Repo: ' + scope.repo + '   PR #' + (scope.prNumber || '?') + ': ' + (scope.title || ''),
     'Intent (' + scope.intentSource + '): ' + scope.intent,
@@ -635,14 +721,16 @@ function fullPrPrompt(scope, base, setup, foundNothing, reviewOnly, parentSha) {
     'files you are certain about - a recorded file is never reviewed again until its content changes.',
     ...(reviewOnly ? [
       '',
-      'That is the whole job. ' + scope.repoRoot + ' is READ-ONLY: this PR belongs to someone else, so do',
-      'NOT edit a file in it, and never run a build, a test or a mutating git command with it as the',
-      'working directory. Report what survived in stillOpen with whyStillHere "not-attempted", leave',
-      '`fixed` empty, set outcome "reviewed" and commitSha "none".',
+      'That is the whole job for this agent. ' + scope.repoRoot + ' is READ-ONLY during review. Do NOT',
+      'edit a file in it, and never run a build, a test or a mutating git command with it as the working',
+      'directory. A separate serial fixer handles accepted findings later when fixing was enabled.',
+      'Report what survived in stillOpen with whyStillHere "not-attempted", leave `fixed` and',
+      '`filesTouched` empty, set outcome "reviewed" and commitSha "none".',
       ...(DETAILED ? [
         '',
         'But DO run experiments - in a throwaway clone, never in the repo above:',
-        '  git clone --no-hardlinks --no-local ' + shq(scope.repoRoot) + ' ' + shq('/tmp/prfix-rv-' + RUN_TAG + '-full'),
+        'Every experimental Bash command must start with this prefix so it stays in that clone:',
+        '  cd ' + shq('/tmp/prfix-rv-' + RUN_TAG + '-full') + ' && <experiment>',
         'Write throwaway tests there with a heredoc, build it, run it, delete a guard the diff adds and',
         'see whether any test notices, check out ' + scope.mergeBaseSha + ' and compare behaviour with the',
         'head. A finding you have REPRODUCED cannot be a false positive - put the command and its output',
@@ -684,17 +772,23 @@ function fullPrPrompt(scope, base, setup, foundNothing, reviewOnly, parentSha) {
     'Mark releaseBlocker strictly, with a one-sentence blockerReason naming the consequence.',
     '',
     '=== OUTPUT ===',
+    'reviewSkillStatus is "used" when the requested skill loaded and guided this review, "built-in"',
+    'when no skill was requested, or the failure status described above. Never claim "used" merely',
+    'because you know of the skill; the Skill tool invocation must have succeeded.',
     'fingerprint is "<repo-relative-path>:<symbol>:<defect-class>", lowercase, hyphenated, NO line numbers,',
     'e.g. "parser.rs:parse_header:unchecked-index". It is what every later run matches against, so an',
     'ad-hoc string means the same defect gets raised again forever.',
-    'outcome is the FINAL STATE the fix driver printed; commitSha is the sha it confirmed, or "none".',
-    'fixed: one entry per finding you resolved AND that got committed, with what you actually changed',
-    'and where. Empty if nothing was committed, because nothing you did landed.',
-    'stillOpen: what is still there, each with whyStillHere. If nothing was committed, that is EVERY',
-    'finding you kept, with whyStillHere saying the build did not pass.',
+    ...(reviewOnly ? [
+      'outcome is the FINAL STATE the review driver printed. commitSha is "none".',
+      'fixed and filesTouched are empty. stillOpen contains every finding that survived double-check,',
+      'each with whyStillHere "not-attempted". followUps have doneNow false.',
+    ] : [
+      'outcome is the FINAL STATE the fix driver printed; commitSha is the sha it confirmed, or "none".',
+      'fixed: one entry per finding resolved AND committed. stillOpen: everything still present.',
+    ]),
     'rejected: candidates you withdrew, or that proved not to be bugs, with the reason.',
     'followUps: as described above, each with size, doneNow, releaseBlocker and blockerReason.',
-    'filesTouched: every file you modified. markedReviewed: what the driver recorded clean.',
+    'markedReviewed: what the driver recorded clean.',
     'Put any driver warning in notes.',
     'Every "no value" string field is the literal "none".',
   ].join('\n')
@@ -857,51 +951,17 @@ function scopePrompt() {
     '',
     '========================= PART B: SET THE RUN UP =========================',
     '',
-    'B1. HELPER SCRIPTS. Check review-and-fix-pr-chunker.js, review-and-fix-pr-driver.js, review-and-fix-pr-repofp.js and review-and-fix-pr-reviewed.js all exist under',
-    '    ' + HOME_BIN + ', and that `node ' + HOME_BIN + '/review-and-fix-pr-chunker.js` runs (it exits 2 with a usage',
-    '    error - that is success). review-and-fix-pr-driver.js matters most: every reviewer and every fixer is walked',
-    '    through its work by it, so without it nothing can review or commit anything.',
-    '    Set binOk. If any is missing, set binOk false, say so in notes, and return; do NOT write them',
-    '    yourself.',
+    'B1. HELPER SCRIPTS. Check review-and-fix-pr-driver.js and review-and-fix-pr-reviewed.js exist under',
+    '    ' + HOME_BIN + '. The driver walks the reviewer and every fixer through their state machines.',
+    '    Set binOk. If either is missing, set binOk false, say so in notes, and return; do NOT write it.',
     '',
-    'B2. THE REVIEWABILITY RULE, at ' + dir + '/classify.json with metadata in ' + dir + '/meta.json',
-    '    (substitute the slug you reported for <slug>; expand ~ to ' + HOME_DIR + ').',
-    '    Get the repo fingerprint by running exactly:',
-    '      node ' + HOME_BIN + '/review-and-fix-pr-repofp.js --root <the repoRoot you reported>',
-    '    It prints one sha256 and nothing else. Use it VERBATIM - do not compute it yourself. A',
-    '    fingerprint that drifts silently regenerates the rule and wastes a large agent.',
-    REFRESH_RULES
-      ? '    args.refreshRules was set: report classifyAction "needs-generation" and stop at B4.'
-      : '    If classify.json exists AND meta.json records the same fingerprint and version 2: classifyAction "reused".\n' +
-        '    Otherwise report classifyAction "needs-generation" and STOP - a separate agent writes it,\n' +
-        '    because authoring a classifier well is a different job from scoping a PR. Still finish B3,\n' +
-        '    but leave chunks empty.',
-    '',
-    'B3. LEDGER AND RUN DIR. ledgerPath is ' + dir + '/reviewed.json; create it containing exactly {}',
+    'B2. RUN STATE. ledgerPath is ' + dir + '/reviewed.json; create it containing exactly {}',
     '    if absent, and report ledgerEntries = the number of keys in it.',
     '    runDir is a FRESH directory of this run\'s own: mkdir -p ' + dir + '/runs, then mint it with',
     '      mktemp -d ' + dir + '/runs/<first 8 chars of headSha>-XXXXXX',
-    '    so two runs at the same head sha cannot share one. Report classifyPath, ledgerPath and',
-    '    runDir as ABSOLUTE paths.',
-    '',
-    'B4. CHUNK THE DIFF - only if classifyAction is "reused". Run it once, for every stage at a time:',
-    '',
-    '      node ' + HOME_BIN + '/review-and-fix-pr-chunker.js \\',
-    '        --root <repoRoot> --base <mergeBaseSha> --head <headSha> \\',
-    '        --classify <classifyPath> --ledger <ledgerPath> \\',
-    '        --out <runDir>/all --isolation ' + JSON.stringify(ISOLATION) + ' \\',
-    '        --caps ' + JSON.stringify(JSON.stringify(CAPS)) + ' \\',
-    '        --stages ' + STAGES.join(',') + (IGNORE_LEDGER ? ' \\\n        --ignore-ledger' : ''),
-    '',
-    '    Report `chunks` = its `chunks` array VERBATIM, every field exactly as printed: do not',
-    '    re-order, renumber, shorten paths or omit anything - id, stage, lockKey, files, wholeFiles,',
-    '    path, bytes, hunkCount and wholeFiles all matter downstream; hashFile is optional. Copy wholeFiles',
-    '    exactly as the chunker printed it - it is what permits a clean file to be remembered across runs.',
-    '    It carries no diff text and no',
-    '    hashes, so there is nothing long to copy. Also report hunksInLedger = `skipped.hunksInLedger`,',
-    '    notReviewable = the `file` of each `skipped.notReviewable` entry, and chunkerStderr.',
-    '    If the command fails, report empty chunks and put the error in chunkerStderr. Do not',
-    '    hand-write a manifest and do not read the chunk files.',
+    '    so two runs at the same head sha cannot share one. Report ledgerPath and runDir as ABSOLUTE',
+    '    paths. Chunking is inactive: set classifyPath "none", classifyAction "unused", fingerprint',
+    '    "none", chunks [], hunksInLedger 0, notReviewable [], and chunkerStderr "none".',
     '',
     'Return refs and facts only - NO diff content, NO file content. This object is embedded in many',
     'later prompts and must stay small. Every "no value" field is the literal string "none".',
@@ -1388,13 +1448,16 @@ function renderReport(state) {
   // The stop reasons after which a batch's edits are still sitting in the working tree.
   const MAY_HOLD_EDITS = new Set(['build-failed', 'driver-error', 'fixer-lost', 'commit-unconfirmed'])
   const STOP_TEXT = {
-    'completed': 'completed - every scheduled chunk was reviewed',
+    'completed': 'completed - the whole PR was reviewed',
     'agent-cap': 'STOPPED EARLY - hit the agent ceiling (' + MAX_AGENTS + ')',
     'token-cap': 'STOPPED EARLY - hit the token ceiling (' + (MAX_TOKENS === null ? 'unset' : MAX_TOKENS.toLocaleString()) + ')',
     'build-failed': 'STOPPED - a batch did not pass the build; its edits are UNCOMMITTED in your tree',
     'commit-failed': 'STOPPED - a stage could not be committed',
     'dirty-tree-after-commit': 'STOPPED - tracked files were still modified after a commit',
     'whole-pr-empty': 'STOPPED - the whole-PR agent returned nothing; this PR was NOT reviewed',
+    'review-skill-unavailable': 'STOPPED - the selected review skill could not be loaded; this PR was NOT reviewed',
+    'review-skill-incompatible': 'STOPPED - the selected skill cannot perform this read-only whole-PR review',
+    'review-driver-error': 'STOPPED - the read-only review did not complete; this PR was NOT reviewed',
     'rechunk-failed': 'STOPPED - the diff changed after fixes and could not be re-chunked safely',
     'ledger-cleanup-failed': 'STOPPED - conflicting clean ledger entries could not be revoked safely',
     'driver-error': 'STOPPED - the driver aborted a batch; nothing was committed, but edits may be in your tree',
@@ -1405,7 +1468,7 @@ function renderReport(state) {
   out.push('Agents:       ' + agentsSpawned + ' of ' + MAX_AGENTS + '    tokens: ' + spentSoFar().toLocaleString() +
            (MAX_TOKENS === null ? ' (no ceiling set)' : ' of ' + MAX_TOKENS.toLocaleString()))
   out.push('Stages run:   ' + (stageLog.map(s => s.stage).join(' -> ') || '(none)'))
-  out.push('Chunks:       ' + state.totalChunks + ' reviewed, ' + state.cleanChunks + ' ended clean')
+  out.push('Review passes: ' + state.totalChunks + ', ' + state.cleanChunks + ' ended clean')
   out.push('Fixed:        ' + knownFixed.size)
   out.push('Still present after fixes: ' + stillPresent.length)
   out.push('Deferred:     ' + knownDeferred.size + (authorDeferredKeys.size ? '  (' + authorDeferredKeys.size + ' put off by the author)' : ''))
@@ -1428,16 +1491,17 @@ function renderReport(state) {
              (IGNORE_LEDGER ? '  (ignoreLedger was set, so this should be 0)' : ''))
   }
   if (state.model) out.push('Model:        every agent ran on ' + state.model + ' (overridden)')
+  out.push('Review skill: ' + (state.reviewSkill || 'built-in workflow method'))
   if (state.detailed) {
     out.push('Review depth: DETAILED - reviewers traced callers and ran experiments in throwaway clones.')
   }
-  out.push('Isolation: ' + ISOLATION + '   reviewers: up to ' + REVIEW_CONCURRENCY +
-           ' in parallel   fixers: 1 at a time, ' + MAX_FIX_BATCH + ' finding(s) per batch')
+  out.push('Reviewers: 1 whole-PR read-only agent   fixers: 1 at a time, ' +
+           MAX_FIX_BATCH + ' finding(s) per batch')
 
   heading('PER-STAGE LOG')
   if (!stageLog.length) out.push('(no stage completed)')
   for (const s of stageLog) {
-    out.push(s.stage + ': ' + s.chunks + ' chunk(s), ' + s.clean + ' clean, ' + s.fixed + ' fixed, ' +
+    out.push(s.stage + ': ' + s.chunks + ' review pass(es), ' + s.clean + ' clean, ' + s.fixed + ' fixed, ' +
              s.stillPresent + ' still present | validation ' + s.verdict +
              (s.commitSha && s.commitSha !== 'none' ? ' | commit ' + shortSha(s.commitSha) : ' | no commit'))
     if (s.note) out.push('        ' + s.note)
@@ -1659,7 +1723,7 @@ function renderReport(state) {
       out.push('Undo this run without rewriting history:  git revert --no-edit ' + scope.startSha + '..HEAD')
     }
   }
-  if (setup && setup.classifyPath) {
+  if (setup && setup.classifyPath && setup.classifyPath !== 'none') {
     out.push('')
     out.push('Reviewability rule (' + (setup.classifyAction || '?') + '): ' + setup.classifyPath)
     out.push('Clean-hunk ledger:  ' + setup.ledgerPath)
@@ -1712,48 +1776,20 @@ if (!scope.headMatchesPr) {
 }
 
 phase('Setup')
-let setup = scope                      // the scope agent now returns the setup fields too
-if (setup.classifyAction === 'needs-generation') {
-  // Rare: once per repo, or when the repo's shape changes. Kept as its own agent because authoring
-  // a classifier well is a different job from scoping a PR, and mixing them degrades both.
-  log('no usable reviewability rule for this repo - generating one')
-  const gen = await agentSafe(classifyGenPrompt(scope), {
-    schema: CLASSIFY_GEN_SCHEMA, label: 'classify-gen', effort: 'high', disallowedTools: DENY_COMMON,
-  })
-  if (!gen || !gen.ok) {
-    return 'review-and-fix-pr stopped: could not generate a reviewability rule for ' + scope.repo + '.\n\n' +
-           ((gen && gen.notes) || 'the generator agent returned nothing') + '\n\nNothing was changed.'
-  }
-  log('reviewability rule written: ' + gen.summary)
-  const m = await agentSafe(chunkerPrompt(scope, scope, STAGES, scope.headSha), {
-    schema: MANIFEST_SCHEMA, label: 'chunk all', effort: 'low', disallowedTools: DENY_READONLY,
-  })
-  setup = Object.assign({}, scope, {
-    classifyPath: gen.classifyPath, classifyAction: 'generated',
-    chunks: (m && m.chunks) || [], hunksInLedger: (m && m.hunksInLedger) || 0,
-    notReviewable: (m && m.notReviewable) || [], chunkerStderr: (m && m.stderr) || 'none',
-  })
-}
+const setup = scope
 if (!setup.binOk) {
   return 'review-and-fix-pr refused to start: the helper scripts are missing.\n\n' +
-         'Expected review-and-fix-pr-chunker.js, review-and-fix-pr-driver.js, review-and-fix-pr-reviewed.js and review-and-fix-pr-repofp.js under ' + HOME_BIN + '.\n' +
+         'Expected review-and-fix-pr-driver.js and review-and-fix-pr-reviewed.js under ' + HOME_BIN + '.\n' +
          (setup.notes ? '\n' + setup.notes + '\n' : '') +
          '\nNothing was changed.'
 }
 const setupProblems = []
 const cacheMarker = '/review-and-fix-pr/' + scope.slug + '/'
-if (!String(setup.classifyPath || '').includes(cacheMarker) || !String(setup.classifyPath).endsWith('/classify.json')) setupProblems.push('unsafe classifier path')
 if (!String(setup.ledgerPath || '').includes(cacheMarker) || !String(setup.ledgerPath).endsWith('/reviewed.json')) setupProblems.push('unsafe ledger path')
 if (!String(setup.runDir || '').includes(cacheMarker + 'runs/')) setupProblems.push('unsafe run directory')
-for (const c of (setup.chunks || [])) {
-  if (!c || !/^[\w.-]+$/.test(c.id || '') || !STAGES.includes(c.stage) || !String(c.path || '').startsWith(setup.runDir + '/') ||
-      !String(c.hashFile || '').startsWith(setup.runDir + '/') ||
-      !(c.files || []).every(f => f && !f.startsWith('/') && !f.split('/').includes('..')) ||
-      !(c.wholeFiles || []).every(f => (c.files || []).includes(f))) setupProblems.push('unsafe or malformed chunk ' + String((c && c.id) || '(unknown)'))
-}
 if (setupProblems.length) return 'review-and-fix-pr refused unsafe setup output:\n  - ' + setupProblems.join('\n  - ') + '\n\nNothing was changed.'
-log('classifier ' + setup.classifyAction + ': ' + setup.classifyPath)
-log('ledger: ' + setup.ledgerEntries + ' hunk(s) already recorded clean' + (IGNORE_LEDGER ? ' (ignoreLedger set - they will be reviewed anyway)' : ''))
+log('whole-PR setup: no classifier or chunks')
+log('ledger: ' + setup.ledgerEntries + ' file verdict(s) recorded; whole-PR mode does not skip them')
 
 // Editing is opt-in by ownership. Fixing someone else's PR writes commits onto their branch, which
 // is theirs to decide, so the default is review-only unless the PR is yours.
@@ -1763,7 +1799,7 @@ if (REVIEW_ONLY) {
     ? 'review-only: fix was not explicitly enabled'
     : 'review-only: findings will be reported, nothing will be edited or committed')
 } else {
-  log('fixing enabled: this PR is yours (' + scope.ghUser + ')')
+  log('fixing enabled explicitly; commits will be written to the checked-out PR branch')
 }
 
 // A review-only run never edits, never builds and never commits, so there is nothing for a baseline
@@ -1814,39 +1850,14 @@ let workflowScopeBlocked = false
 let totalChunks = 0, cleanChunks = 0
 const unreviewed = []            // {chunk, why} - chunks we never looked at, and the reason
 
-// The setup agent already had Bash open and classify.json in hand, so it ran the chunker too - for
-// every stage at once. A separate agent for this cost ~17k ITE of which ~15k was its own prompt
-// prefix, to run one deterministic command and echo JSON. Chunks are frozen against headSha; a
-// later stage is re-chunked only if an earlier stage actually edited a file of its own.
-ledgerSkipped += setup.hunksInLedger || 0
-if (setup.chunkerStderr && setup.chunkerStderr !== 'none') log('chunker stderr: ' + setup.chunkerStderr)
-const allManifest = { chunks: setup.chunks || [], hunksInLedger: setup.hunksInLedger || 0, notReviewable: setup.notReviewable || [] }
+// Compatibility scaffolding remains for the dormant chunk path, but active runs never populate it.
+const allManifest = { chunks: [], hunksInLedger: 0, notReviewable: [] }
 const chunksByStage = new Map(STAGES.map(st => [st, []]))
-for (const c of allManifest.chunks) {
-  if (chunksByStage.has(c.stage)) chunksByStage.get(c.stage).push(c)
-}
-log('chunked: ' + STAGES.map(st => st + '=' + chunksByStage.get(st).length).join(' ') +
-    ((allManifest && allManifest.hunksInLedger) ? '   (' + allManifest.hunksInLedger + ' hunk(s) skipped as already clean)' : ''))
-
-const scheduled = [...chunksByStage.values()].reduce((n, v) => n + v.length, 0)
-
-// Which way to run. A diff too small to chunk usefully is not worth the per-agent overhead of a
-// review/fix split, so one agent does the lot.
-const diffBytes = (allManifest.chunks || []).reduce((n, c) => n + (c.bytes || 0), 0)
-const RESOLVED_MODE = MODE !== 'auto' ? MODE
-  : ((scheduled && diffBytes > FULL_PR_MIN_BYTES) ? 'parallel' : 'single')
-
-// If the ledger already covers the whole diff there is nothing to do, and 'auto' must not quietly
-// fall through to a whole-PR pass - that would re-read every file the ledger says is clean and make
-// the ledger pointless. Only an explicit mode may override this.
-if (MODE === 'auto' && !scheduled && allManifest.hunksInLedger) {
-  return 'review-and-fix-pr: nothing to review - every changed file in PR #' + (scope.prNumber || '?') +
-         ' was already reviewed and found clean in an earlier run, and none of them has changed since.\n\n' +
-         allManifest.hunksInLedger + ' hunk(s) skipped via ' + setup.ledgerPath + '\n\n' +
-         'Re-run with ignoreLedger: true to review them anyway, or mode: \'single\' for a fresh whole-PR pass.\n' +
-         'Nothing was changed.'
-}
-log('mode: ' + RESOLVED_MODE + (MODE === 'auto' ? '  (auto: ' + scheduled + ' chunk(s), ' + diffBytes + ' bytes)' : ''))
+const scheduled = 0
+const RESOLVED_MODE = 'full'
+log('mode: full  (one whole-PR reviewer; chunking inactive)')
+if (REVIEW_SKILL) log('review skill: ' + REVIEW_SKILL)
+else log('review skill: built-in workflow review method')
 if (MODEL) log('model override: every agent runs on ' + MODEL)
 if (DETAILED) log('detailed review: reviewers may trace callers and RUN experiments in their own clone')
 
@@ -2252,6 +2263,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
     // would mean running `git reset --hard` on a tree nobody has looked at.
     if (!res) {
       for (const f of batches[bi]) deferFinding(f, 'the fixer agent returned nothing; its edits, if any, were left in place')
+      deferUnprocessedBatches(batches, bi, 'fixing stopped after an earlier batch returned nothing')
       stageNote = 'batch ' + (bi + 1) + ': the fixer returned nothing - the working tree may contain uncommitted edits'
       stopReason = 'fixer-lost'
       break
@@ -2275,6 +2287,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
       log('  ' + batchId + ': the build did not pass, so nothing was committed - its edits are still in the tree')
       for (const f of (res.filesTouched || [])) if (!uncommittedEdits.includes(f)) uncommittedEdits.push(f)
       discardBatch(batchId, res.fixed || [], batches[bi], 'the build did not pass, so this batch committed nothing')
+      deferUnprocessedBatches(batches, bi, 'fixing stopped after an earlier batch failed validation')
       stageVerdict = 'build failed - not committed'
       stageNote = 'batch ' + (bi + 1) + ' did not pass the build; its uncommitted edits are still in your working tree'
       stopReason = 'build-failed'
@@ -2286,6 +2299,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
       log('  ' + batchId + ': the driver aborted - ' + (res.notes || 'no reason given'))
       for (const f of (res.filesTouched || [])) if (!uncommittedEdits.includes(f)) uncommittedEdits.push(f)
       discardBatch(batchId, res.fixed || [], batches[bi], 'the driver aborted this batch before it could commit')
+      deferUnprocessedBatches(batches, bi, 'fixing stopped after an earlier batch aborted')
       stageNote = 'batch ' + (bi + 1) + ': the driver aborted (' + (res.notes || 'no reason given') +
                   ') - nothing was committed, but its edits may still be in your working tree'
       stopReason = 'driver-error'
@@ -2300,6 +2314,7 @@ if (RESOLVED_MODE === 'parallel') while (stageQueue.length) {
       log('  ' + batchId + ': reported "committed" but gave no sha - treating it as nothing landed')
       for (const f of (res.filesTouched || [])) if (!uncommittedEdits.includes(f)) uncommittedEdits.push(f)
       discardBatch(batchId, res.fixed || [], batches[bi], 'the batch claimed a commit the driver never confirmed')
+      deferUnprocessedBatches(batches, bi, 'fixing stopped after an earlier batch produced no confirmed commit')
       stageVerdict = 'claimed a commit with no sha - not trusted'
       stageNote = 'batch ' + (bi + 1) + ' said it committed but named no sha; nothing was counted as fixed'
       stopReason = 'commit-unconfirmed'
@@ -2328,18 +2343,41 @@ if (RESOLVED_MODE === 'parallel') for (const it of stageQueue) {
 
 anythingFound = !!sawSomething()
 
-// mode "full": no chunking at all. mode "auto": the chunked pass found NOTHING, so do not take that
-// at face value - a per-hunk review structurally cannot see interactions between separately reviewed
-// changes. This is the only path that ever reads the whole PR at once, and it is why it is rare.
-if (['single', 'full'].includes(RESOLVED_MODE) || (RESOLVED_MODE === 'parallel' && !anythingFound && stopReason === 'completed')) {
-  const why = RESOLVED_MODE === 'full' ? 'mode=full' : RESOLVED_MODE === 'single' ? 'mode=single' : 'the parallel pass found nothing - confirming over the whole PR'
-  log('running a whole-PR pass: ' + why)
+// One read-only whole-PR review. If fixing was enabled, its normalized findings are handed to fresh
+// serial fixer agents afterwards. Keeping review and write capabilities in different agents is what
+// makes an arbitrary user-selected review skill safe to compose here.
+if (RESOLVED_MODE === 'full') {
+  log('running one read-only whole-PR review')
   phase('Review')
-  let full = await agentSafe(fullPrPrompt(scope, base, setup, RESOLVED_MODE === 'parallel', REVIEW_ONLY, headSha), {
+  const fullReviewBatch = RUN_TAG + '-rv-full'
+  let full = await agentSafe(fullPrPrompt(scope, base, setup, false, true, headSha), {
     schema: FULL_SCHEMA, phase: 'Review', label: 'full-pr', effort: 'high',
-    // review-only is not a request: deny Write/Edit outright so it cannot edit even by mistake
-    disallowedTools: REVIEW_ONLY ? DENY_READONLY : DENY_COMMON,
+    disallowedTools: DENY_READONLY, bashCommandClamp: reviewBashClamp(scope, setup, fullReviewBatch, DETAILED),
+    requireToolScope: true,
   })
+
+  if (!full) {
+    stopReason = 'review-driver-error'
+    stageLog.push({ stage: 'whole-PR', chunks: 1, clean: 0, fixed: 0, stillPresent: 0,
+                    verdict: 'NOT REVIEWED - reviewer did not start or returned nothing', commitSha: 'none',
+                    note: 'required read-only reviewer failed; no fallback was used' })
+  }
+  const expectedSkillStatus = REVIEW_SKILL ? 'used' : 'built-in'
+  if (full && full.reviewSkillStatus !== expectedSkillStatus) {
+    const status = full.reviewSkillStatus || 'unavailable'
+    stopReason = status === 'incompatible' ? 'review-skill-incompatible' : 'review-skill-unavailable'
+    stageLog.push({ stage: 'whole-PR', chunks: 1, clean: 0, fixed: 0, stillPresent: 0,
+                    verdict: 'NOT REVIEWED - selected skill ' + status, commitSha: 'none',
+                    note: full.notes || ('selected skill status: ' + status) })
+    full = null
+  }
+  if (full && !completedReadOnlyReview(full)) {
+    stopReason = 'review-driver-error'
+    stageLog.push({ stage: 'whole-PR', chunks: 1, clean: 0, fixed: 0, stillPresent: 0,
+                    verdict: 'NOT REVIEWED - read-only contract was not completed', commitSha: 'none',
+                    note: full.notes || 'reviewer did not return the review driver\'s reviewed state' })
+    full = null
+  }
   if (full && vacuousReview(full)) {
     log('whole-PR pass returned an entirely empty result - treating it as NOT reviewed.' +
         (full.notes && full.notes !== 'none' ? ' Its notes: ' + String(full.notes).slice(0, 200) : ''))
@@ -2351,83 +2389,108 @@ if (['single', 'full'].includes(RESOLVED_MODE) || (RESOLVED_MODE === 'parallel' 
   }
   if (full) {
     const stage = 'full'
+    totalChunks = 1
     for (const r of (full.rejected || [])) {
       if (!r || !r.fingerprint) continue
       if (r.kind === 'out-of-scope') setAside.set(norm(r.fingerprint), r.reason || 'set aside as not this PR\'s')
       else knownRejected.set(norm(r.fingerprint), r.reason || 'withdrawn after re-reading')
     }
-    for (const f of (full.stillOpen || [])) {
-      if (!f || !f.fingerprint) continue
-      if (f.scopeLabel === 'deferred' && !(scope.outOfScope || []).length) f.scopeLabel = 'in'
-      if (f.scopeLabel === 'out') {
-        setAside.delete(norm(f.fingerprint))
-        if (!outOfScopeFindings.some(x => norm(x.finding.fingerprint) === norm(f.fingerprint))) outOfScopeFindings.push({ chunkId: 'full', stage, finding: f })
-      }
-    }
-    for (const f of (full.fixed || [])) {
-      if (!f || !f.fingerprint) continue
-      knownFixed.set(norm(f.fingerprint), f.changeSummary || '')
-      fixLog.push({ stage, batchId: 'full', fingerprint: norm(f.fingerprint), summary: f.changeSummary || '' })
-    }
     for (const f of (full.markedReviewed || [])) markedReviewed.push({ file: f, stage: 'full', chunk: 'full' })
     for (const u of (full.followUps || [])) {
       if (!u || !u.title) continue
       followUpsRaw.push({ stage, chunkId: 'full', title: u.title, detail: u.detail || '', area: u.area || 'none',
-                          size: u.size || 'big', doneNow: !!u.doneNow,
+                          size: u.size || 'big', doneNow: false,
                           releaseBlocker: !!u.releaseBlocker, blockerReason: u.blockerReason || 'none' })
     }
+    const findings = []
     for (const f of (full.stillOpen || [])) {
       if (!f || !f.fingerprint) continue
-      if (f.scopeLabel === 'out') continue
+      const k = norm(f.fingerprint)
+      if (f.scopeLabel === 'deferred' && !(scope.outOfScope || []).length) f.scopeLabel = 'in'
+      if (f.scopeLabel === 'out') {
+        setAside.delete(k)
+        if (!outOfScopeFindings.some(x => norm(x.finding.fingerprint) === k)) {
+          outOfScopeFindings.push({ chunkId: 'full', stage, finding: f })
+        }
+        continue
+      }
       if (f.scopeLabel === 'deferred') { authorDeferredKeys.add(norm(f.fingerprint)); deferFinding(f, 'the author explicitly deferred this in the PR/issue text; not this PR\'s to fix'); continue }
       if (f.defer) deferFinding(f, (f.deferReason && f.deferReason !== 'none') ? f.deferReason : 'fix judged disproportionate')
-      else stillPresent.push({ chunkId: 'full', files: f.files || [f.primaryFile], finding: f })
+      else findings.push(f)
     }
-    const fullProblemFiles = new Set((full.stillOpen || []).flatMap(f => (f.files && f.files.length) ? f.files : [f.primaryFile]).filter(Boolean))
-    const fullConflicts = markedReviewed.filter(m => fullProblemFiles.has(m.file))
-    if (fullConflicts.length) {
-      const revoked = await revokeReviewRuns(setup, fullConflicts.map(m => m.chunk),
-        'the whole-PR pass found a defect involving a file previously marked clean')
-      if (!revoked) stopReason = 'ledger-cleanup-failed'
-      else {
-        const badChunks = new Set(fullConflicts.map(m => m.chunk))
-        for (let i = markedReviewed.length - 1; i >= 0; i--) if (badChunks.has(markedReviewed[i].chunk)) markedReviewed.splice(i, 1)
-      }
-    }
-    // The agent drove itself through validation and commit, exactly like a chunk fixer. There is no
-    // validate agent, no commit agent and no rollback agent on this path: `outcome` is the FINAL
-    // STATE its driver printed, which was measured from HEAD, not claimed.
-    let verdict, csha = 'none', landedFixed = 0
+    cleanChunks = findings.length ? 0 : 1
+
     if (REVIEW_ONLY) {
-      verdict = 'not run - review only'
-    } else if (full.outcome === 'committed' && full.commitSha && full.commitSha !== 'none') {
-      csha = full.commitSha; headSha = full.commitSha; landedFixed = (full.fixed || []).length
-      verdict = 'green'
-    } else if (full.outcome === 'not-committed') {
-      log('  whole-PR: the build did not pass, so nothing was committed - its edits are still in the tree')
-      for (const f of (full.filesTouched || [])) if (!uncommittedEdits.includes(f)) uncommittedEdits.push(f)
-      discardBatch('full', full.fixed || [], [], 'the build did not pass, so nothing was committed')
-      verdict = 'build failed - not committed'
-      stopReason = 'build-failed'
-    } else if (full.outcome === 'driver-error') {
-      log('  whole-PR: the driver aborted - ' + (full.notes || 'no reason given'))
-      for (const f of (full.filesTouched || [])) if (!uncommittedEdits.includes(f)) uncommittedEdits.push(f)
-      discardBatch('full', full.fixed || [], [], 'the driver aborted before anything could be committed')
-      verdict = 'driver aborted - not committed'
-      stopReason = 'driver-error'
+      for (const f of findings) deferFinding(f, 'review-only run: fixing was not enabled')
+      stageLog.push({ stage: 'whole-PR', chunks: 1, clean: cleanChunks, fixed: 0, stillPresent: 0,
+                      verdict: 'not run - review only', commitSha: 'none',
+                      note: findings.length + ' actionable finding(s) reported' })
+    } else if (!findings.length) {
+      stageLog.push({ stage: 'whole-PR', chunks: 1, clean: 1, fixed: 0, stillPresent: 0,
+                      verdict: 'not run', commitSha: 'none', note: 'nothing to fix' })
     } else {
-      // 'no-changes', or 'committed' with no sha to back it up - either way nothing landed.
-      if (full.outcome === 'committed') {
-        log('  whole-PR: claimed a commit but gave no sha - treating it as nothing landed')
-        stopReason = 'commit-unconfirmed'
-        for (const f of (full.filesTouched || [])) if (!uncommittedEdits.includes(f)) uncommittedEdits.push(f)
+      phase('Fix')
+      const batches = chunk_(findings.sort((a, b) => severityRank(a.severity) - severityRank(b.severity)), MAX_FIX_BATCH)
+      log('whole-PR: fixing ' + findings.length + ' finding(s) in ' + batches.length + ' serial batch(es)')
+      let fixedCount = 0, lastCommit = 'none', verdict = 'not run', note = ''
+      for (let bi = 0; bi < batches.length; bi++) {
+        if (mustStop()) {
+          stopReason = mustStop()
+          for (const f of batches.slice(bi).flat()) deferFinding(f, 'the run hit a ceiling before this could be fixed')
+          note = 'stopped before fix batch ' + (bi + 1) + ': ' + stopReason
+          break
+        }
+        const batchId = 'full-b' + (bi + 1)
+        const res = await agentSafe(fixerPrompt(scope, base, batches[bi], batchId, bi + 1, batches.length, headSha), {
+          schema: FIX_SCHEMA, phase: 'Fix', label: 'fix ' + batchId, effort: 'high', disallowedTools: DENY_COMMON,
+        })
+        if (!res) {
+          for (const f of batches[bi]) deferFinding(f, 'the fixer returned nothing; its edits, if any, were left in place')
+          deferUnprocessedBatches(batches, bi, 'fixing stopped after an earlier batch returned nothing')
+          note = 'fix batch ' + (bi + 1) + ' returned nothing; working tree may contain edits'
+          stopReason = 'fixer-lost'
+          break
+        }
+        const grant = new Set(batches[bi].flatMap(f => (f.files && f.files.length) ? f.files : [f.primaryFile]))
+        for (const f of (res.filesTouched || [])) {
+          if (!grant.has(f)) violations.push({ chunkId: batchId, stage, file: f })
+        }
+        for (const f of (res.stillOpen || [])) {
+          if ((f.files || [f.primaryFile]).some(x => /\.github\/workflows\//.test(String(x)))) workflowScopeBlocked = true
+        }
+        absorbFix(res, stage, batchId)
+        if (res.outcome === 'not-committed' || res.outcome === 'driver-error') {
+          for (const f of (res.filesTouched || [])) if (!uncommittedEdits.includes(f)) uncommittedEdits.push(f)
+          discardBatch(batchId, res.fixed || [], batches[bi], res.outcome === 'not-committed'
+            ? 'the build did not pass, so this batch committed nothing'
+            : 'the driver aborted this batch before it could commit')
+          deferUnprocessedBatches(batches, bi, res.outcome === 'not-committed'
+            ? 'fixing stopped after an earlier batch failed validation'
+            : 'fixing stopped after an earlier batch aborted')
+          verdict = res.outcome === 'not-committed' ? 'build failed - not committed' : 'driver aborted - not committed'
+          note = 'fix batch ' + (bi + 1) + ': ' + verdict
+          stopReason = res.outcome === 'not-committed' ? 'build-failed' : 'driver-error'
+          break
+        }
+        if (res.outcome === 'no-changes') continue
+        if (!res.commitSha || res.commitSha === 'none') {
+          for (const f of (res.filesTouched || [])) if (!uncommittedEdits.includes(f)) uncommittedEdits.push(f)
+          discardBatch(batchId, res.fixed || [], batches[bi], 'the batch claimed a commit the driver never confirmed')
+          deferUnprocessedBatches(batches, bi, 'fixing stopped after an earlier batch produced no confirmed commit')
+          verdict = 'claimed a commit with no sha - not trusted'
+          note = 'fix batch ' + (bi + 1) + ' named no confirmed commit'
+          stopReason = 'commit-unconfirmed'
+          break
+        }
+        fixedCount += (res.fixed || []).length
+        lastCommit = res.commitSha
+        headSha = res.commitSha
+        verdict = base.mode === 'none' ? 'unvalidated' : 'green'
       }
-      if ((full.fixed || []).length) discardBatch('full', full.fixed || [], [], 'it claimed a commit but named no sha, so nothing landed')
-      verdict = 'nothing to commit'
+      stageLog.push({ stage: 'whole-PR', chunks: 1, clean: cleanChunks, fixed: fixedCount,
+                      stillPresent: stillPresent.filter(x => String(x.chunkId).startsWith('full-b')).length,
+                      verdict, commitSha: lastCommit, note })
     }
-    stageLog.push({ stage: 'whole-PR', chunks: 1, clean: (full.stillOpen || []).length ? 0 : 1,
-                    fixed: landedFixed, stillPresent: (full.stillOpen || []).filter(f => !f.defer).length,
-                    verdict, commitSha: csha, note: RESOLVED_MODE === 'parallel' ? 'escalated: parallel pass found nothing' : 'mode=' + RESOLVED_MODE })
   }
 }
 
@@ -2457,5 +2520,5 @@ return renderReport({
   scope, base, setup, stopReason, totalChunks, cleanChunks,
   workflowScopeBlocked, followUps: reconciled, followUpsRawCount: followUpsRaw.length,
   allFollowUps: followUpsRaw, ranFullPass: stageLog.some(x => x.stage === 'whole-PR'), resolvedMode: RESOLVED_MODE,
-  reviewOnly: REVIEW_ONLY, uncommittedEdits, detailed: DETAILED, model: MODEL,
+  reviewOnly: REVIEW_ONLY, uncommittedEdits, detailed: DETAILED, model: MODEL, reviewSkill: REVIEW_SKILL,
 })
