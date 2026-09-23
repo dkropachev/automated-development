@@ -86,6 +86,15 @@ h3 { margin: 0; font-size: 1rem; }
 .skill-summary-card p { margin: .65rem 0; color: #c5cfda; font-size: .88rem; line-height: 1.5; }
 .skill-summary-card .skill-facts { margin-top: auto; color: var(--muted); font-size: .75rem; }
 .skill-summary-card .badge { margin-bottom: .7rem; }
+.landing-picker { min-width: 180px; }
+.completeness-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
+.rank-card { position: relative; padding: 1.1rem; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg, rgb(26 36 48 / 85%), rgb(13 18 25 / 90%)); }
+.rank-card h3 { max-width: calc(100% - 2.5rem); line-height: 1.35; }
+.rank-card h3 a { color: var(--text); text-decoration: none; }
+.rank-card h3 a:hover { color: var(--accent); }
+.rank-card > strong { display: block; margin-top: 1rem; color: var(--accent); font-size: 2rem; }
+.rank-card p { margin: .35rem 0 0; color: var(--muted); font-size: .78rem; }
+.rank-number { position: absolute; top: 1rem; right: 1rem; color: var(--muted); font-size: .75rem; font-weight: 750; }
 
 .kpis { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: .75rem; margin: 1rem 0; }
 .kpi { min-height: 106px; padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(150deg, rgb(26 36 48 / 85%), rgb(13 18 25 / 90%)); box-shadow: var(--shadow); }
@@ -169,7 +178,6 @@ td.num, th.num { text-align: right; }
 .skill-card-head { display: flex; justify-content: space-between; align-items: start; gap: 1rem; }
 .skill-card h2 { line-height: 1.25; }
 .skill-card > p { margin: 0; color: #c5cfda; line-height: 1.5; }
-.skill-card .skill-variants { color: var(--muted); font-size: .8rem; }
 .skill-usage { display: grid; gap: .65rem; margin: 0; }
 .skill-usage > div { display: grid; grid-template-columns: 4.2rem minmax(0, 1fr); gap: .6rem; align-items: start; }
 .skill-usage dt { color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
@@ -294,7 +302,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   .hero { padding-top: 1.3rem; }
   .landing-hero { grid-template-columns: 1fr; gap: 1.25rem; padding-top: 2rem; }
   .landing-proof { grid-template-columns: repeat(3, 1fr); }
-  .leader-grid, .skill-summary-grid { grid-template-columns: 1fr; }
+  .leader-grid, .skill-summary-grid, .completeness-grid { grid-template-columns: 1fr; }
   .landing-section-head { align-items: flex-start; flex-direction: column; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .decision-kpis { grid-template-columns: repeat(2, 1fr); }

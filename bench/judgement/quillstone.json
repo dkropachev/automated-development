@@ -1,7 +1,7 @@
 {
   "target": "quillstone",
   "language": "Rust",
-  "rawFindings": 135,
+  "rawFindings": 96,
   "issues": [
     {
       "id": "I1",
@@ -16,13 +16,9 @@
       "scope": "out-of-scope",
       "scopeReason": "The optimistic store and the missing per-connection retry predate the diff; the PR only closes this for newly opened connections.",
       "reportedBy": [
-        "rafp-detailed",
-        "rafp-review",
         "tob-diff-review"
       ],
       "reportedAs": {
-        "rafp-detailed": "PoolRefiller::use_keyspace sets current_keyspace before issuing anything and never removes or retries a connection whose USE failed with a non-broken-connection error, so the pool keeps publishing a connection on the old keyspace while believing it is on the new one, causing unqualified statements to silently hit the wrong keyspace; this is a pre-existing gap the PR closes only for new connections.",
-        "rafp-review": "Pre-existing, untouched by this PR: pool-level use_keyspace leaves already-pooled connections on the wrong keyspace when their USE fails.",
         "tob-diff-review": "current_keyspace is stored optimistically and never rolled back (also at worker.rs:351, connection_pool.rs:1287)."
       }
     },
@@ -68,13 +64,11 @@
       "reportedBy": [
         "tob-rust-review",
         "ce-code-review",
-        "rafp-review",
         "superpowers-review"
       ],
       "reportedAs": {
         "tob-rust-review": "This await has no timeout (unlike the sibling PoolRefiller::use_keyspace, which wraps its USE in tokio::time::timeout), so a server that accepts the connection but never answers USE leaves the future pending forever, permanently stopping all refills for that node; the PR adds an explicit-failure path but doesn't close this silent-stall path.",
         "ce-code-review": "The `connection.use_keyspace(&keyspace_name).await` call has no timeout, so a node that accepts TCP but never answers USE leaves the future pending inside ready_connections forever, keeping is_filling() true indefinitely and preventing any further refill from being scheduled.",
-        "rafp-review": "Pre-existing, untouched by this PR: the '// TODO: There should be a timeout for this' on keyspace setup means a hung USE wedges is_filling() forever.",
         "superpowers-review": "The missing USE timeout at :1336 is a pre-existing TODO set aside as pre-existing/unrelated, though this PR enlarges its blast radius."
       }
     },
@@ -93,8 +87,6 @@
       "reportedBy": [
         "builtin-code-review",
         "ce-code-review",
-        "rafp-review",
-        "rafp-detailed",
         "superpowers-review",
         "tob-rust-review",
         "tob-diff-review",
@@ -103,8 +95,6 @@
       "reportedAs": {
         "builtin-code-review": "This branch drops an already-inc_total_connections()-counted Connection and retries on the regular port, leaving the one remaining hole in the decrement invariant the PR establishes elsewhere; under source-port-rewriting NAT the counter inflates without bound.",
         "ce-code-review": "In handle_ready_connection's shard-aware-port-miss branch, the connection is dropped without being stored anywhere, but inc_total_connections() was already called when it opened, so total_connections leaks upward on every shard-aware-port miss (e.g. behind NAT).",
-        "rafp-review": "In the shard-aware-port mismatch branch, a connection landing on the wrong shard is dropped and replaced via start_opening_connection(None), but unlike sibling drop sites the dec_total_connections() call is missing, so the total_connections gauge drifts permanently upward since Connection has no metrics-touching Drop.",
-        "rafp-detailed": "In the branch where evt.requested_shard.is_some(), the connection is dropped and start_opening_connection(None) is called with no dec_total_connections() call, the same imbalance class the PR fixes elsewhere but left out in this sibling branch; reproduced with the metric reading 2 where 1 is correct.",
         "superpowers-review": "A shard-aware connection landing on an already-full shard is dropped after inc_total_connections() charged it at :1051, with nothing decrementing it; reviewer reproduced the gauge drifting to 2 while the pool holds 1.",
         "tob-rust-review": "In the else-if arm for a requested shard, the owned connection is dropped without decrementing total_connections even though it was counted at open, permanently inflating the metric on every shard-aware connection landing on a full bucket.",
         "tob-diff-review": "The metrics-balancing commit fixes three of four discard sites, but the shard-mismatch drop at connection_pool.rs:994 still leaks.",
@@ -126,8 +116,6 @@
       "reportedBy": [
         "anthropic-pr-review",
         "builtin-code-review",
-        "rafp-detailed",
-        "rafp-review",
         "superpowers-review",
         "tob-rust-review",
         "tob-diff-review"
@@ -135,8 +123,6 @@
       "reportedAs": {
         "anthropic-pr-review": "The PR adds metric decrements at three clear sites but there is no impl Drop for PoolRefiller and no decrement when the refiller task exits (run() returning on keyspace-channel-closed), so dropping a pool (node removal or session shutdown) leaks the full total_connections count.",
         "builtin-code-review": "Tearing a pool down (node removed, session dropped) leaks the count of every connection still in conns/excess_connections; this is the same accounting class the PR is closing but is pre-existing/out of scope and not covered by the new tests.",
-        "rafp-detailed": "run() bare-returns when the use-keyspace channel closes (node removed or host-filtered); conns and excess_connections are dropped with no decrement and there is no impl Drop for PoolRefiller, so the session-scoped Metrics gauge stays inflated for the session's life.",
-        "rafp-review": "Pre-existing, untouched by this PR: run() returning on a dropped use-keyspace channel leaks the whole pool's count.",
         "superpowers-review": "Tearing a pool down leaks its whole count because there's no Drop on PoolRefiller; this is pre-existing and a test actually depends on this behavior.",
         "tob-rust-review": "When the keyspace-request channel closes and run() returns, PoolRefiller and all its Arc<Connection> entries are dropped with no decrement and no Drop impl, permanently inflating the gauge by the pool's size on every node removal or session drop.",
         "tob-diff-review": "Refiller teardown still leaks (the fourth discard site not fixed by the metrics-balancing commit), which the new test at line 2011 actually encodes."
@@ -157,15 +143,11 @@
       "reportedBy": [
         "anthropic-pr-review",
         "mattpocock-review",
-        "rafp-detailed",
-        "rafp-review",
         "superpowers-review"
       ],
       "reportedAs": {
         "anthropic-pr-review": "The removed code logged the keyspace-setting failure at warn!, but the new branch logs the same message at debug!, even though the consequence is now more severe (connection dropped, pool may go Broken).",
         "mattpocock-review": "The spec said the pool logs the error but still reports success; the warn! at this site was replaced with debug!, so operators lose the only signal at default log level.",
-        "rafp-detailed": "The diff replaces a warn! log for a failed keyspace USE with debug!, so when the pool still holds at least one connection a persistently failing USE produces no user-visible signal while the pool never fills and keeps opening/dropping connections.",
-        "rafp-review": "A failed USE on a new connection was logged at warn! but is now logged at debug!, only surfacing otherwise via update_shared_conns when the pool is empty and not filling.",
         "superpowers-review": "Old code warned while keeping the connection; new code debugs while discarding it, and with a non-empty pool update_shared_conns isn't called, so nothing surfaces the error at default levels and the pool silently stops growing."
       }
     },
@@ -338,14 +320,12 @@
       "scopeReason": "Both tests are added by this diff.",
       "reportedBy": [
         "mattpocock-review",
-        "rafp-review",
         "superpowers-review",
         "tob-rust-review",
         "anthropic-pr-review"
       ],
       "reportedAs": {
         "mattpocock-review": "Two new tests at :1474 and :1526 don't call setup_tracing(), violating CONTRIBUTING.md's 'Tracing in tests' rule that any new tests should call it too; every other test in the module including three metrics tests added on this branch does.",
-        "rafp-review": "Neither new test calls setup_tracing(), unlike every other test in that module, so CI failures come with no driver logs.",
         "superpowers-review": "The two keyspace tests at :1474 and :1526 skip setup_tracing(), unlike every other test in the module.",
         "tob-rust-review": "The two new tests (at :1474 and :1526) don't call setup_tracing() like every other test in the module, so their tracing output is lost on failure.",
         "anthropic-pr-review": "this is the only test in the module (along with keyspace_setup_failure_triggers_refill) that omits setup_tracing(), so its failures produce no log output."
@@ -364,12 +344,10 @@
       "scope": "in-scope",
       "scopeReason": "The test is added by this diff.",
       "reportedBy": [
-        "anthropic-pr-review",
-        "rafp-review"
+        "anthropic-pr-review"
       ],
       "reportedAs": {
-        "anthropic-pr-review": "The refiller is never run(); the test only asserts need_filling() on a static struct, verifying the predicate rather than that a refill is actually scheduled, so the test name overstates coverage.",
-        "rafp-review": "The test asserts refiller.need_filling(), but that was already true before the event was handled (empty pool, nothing in flight), so it doesn't demonstrate the 'schedules another refill' criterion; driving the event through PoolRefiller::run and observing a fresh connection attempt would."
+        "anthropic-pr-review": "The refiller is never run(); the test only asserts need_filling() on a static struct, verifying the predicate rather than that a refill is actually scheduled, so the test name overstates coverage."
       }
     },
     {
@@ -427,12 +405,10 @@
       "scope": "in-scope",
       "scopeReason": "The test is added by this diff.",
       "reportedBy": [
-        "anthropic-pr-review",
-        "rafp-detailed"
+        "anthropic-pr-review"
       ],
       "reportedAs": {
-        "anthropic-pr-review": "start_simulated_node(initial_shard_info) is immediately followed by change_request_rules that replaces SUPPORTED with a non-sharded response, so initial_shard_info has no effect and is misleading to a reader following the reshard sequence.",
-        "rafp-detailed": "The test builds initial_shard_info and passes it to start_simulated_node, then immediately overwrites the node's rules with an empty SUPPORTED map before any connection opens, so the value has no effect and misleadingly implies the first connection reports sharding when the test actually covers the no-shard-info case; mutating the value to arbitrary shard numbers still passes."
+        "anthropic-pr-review": "start_simulated_node(initial_shard_info) is immediately followed by change_request_rules that replaces SUPPORTED with a non-sharded response, so initial_shard_info has no effect and is misleading to a reader following the reshard sequence."
       }
     },
     {
@@ -490,12 +466,10 @@
       "scope": "in-scope",
       "scopeReason": "Both the decrement and its test are added by this diff.",
       "reportedBy": [
-        "ce-code-review",
-        "rafp-detailed"
+        "ce-code-review"
       ],
       "reportedAs": {
-        "ce-code-review": "The test reshards with an empty excess_connections, so a miscount in the excess half of the new decrement sum would pass undetected.",
-        "rafp-detailed": "The run recorded an open follow-up to cover the excess_connections term of the maybe_reshard decrement, implying it is not currently directly tested."
+        "ce-code-review": "The test reshards with an empty excess_connections, so a miscount in the excess half of the new decrement sum would pass undetected."
       }
     },
     {
@@ -790,25 +764,6 @@
       }
     },
     {
-      "id": "I37",
-      "title": "Broken intra-doc link to ClientRoutesConfig in session_builder",
-      "file": "scylla/src/client/session_builder.rs",
-      "line": 114,
-      "kind": "docs",
-      "severity": "nit",
-      "verdict": "real",
-      "verdictReason": "session_builder.rs:114 writes [`ClientRoutesConfig`] but the type is only referenced by its full path elsewhere in the file (`super::client_routes::ClientRoutesConfig` at :145), so it is not in scope for rustdoc resolution and emits an unresolved-link warning under --all-features.",
-      "introducedByPr": false,
-      "scope": "out-of-scope",
-      "scopeReason": "The file is not touched by this PR's diff at all.",
-      "reportedBy": [
-        "rafp-detailed"
-      ],
-      "reportedAs": {
-        "rafp-detailed": "The doc comment references [`ClientRoutesConfig`] which is not in scope (it lives in crate::client::client_routes), causing cargo doc --all-features to emit an unresolved-link warning; file is untouched by this PR."
-      }
-    },
-    {
       "id": "I38",
       "title": "Pointer logging via {:p} flagged as a security issue",
       "file": "scylla/src/network/connection_pool.rs",
@@ -842,13 +797,11 @@
       "reportedBy": [
         "builtin-code-review",
         "mattpocock-review",
-        "rafp-review",
         "superpowers-review"
       ],
       "reportedAs": {
         "builtin-code-review": "The many_connections test fails under cargo test, but it fails identically on main because the sandbox has no route to the simulated address, so the failure is environmental rather than a regression from this PR.",
         "mattpocock-review": "The many_connections test fails with ConnectTimeout, but the report verified it fails identically on main, so it is pre-existing and not caused by this PR.",
-        "rafp-review": "Pre-existing, untouched by this PR: tests::many_connections needs a real cluster at SCYLLA_URI.",
         "superpowers-review": "The many_connections failure needs a live SCYLLA_URI and was set aside as pre-existing/unrelated."
       }
     },
@@ -867,16 +820,12 @@
       "reportedBy": [
         "builtin-code-review",
         "mattpocock-review",
-        "rafp-detailed",
-        "rafp-review",
         "superpowers-review",
         "ce-code-review"
       ],
       "reportedAs": {
         "builtin-code-review": "Cleared connections are no longer findable by ptr_eq, so the decrement in remove_connection is skipped in that path, preventing double-counting with the new maybe_reshard decrement.",
         "mattpocock-review": "Report checked for double-decrements between maybe_reshard/excess-clear and remove_connection and found none: cleared connections either drop to refcount zero (Weak upgrade fails in wait_for_error) or survive only in shared_conns where maybe_remove_in_vec's ptr_eq scan no longer finds them.",
-        "rafp-detailed": "Suspected double-decrement between maybe_reshard and remove_connection was checked and ruled out because Arc::ptr_eq prevents it.",
-        "rafp-review": "A candidate finding of a double decrement in maybe_reshard/remove_connection was raised and withdrawn on re-reading; it is not a problem.",
         "superpowers-review": "remove_connection can't double-decrement because of Arc::ptr_eq against already-cleared vectors.",
         "ce-code-review": "The three new bulk-clear decrement sites were checked against remove_connection's own decrement for double-counting under connection death and no double- or missing-decrement path was found, but the interaction depends on Arc lifetimes in stale shared_conns snapshots that was not exhaustively traced."
       }
@@ -896,14 +845,12 @@
       "reportedBy": [
         "builtin-code-review",
         "mattpocock-review",
-        "rafp-detailed",
         "superpowers-review",
         "tob-rust-review"
       ],
       "reportedAs": {
         "builtin-code-review": "The enum is #[non_exhaustive] with no exhaustive matches in-tree, and size_of::<ConnectionError>() is unchanged at 112 bytes on both branches, staying under the result_large_err clippy threshold, so the new variant is safe.",
         "mattpocock-review": "Report checked whether adding the new public variant breaks semver and found ConnectionError is already #[non_exhaustive], so the addition is semver-minor, not a violation.",
-        "rafp-detailed": "Checked whether the new ConnectionError variant breaks callers; ruled out because the enum is #[non_exhaustive], there is no exhaustive in-crate match, and enum size is unchanged at 112 bytes.",
         "superpowers-review": "#[non_exhaustive] was already on ConnectionError, so the new variant is not a semver break.",
         "tob-rust-review": "ConnectionError is #[non_exhaustive], so the added variant is semver-minor, and #[from] UseKeyspaceError doesn't collide with existing impls."
       }

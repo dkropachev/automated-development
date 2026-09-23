@@ -1,7 +1,7 @@
 {
   "target": "ironweave",
   "language": "C++",
-  "rawFindings": 119,
+  "rawFindings": 98,
   "issues": [
     {
       "id": "I1",
@@ -16,11 +16,9 @@
       "scope": "in-scope",
       "scopeReason": "The PR adds this test; test.py's default --smp 2 makes it fail roughly 7% of runs.",
       "reportedBy": [
-        "rafp-detailed",
         "ce-code-review"
       ],
       "reportedAs": {
-        "rafp-detailed": "New regression test is flaky (~8% failure rate). The server fiber does sink.close() then drains source(); when stream_close() causes the reader to hit EOF, _stream_queue.abort() discards the queued eof marker and source() throws rpc::stream_closed, which escapes the test body uncaught (existing tests wrap this in check_exception). Measured 7/60 standalone failures and 2/12 whole-suite failures at --mode=dev -c2.",
         "ce-code-review": "Test's server-handler read loop may raise stream_closed during normal shutdown and escape server_done.get() (retained as residual risk only, with no demonstrated trigger)."
       }
     },
@@ -41,16 +39,14 @@
         "ce-code-review",
         "mattpocock-review",
         "superpowers-review",
-        "anthropic-pr-review",
-        "rafp-review"
+        "anthropic-pr-review"
       ],
       "reportedAs": {
         "builtin-code-review": "stream_close() now defers stop()/abort()/shutdown_input() behind outgoing-queue drain, allowing hangs. Previously write_buf.close() returned promptly even with a write in flight and the immediate stop() eventually caused stop_send_loop() to call shutdown_output() and break a stalled send.",
         "ce-code-review": "stream_close() gates stop()/abort() behind an unbounded queue drain. abort() is the only mechanism that can fail a stuck low-level write; if a frame is parked on peer backpressure, queue_drained never resolves and the connection's fd, buffers, and teardown state leak forever with no timeout or cancellation.",
         "mattpocock-review": "New outgoing-queue drain can gate/hang the abort path via sink.close(). A front entry stuck in send_entry() behind TCP backpressure from a live-but-not-reading peer can hang sink.close() with shutdown_output() sequestered behind it.",
         "superpowers-review": "The drain wait is unbounded; the comment would be more useful naming what breaks it (stop_send_loop's shutdown_output) rather than only who no longer waits. Not a regression.",
-        "anthropic-pr-review": "(self-rejected) Reviewer checked for a new deadlock from deferring write_buf.close() and found none: pre-PR the same socket flush already gated stop().",
-        "rafp-review": "(withdrawn) Candidate risk that stream_close() could hang waiting on the drained _outgoing_queue_ready before stop() runs."
+        "anthropic-pr-review": "(self-rejected) Reviewer checked for a new deadlock from deferring write_buf.close() and found none: pre-PR the same socket flush already gated stop()."
       }
     },
     {
@@ -69,7 +65,6 @@
         "anthropic-pr-review",
         "builtin-code-review",
         "ce-code-review",
-        "rafp-detailed",
         "superpowers-review",
         "tob-diff-review"
       ],
@@ -77,7 +72,6 @@
         "anthropic-pr-review": "Unguarded put(span) override breaks build below API level 9; the build breaks with three errors since the test doesn't use the existing #if SEASTAR_API_LEVEL >= 9 fallback pattern used elsewhere.",
         "builtin-code-review": "test_data_sink_impl fails to compile at SEASTAR_API_LEVEL 7/8; the class is abstract and the override refers to nothing, causing a hard compile error.",
         "ce-code-review": "test_data_sink_impl's put(std::span) override isn't guarded by SEASTAR_API_LEVEL, breaking the build at levels CMakeLists.txt still offers.",
-        "rafp-detailed": "test_data_sink_impl override breaks build at SEASTAR_API_LEVEL < 9; compiling with --api-level 8 fails with 'marked override, but does not override'; loopback_socket.hh already guards the equivalent method.",
         "superpowers-review": "put(std::span<temporary_buffer<char>>) override breaks builds at --api-level=7|8.",
         "tob-diff-review": "The override is unguarded but that member only exists under SEASTAR_API_LEVEL >= 9; below 9 this causes an override-of-nothing error and leaves the class abstract."
       }
@@ -98,7 +92,6 @@
         "anthropic-pr-review",
         "ce-code-review",
         "mattpocock-review",
-        "rafp-review",
         "superpowers-review",
         "tob-diff-review"
       ],
@@ -106,7 +99,6 @@
         "anthropic-pr-review": "try/catch around stream_send_empty_frame().get() asserts nothing in either branch, so if send() wrongly accepts the frame the test still passes; only a second-order check that depends on poller timing catches it.",
         "ce-code-review": "The refused send()'s closed_error is caught by a bare try/catch and discarded with nothing asserted, so the test's only real signal is an indirect timing-dependent check.",
         "mattpocock-review": "stream_send_empty_frame().get() is wrapped in a try with an empty catch(closed_error&), so nothing requires the throw; BOOST_REQUIRE_THROW would pin it properly.",
-        "rafp-review": "The new test calls the captured send_empty_frame hook inside a try/catch that silently swallows rpc::closed_error, so the PR's added contract is never actually asserted.",
         "superpowers-review": "The test never asserts the send was refused; catch (closed_error&) {} swallows the success case too.",
         "tob-diff-review": "The try/catch (const rpc::closed_error&) passes whether or not the frame is rejected; needs BOOST_REQUIRE_THROW or a BOOST_FAIL after the .get()."
       }
@@ -126,13 +118,11 @@
       "reportedBy": [
         "anthropic-pr-review",
         "ce-code-review",
-        "rafp-detailed",
         "tob-diff-review"
       ],
       "reportedAs": {
         "anthropic-pr-review": "Deleting lines 562-568 (the queue_drained handling) leaves the new regression test passing, so this riskier half of the fix, which changes what stop_send_loop() sees, is untested.",
         "ce-code-review": "The then_wrapped/ignore_ready_future() branch is never exercised because the new test only ever queues an eof marker that always succeeds; also no test drives _outgoing_queue_ready to be non-ready at the moment stream_close() runs, and no test covers stop_send_loop() running concurrently with a parked stream_close().",
-        "rafp-detailed": "The new test only exercises the case where close() is parked with an empty queue, so the drain logic is a no-op in that test; reverting just the drain leaves the whole suite green.",
         "tob-diff-review": "_outgoing_queue is empty when the test reaches stream_close() because sink_impl::close() awaits the eof-marker send() before calling close_sink(); reverting the std::exchange/then_wrapped hunk while keeping _stream_closing still leaves the new test green."
       }
     },
@@ -149,12 +139,10 @@
       "scope": "in-scope",
       "scopeReason": "The factory and its cross-shard use are added by this PR.",
       "reportedBy": [
-        "superpowers-review",
-        "rafp-detailed"
+        "superpowers-review"
       ],
       "reportedAs": {
-        "superpowers-review": "server_factory lives on shard 0 but loopback_socket_impl::connect round-robins server connections, so at default --smp 2 the stream connection's negotiate() runs const_cast<...>(this)->hooks.push_back(...) on shard 1 against a shard-0 vector — unsynchronized mutation with a buffer allocated by shard 1's allocator and freed by shard 0, which is UB that ASan/UBSan won't catch.",
-        "rafp-detailed": "The factory is shared across shards, and negotiate() const_casts and push_backs into it from both shard 0 and shard 1; no failure is observable today because server hooks are unused."
+        "superpowers-review": "server_factory lives on shard 0 but loopback_socket_impl::connect round-robins server connections, so at default --smp 2 the stream connection's negotiate() runs const_cast<...>(this)->hooks.push_back(...) on shard 1 against a shard-0 vector — unsynchronized mutation with a buffer allocated by shard 1's allocator and freed by shard 0, which is UB that ASan/UBSan won't catch."
       }
     },
     {
@@ -193,12 +181,10 @@
       "scope": "in-scope",
       "scopeReason": "The comment is new in this PR.",
       "reportedBy": [
-        "anthropic-pr-review",
-        "rafp-review"
+        "anthropic-pr-review"
       ],
       "reportedAs": {
-        "anthropic-pr-review": "The new comment claims _outgoing_queue_ready is exceptional if an entry failed, but entry failures are swallowed by send()'s continuation; the real causes are withdraw(it, ex) and _negotiated->set_exception() from a concurrent stop_send_loop().",
-        "rafp-review": "(left out of scope) The comment stating '_outgoing_queue_ready is exceptional if an entry failed' is inaccurate: a failed send_entry() calls abort() and then still calls p->done.set_value(), so entry failure resolves the chain normally."
+        "anthropic-pr-review": "The new comment claims _outgoing_queue_ready is exceptional if an entry failed, but entry failures are swallowed by send()'s continuation; the real causes are withdraw(it, ex) and _negotiated->set_exception() from a concurrent stop_send_loop()."
       }
     },
     {
@@ -297,13 +283,11 @@
       "scopeReason": "The PR widens this API's failure window and commit 3 documents sink/source but not this.",
       "reportedBy": [
         "anthropic-pr-review",
-        "superpowers-review",
-        "rafp-review"
+        "superpowers-review"
       ],
       "reportedAs": {
         "anthropic-pr-review": "The PR makes send_empty_frame newly fail with closed_error in a window where it previously succeeded, but the doc comment still only describes the old behavior and doesn't warn callers not to treat the failure as fatal.",
-        "superpowers-review": "Commit 3 documents sink and source but not send_empty_frame, the one API whose failure mode this PR widens.",
-        "rafp-review": "(withdrawn) Candidate finding that the send_empty_frame contract comment lacks a note that it may fail."
+        "superpowers-review": "Commit 3 documents sink and source but not send_empty_frame, the one API whose failure mode this PR widens."
       }
     },
     {
@@ -321,14 +305,12 @@
       "reportedBy": [
         "anthropic-pr-review",
         "ce-code-review",
-        "mattpocock-review",
-        "rafp-detailed"
+        "mattpocock-review"
       ],
       "reportedAs": {
         "anthropic-pr-review": "The new doxygen blocks sit on top of legacy comment lines, leaving two comment blocks per class (cosmetic only, doxygen still associates correctly).",
         "ce-code-review": "The new /// \\brief blocks on sink (:337-343) and source (:384-390) are stacked directly on top of the retained one-line comments, so each class carries two unsynced descriptions, unlike every other documented entity in the header.",
-        "mattpocock-review": "The new /// \\brief blocks (337-343, 384-389) are separated from class sink / class source by the legacy one-liner comments, which should be folded into the doxygen block.",
-        "rafp-detailed": "(rejected as a non-issue) The reviewer flagged the doxygen block placement in rpc_types.hh."
+        "mattpocock-review": "The new /// \\brief blocks (337-343, 384-389) are separated from class sink / class source by the legacy one-liner comments, which should be folded into the doxygen block."
       }
     },
     {
@@ -657,14 +639,12 @@
       "reportedBy": [
         "anthropic-pr-review",
         "mattpocock-review",
-        "superpowers-review",
-        "rafp-detailed"
+        "superpowers-review"
       ],
       "reportedAs": {
         "anthropic-pr-review": "All three commits carry Co-Authored-By: Claude trailers, and the PR body ends with the \"🤖 Generated with Claude Code\" line, both violating the attribution rule in effect for this repo.",
         "mattpocock-review": "Four Co-Authored-By: Claude trailers appear across the three commits (two on 69da8f5b) and the PR body ends with a 'Generated with Claude Code' line, violating the standing attribution rule.",
-        "superpowers-review": "All three commits carry Co-Authored-By: Claude trailers (4 lines across f545c28a, 5e25ebdb, 69da8f5b), and the PR body has the \"🤖 Generated with Claude Code\" line; both should be stripped.",
-        "rafp-detailed": "The PR description carries a '🤖 Generated with Claude Code' line, which the user's own global instructions say should never be added."
+        "superpowers-review": "All three commits carry Co-Authored-By: Claude trailers (4 lines across f545c28a, 5e25ebdb, 69da8f5b), and the PR body has the \"🤖 Generated with Claude Code\" line; both should be stripped."
       }
     },
     {
@@ -824,44 +804,6 @@
       }
     },
     {
-      "id": "I39",
-      "title": "Docs don't say a clean stream close can itself surface as a throw",
-      "file": "doc/rpc-streaming.md",
-      "line": 110,
-      "kind": "docs",
-      "severity": "low",
-      "verdict": "real",
-      "verdictReason": "The new section tells callers to read the source until eof 'or throws' but never says the clean close is frequently the thing that throws: src/rpc/rpc.cc:1285 runs _stream_queue.abort(stream_closed()) on the EOF that a normal peer-side stream_close() produces, discarding any unconsumed eof marker. That is exactly what makes the PR's own new test flaky (I1), so it is the normal case, not an edge case.",
-      "introducedByPr": true,
-      "scope": "in-scope",
-      "scopeReason": "Commit 3 writes this contract down and this is the part it leaves out.",
-      "reportedBy": [
-        "rafp-detailed"
-      ],
-      "reportedAs": {
-        "rafp-detailed": "The new 'Closing a stream' section tells callers to read until eof 'or throws' but never states that a clean close can itself be the thing that throws; a sentence should be added there and on rpc::source since this is now the normal case."
-      }
-    },
-    {
-      "id": "I40",
-      "title": "_stream_queue.abort() discards the received eof marker on a clean stream close",
-      "file": "src/rpc/rpc.cc",
-      "line": 1285,
-      "kind": "bug",
-      "severity": "low",
-      "verdict": "real",
-      "verdictReason": "src/rpc/rpc.cc:1284-1286 (and :1062-1064 on the client) abort the stream queue as soon as the read loop ends with _error set, which a clean peer close also produces, so a queued eof marker is dropped and source() raises rpc::stream_closed instead of returning an unengaged optional. Pre-dates the PR and is already worked around in apps/rpc_tester/rpc_tester.cc, but it is the root cause of I1.",
-      "introducedByPr": false,
-      "scope": "out-of-scope",
-      "scopeReason": "Pre-existing rpc behaviour untouched by this diff; the PR's obligation is to make its own test tolerate it.",
-      "reportedBy": [
-        "rafp-detailed"
-      ],
-      "reportedAs": {
-        "rafp-detailed": "A cleanly closed stream can surface as rpc::stream_closed rather than an unengaged optional; this pre-dates the PR and is already worked around in apps/rpc_tester/rpc_tester.cc, but it is the root cause of the flaky test finding."
-      }
-    },
-    {
       "id": "I41",
       "title": "shared_promise used without including <seastar/core/shared_future.hh>",
       "file": "tests/unit/rpc_test.cc",
@@ -1008,13 +950,11 @@
       "scopeReason": "The same unguarded dereference existed pre-PR on the same line and is not a defect either way.",
       "reportedBy": [
         "ce-code-review",
-        "mattpocock-review",
-        "rafp-detailed"
+        "mattpocock-review"
       ],
       "reportedAs": {
         "ce-code-review": "Line 569 dereferences _connected unguarded where stop_send_loop() guards the same call with _connected && at :231; no path disengaging _connected after set_socket() was found, but the call is now deferred behind a scheduling point and the asymmetry is unexplained.",
-        "mattpocock-review": "stop_send_loop guards the same call with _connected && (rpc.cc:231), but here it is unguarded and now runs after a suspension point; this unguardedness is pre-existing but newly deferred into a continuation.",
-        "rafp-detailed": "(rejected) The reviewer considered an unguarded _connected dereference in abort() but rejected it as pre-existing and an unreachable path."
+        "mattpocock-review": "stop_send_loop guards the same call with _connected && (rpc.cc:231), but here it is unguarded and now runs after a suspension point; this unguardedness is pre-existing but newly deferred into a continuation."
       }
     },
     {

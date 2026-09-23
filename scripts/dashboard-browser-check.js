@@ -47,9 +47,20 @@ try {
   assert.match(home.app, /Findings \/ price/)
   assert.match(home.app, /3\.02 \/ \$/)
   assert.match(home.app, /Completeness \/ price/)
-  assert.match(home.app, /2\.38 pts \/ \$/)
-  assert.equal(count(home.app, /class="skill-summary-card"/g), 9)
+  assert.match(home.app, /2\.56 pts \/ \$/)
+  assert.equal(count(home.app, /class="skill-summary-card"/g), 8)
   assert.match(home.app, /href="#skills\/superpowers-review"/)
+  assert.doesNotMatch(home.app, /review-bakeoff\.md/)
+  assert.match(home.app, /Best coverage · All issues/)
+  assert.match(home.app, /Anthropic pr-review-toolkit<\/a><\/h3><strong>55\.9%/)
+
+  const majorHome = render('home?completeness=major')
+  assert.match(majorHome.app, /Best coverage · Major only/)
+  assert.match(majorHome.app, /Compound Engineering ce-code-review<\/a><\/h3><strong>80\.0%/)
+
+  const majorMinorHome = render('home?completeness=majorMinor')
+  assert.match(majorMinorHome.app, /Best coverage · Major \+ minor/)
+  assert.equal(count(majorMinorHome.app, /<strong>66\.7%<\/strong>/g), 3)
 
   const choose = render('choose')
   for (const label of ['Candidate', 'Cost', 'Real / run', 'High + med', 'Precision', 'Completeness', 'Cost / real', 'Success']) {
@@ -83,15 +94,10 @@ try {
   assert.match(insights.app, /class="chart-link"[^>]*role="link"/)
 
   const skills = render('skills')
-  assert.equal(count(skills.app, /class="skill-card"/g), 9)
-  assert.equal(count(skills.app, />GitHub ↗<\/a>/g), 9)
-  assert.equal(count(skills.app, />Skill page ↗<\/a>/g), 9)
+  assert.equal(count(skills.app, /class="skill-card"/g), 8)
+  assert.equal(count(skills.app, />GitHub ↗<\/a>/g), 8)
+  assert.equal(count(skills.app, />Skill page ↗<\/a>/g), 8)
   assert.match(skills.app, /The benchmark ran these as Claude Code plugins\./)
-
-  const skill = render('skills/review-and-fix-pr')
-  assert.equal(count(skill.app, /class="skill-card"/g), 1)
-  assert.match(skill.app, /automated-development review-and-fix-pr/)
-  assert.match(skill.app, /← View all tested skills/)
 
   const skillComparison = render('compare?compareSkills=builtin-code-review%2Csuperpowers-review')
   for (const label of ['Attempted cost', 'Distinct real', 'Only this skill', 'Shared', 'Completeness', 'Precision', 'Success']) {

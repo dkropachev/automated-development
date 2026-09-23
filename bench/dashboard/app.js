@@ -198,7 +198,6 @@
             navLink('Insights', 'insights'),
             navLink('Findings', 'findings'),
             navLink('Runs', 'runs'),
-            el('a', { href: './review-bakeoff.md' }, 'Report'),
           ),
         ),
         el('main', { id: 'main' }, content),
@@ -216,7 +215,7 @@
     const parts = path.split('/').map(decodeURIComponent)
     const params = new URLSearchParams(query)
     activeView = parts[0] === 'overview' ? 'runs' : parts[0]
-    if (activeView === 'home') renderLanding()
+    if (activeView === 'home') renderLanding(params)
     else if (parts[0] === 'run' && parts.length >= 3) renderRun(`${parts[1]}/${parts[2]}`)
     else if (parts[0] === 'compare' && parts.length >= 5) renderComparison(`${parts[1]}/${parts[2]}`, `${parts[3]}/${parts[4]}`)
     else if (activeView === 'choose') renderChoose(params)
@@ -392,13 +391,23 @@
     const high = real.filter((row) => row.issue.severity === 'high').length
     const medium = real.filter((row) => row.issue.severity === 'medium').length
     const targetIds = [...new Set(rows.map((run) => run.targetId))]
-    const universe = new Set()
+    const universe = new Map()
     for (const run of universeRows.filter((item) => ['complete', 'salvaged'].includes(item.status) && targetIds.includes(item.targetId))) {
-      for (const issue of run.issues) if (issue.verdict === 'real') universe.add(issueKey(run.targetId, issue))
+      for (const issue of run.issues) if (issue.verdict === 'real') universe.set(issueKey(run.targetId, issue), issue)
     }
     const cost = total(rows, (run) => run.usage.costUsd)
     const decided = real.length + falsePositive.length
     const weightedQuality = high * 8 + medium * 4 + real.filter((row) => row.issue.severity === 'low').length - falsePositive.length * 3
+    const completenessFor = (severities) => {
+      const found = real.filter((row) => severities.includes(row.issue.severity)).length
+      const possible = [...universe.values()].filter((issue) => severities.includes(issue.severity)).length
+      return { found, possible, value: possible ? found / possible : null }
+    }
+    const completenessBreakdown = {
+      all: completenessFor(['high', 'medium', 'low', 'nit']),
+      major: completenessFor(['high']),
+      majorMinor: completenessFor(['high', 'medium']),
+    }
     return {
       id, label, dimension, rows, usable, issueRows, realRows: real, targetIds,
       attempts: rows.length,
@@ -413,6 +422,7 @@
       precision: decided ? real.length / decided : null,
       falsePositive: falsePositive.length,
       completeness: universe.size ? real.length / universe.size : null,
+      completenessBreakdown,
       costPerReal: cost > 0 && real.length ? cost / real.length : null,
       realPerDollar: cost > 0 ? real.length / cost : null,
       completenessPerDollar: cost > 0 && universe.size ? (real.length / universe.size) * 100 / cost : null,
@@ -482,12 +492,30 @@
     )
   }
 
-  function renderLanding() {
+  function completenessRankCard(group, rank, scope) {
+    const score = group.completenessBreakdown[scope]
+    return el('article', { class: 'rank-card' },
+      el('div', { class: 'rank-number' }, `#${rank}`),
+      el('h3', {}, hashLink(group.label, skillHash(group.id))),
+      el('strong', {}, fmt(score.value, 'percent')),
+      el('p', {}, `${score.found} of ${score.possible} verified issues · ${group.coverage} target${group.coverage === 1 ? '' : 's'}`),
+    )
+  }
+
+  function renderLanding(params) {
     const groups = groupedStats(DATA.runs, 'skill', DATA.runs).filter((group) => group.cost > 0)
     const findingsLeader = [...groups].sort((a, b) => (b.realPerDollar ?? -1) - (a.realPerDollar ?? -1))[0]
     const completenessLeader = [...groups].sort((a, b) => (b.completenessPerDollar ?? -1) - (a.completenessPerDollar ?? -1))[0]
     const verifiedReal = new Set(DATA.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(issue.targetId, issue)))
     const catalogue = skillCatalogue()
+    const requestedScope = params.get('completeness') || 'all'
+    const completenessScope = ['all', 'major', 'majorMinor'].includes(requestedScope) ? requestedScope : 'all'
+    const scopeLabels = { all: 'All issues', major: 'Major only', majorMinor: 'Major + minor' }
+    const completenessGroups = [...groups]
+      .filter((group) => group.completenessBreakdown[completenessScope].value != null)
+      .sort((a, b) => b.completenessBreakdown[completenessScope].value - a.completenessBreakdown[completenessScope].value || a.label.localeCompare(b.label))
+      .slice(0, 3)
+    const completenessPicker = field('Count', select('completeness-scope', Object.entries(scopeLabels), completenessScope, (event) => viewParams(params, { completeness: event.target.value === 'all' ? '' : event.target.value })), 'landing-picker')
     frame(el('div', {},
       el('section', { class: 'landing-hero hero' },
         el('div', {},
@@ -496,7 +524,6 @@
           el('p', {}, 'We ran Claude Code review skills on real Go, Rust, and C++ pull requests. Every finding was merged, checked against the code, and compared with the recorded cost.'),
           el('div', { class: 'hero-actions' },
             hashLink('Explore the leaderboard', '#choose', 'button-link primary'),
-            el('a', { class: 'button-link', href: './review-bakeoff.md' }, 'Read the full report'),
           ),
         ),
         el('div', { class: 'landing-proof', 'aria-label': 'Benchmark size' },
@@ -512,6 +539,13 @@
           leaderCard('Completeness / price', completenessLeader, `${completenessLeader.completenessPerDollar.toFixed(2)} pts / $`, `${fmt(completenessLeader.completeness, 'percent')} of all verified findings for ${fmt(completenessLeader.cost, 'money')}.`),
         ),
         el('p', { class: 'method-note' }, 'Completeness means the share of distinct verified findings found on the targets a skill reviewed. This is a small benchmark: three pull requests, one per language.'),
+      ),
+      el('section', { class: 'landing-section', 'aria-labelledby': 'completeness-title' },
+        el('div', { class: 'landing-section-head' },
+          el('div', {}, el('div', { class: 'eyebrow' }, 'Completeness leaders'), el('h2', { id: 'completeness-title' }, `Best coverage · ${scopeLabels[completenessScope]}`), el('p', {}, 'Major means high severity. Major + minor includes high and medium severity.')),
+          completenessPicker,
+        ),
+        el('div', { class: 'completeness-grid' }, completenessGroups.map((group, index) => completenessRankCard(group, index + 1, completenessScope))),
       ),
       el('section', { class: 'landing-section', 'aria-labelledby': 'skills-title' },
         el('div', { class: 'landing-section-head' },
@@ -671,14 +705,12 @@
 
   function skillCard(skill) {
     const languages = [...new Set(skill.rows.map((run) => targets.get(run.targetId)?.language).filter(Boolean))]
-    const variants = skill.tools.length > 1 ? skill.tools.map((tool) => tool.label.replace(/^review-and-fix-pr\s*/i, '').replace(/^\(|\)$/g, '')).join(' · ') : null
     return el('article', { class: 'skill-card', id: `skill-${skill.id}` },
       el('div', { class: 'skill-card-head' },
         el('div', {}, el('h2', {}, skill.label), el('span', { class: 'subline' }, hintedLabel(skill.source, 'Plugin package or built-in source identifier recorded by the benchmark.'), ` · ${languages.join(', ') || 'all benchmark languages'}`)),
         skill.parked ? badge('parked', 'dnf') : null,
       ),
       el('p', {}, skill.description || 'No description is recorded for this tested skill.'),
-      variants ? el('p', { class: 'skill-variants' }, el('strong', {}, 'Tested variants: '), variants) : null,
       skill.parkedReason ? el('div', { class: 'notice' }, skill.parkedReason) : null,
       el('dl', { class: 'skill-usage' },
         el('div', {}, el('dt', {}, 'Get it'), el('dd', {}, skill.install ? el('code', {}, skill.install) : 'See the project page for installation instructions.')),
