@@ -4,6 +4,10 @@ A Claude Code plugin of development skills that learn a repository's own convent
 act on it. Three drafting skills — a PR description, an issue, a commit message — sharing one
 driver, plus a PR review-and-fix pipeline; the layout expects more.
 
+The [`Review Bench`](docs/index.html) compares installed review skills by verified quality, cost,
+model stack, language, and target. It includes focused choose, compare, findings, insights, and
+raw-run views and is published to GitHub Pages from `main`.
+
 ## Install
 
 ```
@@ -231,7 +235,7 @@ Makefile                 the entry point for CI, release and evals; every target
 scripts/                 check-consistency, syntax-check, eval-parse, eval, bump-version, release
 evals/                   `claude plugin eval` cases: a scaffolded repo, deterministic graders, one LLM grader
 test/                    node --test: lib unit tests and end-to-end driver tests
-.github/workflows/       ci (test, lint, validate), release (manual), eval (manual + weekly)
+.github/workflows/       ci (test, lint, validate), pages (main), release (manual), eval (manual + weekly)
 ```
 
 ## Development
@@ -256,6 +260,7 @@ not load, or when the version in `plugin.json` and `package.json` disagree.
 | workflow | when | what |
 |---|---|---|
 | `ci` | every PR and push to main | `test` on Node 20 and 22, `lint` (ESLint + `node --check`), `validate` (consistency script, `claude plugin validate`, eval suite parses) |
+| `pages` | every push to main, or manual | regenerates and verifies the self-contained review benchmark, then publishes `docs/` to GitHub Pages |
 | `release` | manual, `workflow_dispatch` with `bump` = patch, minor, major or X.Y.Z | bumps the version everywhere, runs the full suite, commits to main, tags `vX.Y.Z`, publishes a GitHub Release with generated notes |
 | `eval` | manual, or Mondays 06:17 UTC | runs `evals/` with real model calls under a $5 ceiling; skips itself with a notice when the `CLAUDE_CODE_OAUTH_TOKEN` secret is absent |
 

@@ -4,8 +4,10 @@ Ten review tools and three real pull requests in three languages, published as a
 offline dashboard:
 
 - [`docs/review-bakeoff.md`](../docs/review-bakeoff.md) is the narrative report.
-- [`docs/run-explorer.html`](../docs/run-explorer.html) is a self-contained run explorer. Open it
-  directly from disk; it has no server, framework, CDN, or network dependency.
+- [`docs/index.html`](../docs/index.html) is a self-contained skill-selection workbench. It separates
+  choosing, comparing, broad insights, findings, and raw-run inspection into focused views. Open it
+  directly from disk; it has no server, framework, CDN, or network dependency. The legacy
+  `docs/run-explorer.html` path contains the same export.
 
 Every stage is a Node script behind a Makefile target, and every stage is resumable - a stage that
 is interrupted, or a run the account's usage limit kills, is picked up on the next pass instead of
@@ -75,9 +77,14 @@ positive)`, excluding unproven). Efficiency views show real findings per dollar 
 real finding. A zero denominator is shown as N/A. Upstream review comments are context only and
 never affect these measures.
 
-Overview defaults to useful runs: complete or salvaged, at least one real finding, known token use,
-and no more than 25 million tokens. This hides failed, fruitless, and unusually token-heavy runs
-from the initial comparison without erasing them; choose **All runs** to audit every stored cell.
+The run explorer shows every run by default. Its optional **Useful only** filter retains the old
+view: complete or salvaged, at least one real finding, known token use, and no more than 25 million
+tokens. Decision aggregates include successful zero-yield runs and display reliability separately.
+
+The focused views share URL-persisted multi-select filters for skills, exact model stacks,
+languages, and targets. **Choose** ranks configurable groupings, **Compare** evaluates two to five
+skills on their common target cohort, **Insights** combines the economic and robustness charts,
+**Findings** browses distinct judged issue IDs, and **Runs** audits the raw benchmark cells.
 
 Skill economics group runs by skill plus exact model mix. Multi-model runs remain one group because
 the artifacts attribute findings to the run, not to an individual model. The analysis shows
@@ -88,10 +95,10 @@ skill; false-positive rate is `false / (real + false)`, excluding unproven issue
 shows cost versus completeness, and target robustness shows min/median/max completeness or
 findings-per-dollar across eligible targets.
 
-Analysis charts include every complete or salvaged run with at least one real finding, including
-token-heavy runs hidden by the overview table's default 25-million-token ceiling. Target, tool, and
-search filters still narrow chart inputs.
+Analysis charts include every complete or salvaged run with recorded cost, including zero-yield and
+token-heavy runs. Skill, model-stack, language, and target filters narrow chart inputs.
 
-`docs/run-explorer.html` is committed so it works from a checkout or static docs host. After any
-benchmark artifact changes, run `make bench-dashboard`; the test suite fails if the tracked export
-has drifted.
+`docs/index.html` and `docs/run-explorer.html` are committed so the dashboard works from a checkout
+or static docs host. After any benchmark artifact changes, run `make bench-dashboard`; the test
+suite fails if either tracked export has drifted. A GitHub Actions workflow regenerates, verifies,
+and publishes `docs/` to GitHub Pages on pushes to `main`.

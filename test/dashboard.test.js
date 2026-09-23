@@ -149,6 +149,7 @@ test('HTML export is deterministic, self-contained, and script-data safe', () =>
   assert.equal(first, second)
   assert.match(first, /^<!doctype html>/)
   assert.match(first, /id="dashboard-data" type="application\/json"/)
+  for (const view of ['Choose', 'Compare', 'Insights', 'Findings', 'Runs']) assert.match(first, new RegExp(`navLink\\('${view}'`))
   assert.doesNotMatch(first, /<script\s+[^>]*src=/i)
   assert.doesNotMatch(first, /<link\s+[^>]*href=/i)
   assert.doesNotMatch(first, /\bfetch\s*\(|XMLHttpRequest|new\s+WebSocket/i)
@@ -158,6 +159,9 @@ test('HTML export is deterministic, self-contained, and script-data safe', () =>
 })
 
 test('tracked dashboard exactly matches a fresh export', () => {
+  const index = fs.readFileSync(path.join(ROOT, 'docs', 'index.html'), 'utf8')
   const tracked = fs.readFileSync(path.join(ROOT, 'docs', 'run-explorer.html'), 'utf8')
-  assert.equal(tracked, dashboard.render(dashboard.loadArtifacts()), 'run make bench-dashboard after changing benchmark artifacts or dashboard assets')
+  const fresh = dashboard.render(dashboard.loadArtifacts())
+  assert.equal(index, fresh, 'run make bench-dashboard after changing benchmark artifacts or dashboard assets')
+  assert.equal(tracked, fresh, 'the backwards-compatible run-explorer URL must match the Pages entry point')
 })

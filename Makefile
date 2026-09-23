@@ -59,7 +59,8 @@ bench-report: ## render docs/review-bakeoff.md from what is on disk
 	$(NODE) bench/report.js > docs/review-bakeoff.md
 	@echo docs/review-bakeoff.md
 
-bench-dashboard: ## render the offline docs/run-explorer.html dashboard
+bench-dashboard: ## render the offline dashboard and GitHub Pages entry point
 	@mkdir -p docs
-	$(NODE) bench/dashboard.js > docs/run-explorer.html
-	@echo docs/run-explorer.html
+	$(NODE) bench/dashboard.js > docs/index.html
+	cp docs/index.html docs/run-explorer.html
+	@echo docs/index.html

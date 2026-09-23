@@ -7,8 +7,12 @@
   for (const run of DATA.runs) run.issues = run.issueIds.map((id) => issues.get(`${run.targetId}/${id}`)).filter(Boolean)
   const runs = new Map(DATA.runs.map((run) => [run.id, run]))
   const targets = new Map(DATA.targets.map((target) => [target.id, target]))
+  const tools = new Map(DATA.tools.map((tool) => [tool.id, tool]))
+  const modelNames = [...new Set(DATA.runs.flatMap((run) => Object.keys(run.usage.models || {})))].sort()
+  const languages = [...new Set(DATA.targets.map((target) => target.language))].sort()
   const targetColors = ['#67e8c1', '#77a7ff', '#f4bf62', '#dd8cff', '#fb7185']
   const svgNs = 'http://www.w3.org/2000/svg'
+  let activeView = 'choose'
 
   const el = (tag, attrs = {}, ...children) => {
     const node = document.createElement(tag)
@@ -73,13 +77,18 @@
   }
 
   function frame(content) {
+    const navLink = (label, view) => hashLink(label, `#${view}`, activeView === view ? 'active' : '')
     app.replaceChildren(
       el('div', { class: 'shell' },
         el('header', { class: 'topbar' },
-          hashLink('', '#overview', 'brand'),
+          hashLink('', '#choose', 'brand'),
           el('nav', { class: 'header-actions', 'aria-label': 'Dashboard navigation' },
-            hashLink('Overview', '#overview'),
-            el('a', { href: './review-bakeoff.md' }, 'Benchmark report'),
+            navLink('Choose', 'choose'),
+            navLink('Compare', 'compare'),
+            navLink('Insights', 'insights'),
+            navLink('Findings', 'findings'),
+            navLink('Runs', 'runs'),
+            el('a', { href: './review-bakeoff.md' }, 'Report'),
           ),
         ),
         el('main', { id: 'main' }, content),
@@ -88,16 +97,22 @@
     )
     const brand = document.querySelector('.brand')
     brand.append(el('span', { class: 'brand-mark', 'aria-hidden': 'true' }, 'RX'))
-    brand.append(el('span', {}, el('strong', {}, 'Run Explorer'), el('small', {}, 'Review-tool benchmark')))
+    brand.append(el('span', {}, el('strong', {}, 'Review Bench'), el('small', {}, 'Skill selection workbench')))
   }
 
   function route() {
-    const raw = location.hash.slice(1) || 'overview'
+    const raw = location.hash.slice(1) || 'choose'
     const [path, query = ''] = raw.split('?')
     const parts = path.split('/').map(decodeURIComponent)
+    const params = new URLSearchParams(query)
+    activeView = parts[0] === 'overview' ? 'runs' : parts[0]
     if (parts[0] === 'run' && parts.length >= 3) renderRun(`${parts[1]}/${parts[2]}`)
     else if (parts[0] === 'compare' && parts.length >= 5) renderComparison(`${parts[1]}/${parts[2]}`, `${parts[3]}/${parts[4]}`)
-    else renderOverview(new URLSearchParams(query))
+    else if (activeView === 'choose') renderChoose(params)
+    else if (activeView === 'compare') renderSkillCompare(params)
+    else if (activeView === 'insights') renderInsights(params)
+    else if (activeView === 'findings') renderFindings(params)
+    else renderOverview(params)
     window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
@@ -113,27 +128,82 @@
     return el('div', { class: 'kpi' }, el('span', {}, label), el('strong', {}, value), note ? el('small', {}, note) : null)
   }
 
-  function overviewParams(params, patch) {
+  function viewParams(params, patch, view = activeView) {
     const next = new URLSearchParams(params)
     for (const [key, value] of Object.entries(patch)) {
       if (value == null || value === '') next.delete(key)
       else next.set(key, value)
     }
-    location.hash = 'overview' + (next.toString() ? '?' + next.toString() : '')
+    location.hash = view + (next.toString() ? '?' + next.toString() : '')
+  }
+
+  const overviewParams = viewParams
+
+  function values(params, key) {
+    return (params.get(key) || '').split(',').map((value) => value.trim()).filter(Boolean)
+  }
+
+  function patchValues(params, key, value, checked) {
+    const current = new Set(values(params, key))
+    if (checked) current.add(value)
+    else current.delete(value)
+    viewParams(params, { [key]: [...current].join(',') })
+  }
+
+  function checklist(label, key, choices, params) {
+    const selected = new Set(values(params, key))
+    const summary = selected.size ? `${label} · ${selected.size}` : `${label} · All`
+    return el('details', { class: 'filter-menu' },
+      el('summary', {}, summary),
+      el('div', { class: 'filter-popover' },
+        choices.map(([value, text]) => {
+          const id = `filter-${key}-${String(value).replace(/[^a-z0-9]+/gi, '-')}`
+          const box = el('input', { id, type: 'checkbox', checked: selected.has(value), onchange: (event) => patchValues(params, key, value, event.target.checked) })
+          return el('label', { for: id }, box, el('span', {}, text))
+        }),
+      ),
+    )
+  }
+
+  function filterBar(params, { search = false, status = false, skills = true } = {}) {
+    const bar = el('section', { class: 'filter-bar', 'aria-label': 'Benchmark filters' })
+    if (skills) bar.append(checklist('Skills', 'skills', DATA.tools.filter((tool) => DATA.runs.some((run) => run.toolId === tool.id)).map((tool) => [tool.id, tool.label]), params))
+    bar.append(
+      checklist('Models', 'models', modelNames.map((model) => [model, model]), params),
+      checklist('Languages', 'languages', languages.map((language) => [language, language]), params),
+      checklist('Targets', 'targets', DATA.targets.map((target) => [target.id, `${target.id} · ${target.language}`]), params),
+    )
+    if (status) bar.append(field('Runs', select('status-filter', [['all', 'All runs'], ['recommended', 'Useful only'], ['complete', 'Complete'], ['salvaged', 'Salvaged'], ['failed', 'Failed'], ['dnf', 'DNF']], params.get('status') || 'all', (event) => viewParams(params, { status: event.target.value === 'all' ? '' : event.target.value }))))
+    if (search) {
+      const input = el('input', { id: 'run-search', type: 'search', value: params.get('q') || '', placeholder: 'Search…', onchange: (event) => viewParams(params, { q: event.target.value.trim() }) })
+      bar.append(field('Search', input, 'search'))
+    }
+    const hasFilters = ['skills', 'models', 'languages', 'targets', 'q', 'status'].some((key) => params.has(key))
+    if (hasFilters) bar.append(el('button', { class: 'clear-filters', onclick: () => {
+      const next = new URLSearchParams(params)
+      for (const key of ['skills', 'models', 'languages', 'targets', 'q', 'status']) next.delete(key)
+      location.hash = activeView + (next.toString() ? '?' + next.toString() : '')
+    } }, 'Clear filters'))
+    return bar
   }
 
   function matchesOverviewDimensions(run, params) {
-    const target = params.get('target') || 'all'
-    const tool = params.get('tool') || 'all'
+    const selectedTargets = values(params, 'targets')
+    const selectedTools = values(params, 'skills')
+    const selectedModels = values(params, 'models')
+    const selectedLanguages = values(params, 'languages')
+    const target = targets.get(run.targetId)
     const q = (params.get('q') || '').toLowerCase()
-    if (target !== 'all' && run.targetId !== target) return false
-    if (tool !== 'all' && run.toolId !== tool) return false
-    if (q && !`${run.targetId} ${run.toolId} ${run.toolLabel} ${run.toolSource || ''}`.toLowerCase().includes(q)) return false
+    if (selectedTargets.length && !selectedTargets.includes(run.targetId)) return false
+    if (selectedTools.length && !selectedTools.includes(run.toolId)) return false
+    if (selectedLanguages.length && (!target || !selectedLanguages.includes(target.language))) return false
+    if (selectedModels.length && !Object.keys(run.usage.models || {}).some((model) => selectedModels.includes(model))) return false
+    if (q && !`${run.targetId} ${target ? target.language : ''} ${run.toolId} ${run.toolLabel} ${run.toolSource || ''} ${Object.keys(run.usage.models || {}).join(' ')}`.toLowerCase().includes(q)) return false
     return true
   }
 
   function filteredRuns(params) {
-    const status = params.get('status') || 'recommended'
+    const status = params.get('status') || 'all'
     return DATA.runs.filter((run) => {
       if (!matchesOverviewDimensions(run, params)) return false
       if (status === 'recommended' && !(['complete', 'salvaged'].includes(run.status) && run.metrics.real > 0 && run.usage.total != null && run.usage.total <= DATA.defaultTokenLimit)) return false
@@ -165,40 +235,286 @@
     })
   }
 
+  function median(items) {
+    const ordered = items.filter((value) => value != null && Number.isFinite(value)).sort((a, b) => a - b)
+    if (!ordered.length) return null
+    const middle = Math.floor(ordered.length / 2)
+    return ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2
+  }
+
+  function modelStack(run) {
+    const names = Object.keys(run.usage.models || {}).sort()
+    return names.length ? names.join(' + ') : 'Model unavailable'
+  }
+
+  function aggregateRuns(id, label, dimension, rows, universeRows) {
+    const usable = rows.filter((run) => ['complete', 'salvaged'].includes(run.status))
+    const issueRows = new Map()
+    for (const run of usable) for (const issue of run.issues) issueRows.set(issueKey(run.targetId, issue), { issue, targetId: run.targetId })
+    const distinct = [...issueRows.values()]
+    const real = distinct.filter((row) => row.issue.verdict === 'real')
+    const inScope = real.filter((row) => row.issue.scope === 'in-scope')
+    const falsePositive = distinct.filter((row) => row.issue.verdict === 'false-positive')
+    const high = real.filter((row) => row.issue.severity === 'high').length
+    const medium = real.filter((row) => row.issue.severity === 'medium').length
+    const targetIds = [...new Set(rows.map((run) => run.targetId))]
+    const universe = new Set()
+    for (const run of universeRows.filter((item) => ['complete', 'salvaged'].includes(item.status) && targetIds.includes(item.targetId))) {
+      for (const issue of run.issues) if (issue.verdict === 'real') universe.add(issueKey(run.targetId, issue))
+    }
+    const cost = total(rows, (run) => run.usage.costUsd)
+    const decided = real.length + falsePositive.length
+    const weightedQuality = high * 8 + medium * 4 + real.filter((row) => row.issue.severity === 'low').length - falsePositive.length * 3
+    return {
+      id, label, dimension, rows, usable, issueRows, realRows: real, targetIds,
+      attempts: rows.length,
+      successRate: rows.length ? usable.length / rows.length : null,
+      coverage: targetIds.length,
+      cost,
+      medianCost: median(rows.map((run) => run.usage.costUsd)),
+      real: real.length,
+      realPerRun: usable.length ? real.length / usable.length : null,
+      inScope: inScope.length,
+      highMedium: high + medium,
+      precision: decided ? real.length / decided : null,
+      falsePositive: falsePositive.length,
+      completeness: universe.size ? real.length / universe.size : null,
+      costPerReal: cost > 0 && real.length ? cost / real.length : null,
+      realPerDollar: cost > 0 ? real.length / cost : null,
+      qualityPerDollar: cost > 0 ? Math.max(0, weightedQuality) / cost : null,
+      languages: [...new Set(rows.map((run) => targets.get(run.targetId)?.language).filter(Boolean))],
+      modelStacks: [...new Set(rows.map(modelStack))],
+      skillIds: [...new Set(rows.map((run) => run.toolId))],
+    }
+  }
+
+  function groupedStats(rows, groupBy, universeRows = rows) {
+    const grouped = new Map()
+    const add = (id, label, dimension, run) => {
+      if (!grouped.has(id)) grouped.set(id, { id, label, dimension, rows: [] })
+      grouped.get(id).rows.push(run)
+    }
+    for (const run of rows) {
+      const target = targets.get(run.targetId)
+      if (groupBy === 'model') add(modelStack(run), modelStack(run), 'Model stack', run)
+      else if (groupBy === 'language') add(target?.language || 'Unknown', target?.language || 'Unknown', 'Language', run)
+      else if (groupBy === 'skillModel') add(`${run.toolId}::${modelStack(run)}`, `${run.toolLabel} · ${modelStack(run)}`, 'Skill + model stack', run)
+      else add(run.toolId, run.toolLabel, 'Skill', run)
+    }
+    return [...grouped.values()].map((group) => aggregateRuns(group.id, group.label, group.dimension, group.rows, universeRows))
+  }
+
+  const decisionSorts = {
+    value: [(group) => group.qualityPerDollar, -1],
+    quality: [(group) => group.completeness, -1],
+    precision: [(group) => group.precision, -1],
+    reliability: [(group) => group.successRate, -1],
+    cost: [(group) => group.medianCost, 1],
+  }
+
+  function orderGroups(groups, key) {
+    const [getter, direction] = decisionSorts[key] || decisionSorts.value
+    return [...groups].sort((a, b) => {
+      const av = getter(a), bv = getter(b)
+      if (av == null && bv == null) return a.label.localeCompare(b.label)
+      if (av == null) return 1
+      if (bv == null) return -1
+      return direction * (av - bv) || a.label.localeCompare(b.label)
+    })
+  }
+
+  function compactHero(eyebrow, title, text) {
+    return el('section', { class: 'hero compact-hero' }, el('div', { class: 'eyebrow' }, eyebrow), el('h1', {}, title), el('p', {}, text))
+  }
+
+  function selectionFrom(params) { return values(params, 'compareSkills').filter((id) => tools.has(id)).slice(0, 5) }
+
+  function setComparison(params, toolId, checked) {
+    const selected = new Set(selectionFrom(params))
+    if (checked && selected.size < 5) selected.add(toolId)
+    else if (!checked) selected.delete(toolId)
+    viewParams(params, { compareSkills: [...selected].join(',') })
+  }
+
+  function comparisonTray(selected, params) {
+    if (!selected.length) return null
+    const next = new URLSearchParams(params)
+    next.set('compareSkills', selected.join(','))
+    return el('aside', { class: 'compare-dock', 'aria-live': 'polite' },
+      el('div', {}, el('strong', {}, `${selected.length}/5 skills selected`), el('span', { class: 'subline' }, selected.map((id) => tools.get(id)?.label || id).join(' · '))),
+      el('div', {}, el('button', { onclick: () => viewParams(params, { compareSkills: '' }) }, 'Clear'), ' ', hashLink('Compare skills', `#compare?${next.toString()}`, 'button-link primary')),
+    )
+  }
+
+  function leaderboard(groups, params, groupBy) {
+    const selected = selectionFrom(params)
+    const body = el('tbody')
+    for (const [index, group] of groups.entries()) {
+      const selectable = groupBy === 'skill'
+      const checked = selectable && selected.includes(group.id)
+      const box = selectable ? el('input', { type: 'checkbox', checked, disabled: !checked && selected.length >= 5, 'aria-label': `Compare ${group.label}`, onchange: (event) => setComparison(params, group.id, event.target.checked) }) : el('span', { class: 'muted' }, '—')
+      body.append(el('tr', {},
+        el('td', {}, box),
+        el('td', {}, el('strong', {}, `${index + 1}. ${group.label}`), el('span', { class: 'subline' }, `${group.dimension} · ${group.coverage} target${group.coverage === 1 ? '' : 's'} · ${group.attempts} run${group.attempts === 1 ? '' : 's'}`), group.coverage < 2 ? badge('low evidence', 'unproven') : null),
+        el('td', { class: 'num' }, fmt(group.medianCost, 'money'), el('span', { class: 'subline' }, 'median / run')),
+        el('td', { class: 'num' }, fmt(group.realPerRun)),
+        el('td', { class: 'num' }, fmt(group.highMedium)),
+        el('td', { class: 'num' }, fmt(group.precision, 'percent')),
+        el('td', { class: 'num' }, fmt(group.completeness, 'percent')),
+        el('td', { class: 'num' }, fmt(group.costPerReal, 'money')),
+        el('td', { class: 'num' }, fmt(group.successRate, 'percent')),
+      ))
+    }
+    const table = el('table', {}, el('thead', {}, el('tr', {}, el('th', {}, 'Compare'), el('th', {}, 'Candidate'), el('th', { class: 'num' }, 'Cost'), el('th', { class: 'num' }, 'Real / run'), el('th', { class: 'num' }, 'High + med'), el('th', { class: 'num' }, 'Precision'), el('th', { class: 'num' }, 'Completeness'), el('th', { class: 'num' }, 'Cost / real'), el('th', { class: 'num' }, 'Success'))), body)
+    return el('div', { class: 'table-wrap' }, groups.length ? table : el('div', { class: 'empty' }, 'No benchmark evidence matches these filters.'))
+  }
+
+  function renderChoose(params) {
+    const base = DATA.runs.filter((run) => matchesOverviewDimensions(run, params))
+    const groupBy = params.get('group') || 'skill'
+    const sort = params.get('decision') || 'value'
+    const groups = orderGroups(groupedStats(base, groupBy, base), sort)
+    const selected = selectionFrom(params)
+    const distinctReal = new Set(base.filter((run) => ['complete', 'salvaged'].includes(run.status)).flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
+    const controls = el('div', { class: 'compact-controls decision-controls' },
+      field('Group candidates by', select('decision-group', [['skill', 'Skill'], ['skillModel', 'Skill + model stack'], ['model', 'Model stack'], ['language', 'Language']], groupBy, (event) => viewParams(params, { group: event.target.value === 'skill' ? '' : event.target.value, compareSkills: event.target.value === 'skill' ? params.get('compareSkills') : '' }))),
+      field('Rank for', select('decision-sort', [['value', 'Best value'], ['quality', 'Highest completeness'], ['precision', 'Highest precision'], ['reliability', 'Most reliable'], ['cost', 'Lowest cost']], sort, (event) => viewParams(params, { decision: event.target.value === 'value' ? '' : event.target.value }))),
+    )
+    frame(el('div', {},
+      compactHero('Choose a reviewer', 'Find the right skill for your constraints.', 'Rank skills, model stacks, and languages using verified quality, cost, and reliability. Every result retains its evidence count.'),
+      filterBar(params),
+      el('section', { class: 'kpis decision-kpis' },
+        kpi('Candidates', fmt(groups.length), groupBy.replace('skillModel', 'skill + model')),
+        kpi('Evidence', fmt(base.length), 'runs in current slice'),
+        kpi('Distinct real', fmt(distinctReal.size), 'verified issue IDs'),
+        kpi('Languages', fmt(new Set(base.map((run) => targets.get(run.targetId)?.language)).size), 'in current slice'),
+      ),
+      el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Decision leaderboard'), el('p', {}, 'Successful zero-yield runs remain in the denominator. “Best value” weights high ×8, medium ×4, low ×1, false positive −3, then divides by attempted cost.')), controls), leaderboard(groups, params, groupBy)),
+      el('div', { class: 'notice info evidence-note' }, 'Model quality is shown for an exact model stack. In multi-model workflows, findings belong to the whole run and cannot be assigned to one model. Language results are directional because the current benchmark has one target per language.'),
+      comparisonTray(selected, params),
+    ))
+  }
+
+  function compareSelector(params, selected) {
+    return el('section', { class: 'selection-grid' }, DATA.tools.filter((tool) => DATA.runs.some((run) => run.toolId === tool.id)).map((tool) => {
+      const checked = selected.includes(tool.id)
+      const box = el('input', { type: 'checkbox', checked, disabled: !checked && selected.length >= 5, onchange: (event) => setComparison(params, tool.id, event.target.checked) })
+      return el('label', { class: `selection-card${checked ? ' selected' : ''}` }, box, el('span', {}, el('strong', {}, tool.label), el('small', {}, tool.source || tool.id)))
+    }))
+  }
+
+  function comparisonMatrix(groups) {
+    const body = el('tbody')
+    const allIssues = new Map()
+    for (const group of groups) for (const [key, row] of group.issueRows) {
+      if (row.issue.verdict !== 'real') continue
+      if (!allIssues.has(key)) allIssues.set(key, new Set())
+      allIssues.get(key).add(group.id)
+    }
+    for (const group of groups) {
+      const unique = [...allIssues.values()].filter((reporters) => reporters.size === 1 && reporters.has(group.id)).length
+      const shared = [...allIssues.values()].filter((reporters) => reporters.size > 1 && reporters.has(group.id)).length
+      body.append(el('tr', {}, el('td', {}, el('strong', {}, group.label)), el('td', { class: 'num' }, fmt(group.cost, 'money')), el('td', { class: 'num' }, fmt(group.real)), el('td', { class: 'num' }, fmt(unique)), el('td', { class: 'num' }, fmt(shared)), el('td', { class: 'num' }, fmt(group.completeness, 'percent')), el('td', { class: 'num' }, fmt(group.precision, 'percent')), el('td', { class: 'num' }, fmt(group.successRate, 'percent'))))
+    }
+    return el('div', { class: 'table-wrap' }, el('table', {}, el('thead', {}, el('tr', {}, el('th', {}, 'Skill'), el('th', { class: 'num' }, 'Attempted cost'), el('th', { class: 'num' }, 'Distinct real'), el('th', { class: 'num' }, 'Only this skill'), el('th', { class: 'num' }, 'Shared'), el('th', { class: 'num' }, 'Completeness'), el('th', { class: 'num' }, 'Precision'), el('th', { class: 'num' }, 'Success'))), body))
+  }
+
+  function renderSkillCompare(params) {
+    const selected = selectionFrom(params)
+    const dimensionParams = new URLSearchParams(params)
+    dimensionParams.delete('skills')
+    const base = DATA.runs.filter((run) => matchesOverviewDimensions(run, dimensionParams))
+    const targetSets = selected.map((toolId) => new Set(base.filter((run) => run.toolId === toolId).map((run) => run.targetId)))
+    const commonTargets = targetSets.length ? [...targetSets[0]].filter((targetId) => targetSets.every((set) => set.has(targetId))) : []
+    const fairRows = base.filter((run) => selected.includes(run.toolId) && commonTargets.includes(run.targetId))
+    const displayRows = commonTargets.length ? fairRows : base.filter((run) => selected.includes(run.toolId))
+    const universeRows = commonTargets.length ? base.filter((run) => commonTargets.includes(run.targetId)) : base
+    const groups = selected.map((toolId) => aggregateRuns(toolId, tools.get(toolId)?.label || toolId, 'Skill', displayRows.filter((run) => run.toolId === toolId), universeRows))
+    const unionReal = new Set(groups.flatMap((group) => group.realRows.map((row) => issueKey(row.targetId, row.issue))))
+    const portfolioCost = total(groups, (group) => group.cost)
+    frame(el('div', {},
+      compactHero('Compare skills', 'Put reviewers head to head.', 'Select two to five skills. Metrics use the targets every selected skill has in common whenever such a cohort exists.'),
+      filterBar(dimensionParams, { skills: false }),
+      compareSelector(params, selected),
+      selected.length < 2 ? el('div', { class: 'empty panel' }, 'Select at least two skills to build a comparison.') : el('div', {},
+        commonTargets.length ? el('div', { class: 'notice info evidence-note' }, `Fair cohort: ${commonTargets.map((id) => `${id} (${targets.get(id)?.language})`).join(', ')}.`) : el('div', { class: 'notice evidence-note' }, 'These skills have no common benchmark target. The table shows all available evidence, so direct ranking is not fair.'),
+        el('section', { class: 'kpis decision-kpis' },
+          kpi('Selected', fmt(selected.length), 'skills'),
+          kpi('Common cohort', fmt(commonTargets.length), 'targets'),
+          kpi('Portfolio cost', fmt(portfolioCost, 'money'), 'all attempted runs'),
+          kpi('Combined coverage', fmt(unionReal.size), 'distinct real issues'),
+        ),
+        el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Head-to-head evidence'), el('p', {}, 'Unique contribution shows what each skill adds beyond the other selected skills.'))), comparisonMatrix(groups)),
+        el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Cost / completeness'), el('p', {}, 'Upper-left candidates provide more verified coverage for less total spend.'))), el('div', { class: 'panel-body' }, paretoChart(groups))),
+      ),
+    ))
+  }
+
+  function renderInsights(params) {
+    const visible = DATA.runs.filter((run) => matchesOverviewDimensions(run, params))
+    const completed = visible.filter((run) => ['complete', 'salvaged'].includes(run.status))
+    frame(el('div', {},
+      compactHero('Broad analysis', 'See the whole benchmark landscape.', 'Use mixed charts to explore price, quality, robustness, model stacks, and target-level variation.'),
+      filterBar(params),
+      skillModelAnalysis(completed, params),
+      chartGrid(visible, params),
+    ))
+  }
+
+  function renderFindings(params) {
+    const matchingRuns = DATA.runs.filter((run) => matchesOverviewDimensions(run, params))
+    const matchingIds = new Set(matchingRuns.map((run) => run.id))
+    const rows = DATA.issues.filter((issue) => matchingRuns.some((run) => matchingIds.has(run.id) && run.targetId === issue.targetId && run.issueIds.includes(issue.id)))
+    const verdict = params.get('verdict') || 'all'
+    const severity = params.get('severity') || 'all'
+    const shown = rows.filter((issue) => (verdict === 'all' || issue.verdict === verdict) && (severity === 'all' || issue.severity === severity)).sort((a, b) => {
+      const rank = { high: 0, medium: 1, low: 2, nit: 3 }
+      return (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9) || a.title.localeCompare(b.title)
+    })
+    const findingControls = el('div', { class: 'compact-controls' },
+      field('Verdict', select('finding-verdict', [['all', 'All verdicts'], ['real', 'Real'], ['false-positive', 'False positive'], ['unproven', 'Unproven']], verdict, (event) => viewParams(params, { verdict: event.target.value === 'all' ? '' : event.target.value }))),
+      field('Severity', select('finding-severity', [['all', 'All severities'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low'], ['nit', 'Nit']], severity, (event) => viewParams(params, { severity: event.target.value === 'all' ? '' : event.target.value }))),
+    )
+    const list = el('div', { class: 'finding-table' }, shown.map((issue) => el('article', { class: 'finding-row' },
+      el('div', {}, el('strong', {}, issue.title), el('span', { class: 'subline' }, `${issue.targetId} · ${targets.get(issue.targetId)?.language || 'unknown'} · ${issue.file || 'no file'}${issue.line ? ':' + issue.line : ''}`)),
+      el('div', { class: 'badges' }, badge(issue.verdict, issue.verdict), badge(issue.severity), badge(issue.scope || 'scope unavailable', issue.scope)),
+      el('div', { class: 'reporter-list' }, `${(issue.reportedBy || []).length} reporter${(issue.reportedBy || []).length === 1 ? '' : 's'}`),
+    )))
+    frame(el('div', {},
+      compactHero('Finding explorer', 'Understand what reviewers actually catch.', 'Browse distinct judged issues across any selected skills, model stacks, languages, or targets.'),
+      filterBar(params),
+      el('section', { class: 'kpis decision-kpis' },
+        kpi('Distinct issues', fmt(rows.length), 'in current slice'),
+        kpi('Verified real', fmt(rows.filter((issue) => issue.verdict === 'real').length), 'unique target issue IDs'),
+        kpi('High + medium', fmt(rows.filter((issue) => issue.verdict === 'real' && ['high', 'medium'].includes(issue.severity)).length), 'verified real'),
+        kpi('Single reporter', fmt(rows.filter((issue) => (issue.reportedBy || []).length === 1).length), 'all verdicts'),
+      ),
+      el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Judged issue catalogue'), el('p', {}, `${shown.length} issues match the local verdict and severity controls.`)), findingControls), el('div', { class: 'panel-body' }, shown.length ? list : el('div', { class: 'empty' }, 'No findings match these filters.'))),
+    ))
+  }
+
   function renderOverview(params) {
     const visible = filteredRuns(params)
-    const analysisItems = DATA.runs.filter((run) => matchesOverviewDimensions(run, params) && ['complete', 'salvaged'].includes(run.status) && run.metrics.real > 0)
     const ordered = sortedRuns(visible, params)
     const picked = (params.get('pick') || '').split(',').filter((id) => runs.has(id)).slice(0, 2)
-    const controls = el('div', { class: 'controls' })
-    const targetChoices = [['all', 'All targets'], ...DATA.targets.map((item) => [item.id, `${item.id} · ${item.language}`])]
-    const toolChoices = [['all', 'All tools'], ...DATA.tools.filter((tool) => DATA.runs.some((run) => run.toolId === tool.id)).map((tool) => [tool.id, tool.label])]
-    controls.append(
-      field('Target', select('target-filter', targetChoices, params.get('target') || 'all', (event) => overviewParams(params, { target: event.target.value === 'all' ? '' : event.target.value }))),
-      field('Tool', select('tool-filter', toolChoices, params.get('tool') || 'all', (event) => overviewParams(params, { tool: event.target.value === 'all' ? '' : event.target.value }))),
-      field('Runs', select('status-filter', [['recommended', 'Useful only'], ['all', 'All runs'], ['complete', 'Complete'], ['salvaged', 'Salvaged'], ['failed', 'Failed'], ['dnf', 'DNF']], params.get('status') || 'recommended', (event) => overviewParams(params, { status: event.target.value === 'recommended' ? '' : event.target.value }))),
-    )
-    const search = el('input', { id: 'run-search', type: 'search', value: params.get('q') || '', placeholder: 'Tool or target…', onchange: (event) => overviewParams(params, { q: event.target.value.trim() }) })
-    controls.append(field('Search', search, 'search'))
+    const distinctReal = new Set(visible.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
 
     const content = el('div', {},
-      hero('Offline benchmark dashboard', 'Every run, without the black box.', 'Inspect cost, time, token composition, extracted claims, and verified outcomes. All figures come from committed artifacts embedded in this file.'),
+      compactHero('Run evidence', 'Audit every benchmark run.', 'Inspect cost, time, token composition, extracted claims, and verified outcomes. Select two rows for a raw run-to-run comparison.'),
+      filterBar(params, { search: true, status: true }),
       el('section', { class: 'kpis', 'aria-label': 'Filtered run totals' },
         kpi('Runs', fmt(visible.length), `${DATA.runs.length} stored`),
         kpi('Recorded cost', fmt(total(visible, (run) => run.usage.costUsd), 'money'), 'stored cell totals'),
         kpi('Wall time', fmt(total(visible, (run) => run.wallMs), 'minutes'), 'across available runs'),
         kpi('Tokens', fmt(total(visible, (run) => run.usage.total), 'compact'), 'all token classes'),
-        kpi('Confirmed', fmt(total(visible, (run) => run.metrics.real)), 'reported real findings'),
+        kpi('Distinct real', fmt(distinctReal.size), 'unique target issue IDs'),
         kpi('Failures', fmt(visible.filter((run) => ['failed', 'dnf'].includes(run.status)).length), 'failed or did not finish'),
       ),
       el('section', { class: 'panel' },
-        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Run matrix'), el('p', {}, `Default: successful runs with ≥1 real finding and ≤${compact.format(DATA.defaultTokenLimit)} tokens. Select two rows to compare.`))),
-        controls,
+        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Run matrix'), el('p', {}, 'All runs are visible by default. Use “Useful only” to apply the historical successful, non-zero-yield, token-capped view.'))),
         runTable(ordered, params, picked),
       ),
       comparisonDock(picked, params),
-      skillModelAnalysis(analysisItems, params),
-      chartGrid(visible, params),
     )
     frame(content)
   }
@@ -347,10 +663,12 @@
   }
 
   function eligibleTargets(toolId, params) {
-    const selected = params.get('target')
+    const selectedTargets = values(params, 'targets')
+    const selectedLanguages = values(params, 'languages')
     const tool = DATA.tools.find((item) => item.id === toolId)
     return DATA.targets.filter((target) =>
-      (!selected || selected === 'all' || target.id === selected) &&
+      (!selectedTargets.length || selectedTargets.includes(target.id)) &&
+      (!selectedLanguages.length || selectedLanguages.includes(target.language)) &&
       (!tool || !tool.languages || tool.languages.includes(target.language)),
     ).map((target) => target.id)
   }
@@ -371,7 +689,7 @@
 
   function skillModelGroups(items, params) {
     const grouped = new Map()
-    const usable = items.filter((run) => ['complete', 'salvaged'].includes(run.status) && run.metrics.real > 0 && run.usage.costUsd > 0)
+    const usable = items.filter((run) => ['complete', 'salvaged'].includes(run.status) && run.usage.costUsd > 0)
     for (const run of usable) {
       const modelNames = Object.keys(run.usage.models || {}).sort()
       const modelMix = modelNames.length ? modelNames.join(' + ') : 'model unavailable'
@@ -474,8 +792,10 @@
   }
 
   function paretoChart(groups) {
-    const points = groups.filter((group) => group.cost > 0 && group.completenessAll != null)
-    const frontier = points.filter((point) => !points.some((other) => other !== point && other.cost <= point.cost && other.completenessAll >= point.completenessAll && (other.cost < point.cost || other.completenessAll > point.completenessAll)))
+    const completeness = (group) => group.completenessAll ?? group.completeness
+    const falsePositiveRate = (group) => group.falsePositiveRate ?? (group.precision == null ? null : 1 - group.precision)
+    const points = groups.filter((group) => group.cost > 0 && completeness(group) != null)
+    const frontier = points.filter((point) => !points.some((other) => other !== point && other.cost <= point.cost && completeness(other) >= completeness(point) && (other.cost < point.cost || completeness(other) > completeness(point))))
     const width = 680, height = 360, pad = { left: 60, right: 25, top: 25, bottom: 50 }
     const maxCost = Math.max(0, ...points.map((point) => point.cost))
     const graph = svg('svg', { class: 'chart', viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': 'Cost versus completeness Pareto frontier' })
@@ -487,14 +807,14 @@
       const xt = svg('text', { x, y: height - 25, 'text-anchor': 'middle' }); xt.textContent = '$' + number.format(maxCost * i / 4); graph.append(xt)
       const yt = svg('text', { x: pad.left - 8, y: y + 4, 'text-anchor': 'end' }); yt.textContent = i * 25 + '%'; graph.append(yt)
     }
-    const frontierPoints = [...frontier].sort((a, b) => a.cost - b.cost).map((point) => `${scale(point.cost, maxCost, pad.left, width - pad.left - pad.right)},${height - pad.bottom - point.completenessAll * (height - pad.top - pad.bottom)}`).join(' ')
+    const frontierPoints = [...frontier].sort((a, b) => a.cost - b.cost).map((point) => `${scale(point.cost, maxCost, pad.left, width - pad.left - pad.right)},${height - pad.bottom - completeness(point) * (height - pad.top - pad.bottom)}`).join(' ')
     if (frontierPoints) graph.append(svg('polyline', { class: 'frontier', points: frontierPoints }))
     points.forEach((point, index) => {
       const cx = scale(point.cost, maxCost, pad.left, width - pad.left - pad.right)
-      const cy = height - pad.bottom - point.completenessAll * (height - pad.top - pad.bottom)
-      const radius = 5 + (point.falsePositiveRate || 0) * 18
+      const cy = height - pad.bottom - completeness(point) * (height - pad.top - pad.bottom)
+      const radius = 5 + (falsePositiveRate(point) || 0) * 18
       const circle = svg('circle', { class: `analysis-point${frontier.includes(point) ? ' frontier-point' : ''}`, cx, cy, r: radius, fill: analysisColors[index % analysisColors.length] })
-      const title = svg('title'); title.textContent = `${point.label}\n${point.modelMix}\nCost: ${fmt(point.cost, 'money')} · completeness: ${fmt(point.completenessAll, 'percent')} · false-positive rate: ${fmt(point.falsePositiveRate, 'percent')}`; circle.append(title); graph.append(circle)
+      const title = svg('title'); title.textContent = `${point.label}\n${point.modelMix || point.modelStacks?.join(' / ') || ''}\nCost: ${fmt(point.cost, 'money')} · completeness: ${fmt(completeness(point), 'percent')} · false-positive rate: ${fmt(falsePositiveRate(point), 'percent')}`; circle.append(title); graph.append(circle)
     })
     return el('div', {}, graph, el('div', { class: 'chart-key' }, 'Line = non-dominated frontier · bubble size = false-positive rate'))
   }
@@ -529,7 +849,7 @@
     const robustControl = field('Metric', select('robustness-metric', [['completeness', 'Completeness'], ['efficiency', 'Findings / dollar']], robustKey, (event) => overviewParams(params, { robust: event.target.value === 'completeness' ? '' : event.target.value })))
     return el('section', { class: 'analysis-section' },
       el('div', { class: 'analysis-intro' },
-        el('div', {}, el('div', { class: 'eyebrow' }, 'Skill + model analysis'), el('h2', {}, 'Quality-adjusted economics'), el('p', {}, 'Charts include every complete or salvaged run with real findings, including token-heavy runs hidden from default table. Each row groups one skill with its exact model mix. Multi-model findings cannot be attributed to one model, so full run cost and outcomes stay together. Completeness uses unique real judgement IDs found by all complete or salvaged runs on eligible targets.')),
+        el('div', {}, el('div', { class: 'eyebrow' }, 'Skill + model analysis'), el('h2', {}, 'Quality-adjusted economics'), el('p', {}, 'Charts include every complete or salvaged run with recorded cost, including zero-yield and token-heavy runs. Each row groups one skill with its exact model stack. Multi-model findings cannot be attributed to one model, so full run cost and outcomes stay together. Completeness uses unique real judgement IDs found by all complete or salvaged runs on eligible targets.')),
       ),
       el('div', { class: 'analysis-grid' },
         analysisPanel('Finding / price efficiency', 'Sorted best-first by all-scope unique real findings per dollar.', seriesChart(groups, [{ label: 'In scope', get: (group) => group.efficiencyIn }, { label: 'All scopes', get: (group) => group.efficiencyAll }])),
