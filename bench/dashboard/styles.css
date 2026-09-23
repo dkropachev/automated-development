@@ -80,6 +80,7 @@ h3 { margin: 0; font-size: 1rem; }
 .filter-popover input { margin-top: .1rem; }
 .filter-bar .field { min-width: 145px; }
 .filter-bar .search { flex: 1; }
+.linked-run-set { align-self: center; padding: .45rem .6rem; border: 1px solid #3c5268; border-radius: 99px; color: #bddff4; font-size: .76rem; white-space: nowrap; }
 .clear-filters { margin-left: auto; }
 .field { display: grid; gap: .35rem; }
 .field label { color: var(--muted); font-size: .74rem; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
@@ -96,8 +97,17 @@ tbody tr:last-child td { border-bottom: 0; }
 td.num, th.num { text-align: right; }
 .sort-button { border: 0; padding: 0; border-radius: 3px; background: transparent; color: inherit; font-size: inherit; letter-spacing: inherit; text-transform: inherit; }
 .sort-button:hover { background: transparent; color: white; }
+.heading-with-hint, .hinted-label { display: inline-flex; align-items: center; gap: .3rem; }
+.hint-mark { display: inline-grid; place-items: center; width: 1rem; height: 1rem; flex: 0 0 auto; border: 1px solid #627286; border-radius: 50%; color: #b9c7d8; font-size: .66rem; font-style: normal; font-weight: 800; letter-spacing: 0; line-height: 1; text-transform: none; cursor: help; }
+.hint-tooltip { position: fixed; z-index: 100; width: max-content; max-width: min(19rem, calc(100vw - 1rem)); padding: .48rem .58rem; border: 1px solid #526174; border-radius: 7px; background: #070b10; box-shadow: 0 8px 24px rgb(0 0 0 / 45%); color: #e5edf6; font-size: .74rem; font-weight: 500; letter-spacing: normal; line-height: 1.35; text-align: left; text-transform: none; white-space: normal; pointer-events: none; }
+.hint-tooltip[hidden] { display: none; }
+.axis-label { fill: #c8d3df !important; font-weight: 650; }
+.metric-definition { justify-content: flex-end; }
 .run-link { color: var(--text); font-weight: 680; text-decoration: none; }
 .run-link:hover { color: var(--accent); }
+.runs-link { color: inherit; text-decoration-color: rgb(119 167 255 / 60%); text-underline-offset: .16em; }
+.runs-link:hover { color: var(--accent-2); }
+.skill-info-link { color: var(--accent-2); text-decoration-color: rgb(119 167 255 / 45%); text-underline-offset: .16em; }
 .subline { display: block; margin-top: .25rem; color: var(--muted); font-size: .77rem; }
 .empty { padding: 2.5rem 1rem; color: var(--muted); text-align: center; }
 
@@ -122,6 +132,22 @@ td.num, th.num { text-align: right; }
 .selection-card strong, .selection-card small { display: block; }
 .selection-card small { margin-top: .3rem; color: var(--muted); }
 
+.skill-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.skill-grid.focused { grid-template-columns: minmax(0, 760px); }
+.catalogue-back { margin: .2rem 0 1rem; }
+.skill-card { display: flex; min-width: 0; flex-direction: column; gap: .85rem; padding: 1rem 1.1rem; border: 1px solid var(--line); border-radius: var(--radius); background: rgb(17 22 30 / 92%); box-shadow: var(--shadow); }
+.skill-card-head { display: flex; justify-content: space-between; align-items: start; gap: 1rem; }
+.skill-card h2 { line-height: 1.25; }
+.skill-card > p { margin: 0; color: #c5cfda; line-height: 1.5; }
+.skill-card .skill-variants { color: var(--muted); font-size: .8rem; }
+.skill-usage { display: grid; gap: .65rem; margin: 0; }
+.skill-usage > div { display: grid; grid-template-columns: 4.2rem minmax(0, 1fr); gap: .6rem; align-items: start; }
+.skill-usage dt { color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.skill-usage dd { min-width: 0; margin: 0; }
+.skill-usage code { display: block; padding: .55rem .65rem; overflow: auto; border: 1px solid var(--line); border-radius: 7px; background: #090d12; color: #d8e3ed; font: .73rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; }
+.skill-actions { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: auto; }
+.skill-actions a { padding: .45rem .6rem; border: 1px solid var(--line); border-radius: 7px; text-decoration: none; }
+
 .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
 .chart-panel { min-width: 0; }
 .chart { width: 100%; height: auto; min-height: 300px; overflow: visible; }
@@ -130,6 +156,8 @@ td.num, th.num { text-align: right; }
 .chart .axis { stroke: #637083; stroke-width: 1; }
 .chart .point { cursor: pointer; stroke: #07100e; stroke-width: 2; transition: r .15s ease; }
 .chart .point:hover, .chart .point:focus { r: 8; fill: white; outline: none; }
+.chart .chart-link { cursor: pointer; text-decoration: underline; }
+.chart .chart-link:hover, .chart .chart-link:focus { fill: white; outline: none; }
 .chart .bar { fill: var(--accent-2); }
 .chart .bar-alt { fill: var(--accent); }
 .chart .na { fill: #3a4553; }
@@ -151,7 +179,7 @@ td.num, th.num { text-align: right; }
 .series-row { display: grid; grid-template-columns: minmax(155px, 1fr) 1.35fr; gap: .8rem; align-items: center; }
 .analysis-label { min-width: 0; }
 .analysis-label strong { display: block; overflow: hidden; font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
-.analysis-label span { display: block; margin-top: .2rem; overflow: hidden; color: var(--muted); font-size: .65rem; text-overflow: ellipsis; white-space: nowrap; }
+.analysis-label > span { display: block; margin-top: .2rem; overflow: hidden; color: var(--muted); font-size: .65rem; text-overflow: ellipsis; white-space: nowrap; }
 .series-bars { display: grid; gap: .3rem; }
 .series-bar { position: relative; height: 1rem; border-radius: 3px; background: #252e3a; }
 .series-bar > span { display: block; min-width: 1px; height: 100%; border-radius: inherit; opacity: .78; }
@@ -221,6 +249,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   .kpis { grid-template-columns: repeat(3, 1fr); }
   .charts { grid-template-columns: 1fr; }
   .analysis-grid { grid-template-columns: 1fr; }
+  .skill-grid { grid-template-columns: 1fr; }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
   .header-actions { flex-wrap: wrap; justify-content: flex-end; }
   .finding-row { grid-template-columns: 1fr auto; }

@@ -32,6 +32,14 @@ jobs:
           cache: npm
       - run: make install
       - run: make lint
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: make dashboard-browser-check
   validate:
     runs-on: ubuntu-latest
     steps:

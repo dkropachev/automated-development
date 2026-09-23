@@ -149,13 +149,36 @@ test('HTML export is deterministic, self-contained, and script-data safe', () =>
   assert.equal(first, second)
   assert.match(first, /^<!doctype html>/)
   assert.match(first, /id="dashboard-data" type="application\/json"/)
-  for (const view of ['Choose', 'Compare', 'Insights', 'Findings', 'Runs']) assert.match(first, new RegExp(`navLink\\('${view}'`))
+  for (const view of ['Choose', 'Compare', 'Insights', 'Findings', 'Skills', 'Runs']) assert.match(first, new RegExp(`navLink\\('${view}'`))
   assert.doesNotMatch(first, /<script\s+[^>]*src=/i)
   assert.doesNotMatch(first, /<link\s+[^>]*href=/i)
   assert.doesNotMatch(first, /\bfetch\s*\(|XMLHttpRequest|new\s+WebSocket/i)
   const hostile = dashboard.render({ value: '</script><script>alert(1)</script>\u2028' })
   assert.doesNotMatch(hostile, /<script>alert\(1\)<\/script>/)
   assert.match(hostile, /\\u003c\/script>/)
+})
+
+test('dashboard metric hints are visible, concise, and keyboard reachable', () => {
+  const html = dashboard.render(dashboard.loadArtifacts())
+  assert.match(html, /'Real \/ run': 'Distinct verified real issues divided by complete or salvaged runs\.'/)
+  assert.match(html, /'Precision': 'Real issues divided by real issues plus false positives; unproven issues are excluded\.'/)
+  assert.match(html, /class: 'hint-mark', tabindex: 0, title: hint, 'data-hint': hint/)
+  assert.match(html, /class: 'hint-tooltip', role: 'tooltip'/)
+  assert.match(html, /document\.addEventListener\('focusin'/)
+  assert.match(html, /\.hint-tooltip \{ position: fixed;/)
+})
+
+test('dashboard exposes tested-skill metadata and exact run-set links', () => {
+  const data = dashboard.loadArtifacts()
+  const builtIn = data.tools.find((tool) => tool.id === 'builtin-code-review')
+  assert.equal(builtIn.repoUrl, 'https://github.com/anthropics/claude-code')
+  assert.match(builtIn.description, /multi-agent pull-request review/)
+  assert.match(builtIn.invoke, /code-review/)
+  assert.ok(data.tools.every((tool) => tool.description && tool.install && tool.invoke && tool.repoUrl && tool.pageUrl))
+  const html = dashboard.render(data)
+  assert.match(html, /function renderSkills\(focusId = null\)/)
+  assert.match(html, /function runsHash\(rows\)/)
+  assert.match(html, /View \$\{skill\.rows\.length\} run/)
 })
 
 test('tracked dashboard exactly matches a fresh export', () => {

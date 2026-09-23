@@ -6,7 +6,7 @@ NPM  ?= npm
 CLAUDE ?= claude
 
 .PHONY: help install test lint check ci validate-plugin eval-parse validate eval release \
-	bench-prepare bench-run bench-extract bench-judge bench-report bench-dashboard
+	bench-prepare bench-run bench-extract bench-judge bench-report bench-dashboard dashboard-browser-check
 
 help:
 	@$(NODE) -e "const fs=require('fs');for(const l of fs.readFileSync('Makefile','utf8').split('\n')){const m=/^([a-z-]+):.*## (.*)$$/.exec(l);if(m)console.log(m[1].padEnd(16),m[2])}"
@@ -24,7 +24,7 @@ lint: ## eslint + node --check on every script
 check: ## prose/code drift, version agreement, frontmatter
 	$(NODE) scripts/check-consistency.js
 
-ci: lint check test ## what a PR has to pass
+ci: lint check test dashboard-browser-check ## what a PR has to pass
 
 validate-plugin: ## claude plugin validate
 	$(CLAUDE) plugin validate .
@@ -64,3 +64,6 @@ bench-dashboard: ## render the offline dashboard and GitHub Pages entry point
 	$(NODE) bench/dashboard.js > docs/index.html
 	cp docs/index.html docs/run-explorer.html
 	@echo docs/index.html
+
+dashboard-browser-check: bench-dashboard ## render and exercise dashboard routes in headless Chrome
+	$(NODE) scripts/dashboard-browser-check.js
