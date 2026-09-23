@@ -372,6 +372,28 @@ ck('everything comes back after revoke', filesIn(m).length === 4 && m.totals.cle
   ck('review: a never-quiet review is capped rather than looping forever',
      rounds < 40 && /DOUBLE-CHECK/.test(out), 'rounds=' + rounds)
 
+  // ---- validation machine: same conversation screens, challenges confirmations, then finalizes ----
+  out = drive('start', 'val1', ['--root', R, '--mode', 'validate'])
+  ck('validate: starts with one screening pass over every candidate',
+     /FIRST PASS/.test(out) && /screened --batch val1 --confirmed/.test(out), out.slice(0, 400))
+  out = drive('screened', 'val1', ['--confirmed', '3'])
+  ck('validate: confirmations trigger a challenge pass in the same batch',
+     /CHALLENGE PASS/.test(out) && /exactly the 3 finding/.test(out) && /rechecked --batch val1 --kept/.test(out), out.slice(0, 500))
+  threw = false; out = ''
+  try { drive('rechecked', 'val1', ['--kept', '4']) } catch (e) { threw = true; out = String(e.stdout || '') }
+  ck('validate: second pass cannot invent new confirmations', threw && /IMPOSSIBLE COUNT/.test(out), out.slice(0, 220))
+  out = drive('rechecked', 'val1', ['--kept', '2'])
+  ck('validate: accepted challenge count advances only to final', /final --batch val1/.test(out), out.slice(0, 260))
+  out = drive('final', 'val1')
+  ck('validate: final records a validated terminal state', /FINAL STATE: validated/.test(out), out.slice(-120))
+
+  drive('start', 'val-zero', ['--root', R, '--mode', 'validate'])
+  out = drive('screened', 'val-zero', ['--confirmed', '0'])
+  ck('validate: zero confirmations skips the challenge pass',
+     /NO CONFIRMATIONS TO CHALLENGE/.test(out) && /final --batch val-zero/.test(out) && !/rechecked --batch/.test(out), out.slice(0, 360))
+  out = drive('final', 'val-zero')
+  ck('validate: zero-confirmation path still finalizes', /FINAL STATE: validated/.test(out), out.slice(-120))
+
   // ---- detailed review: the clone is idempotent and is cleaned up on exit ----
   {
     const scr = path.join(TMP, 'rv-scratch')
@@ -586,6 +608,7 @@ ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'review-and
     'let REVIEW_ONLY = false, MAX_FIX_BATCH = 10, FINDINGS_PER_CHUNK = 1, stopAfter = null',
     'const HOME_BIN = "/plugin/bin", RUN_TAG = "test-run"',
     "const shq = s => \"'\" + String(s) + \"'\"",
+    "const norm = s => String(s).toLowerCase().replace(/[^a-z0-9:.\\/]+/g, '-').replace(/^-+|-+$/g, '')",
     'function mustStop() { return stopAfter }',
     'function log() {}',
     // Mirrors the real parallel(): a thunk that throws resolves to null, it never rejects.
@@ -595,10 +618,12 @@ ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'review-and
     extractFn('rankForTruncation'),
     extractFn('runWaves'),
     extractFn('reviewBashClamp'),
+    extractFn('discoveryBashClamp'),
+    extractFn('validationBashClamp'),
     extractFn('completedReadOnlyReview'),
     extractFn('deferUnprocessedBatches'),
     '({ set: o => { REVIEW_ONLY = o.reviewOnly; MAX_FIX_BATCH = o.maxFixBatch; FINDINGS_PER_CHUNK = o.findingsPerChunk; stopAfter = o.stopAfter || null },',
-    '  stageAgentCost, chunksThatFit, rankForTruncation, runWaves, reviewBashClamp, completedReadOnlyReview, deferUnprocessedBatches })',
+    '  stageAgentCost, chunksThatFit, rankForTruncation, runWaves, reviewBashClamp, discoveryBashClamp, validationBashClamp, completedReadOnlyReview, deferUnprocessedBatches })',
   ].join('\n')
   let wf = null
   try { wf = vm.runInNewContext(src, {}) } catch (e) { ck('the lifted helpers parse', false, e.message) }
@@ -691,6 +716,32 @@ ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'review-and
        !clamp.includes("Bash(cd '/tmp/prfix-rv-test-run-full' && *)") &&
        detailedClamp.includes("Bash(rm -rf -- '/tmp/prfix-rv-test-run-full' && git clone --no-hardlinks --no-local '/repo' '/tmp/prfix-rv-test-run-full' && cd '/tmp/prfix-rv-test-run-full')"),
        detailedClamp.join(' | '))
+
+    const discoveryClamp = wf.discoveryBashClamp({
+      repoRoot: '/repo', mergeBaseSha: 'a'.repeat(40), headSha: 'b'.repeat(40),
+      changedFiles: [{ path: 'src/a.js' }, { path: '../escape' }],
+    }, 'security', false)
+    ck('every active discovery lens keeps the read-only shell clamp',
+       discoveryClamp.includes("Bash(git diff " + 'a'.repeat(40) + '...' + 'b'.repeat(40) + ")") &&
+       discoveryClamp.every(x => !/\b(?:commit|push|gh|sed|formatter)\b/.test(x)) &&
+       discoveryClamp.every(x => !x.includes('../escape')),
+       discoveryClamp.join(' | '))
+    const detailedDiscoveryClamp = wf.discoveryBashClamp({
+      repoRoot: '/repo', mergeBaseSha: 'a'.repeat(40), headSha: 'b'.repeat(40), changedFiles: [],
+    }, 'testing', true)
+    ck('active detailed discovery permits experiments only behind its own scratch prefix',
+       detailedDiscoveryClamp.includes("Bash(cd '/tmp/prfix-rv-test-run-testing' && *)") &&
+       !discoveryClamp.some(x => x.endsWith('&& *)')),
+       detailedDiscoveryClamp.join(' | '))
+    const validationClamp = wf.validationBashClamp({
+      repoRoot: '/repo', mergeBaseSha: 'a'.repeat(40), headSha: 'b'.repeat(40), changedFiles: [],
+    }, 'test-run-validate', true, false)
+    ck('double validation admits only the exact validate-driver conversation',
+       validationClamp.some(x => x.includes("start --batch 'test-run-validate' --root '/repo' --mode validate")) &&
+       validationClamp.includes("Bash(node '/plugin/bin/review-and-fix-pr-driver.js' screened --batch test-run-validate *)") &&
+       validationClamp.includes("Bash(node '/plugin/bin/review-and-fix-pr-driver.js' rechecked --batch test-run-validate *)") &&
+       validationClamp.includes("Bash(node '/plugin/bin/review-and-fix-pr-driver.js' final --batch test-run-validate)"),
+       validationClamp.join(' | '))
 
     const deferred = []
     vm.runInNewContext([
