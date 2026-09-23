@@ -12,7 +12,7 @@
   const languages = [...new Set(DATA.targets.map((target) => target.language))].sort()
   const targetColors = ['#67e8c1', '#77a7ff', '#f4bf62', '#dd8cff', '#fb7185']
   const svgNs = 'http://www.w3.org/2000/svg'
-  let activeView = 'choose'
+  let activeView = 'home'
 
   const el = (tag, attrs = {}, ...children) => {
     const node = document.createElement(tag)
@@ -58,6 +58,7 @@
     'Cache read': 'Previously cached prompt tokens reused by the model.',
     'Claims': 'Raw findings extracted from a run before duplicate merging and verification.',
     'Completeness': 'Distinct real issues found divided by all real issues found by eligible complete or salvaged runs.',
+    'Completeness / dollar': 'Completeness percentage points divided by total recorded cost for every attempted run.',
     'Cost': 'Recorded API usage cost in U.S. dollars.',
     'Cost / real': 'Total recorded cost for attempted runs divided by distinct verified real issues.',
     'Δ': 'Right value minus left value.',
@@ -189,13 +190,13 @@
     app.replaceChildren(
       el('div', { class: 'shell' },
         el('header', { class: 'topbar' },
-          hashLink('', '#choose', 'brand'),
+          hashLink('', '#home', 'brand'),
           el('nav', { class: 'header-actions', 'aria-label': 'Dashboard navigation' },
-            navLink('Choose', 'choose'),
+            navLink('Summary', 'home'),
+            navLink('Leaderboard', 'choose'),
             navLink('Compare', 'compare'),
             navLink('Insights', 'insights'),
             navLink('Findings', 'findings'),
-            navLink('Skills', 'skills'),
             navLink('Runs', 'runs'),
             el('a', { href: './review-bakeoff.md' }, 'Report'),
           ),
@@ -206,16 +207,17 @@
     )
     const brand = document.querySelector('.brand')
     brand.append(el('span', { class: 'brand-mark', 'aria-hidden': 'true' }, 'RX'))
-    brand.append(el('span', {}, el('strong', {}, 'Review Bench'), el('small', {}, 'Skill selection workbench')))
+    brand.append(el('span', {}, el('strong', {}, 'Review Bench'), el('small', {}, 'Verified skill benchmark')))
   }
 
   function route() {
-    const raw = location.hash.slice(1) || 'choose'
+    const raw = location.hash.slice(1) || 'home'
     const [path, query = ''] = raw.split('?')
     const parts = path.split('/').map(decodeURIComponent)
     const params = new URLSearchParams(query)
     activeView = parts[0] === 'overview' ? 'runs' : parts[0]
-    if (parts[0] === 'run' && parts.length >= 3) renderRun(`${parts[1]}/${parts[2]}`)
+    if (activeView === 'home') renderLanding()
+    else if (parts[0] === 'run' && parts.length >= 3) renderRun(`${parts[1]}/${parts[2]}`)
     else if (parts[0] === 'compare' && parts.length >= 5) renderComparison(`${parts[1]}/${parts[2]}`, `${parts[3]}/${parts[4]}`)
     else if (activeView === 'choose') renderChoose(params)
     else if (activeView === 'compare') renderSkillCompare(params)
@@ -413,6 +415,7 @@
       completeness: universe.size ? real.length / universe.size : null,
       costPerReal: cost > 0 && real.length ? cost / real.length : null,
       realPerDollar: cost > 0 ? real.length / cost : null,
+      completenessPerDollar: cost > 0 && universe.size ? (real.length / universe.size) * 100 / cost : null,
       qualityPerDollar: cost > 0 ? Math.max(0, weightedQuality) / cost : null,
       languages: [...new Set(rows.map((run) => targets.get(run.targetId)?.language).filter(Boolean))],
       modelStacks: [...new Set(rows.map(modelStack))],
@@ -457,6 +460,67 @@
 
   function compactHero(eyebrow, title, text) {
     return el('section', { class: 'hero compact-hero' }, el('div', { class: 'eyebrow' }, eyebrow), el('h1', {}, title), el('p', {}, text))
+  }
+
+  function leaderCard(label, group, value, note) {
+    return el('article', { class: 'leader-card' },
+      el('div', { class: 'eyebrow' }, label),
+      el('h3', {}, group.label),
+      el('strong', { class: 'leader-value' }, value),
+      el('p', {}, note),
+      hashLink('See leaderboard →', '#choose', 'subline'),
+    )
+  }
+
+  function landingSkillCard(skill) {
+    const stats = aggregateRuns(skill.id, skill.label, 'Skill', skill.rows, DATA.runs)
+    return el('article', { class: 'skill-summary-card' },
+      skill.parked ? badge('did not finish', 'dnf') : null,
+      el('h3', {}, hashLink(skill.label, `#skills/${encodeURIComponent(skill.id)}`)),
+      el('p', {}, skill.description || 'No description is recorded for this skill.'),
+      el('span', { class: 'skill-facts' }, `${skill.rows.length} run${skill.rows.length === 1 ? '' : 's'} · ${stats.real} verified finding${stats.real === 1 ? '' : 's'} · ${fmt(stats.cost, 'money')} attempted cost`),
+    )
+  }
+
+  function renderLanding() {
+    const groups = groupedStats(DATA.runs, 'skill', DATA.runs).filter((group) => group.cost > 0)
+    const findingsLeader = [...groups].sort((a, b) => (b.realPerDollar ?? -1) - (a.realPerDollar ?? -1))[0]
+    const completenessLeader = [...groups].sort((a, b) => (b.completenessPerDollar ?? -1) - (a.completenessPerDollar ?? -1))[0]
+    const verifiedReal = new Set(DATA.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(issue.targetId, issue)))
+    const catalogue = skillCatalogue()
+    frame(el('div', {},
+      el('section', { class: 'landing-hero hero' },
+        el('div', {},
+          el('div', { class: 'eyebrow' }, 'Claude Code review benchmark'),
+          el('h1', {}, 'Find the code-review skill worth its price.'),
+          el('p', {}, 'We ran Claude Code review skills on real Go, Rust, and C++ pull requests. Every finding was merged, checked against the code, and compared with the recorded cost.'),
+          el('div', { class: 'hero-actions' },
+            hashLink('Explore the leaderboard', '#choose', 'button-link primary'),
+            el('a', { class: 'button-link', href: './review-bakeoff.md' }, 'Read the full report'),
+          ),
+        ),
+        el('div', { class: 'landing-proof', 'aria-label': 'Benchmark size' },
+          el('div', {}, el('strong', {}, fmt(catalogue.length)), el('span', {}, 'skills tested')),
+          el('div', {}, el('strong', {}, fmt(DATA.runs.length)), el('span', {}, 'review runs')),
+          el('div', {}, el('strong', {}, fmt(verifiedReal.size)), el('span', {}, 'verified findings')),
+        ),
+      ),
+      el('section', { class: 'landing-section', 'aria-labelledby': 'leaders-title' },
+        el('div', { class: 'landing-section-head' }, el('div', {}, el('div', { class: 'eyebrow' }, 'Leaders'), el('h2', { id: 'leaders-title' }, 'Best return for the money'), el('p', {}, 'Both measures include the cost of failed or interrupted attempts. Higher is better.'))),
+        el('div', { class: 'leader-grid' },
+          leaderCard('Findings / price', findingsLeader, `${findingsLeader.realPerDollar.toFixed(2)} / $`, `${findingsLeader.real} verified findings for ${fmt(findingsLeader.cost, 'money')}.`),
+          leaderCard('Completeness / price', completenessLeader, `${completenessLeader.completenessPerDollar.toFixed(2)} pts / $`, `${fmt(completenessLeader.completeness, 'percent')} of all verified findings for ${fmt(completenessLeader.cost, 'money')}.`),
+        ),
+        el('p', { class: 'method-note' }, 'Completeness means the share of distinct verified findings found on the targets a skill reviewed. This is a small benchmark: three pull requests, one per language.'),
+      ),
+      el('section', { class: 'landing-section', 'aria-labelledby': 'skills-title' },
+        el('div', { class: 'landing-section-head' },
+          el('div', {}, el('div', { class: 'eyebrow' }, 'Skill guide'), el('h2', { id: 'skills-title' }, 'What each skill does'), el('p', {}, 'Short descriptions of every tested skill. Open a card for setup, usage, and exact run evidence.')),
+          hashLink('Compare skills →', '#compare', 'button-link'),
+        ),
+        el('div', { class: 'skill-summary-grid' }, catalogue.map(landingSkillCard)),
+      ),
+    ))
   }
 
   function selectionFrom(params) { return values(params, 'compareSkills').filter((id) => tools.has(id)).slice(0, 5) }
