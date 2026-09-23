@@ -248,8 +248,10 @@ function loadArtifacts(root = ROOT) {
     schemaVersion: 1,
     defaultTokenLimit: DEFAULT_TOKEN_LIMIT,
     targets: targetData,
-    tools: tools.map(({ id, label, source, languages, parked, parkedReason }) => ({
+    tools: tools.map(({ id, label, source, languages, parked, parkedReason, catalogId, catalogLabel, description, install, invoke, repoUrl, pageUrl }) => ({
       id, label, source, languages: languages || null, parked: Boolean(parked), parkedReason: parkedReason || null,
+      catalogId: catalogId || id, catalogLabel: catalogLabel || label, description: description || null,
+      install: install || null, invoke: invoke || null, repoUrl: repoUrl || null, pageUrl: pageUrl || null,
     })),
     issues,
     runs,

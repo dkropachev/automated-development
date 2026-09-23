@@ -5,24 +5,44 @@
       "id": "builtin-code-review",
       "label": "Claude Code /code-review",
       "source": "built-in",
+      "description": "A multi-agent pull-request review that checks repository guidance, the changed code, and git history, then filters findings by confidence.",
+      "install": "Included with Claude Code; no separate install is required.",
+      "invoke": "/code-review",
+      "repoUrl": "https://github.com/anthropics/claude-code",
+      "pageUrl": "https://github.com/anthropics/claude-code/tree/main/plugins/code-review",
       "prompt": "/code-review {pr}\n\n{context}"
     },
     {
       "id": "ce-code-review",
       "label": "Compound Engineering ce-code-review",
       "source": "compound-engineering@compound-engineering-plugin",
+      "description": "A report-only review that selects specialist reviewer perspectives for the diff, then merges and deduplicates their findings.",
+      "install": "/plugin marketplace add EveryInc/compound-engineering-plugin\n/plugin install compound-engineering",
+      "invoke": "/ce-code-review",
+      "repoUrl": "https://github.com/EveryInc/compound-engineering-plugin",
+      "pageUrl": "https://github.com/EveryInc/compound-engineering-plugin/blob/main/docs/guides/ce-code-review.md",
       "prompt": "/compound-engineering:ce-code-review {prUrl}\n\n{context}"
     },
     {
       "id": "tob-diff-review",
       "label": "Trail of Bits differential-review",
       "source": "differential-review@trailofbits",
+      "description": "A security-focused review of a commit or pull-request diff with git-history and blast-radius analysis.",
+      "install": "/plugin marketplace add trailofbits/skills\n/plugin install differential-review@trailofbits",
+      "invoke": "/differential-review:diff-review <PR URL>",
+      "repoUrl": "https://github.com/trailofbits/skills",
+      "pageUrl": "https://github.com/trailofbits/skills/tree/main/plugins/differential-review",
       "prompt": "/differential-review:diff-review {prUrl}\n\n{context}"
     },
     {
       "id": "tob-rust-review",
       "label": "Trail of Bits rust-review",
       "source": "rust-review@trailofbits",
+      "description": "A comprehensive Rust security review covering unsafe boundaries, memory safety, concurrency, panic denial-of-service, FFI, and async code.",
+      "install": "/plugin marketplace add trailofbits/skills\n/plugin install rust-review@trailofbits",
+      "invoke": "/rust-review:rust-review",
+      "repoUrl": "https://github.com/trailofbits/skills",
+      "pageUrl": "https://github.com/trailofbits/skills/tree/main/plugins/rust-review",
       "languages": [
         "Rust"
       ],
@@ -32,6 +52,11 @@
       "id": "tob-c-review",
       "label": "Trail of Bits c-review",
       "source": "c-review@trailofbits",
+      "description": "A comprehensive C and C++ security review with source-parsed coverage checks, false-positive judging, and SARIF output.",
+      "install": "/plugin marketplace add trailofbits/skills\n/plugin install c-review@trailofbits",
+      "invoke": "/c-review:c-review",
+      "repoUrl": "https://github.com/trailofbits/skills",
+      "pageUrl": "https://github.com/trailofbits/skills/tree/main/plugins/c-review",
       "languages": [
         "C++"
       ],
@@ -43,30 +68,59 @@
       "id": "anthropic-pr-review",
       "label": "Anthropic pr-review-toolkit",
       "source": "pr-review-toolkit@claude-plugins-official",
+      "description": "Anthropic’s pull-request toolkit, with specialized reviewers for comments, tests, error handling, type design, code quality, and simplification.",
+      "install": "/plugin install pr-review-toolkit@claude-plugins-official",
+      "invoke": "/pr-review-toolkit:review-pr all",
+      "repoUrl": "https://github.com/anthropics/claude-plugins-official",
+      "pageUrl": "https://github.com/anthropics/claude-plugins-official/tree/main/plugins/pr-review-toolkit",
       "prompt": "/pr-review-toolkit:review-pr all\n\n{context}"
     },
     {
       "id": "superpowers-review",
       "label": "Superpowers requesting-code-review",
       "source": "superpowers@superpowers-dev",
+      "description": "A workflow that sends a precise requirements-and-diff package to a fresh code-reviewer subagent before work is merged.",
+      "install": "/plugin install superpowers@claude-plugins-official",
+      "invoke": "Ask the agent to use requesting-code-review.",
+      "repoUrl": "https://github.com/obra/superpowers",
+      "pageUrl": "https://github.com/obra/superpowers/blob/main/skills/requesting-code-review/SKILL.md",
       "prompt": "Use the `requesting-code-review` skill to have this pull request reviewed.\n\n{context}"
     },
     {
       "id": "mattpocock-review",
       "label": "Matt Pocock code-review",
       "source": "mattpocock-skills@mattpocock",
+      "description": "A two-axis diff review: implementation correctness plus repository standards and a compact code-smell baseline.",
+      "install": "/plugin install mattpocock-skills\n/setup-matt-pocock-skills",
+      "invoke": "/code-review main",
+      "repoUrl": "https://github.com/mattpocock/skills",
+      "pageUrl": "https://github.com/mattpocock/skills/blob/main/docs/engineering/code-review.md",
       "prompt": "/mattpocock-skills:code-review main\n\n{context}"
     },
     {
       "id": "rafp-review",
       "label": "review-and-fix-pr (review only)",
       "source": "automated-development@automated-development",
+      "catalogId": "review-and-fix-pr",
+      "catalogLabel": "automated-development review-and-fix-pr",
+      "description": "A whole-PR pipeline that runs risk-selected review lenses, normalizes and verifies findings, and can optionally fix accepted findings in validated commits.",
+      "install": "/plugin marketplace add dkropachev/automated-development\n/plugin install automated-development@automated-development",
+      "invoke": "/review-and-fix-pr <PR number or URL>",
+      "repoUrl": "https://github.com/dkropachev/automated-development",
+      "pageUrl": "https://github.com/dkropachev/automated-development/blob/main/skills/review-and-fix-pr/SKILL.md",
       "prompt": "/automated-development:review-and-fix-pr {pr}\n\nRun it read-only: `fix: false`, and `ignoreLedger: true` so nothing is skipped as already reviewed.\n\n{context}"
     },
     {
       "id": "rafp-detailed",
       "label": "review-and-fix-pr (review only, detailedReview)",
       "source": "automated-development@automated-development",
+      "catalogId": "review-and-fix-pr",
+      "catalogLabel": "automated-development review-and-fix-pr",
+      "description": "A whole-PR pipeline that runs risk-selected review lenses, normalizes and verifies findings, and can optionally fix accepted findings in validated commits.",
+      "install": "/plugin marketplace add dkropachev/automated-development\n/plugin install automated-development@automated-development",
+      "invoke": "/review-and-fix-pr <PR number or URL>",
+      "repoUrl": "https://github.com/dkropachev/automated-development",
+      "pageUrl": "https://github.com/dkropachev/automated-development/blob/main/skills/review-and-fix-pr/SKILL.md",
       "prompt": "/automated-development:review-and-fix-pr {pr}\n\nRun it read-only and detailed: `fix: false`, `detailedReview: true`, and `ignoreLedger: true` so nothing is skipped as already reviewed.\n\n{context}"
     }
   ],
