@@ -82,6 +82,12 @@ h3 { margin: 0; font-size: 1rem; }
 .skill-summary-card .skill-facts { margin-top: auto; color: var(--muted); font-size: .75rem; }
 .skill-summary-card .badge { margin-bottom: .7rem; }
 .landing-picker { min-width: 180px; }
+.leader-pickers { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .65rem; }
+.leader-section { padding: 1.15rem; border: 1px solid var(--line); border-radius: var(--radius); background: rgb(17 22 30 / 55%); }
+.leader-section + .leader-section { margin-top: 1rem; }
+.leader-section-head { margin-bottom: .85rem; }
+.leader-section-head h3 { font-size: 1.25rem; }
+.leader-section-head p { max-width: 760px; margin: .3rem 0 0; color: var(--muted); font-size: .86rem; line-height: 1.5; }
 .rank-card { position: relative; padding: 1.1rem; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg, rgb(26 36 48 / 85%), rgb(13 18 25 / 90%)); }
 .rank-card h3 { max-width: calc(100% - 2.5rem); line-height: 1.35; }
 .rank-card h3 a { color: var(--text); text-decoration: none; }
@@ -298,6 +304,8 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   .landing-proof { grid-template-columns: repeat(3, 1fr); }
   .landing-rank-grid, .skill-summary-grid { grid-template-columns: 1fr; }
   .landing-section-head { align-items: flex-start; flex-direction: column; }
+  .leader-pickers { justify-content: flex-start; width: 100%; }
+  .leader-pickers .landing-picker { flex: 1 1 180px; }
   .kpis { grid-template-columns: repeat(2, 1fr); }
   .decision-kpis { grid-template-columns: repeat(2, 1fr); }
   .controls { grid-template-columns: 1fr 1fr; }

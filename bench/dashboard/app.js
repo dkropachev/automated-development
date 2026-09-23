@@ -497,46 +497,44 @@
   }
 
   function renderLanding(params) {
-    const groups = groupedStats(DATA.runs, 'skill', DATA.runs).filter((group) => group.cost > 0)
     const verifiedReal = new Set(DATA.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(issue.targetId, issue)))
     const catalogue = skillCatalogue()
     const requestedScope = params.get('completeness') || 'all'
     const completenessScope = ['all', 'major', 'majorMinor'].includes(requestedScope) ? requestedScope : 'all'
+    const requestedLanguage = params.get('language') || 'all'
+    const selectedLanguage = languages.includes(requestedLanguage) ? requestedLanguage : 'all'
     const scopeLabels = { all: 'All issues', major: 'Major only', majorMinor: 'Major + minor' }
-    const scopeIssueLabels = { all: 'all', major: 'major', majorMinor: 'major + minor' }
+    const scopeSeverities = { all: ['high', 'medium', 'low', 'nit'], major: ['high'], majorMinor: ['high', 'medium'] }
+    const leaderRuns = DATA.runs.filter((run) => selectedLanguage === 'all' || targets.get(run.targetId)?.language === selectedLanguage)
+    const groups = groupedStats(leaderRuns, 'skill', leaderRuns).filter((group) => group.cost > 0)
     const scopedGroups = groups.map((group) => {
       const completeness = group.completenessBreakdown[completenessScope]
+      const elapsedMs = total(group.rows, (run) => run.wallMs)
+      const unique = group.realRows.filter((row) => scopeSeverities[completenessScope].includes(row.issue.severity) && (row.issue.reportedBy || []).length === 1).length
       return {
         ...group,
         scopedFindingsPerDollar: completeness.found / group.cost,
-        scopedCompletenessPerDollar: completeness.value == null ? null : completeness.value * 100 / group.cost,
+        scopedMinutesPerFinding: completeness.found > 0 && elapsedMs > 0 ? elapsedMs / 60000 / completeness.found : null,
+        scopedUnique: unique,
       }
     })
-    const findingsLeader = [...scopedGroups].sort((a, b) => b.scopedFindingsPerDollar - a.scopedFindingsPerDollar || a.label.localeCompare(b.label))[0]
-    const completenessLeader = [...scopedGroups].sort((a, b) => (b.scopedCompletenessPerDollar ?? -1) - (a.scopedCompletenessPerDollar ?? -1) || a.label.localeCompare(b.label))[0]
-    const valueMetrics = [
-      {
-        label: 'Findings / price', group: findingsLeader,
-        value: `${findingsLeader.scopedFindingsPerDollar.toFixed(2)} / $`,
-        detail: `${findingsLeader.completenessBreakdown[completenessScope].found} verified findings`,
-      },
-      {
-        label: 'Completeness / price', group: completenessLeader,
-        value: `${completenessLeader.scopedCompletenessPerDollar.toFixed(2)} pts / $`,
-        detail: `${fmt(completenessLeader.completenessBreakdown[completenessScope].value, 'percent')} of ${scopeIssueLabels[completenessScope]} verified findings`,
-      },
-    ]
-    const valueLeadersById = new Map()
-    for (const metric of valueMetrics) {
-      if (!valueLeadersById.has(metric.group.id)) valueLeadersById.set(metric.group.id, { group: metric.group, metrics: [] })
-      valueLeadersById.get(metric.group.id).metrics.push(metric)
-    }
-    const valueLeaders = [...valueLeadersById.values()]
+    const valueGroups = [...scopedGroups]
+      .sort((a, b) => b.scopedFindingsPerDollar - a.scopedFindingsPerDollar || a.label.localeCompare(b.label))
+      .slice(0, 3)
     const completenessGroups = [...scopedGroups]
       .filter((group) => group.completenessBreakdown[completenessScope].value != null)
       .sort((a, b) => b.completenessBreakdown[completenessScope].value - a.completenessBreakdown[completenessScope].value || a.label.localeCompare(b.label))
       .slice(0, 3)
+    const fastestGroups = [...scopedGroups]
+      .filter((group) => group.scopedMinutesPerFinding != null)
+      .sort((a, b) => a.scopedMinutesPerFinding - b.scopedMinutesPerFinding || a.label.localeCompare(b.label))
+      .slice(0, 3)
+    const uniqueGroups = [...scopedGroups]
+      .sort((a, b) => b.scopedUnique - a.scopedUnique || b.completenessBreakdown[completenessScope].found - a.completenessBreakdown[completenessScope].found || a.label.localeCompare(b.label))
+      .slice(0, 3)
+    const sectionScope = `${scopeLabels[completenessScope]}${selectedLanguage === 'all' ? '' : ` · ${selectedLanguage}`}`
     const completenessPicker = field('Count', select('completeness-scope', Object.entries(scopeLabels), completenessScope, (event) => viewParams(params, { completeness: event.target.value === 'all' ? '' : event.target.value })), 'landing-picker')
+    const languagePicker = field('Language', select('language-scope', [['all', 'All languages'], ...languages.map((language) => [language, language])], selectedLanguage, (event) => viewParams(params, { language: event.target.value === 'all' ? '' : event.target.value })), 'landing-picker')
     frame(el('div', {},
       el('section', { class: 'landing-hero hero' },
         el('div', {},
@@ -553,24 +551,55 @@
           el('div', {}, el('strong', {}, fmt(verifiedReal.size)), el('span', {}, 'verified findings')),
         ),
       ),
-      el('section', { class: 'landing-section', 'aria-labelledby': 'leaders-title' },
+      el('section', { class: 'landing-section leaders-section', 'aria-labelledby': 'leaders-title' },
         el('div', { class: 'landing-section-head' },
-          el('div', {}, el('div', { class: 'eyebrow' }, 'Leaders'), el('h2', { id: 'leaders-title' }, `Best return for the money · ${scopeLabels[completenessScope]}`), el('p', {}, 'Both measures include the cost of failed or interrupted attempts. Higher is better.')),
-          completenessPicker,
+          el('div', {}, el('div', { class: 'eyebrow' }, 'Benchmark leaders'), el('h2', { id: 'leaders-title' }, 'Leaders'), el('p', {}, 'The strongest value, coverage, speed, and discovery results for the selected filters.')),
+          el('div', { class: 'leader-pickers' }, completenessPicker, languagePicker),
         ),
-        el('div', { class: 'landing-rank-grid leader-grid' }, valueLeaders.map((leader) => landingRankCard(
-          leader.group,
-          '#1',
-          leader.metrics.map((metric) => metric.value).join(' · '),
-          `${leader.metrics.map((metric) => `${metric.label} · ${metric.detail}`).join(' · ')} · ${fmt(leader.group.cost, 'money')} attempted cost.`,
-        ))),
-        el('p', { class: 'method-note' }, 'Count applies to every leader calculation. Completeness means the share of distinct verified findings found on the targets a skill reviewed. This is a small benchmark: three pull requests, one per language.'),
-      ),
-      el('section', { class: 'landing-section', 'aria-labelledby': 'completeness-title' },
-        el('div', { class: 'landing-section-head' },
-          el('div', {}, el('div', { class: 'eyebrow' }, 'Completeness leaders'), el('h2', { id: 'completeness-title' }, `Best coverage · ${scopeLabels[completenessScope]}`), el('p', {}, 'Major means high severity. Major + minor includes high and medium severity.')),
+        el('div', { class: 'leader-section', 'aria-labelledby': 'value-leaders-title' },
+          el('div', { class: 'leader-section-head' },
+            el('h3', { id: 'value-leaders-title' }, `Best return for the money · ${sectionScope}`),
+            el('p', {}, 'Ranked by verified findings per attempted dollar. Failed and interrupted attempts are included in the cost.'),
+          ),
+          el('div', { class: 'landing-rank-grid leader-grid' }, valueGroups.map((group, index) => landingRankCard(
+            group,
+            `#${index + 1}`,
+            `${group.scopedFindingsPerDollar.toFixed(2)} findings / $`,
+            `${group.completenessBreakdown[completenessScope].found} verified findings · ${fmt(group.completenessBreakdown[completenessScope].value, 'percent')} coverage · ${fmt(group.cost, 'money')} attempted cost`,
+          ))),
         ),
-        el('div', { class: 'landing-rank-grid completeness-grid' }, completenessGroups.map((group, index) => completenessRankCard(group, index + 1, completenessScope))),
+        el('div', { class: 'leader-section', 'aria-labelledby': 'completeness-title' },
+          el('div', { class: 'leader-section-head' },
+            el('h3', { id: 'completeness-title' }, `Best coverage · ${sectionScope}`),
+            el('p', {}, 'Ranked by the share of distinct verified issues found. Major means high severity; major + minor includes high and medium.'),
+          ),
+          el('div', { class: 'landing-rank-grid completeness-grid' }, completenessGroups.map((group, index) => completenessRankCard(group, index + 1, completenessScope))),
+        ),
+        el('div', { class: 'leader-section', 'aria-labelledby': 'fastest-title' },
+          el('div', { class: 'leader-section-head' },
+            el('h3', { id: 'fastest-title' }, `Fastest useful review · ${sectionScope}`),
+            el('p', {}, 'Ranked by elapsed minutes per verified finding. Lower is better; failed and interrupted attempts remain in the elapsed time.'),
+          ),
+          el('div', { class: 'landing-rank-grid fastest-grid' }, fastestGroups.map((group, index) => landingRankCard(
+            group,
+            `#${index + 1}`,
+            `${group.scopedMinutesPerFinding.toFixed(2)} min / finding`,
+            `${group.completenessBreakdown[completenessScope].found} verified findings · ${group.attempts} attempt${group.attempts === 1 ? '' : 's'}`,
+          ))),
+        ),
+        el('div', { class: 'leader-section', 'aria-labelledby': 'unique-title' },
+          el('div', { class: 'leader-section-head' },
+            el('h3', { id: 'unique-title' }, `Most unique discoveries · ${sectionScope}`),
+            el('p', {}, 'Ranked by verified issues found by only one skill. Ties are broken by total verified findings.'),
+          ),
+          el('div', { class: 'landing-rank-grid unique-grid' }, uniqueGroups.map((group, index) => landingRankCard(
+            group,
+            `#${index + 1}`,
+            `${group.scopedUnique} unique finding${group.scopedUnique === 1 ? '' : 's'}`,
+            `${group.completenessBreakdown[completenessScope].found} verified findings in the selected count`,
+          ))),
+        ),
+        el('p', { class: 'method-note' }, 'Count and language apply to every leader calculation. Completeness means the share of distinct verified findings found on the selected targets a skill reviewed. This is a small benchmark: three pull requests, one per language.'),
       ),
       el('section', { class: 'landing-section', 'aria-labelledby': 'skills-title' },
         el('div', { class: 'landing-section-head' },
