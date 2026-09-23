@@ -48,6 +48,9 @@ try {
   assert.match(home.app, /3\.02 \/ \$/)
   assert.match(home.app, /Completeness \/ price/)
   assert.match(home.app, /2\.56 pts \/ \$/)
+  assert.match(home.app, /Best return for the money · All issues/)
+  assert.equal(count(home.app, /id="completeness-scope"/g), 1)
+  assert.ok(home.app.indexOf('id="completeness-scope"') < home.app.indexOf('class="leader-grid"'), 'the count picker must appear above the leader cards')
   assert.equal(count(home.app, /class="skill-summary-card"/g), 8)
   assert.match(home.app, /href="#skills\/superpowers-review"/)
   assert.doesNotMatch(home.app, /review-bakeoff\.md/)
@@ -55,10 +58,18 @@ try {
   assert.match(home.app, /Anthropic pr-review-toolkit<\/a><\/h3><strong>55\.9%/)
 
   const majorHome = render('home?completeness=major')
+  assert.match(majorHome.app, /Best return for the money · Major only/)
+  assert.match(majorHome.app, /0\.45 \/ \$/)
+  assert.match(majorHome.app, /4\.53 pts \/ \$/)
+  assert.match(majorHome.app, /60\.0% of major verified findings/)
   assert.match(majorHome.app, /Best coverage · Major only/)
   assert.match(majorHome.app, /Compound Engineering ce-code-review<\/a><\/h3><strong>80\.0%/)
 
   const majorMinorHome = render('home?completeness=majorMinor')
+  assert.match(majorMinorHome.app, /Best return for the money · Major \+ minor/)
+  assert.match(majorMinorHome.app, /1\.21 \/ \$/)
+  assert.match(majorMinorHome.app, /5\.03 pts \/ \$/)
+  assert.match(majorMinorHome.app, /66\.7% of major \+ minor verified findings/)
   assert.match(majorMinorHome.app, /Best coverage · Major \+ minor/)
   assert.equal(count(majorMinorHome.app, /<strong>66\.7%<\/strong>/g), 3)
 
@@ -77,6 +88,10 @@ try {
   assert.equal(count(runBody[1], /<tr>/g), 1, 'the exact run-set link must render one row')
   assert.match(runs.app, /href="#run\/ironweave\/tob-c-review" class="run-link">Trail of Bits c-review<\/a>/)
   assert.match(runs.app, /Read from the stored Claude Code transcript cost and usage records\./)
+
+  const anthropicRun = render('runs?runIds=ironweave%2Fanthropic-pr-review')
+  assert.match(anthropicRun.app, /<span class="subline">ironweave · <a href="#skills\/anthropic-pr-review" class="skill-info-link">anthropic-pr-review<\/a><\/span>/)
+  assert.doesNotMatch(anthropicRun.app, /pr-review-toolkit@claude-plugins-official|>Skill info</)
 
   const pickedRuns = render('runs?pick=tidepool%2Fbuiltin-code-review%2Ctidepool%2Fsuperpowers-review')
   assert.match(pickedRuns.app, /href="#run\/tidepool\/builtin-code-review" class="run-link">Claude Code \/code-review<\/a> ↔/)

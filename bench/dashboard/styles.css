@@ -72,11 +72,8 @@ h3 { margin: 0; font-size: 1rem; }
 .landing-section-head h2 { font-size: 1.75rem; }
 .landing-section-head p { max-width: 680px; margin: .35rem 0 0; color: var(--muted); line-height: 1.5; }
 .leader-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-.leader-card { padding: 1.35rem; border: 1px solid #397d6e; border-radius: var(--radius); background: linear-gradient(145deg, rgb(20 68 58 / 58%), rgb(17 22 30 / 95%)); box-shadow: var(--shadow); }
-.leader-card .eyebrow { font-size: .7rem; }
-.leader-card h3 { margin-top: .8rem; font-size: 1.35rem; }
-.leader-value { display: block; margin-top: 1rem; color: var(--accent); font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 800; letter-spacing: -.04em; line-height: 1; }
-.leader-card p { margin: .65rem 0 0; color: #c5cfda; line-height: 1.5; }
+.value-leader-card .eyebrow { margin-bottom: .8rem; font-size: .7rem; }
+.value-leader-card .subline { margin-top: .75rem; }
 .method-note { margin-top: .75rem; color: var(--muted); font-size: .78rem; line-height: 1.45; }
 .skill-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
 .skill-summary-card { display: flex; min-width: 0; flex-direction: column; padding: 1rem; border: 1px solid var(--line); border-radius: 10px; background: rgb(17 22 30 / 82%); }
