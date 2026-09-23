@@ -301,6 +301,9 @@ if (VERB === 'start') {
           // after a driver refusal would otherwise hit "destination path already exists".
           '  rm -rf -- ' + shellQuote(st.scratch) + ' && git clone --no-hardlinks --no-local ' + shellQuote(st.root) + ' ' + shellQuote(st.scratch) + ' && cd ' + shellQuote(st.scratch),
           '',
+          'Every later experiment command must start with this prefix so it stays in that clone:',
+          '  cd ' + shellQuote(st.scratch) + ' && <experiment>',
+          '',
           'Then write a throwaway test or main() there with a heredoc and run it. Feed the degenerate',
           'input. Delete a guard the diff adds and see whether any test fails - if none does, the guard',
           'is untested. Run the changed code against the merge base as well as the head and compare:',

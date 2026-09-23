@@ -102,35 +102,48 @@ const DENY_READONLY = DENY_COMMON.concat(['Write', 'Edit'])
 
 // Write/Edit denial does not make Bash read-only. The whole-PR reviewer therefore gets a per-spawn
 // shell allowlist as well: exact review inputs, its exact driver batch, and the one ledger update the
-// review driver may request. There is deliberately no generic git/node/gh/sed/build rule here.
+// review driver may request. Detailed review additionally gets a wildcard only after an exact `cd`
+// into its disposable clone; there is no generic git/node/gh/sed/build rule in the repository.
 // bashCommandClamp is fail-closed: a command form absent from this list is denied, and agentSafe()
 // refuses to launch the required reviewer if the platform cannot bind the clamp.
-function reviewBashClamp(scope, setup, batchId) {
+function reviewBashClamp(scope, setup, batchId, detailed) {
   const driver = shq(HOME_BIN + '/review-and-fix-pr-driver.js')
   const reviewed = shq(HOME_BIN + '/review-and-fix-pr-reviewed.js')
   const root = shq(scope.repoRoot)
-  const base = String(scope.mergeBaseSha || '')
+  const baseRaw = String(scope.mergeBaseSha || '')
+  const base = shq(baseRaw)
   const head = String(scope.headSha || '')
   const ledger = shq(setup.ledgerPath || '')
   const scratch = shq('/tmp/prfix-rv-' + RUN_TAG + '-full')
-  const batch = shq(batchId)
+  // start comes from this workflow prompt and quotes the batch. Later steps come from cmd() in the
+  // driver, which deliberately prints its validated batch id without quotes. Keep both forms here:
+  // these are exact-text rules, so making every operand look uniformly quoted breaks the loop.
+  const batchRaw = String(batchId)
+  const batch = shq(batchRaw)
+  const driverStep = (verb, suffix) =>
+    'Bash(node ' + driver + ' ' + verb + ' --batch ' + batchRaw + (suffix || '') + ')'
   const rules = [
     'Bash(cd ' + root + ')',
-    'Bash(git diff ' + base + '...' + head + ')',
+    'Bash(git diff ' + baseRaw + '...' + head + ')',
     'Bash(rm -rf -- ' + scratch + ')',
     'Bash(git clone --no-hardlinks --no-local ' + root + ' ' + scratch + ')',
     'Bash(cd ' + scratch + ')',
+    'Bash(rm -rf -- ' + scratch + ' && git clone --no-hardlinks --no-local ' + root + ' ' + scratch +
+      ' && cd ' + scratch + ')',
     'Bash(node ' + driver + ' start --batch ' + batch + ' --root ' + root + ' --mode review *)',
-    'Bash(node ' + driver + ' found --batch ' + batch + ' *)',
-    'Bash(node ' + driver + ' checked --batch ' + batch + ' *)',
-    'Bash(node ' + driver + ' marked --batch ' + batch + ')',
+    driverStep('found', ' *'),
+    driverStep('checked', ' *'),
+    driverStep('marked', ''),
     'Bash(node ' + reviewed + ' --mark --root ' + root + ' --base ' + base + ' --ledger ' + ledger +
-      ' --pr ' + (scope.prNumber || 0) + ' --run ' + batch + ' --stage review *)',
+      ' --pr ' + shq(scope.prNumber || 0) + ' --run ' + batch + ' --stage review *)',
   ]
+  // Detailed review intentionally writes and runs throwaway probes. Requiring this exact prefix
+  // keeps that shell capability rooted in the disposable clone; Write/Edit stay denied globally.
+  if (detailed) rules.push('Bash(cd ' + scratch + ' && *)')
   for (const entry of (scope.changedFiles || [])) {
     const file = entry && String(entry.path || '')
     if (!file || file.startsWith('/') || file.split('/').includes('..') || /[\r\n]/.test(file)) continue
-    rules.push('Bash(git diff ' + base + '...' + head + ' -- ' + shq(file) + ')')
+    rules.push('Bash(git diff ' + baseRaw + '...' + head + ' -- ' + shq(file) + ')')
     rules.push('Bash(git log --oneline -- ' + shq(file) + ')')
     rules.push('Bash(git blame -- ' + shq(file) + ')')
   }
@@ -716,7 +729,8 @@ function fullPrPrompt(scope, base, setup, foundNothing, reviewOnly, parentSha) {
       ...(DETAILED ? [
         '',
         'But DO run experiments - in a throwaway clone, never in the repo above:',
-        '  git clone --no-hardlinks --no-local ' + shq(scope.repoRoot) + ' ' + shq('/tmp/prfix-rv-' + RUN_TAG + '-full'),
+        'Every experimental Bash command must start with this prefix so it stays in that clone:',
+        '  cd ' + shq('/tmp/prfix-rv-' + RUN_TAG + '-full') + ' && <experiment>',
         'Write throwaway tests there with a heredoc, build it, run it, delete a guard the diff adds and',
         'see whether any test notices, check out ' + scope.mergeBaseSha + ' and compare behaviour with the',
         'head. A finding you have REPRODUCED cannot be a false positive - put the command and its output',
@@ -2338,7 +2352,7 @@ if (RESOLVED_MODE === 'full') {
   const fullReviewBatch = RUN_TAG + '-rv-full'
   let full = await agentSafe(fullPrPrompt(scope, base, setup, false, true, headSha), {
     schema: FULL_SCHEMA, phase: 'Review', label: 'full-pr', effort: 'high',
-    disallowedTools: DENY_READONLY, bashCommandClamp: reviewBashClamp(scope, setup, fullReviewBatch),
+    disallowedTools: DENY_READONLY, bashCommandClamp: reviewBashClamp(scope, setup, fullReviewBatch, DETAILED),
     requireToolScope: true,
   })
 

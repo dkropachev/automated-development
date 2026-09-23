@@ -342,6 +342,8 @@ ck('everything comes back after revoke', filesIn(m).length === 4 && m.totals.cle
      !/--file src\/zzz\.js/.test(out), cmdLines(out))
   ck('review: the file that IS wholly ours is offered for marking',
      /--file 'src\/a\.js'/.test(out), cmdLines(out))
+  ck('review: the ledger command quotes the base and PR exactly as the clamp expects',
+     out.includes("--base '" + BASE + "'") && out.includes("--pr '7' --run 'rv1'"), cmdLines(out))
   sh('node', [path.join(BIN, 'review-and-fix-pr-reviewed.js'), '--mark', '--root', R, '--base', BASE,
     '--ledger', path.join(TMP, 'rv-ledger.json'), '--pr', '7', '--run', 'rv1', '--stage', 'review', '--file', 'src/a.js'])
   out = drive('marked', 'rv1')
@@ -377,6 +379,8 @@ ck('everything comes back after revoke', filesIn(m).length === 4 && m.totals.cle
     ck('detailed: the clone command removes the target first (ids restart on re-chunk; retries must not fail)',
        out.includes("rm -rf -- '" + scr + "' && git clone --no-hardlinks --no-local"), out.slice(0, 900))
     ck('detailed: tells the reviewer to run things, not just read', /RUN THINGS/.test(out))
+    ck('detailed: tells the reviewer how to stay inside the shell clamp for every experiment',
+       out.includes("cd '" + scr + "' && <experiment>"), out.slice(0, 1100))
     drive('found', 'dt1', ['--new', '0']); drive('found', 'dt1', ['--new', '0'])
     out = drive('checked', 'dt1', ['--kept', '0'])
     ck('detailed: the scratch clone is removed at the end', out.includes("rm -rf -- '" + scr + "'") && /FINAL STATE: reviewed/.test(out), out.slice(-300))
@@ -665,13 +669,28 @@ ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'review-and
     const clamp = wf.reviewBashClamp({
       repoRoot: '/repo', mergeBaseSha: 'a'.repeat(40), headSha: 'b'.repeat(40), prNumber: 12,
       changedFiles: [{ path: 'src/a.js' }, { path: '../escape' }],
-    }, { ledgerPath: '/state/reviewed.json' }, 'test-run-rv-full')
-    ck('the reviewer shell clamp is tied to its exact review batch and excludes write-capable tools',
+    }, { ledgerPath: '/state/reviewed.json' }, 'test-run-rv-full', false)
+    ck('the reviewer shell clamp matches the command forms emitted by the review driver',
        clamp.some(x => x.includes("start --batch 'test-run-rv-full' --root '/repo' --mode review")) &&
-       clamp.some(x => x.includes("--run 'test-run-rv-full' --stage review")) &&
+       clamp.includes("Bash(node '/plugin/bin/review-and-fix-pr-driver.js' found --batch test-run-rv-full *)") &&
+       clamp.includes("Bash(node '/plugin/bin/review-and-fix-pr-driver.js' checked --batch test-run-rv-full *)") &&
+       clamp.includes("Bash(node '/plugin/bin/review-and-fix-pr-driver.js' marked --batch test-run-rv-full)") &&
+       clamp.some(x => x.includes("--base '" + 'a'.repeat(40) + "' --ledger '/state/reviewed.json' --pr '12' --run 'test-run-rv-full' --stage review")),
+       clamp.join(' | '))
+    ck('the normal reviewer clamp excludes write-capable shell command families',
        clamp.every(x => !/\b(?:commit|push|gh|sed|formatter)\b/.test(x)) &&
        clamp.every(x => !x.includes('../escape')),
        clamp.join(' | '))
+
+    const detailedClamp = wf.reviewBashClamp({
+      repoRoot: '/repo', mergeBaseSha: 'a'.repeat(40), headSha: 'b'.repeat(40), prNumber: 12,
+      changedFiles: [{ path: 'src/a.js' }],
+    }, { ledgerPath: '/state/reviewed.json' }, 'test-run-rv-full', true)
+    ck('detailed review admits experiments only behind the scratch-clone prefix',
+       detailedClamp.includes("Bash(cd '/tmp/prfix-rv-test-run-full' && *)") &&
+       !clamp.includes("Bash(cd '/tmp/prfix-rv-test-run-full' && *)") &&
+       detailedClamp.includes("Bash(rm -rf -- '/tmp/prfix-rv-test-run-full' && git clone --no-hardlinks --no-local '/repo' '/tmp/prfix-rv-test-run-full' && cd '/tmp/prfix-rv-test-run-full')"),
+       detailedClamp.join(' | '))
 
     const deferred = []
     vm.runInNewContext([
