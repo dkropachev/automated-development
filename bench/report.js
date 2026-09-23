@@ -15,7 +15,6 @@ const SHORT = {
   'builtin-code-review': 'CR', 'ce-code-review': 'CE', 'tob-diff-review': 'TB-D',
   'tob-rust-review': 'TB-R', 'tob-c-review': 'TB-C', 'anthropic-pr-review': 'ANT',
   'superpowers-review': 'SP', 'mattpocock-review': 'MP',
-  'rafp-review': 'RAFP', 'rafp-detailed': 'RAFP-D',
 }
 const read = (p) => JSON.parse(fs.readFileSync(p, 'utf8'))
 const exists = (p) => fs.existsSync(p)
@@ -96,10 +95,11 @@ const used = tools.filter(tl => targets.some(t => results[t.id] && results[t.id]
 const out = []
 const P = (s) => out.push(s)
 
-P('# Review-tool bake-off: five installed reviewers, three real PRs\n')
+P(`# Review-tool bake-off: ${used.length} review configurations, three real PRs\n`)
 P('Every number below is produced by `bench/` in this repository and can be regenerated with')
-P('`make bench-report`. Each tool reviewed the same three pull requests, in its own headless')
-P('`claude -p` process, in a working directory of its own so its token spend is attributable.\n')
+P('`make bench-report`. General-purpose tools reviewed all three pull requests; language-specific')
+P('tools ran only on matching targets. Every run used its own headless `claude -p` process and')
+P('working directory so its token spend is attributable.\n')
 
 P('## What was reviewed\n')
 P('| Target | Language | Diff | Files | PR under review | Upstream original |')

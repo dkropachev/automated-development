@@ -1,7 +1,7 @@
 {
   "target": "tidepool",
   "language": "Go",
-  "rawFindings": 135,
+  "rawFindings": 94,
   "issues": [
     {
       "id": "I1",
@@ -40,12 +40,10 @@
       "scopeReason": "Pre-existing on main, but the PR's stated purpose is to make this allocation bounded and it is the code that introduced the byte-count model.",
       "reportedBy": [
         "ce-code-review",
-        "rafp-detailed",
         "superpowers-review"
       ],
       "reportedAs": {
         "ce-code-review": "The bound compares Dimensions against len(data)/elemMin (wire bytes) while reflect.MakeSlice allocates using the Go element size, so a peer can still trigger allocation far larger than the payload (e.g. ~4GiB from a 256MiB body for vector<text,N>).",
-        "rafp-detailed": "The element-count bound caps against len(data) rather than modeling per-CQL-type allocation cost, leaving up to 56x allocation amplification possible.",
         "superpowers-review": "Variable-length allocation amplification under the floor-of-1 is set aside as explicitly deferred or pre-existing and was not investigated in this review."
       }
     },
@@ -63,13 +61,11 @@
       "scopeReason": "Pre-existing, but the PR's new guard comment and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType advertise this exact protection while only pinning the *[]float64 destination.",
       "reportedBy": [
         "builtin-code-review",
-        "anthropic-pr-review",
-        "rafp-review"
+        "anthropic-pr-review"
       ],
       "reportedAs": {
         "builtin-code-review": "The new Dimensions > 0 guard prevents the bound check from dereferencing a nil SubType, but info.Zero() (via marshal.go:2046, v.SubType.NewWithError()) still panics; `var dst any; Unmarshal(VectorType{}, []byte{}, &dst)` panics with a nil-pointer dereference, verified by running it.",
-        "anthropic-pr-review": "The comment says the dim-0 carve-out exists so a caller-supplied zero VectorType cannot panic on the Scan goroutine, but the table only uses `var dst []float64`, which never touches SubType; with `var dst any` both rows still panic.",
-        "rafp-review": "The bound is skipped at Dimensions == 0 so a nil SubType cannot panic there, and a test asserts this, but the generic path then calls info.Zero(), which dereferences v.SubType unconditionally."
+        "anthropic-pr-review": "The comment says the dim-0 carve-out exists so a caller-supplied zero VectorType cannot panic on the Scan goroutine, but the table only uses `var dst []float64`, which never touches SubType; with `var dst any` both rows still panic."
       }
     },
     {
@@ -85,13 +81,11 @@
       "scope": "in-scope",
       "scopeReason": "The PR's own comment at marshal.go:995-997 reasons about caller-supplied nil SubTypes, so the incomplete invariant belongs with the code that states it.",
       "reportedBy": [
-        "rafp-detailed",
         "tob-diff-review",
         "ce-code-review",
         "superpowers-review"
       ],
       "reportedAs": {
-        "rafp-detailed": "The new guard's comment claims it protects against a nil SubType, but it only covers the Dimensions == 0 case; with Dimensions > 0 and non-nil data, vectorElemMinSize(nil) still panics via nil.Type().",
         "tob-diff-review": "unmarshalVector(VectorType{Dimensions: 3}, make([]byte,12), &dst) still nil-derefs in vectorFixedElemSize; the guard adds a second, earlier copy of the dereference under a comment that reads as if it were handled.",
         "ce-code-review": "With Dimensions > 0 and non-nil data, a caller-constructed VectorType with a nil SubType reaches vectorFixedElemSize(nil) and panics calling Type() on a nil interface; pre-existing.",
         "superpowers-review": "vectorElemMinSize nil-derefs on a nil SubType when Dimensions>0; not a regression (exact parity with the old fast path) and unreachable from the wire."
@@ -112,7 +106,6 @@
       "reportedBy": [
         "anthropic-pr-review",
         "builtin-code-review",
-        "rafp-detailed",
         "ce-code-review",
         "mattpocock-review",
         "tob-diff-review",
@@ -121,7 +114,6 @@
       "reportedAs": {
         "anthropic-pr-review": "NewCustomType(protoVer, TypeCustom, prefix+\"VectorType\") stores the bare prefix, so the PR's new error for a nested vector reads with no element type or dimension; storing `name` there instead would fix both the message and nested-vector decoding into interface{}.",
         "builtin-code-review": "This branch still stores prefix+\"VectorType\" without the parenthesized subtype, so asVectorType cannot parse it, NewWithError fails, Zero() returns nil, and a nested-vector column errors out of MapScan/Scan(&any) with an unhelpful message.",
-        "rafp-detailed": "The VectorType branch still calls NewCustomType with just the prefix instead of the full name, so nested vector types resolve to a bare custom() type with no Go type.",
         "ce-code-review": "For a nested vector, the new guard prints the bare prefix 'no Go type for element type custom(...)' because getCassandraLongType builds the nested VectorType's NativeType from a constant prefix rather than the parsed spec.",
         "mattpocock-review": "helpers.go:280-284 only fixes the unknown-basic-type case; the inner VectorType still carries the bare custom name and has no String(), so the nested-vector error path prints 'no Go type for element type custom(...VectorType)' without element type or dimensions.",
         "tob-diff-review": "For the nested-vector case, the message still reports custom(org.apache.cassandra.db.marshal.VectorType) with no element type or dimensions, because the inner type is built with prefix+\"VectorType\" rather than name.",
@@ -143,16 +135,12 @@
       "reportedBy": [
         "anthropic-pr-review",
         "ce-code-review",
-        "rafp-detailed",
-        "rafp-review",
         "superpowers-review",
         "tob-diff-review"
       ],
       "reportedAs": {
         "anthropic-pr-review": "vectorElemMinSize measures 92.3% coverage; the uncovered block is exactly `return math.MaxInt32`, the subtlest new line guarding a peer-supplied inner dimension.",
         "ce-code-review": "The saturation branch in vectorElemMinSize guarding against a nested peer-controlled Dimensions overflow is never exercised by any test, so a bug in the comparison, boundary, or int64-to-int narrowing there would go uncaught.",
-        "rafp-detailed": "mutation testing shows replacing it with 'return 1' leaves the suite green, unlike every other guard the diff adds.",
-        "rafp-review": "Coverage profile reports zero executions for the saturation guard at marshal.go:1136-1138.",
         "superpowers-review": "The `return math.MaxInt32` overflow-saturation branch shows 0 hits in the coverage profile while every other block in vectorElemMinSize is covered; it is wire-reachable.",
         "tob-diff-review": "The saturation branch is the only overflow guard in the new arithmetic, but TestVectorElemMinSize only covers 0 and -3 dimensions."
       }
@@ -275,15 +263,11 @@
       "scope": "out-of-scope",
       "scopeReason": "Pre-existing in branches this diff does not touch; the PR only edits the trailing basic-type else branch.",
       "reportedBy": [
-        "rafp-detailed",
-        "rafp-review",
         "anthropic-pr-review",
         "ce-code-review",
         "superpowers-review"
       ],
       "reportedAs": {
-        "rafp-detailed": "names[1], make([]UDTField, len(names)-2), and spec[1] are indexed without checking the split produced enough parts, causing index-out-of-range or negative-length-slice panics reachable through framer.readTypeInfo; the sibling MapType branch guards the same pattern.",
-        "rafp-review": "splitJavaCompositeTypes' result is indexed without a length check; a peer-supplied malformed type name causes an index-out-of-range or makeslice len-out-of-range panic. parseFrame's recover re-panics runtime.Error, killing the read goroutine and the process.",
         "anthropic-pr-review": "names[1] panics with an index-out-of-range error on a truncated vector spec such as ...VectorType(...FloatType); it's reachable via asVectorType → goType → NewWithError → Iter.Scan, which is unrecovered.",
         "ce-code-review": "helpers.go:264 indexes names[1] unguarded; a malformed name from the wire panics there. Pre-existing and unchanged.",
         "superpowers-review": "A parseFrame-recovered slicing panic at helpers.go:265 is set aside as explicitly deferred or pre-existing."
@@ -302,96 +286,12 @@
       "scope": "out-of-scope",
       "scopeReason": "Pre-existing and entirely untouched by this diff.",
       "reportedBy": [
-        "rafp-detailed",
-        "rafp-review",
         "ce-code-review",
         "superpowers-review"
       ],
       "reportedAs": {
-        "rafp-detailed": "readTypeInfo assumes the custom type spec has a trailing ) and a comma when slicing, so names like ...VectorType, ...VectorType(), or malformed variants cause 'slice bounds out of range' panics on the connection goroutine.",
-        "rafp-review": "readTypeInfo slices a vector custom-type string blind; inputs like ...VectorType, ...VectorTypeX, ...VectorType(...FloatType) all panic through parseFrame.",
         "ce-code-review": "frame.go does spec[1:len(spec)-1] and spec[:idx] where idx may be -1; a malformed name from the wire panics there.",
         "superpowers-review": "A parseFrame-recovered slicing panic at frame.go:855-857 is set aside as explicitly deferred or pre-existing."
-      }
-    },
-    {
-      "id": "I14",
-      "title": "readBytes slices p[:size] with an unchecked peer-supplied length",
-      "file": "marshal.go",
-      "line": 1563,
-      "kind": "security",
-      "severity": "high",
-      "verdict": "real",
-      "verdictReason": "readBytes at marshal.go:1565-1570 rejects only size < 0 and then does p[:size]; I ran Unmarshal of a tuple<int> over []byte{0x7f,0xff,0xff,0xff} and got a panic: slice bounds out of range [:2147483647] with capacity 0, on the Scan goroutine where nothing recovers.",
-      "introducedByPr": false,
-      "scope": "out-of-scope",
-      "scopeReason": "Pre-existing tuple/UDT code untouched by this vector-focused diff.",
-      "reportedBy": [
-        "rafp-detailed",
-        "rafp-review"
-      ],
-      "reportedAs": {
-        "rafp-detailed": "readBytes performs p[:size] using an attacker/server-controlled size with no bounds check, so a malformed length in any UDT field or tuple element panics on the Scan goroutine with no recover.",
-        "rafp-review": "readBytes trusts the peer's element length, causing a slice-bounds panic in unmarshalUDT/unmarshalTuple on Scan's goroutine."
-      }
-    },
-    {
-      "id": "I15",
-      "title": "unmarshalTuple calls reflect.Set without an assignability check and panics",
-      "file": "marshal.go",
-      "line": 1631,
-      "kind": "bug",
-      "severity": "high",
-      "verdict": "real",
-      "verdictReason": "marshal.go:1631/1636 Set decoded values into destination fields with no AssignableTo check; I ran Unmarshal of tuple<int,text> into *[]float32 and got a panic: reflect.Set: value of type int is not assignable to type float32.",
-      "introducedByPr": false,
-      "scope": "out-of-scope",
-      "scopeReason": "Pre-existing tuple code the diff does not touch.",
-      "reportedBy": [
-        "rafp-detailed",
-        "rafp-review"
-      ],
-      "reportedAs": {
-        "rafp-detailed": "unmarshalTuple performs reflect.Set without checking assignability, so e.g. vector<tuple<int,text>,2> into *[][]float32 panics with 'value of type int is not assignable to type float32' instead of returning an unmarshal error.",
-        "rafp-review": "unmarshalTuple panics instead of returning an error on a mismatched or unexported destination field."
-      }
-    },
-    {
-      "id": "I16",
-      "title": "scanColumn returns 1 for a nil tuple destination, silently dropping every later column",
-      "file": "session.go",
-      "line": 2974,
-      "kind": "bug",
-      "severity": "high",
-      "verdict": "real",
-      "verdictReason": "session.go:2974-2976 returns 1 whenever dest[0] == nil, before the TypeTuple branch at session.go:2978 that would return len(tuple.Elems); passing nil to skip a tuple column therefore misaligns every subsequent destination while Scan still reports success.",
-      "introducedByPr": false,
-      "scope": "out-of-scope",
-      "scopeReason": "Pre-existing scan plumbing unrelated to the vector changes.",
-      "reportedBy": [
-        "rafp-review"
-      ],
-      "reportedAs": {
-        "rafp-review": "Passing nil to skip a tuple column returns 1 instead of len(Elems), silently dropping every later column; Scan still returns true with nil error."
-      }
-    },
-    {
-      "id": "I17",
-      "title": "vectorSliceReuse aliases one backing array across rows for float/double vectors",
-      "file": "marshal.go",
-      "line": 941,
-      "kind": "bug",
-      "severity": "medium",
-      "verdict": "real",
-      "verdictReason": "vectorSliceReuse at marshal.go:941 reuses *dst's backing array when cap suffices; I decoded two vector<float,3> rows into the same destination and the slice retained from row 1 read back as row 2's values (&row1[0] == &dst[0]).",
-      "introducedByPr": false,
-      "scope": "out-of-scope",
-      "scopeReason": "Introduced by f42df61, which is already on main and untouched by this diff.",
-      "reportedBy": [
-        "rafp-review"
-      ],
-      "reportedAs": {
-        "rafp-review": "vectorSliceReuse aliases one backing array across rows for vector<float> and vector<double> only (introduced in commit f42df61)."
       }
     },
     {
@@ -407,11 +307,9 @@
       "scope": "out-of-scope",
       "scopeReason": "Pre-existing parse behaviour untouched by this diff.",
       "reportedBy": [
-        "rafp-detailed",
         "tob-diff-review"
       ],
       "reportedAs": {
-        "rafp-detailed": "One reviewer reproduced an 80s+ hang with a 98-byte custom name causing thousands of recursive frames in getCassandraLongType, but a follow-up reconciler could not reproduce it on the same commit.",
         "tob-diff-review": "dwarfed by a pre-existing quadratic type-name parse (38s for the same name)."
       }
     },
@@ -428,12 +326,10 @@
       "scope": "out-of-scope",
       "scopeReason": "Pre-existing line the diff does not touch.",
       "reportedBy": [
-        "anthropic-pr-review",
-        "rafp-detailed"
+        "anthropic-pr-review"
       ],
       "reportedAs": {
-        "anthropic-pr-review": "frame.go:861 discards ErrRange from strconv.Atoi, so an overflowing dimension becomes MaxInt64 and the operator never learns what string the server actually sent.",
-        "rafp-detailed": "The error from parsing the vector dimension via strconv.Atoi is discarded, so a non-numeric dimension silently becomes 0 and an out-of-range one becomes MaxInt64, producing a misleading 'N bytes of data for 0-dimension vector' error."
+        "anthropic-pr-review": "frame.go:861 discards ErrRange from strconv.Atoi, so an overflowing dimension becomes MaxInt64 and the operator never learns what string the server actually sent."
       }
     },
     {
@@ -449,11 +345,9 @@
       "scope": "in-scope",
       "scopeReason": "The PR created the inconsistency by naming one degrade path in the same function and leaving its siblings nameless.",
       "reportedBy": [
-        "rafp-review",
         "anthropic-pr-review"
       ],
       "reportedAs": {
-        "rafp-review": "Only the unknown-basic-type branch keeps the name; map-arity failure and vector dimension-parse failure return NewNativeType(protoVer, TypeCustom) with no name, so the nested-vector case still reports custom(org.apache.cassandra.db.marshal.VectorType).",
         "anthropic-pr-review": "helpers.go:222/267 still degrade to a nameless custom() on parse failure, now inconsistent with the change at helpers.go:279."
       }
     },
@@ -550,12 +444,10 @@
       "scope": "in-scope",
       "scopeReason": "The test is new in this PR.",
       "reportedBy": [
-        "rafp-review",
         "superpowers-review",
         "anthropic-pr-review"
       ],
       "reportedAs": {
-        "rafp-review": "The test's allocation assertion measures process-global TotalAlloc; it caught the prior regression and never flaked, so tightening it is deferred as not worth doing now.",
         "superpowers-review": "The allocation assertion reads process-global runtime.TotalAlloc; held under -count=5, -shuffle=on with 128KB headroom against ~3.5KB actual, but the 'not parallel' comment only covers sibling subtests, not the suite's background dialers/loggers.",
         "anthropic-pr-review": "The payload/8 budget is coupled to payload against ~3 KB of fixed overhead, so below ~32 KB the test fails for unrelated reasons; an absolute budget would be sturdier."
       }
@@ -678,25 +570,6 @@
       "reportedAs": {
         "tob-diff-review": "reflect.TypeOf(info.Zero()) yields []*T while goType() (used by unmarshalList and reached via MapScan) yields []T; Scan(&any) gives []*float32 but MapScan gives []float32 for vector<float,3>, and the test at marshal_vector_test.go:928 freezes this inconsistency.",
         "superpowers-review": "VectorType.Zero() yielding []*T is set aside as explicitly deferred or pre-existing."
-      }
-    },
-    {
-      "id": "I32",
-      "title": "Element-failure error message reports []uint8 for every element type",
-      "file": "marshal.go",
-      "line": 1113,
-      "kind": "bug",
-      "severity": "low",
-      "verdict": "real",
-      "verdictReason": "marshal.go:1113 applies %T to unmarshalData, which is always []byte; I saw the rendered message \"failed to unmarshal custom(...VectorType(...FloatType, 0)) into []uint8\" in my own run.",
-      "introducedByPr": false,
-      "scope": "out-of-scope",
-      "scopeReason": "Pre-existing line the diff does not touch.",
-      "reportedBy": [
-        "rafp-review"
-      ],
-      "reportedAs": {
-        "rafp-review": "The element-failure message uses %T on the payload, so it always says []uint8 regardless of the actual type."
       }
     },
     {
@@ -1011,31 +884,10 @@
       "scope": "in-scope",
       "scopeReason": "Pre-existing, but the PR changes this function's output without adding the tests the TODO asks for.",
       "reportedBy": [
-        "rafp-review",
         "ce-code-review"
       ],
       "reportedAs": {
-        "rafp-review": "getCassandraLongType has a // TODO: Cover with unit tests. comment at helpers.go:204 that still stands, flagged as a before-merge follow-up.",
         "ce-code-review": "No test covers a List<UnknownType>, an unknown map value, or a UDT field to confirm the widened Custom()/String() population behaves correctly for those positions."
-      }
-    },
-    {
-      "id": "I49",
-      "title": "No fuzz target exists for the unmarshal codepaths",
-      "file": "",
-      "line": 0,
-      "kind": "test-gap",
-      "severity": "nit",
-      "verdict": "real",
-      "verdictReason": "No Fuzz* function exists in the package; given I13-I16 are all panics on malformed peer input, a FuzzUnmarshal target would be the cheapest systematic guard. A follow-up, not a defect in this diff.",
-      "introducedByPr": false,
-      "scope": "out-of-scope",
-      "scopeReason": "A repository-wide suggestion unrelated to what this PR changes.",
-      "reportedBy": [
-        "rafp-review"
-      ],
-      "reportedAs": {
-        "rafp-review": "Adding a FuzzUnmarshal target is suggested as a nice-to-have follow-up."
       }
     },
     {

@@ -102,15 +102,17 @@ test('comparison overlap uses stable IDs only for the same target', () => {
 test('artifact loader reads the complete tracked matrix without runtime transcript accounting', () => {
   const data = dashboard.loadArtifacts()
   assert.equal(data.targets.length, 3)
-  assert.equal(data.runs.length, 26)
-  assert.equal(data.issues.length, 146)
+  assert.equal(data.tools.length, 8)
+  assert.equal(data.runs.length, 20)
+  assert.equal(data.issues.length, 137)
+  assert.doesNotMatch(JSON.stringify(data), /review-and-fix-pr|rafp-(?:review|detailed)/)
   assert.deepEqual(data.runs.reduce((counts, run) => {
     counts[run.status] = (counts[run.status] || 0) + 1
     return counts
-  }, {}), { complete: 22, salvaged: 3, dnf: 1 })
+  }, {}), { complete: 17, salvaged: 2, dnf: 1 })
   assert.ok(data.runs.every((run) => run.claims && run.issueIds && run.metrics))
   assert.equal(data.defaultTokenLimit, 25000000)
-  assert.equal(data.runs.filter((run) => dashboard.isRecommendedRun(run, data.defaultTokenLimit)).length, 18)
+  assert.equal(data.runs.filter((run) => dashboard.isRecommendedRun(run, data.defaultTokenLimit)).length, 16)
   const source = fs.readFileSync(path.join(ROOT, 'bench', 'dashboard.js'), 'utf8')
   assert.doesNotMatch(source, /require\(['"]\.\/lib\/usage['"]\)/)
   assert.doesNotMatch(source, /path\.join\(root,\s*['"](?:work|logs)['"]/)
@@ -150,7 +152,8 @@ test('HTML export is deterministic, self-contained, and script-data safe', () =>
   assert.match(first, /^<!doctype html>/)
   assert.match(first, /id="dashboard-data" type="application\/json"/)
   for (const view of ['Summary', 'Leaderboard', 'Compare', 'Insights', 'Findings', 'Runs']) assert.match(first, new RegExp(`navLink\\('${view}'`))
-  assert.match(first, /function renderLanding\(\)/)
+  assert.match(first, /function renderLanding\(params\)/)
+  assert.doesNotMatch(first, /review-bakeoff\.md/)
   assert.doesNotMatch(first, /<script\s+[^>]*src=/i)
   assert.doesNotMatch(first, /<link\s+[^>]*href=/i)
   assert.doesNotMatch(first, /\bfetch\s*\(|XMLHttpRequest|new\s+WebSocket/i)
@@ -185,7 +188,9 @@ test('dashboard exposes tested-skill metadata and exact run-set links', () => {
 test('tracked dashboard exactly matches a fresh export', () => {
   const index = fs.readFileSync(path.join(ROOT, 'docs', 'index.html'), 'utf8')
   const tracked = fs.readFileSync(path.join(ROOT, 'docs', 'run-explorer.html'), 'utf8')
+  const report = fs.readFileSync(path.join(ROOT, 'docs', 'review-bakeoff.md'), 'utf8')
   const fresh = dashboard.render(dashboard.loadArtifacts())
   assert.equal(index, fresh, 'run make bench-dashboard after changing benchmark artifacts or dashboard assets')
   assert.equal(tracked, fresh, 'the backwards-compatible run-explorer URL must match the Pages entry point')
+  assert.doesNotMatch(report, /review-and-fix-pr|rafp-(?:review|detailed)/)
 })

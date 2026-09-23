@@ -96,33 +96,6 @@
       "repoUrl": "https://github.com/mattpocock/skills",
       "pageUrl": "https://github.com/mattpocock/skills/blob/main/docs/engineering/code-review.md",
       "prompt": "/mattpocock-skills:code-review main\n\n{context}"
-    },
-    {
-      "id": "rafp-review",
-      "label": "review-and-fix-pr (review only)",
-      "source": "automated-development@automated-development",
-      "catalogId": "review-and-fix-pr",
-      "catalogLabel": "automated-development review-and-fix-pr",
-      "description": "A whole-PR pipeline that runs risk-selected review lenses, normalizes and verifies findings, and can optionally fix accepted findings in validated commits.",
-      "install": "/plugin marketplace add dkropachev/automated-development\n/plugin install automated-development@automated-development",
-      "invoke": "/review-and-fix-pr <PR number or URL>",
-      "repoUrl": "https://github.com/dkropachev/automated-development",
-      "pageUrl": "https://github.com/dkropachev/automated-development/blob/main/skills/review-and-fix-pr/SKILL.md",
-      "prompt": "/automated-development:review-and-fix-pr {pr}\n\nRun it read-only: `fix: false`, and `ignoreLedger: true` so nothing is skipped as already reviewed.\n\n{context}"
-    },
-    {
-      "id": "rafp-detailed",
-      "label": "review-and-fix-pr (review only, detailedReview)",
-      "source": "automated-development@automated-development",
-      "catalogId": "review-and-fix-pr",
-      "catalogLabel": "automated-development review-and-fix-pr",
-      "description": "A whole-PR pipeline that runs risk-selected review lenses, normalizes and verifies findings, and can optionally fix accepted findings in validated commits.",
-      "install": "/plugin marketplace add dkropachev/automated-development\n/plugin install automated-development@automated-development",
-      "invoke": "/review-and-fix-pr <PR number or URL>",
-      "repoUrl": "https://github.com/dkropachev/automated-development",
-      "pageUrl": "https://github.com/dkropachev/automated-development/blob/main/skills/review-and-fix-pr/SKILL.md",
-      "prompt": "/automated-development:review-and-fix-pr {pr}\n\nRun it read-only and detailed: `fix: false`, `detailedReview: true`, and `ignoreLedger: true` so nothing is skipped as already reviewed.\n\n{context}"
     }
-  ],
-  "note": "`/pr-review-fix` was renamed to `review-and-fix-pr` while this matrix was running; `rafp-*` invokes the renamed skill by its plugin name."
+  ]
 }
