@@ -46,9 +46,8 @@ test('normalizeUsage reaches reported fields and preserves unavailable values', 
   assert.equal(usage.source, 'reported')
 })
 
-test('deriveStatus preserves complete, salvaged, failed, and DNF states', () => {
+test('deriveStatus preserves complete, failed, and DNF states', () => {
   assert.equal(dashboard.deriveStatus({ exitCode: 0, isError: false, result: 'ok' }), 'complete')
-  assert.equal(dashboard.deriveStatus({ exitCode: 0, isError: false, result: 'ok', salvaged: true }), 'salvaged')
   assert.equal(dashboard.deriveStatus({ exitCode: 1, isError: true, result: null }), 'failed')
   assert.equal(dashboard.deriveStatus({ exitCode: 0, result: 'partial', dnf: true }), 'dnf')
 })
@@ -56,7 +55,6 @@ test('deriveStatus preserves complete, salvaged, failed, and DNF states', () => 
 test('recommended runs must succeed, find something real, and stay under token ceiling', () => {
   const base = { status: 'complete', metrics: { real: 1 }, usage: { total: 100 } }
   assert.equal(dashboard.isRecommendedRun(base, 100), true)
-  assert.equal(dashboard.isRecommendedRun({ ...base, status: 'salvaged' }, 100), true)
   assert.equal(dashboard.isRecommendedRun({ ...base, status: 'failed' }, 100), false)
   assert.equal(dashboard.isRecommendedRun({ ...base, metrics: { real: 0 } }, 100), false)
   assert.equal(dashboard.isRecommendedRun({ ...base, usage: { total: 101 } }, 100), false)
@@ -103,16 +101,17 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
   const data = dashboard.loadArtifacts()
   assert.equal(data.targets.length, 3)
   assert.equal(data.tools.length, 8)
-  assert.equal(data.runs.length, 20)
+  assert.equal(data.runs.length, 18)
   assert.equal(data.issues.length, 137)
   assert.doesNotMatch(JSON.stringify(data), /review-and-fix-pr|rafp-(?:review|detailed)/)
   assert.deepEqual(data.runs.reduce((counts, run) => {
     counts[run.status] = (counts[run.status] || 0) + 1
     return counts
-  }, {}), { complete: 17, salvaged: 2, dnf: 1 })
+  }, {}), { complete: 17, dnf: 1 })
+  assert.ok(data.runs.every((run) => !run.salvaged))
   assert.ok(data.runs.every((run) => run.claims && run.issueIds && run.metrics))
   assert.equal(data.defaultTokenLimit, 25000000)
-  assert.equal(data.runs.filter((run) => dashboard.isRecommendedRun(run, data.defaultTokenLimit)).length, 16)
+  assert.equal(data.runs.filter((run) => dashboard.isRecommendedRun(run, data.defaultTokenLimit)).length, 15)
   const source = fs.readFileSync(path.join(ROOT, 'bench', 'dashboard.js'), 'utf8')
   assert.doesNotMatch(source, /require\(['"]\.\/lib\/usage['"]\)/)
   assert.doesNotMatch(source, /path\.join\(root,\s*['"](?:work|logs)['"]/)
@@ -129,6 +128,7 @@ test('artifact loader limits directory reads to the documented inputs', () => {
     write('state.json', { targets: { sample: { id: 'sample', language: 'JS', fork: 'x/y', forkPr: 1 } } })
     write('tools.json', { context: 'Review {fork}', tools: [{ id: 'tool', label: 'Tool', prompt: '{context}' }] })
     write('results/sample/tool.json', { target: 'sample', tool: 'tool', exitCode: 0, isError: false, result: 'ok' })
+    write('results/sample/salvaged.json', { target: 'sample', tool: 'salvaged', salvaged: true, result: 'recovered' })
     write('findings/sample/tool.json', { findings: [] })
     write('judgement/sample.json', { issues: [] })
     write('groundtruth/sample.json', { url: 'https://example.test/pr/1', review: {} })
@@ -164,7 +164,8 @@ test('HTML export is deterministic, self-contained, and script-data safe', () =>
 
 test('dashboard metric hints are visible, concise, and keyboard reachable', () => {
   const html = dashboard.render(dashboard.loadArtifacts())
-  assert.match(html, /'Real \/ run': 'Distinct verified real issues divided by complete or salvaged runs\.'/)
+  assert.match(html, /'Real \/ run': 'Distinct verified real issues divided by complete runs\.'/)
+  assert.doesNotMatch(html, /salvag/i)
   assert.match(html, /'Precision': 'Real issues divided by real issues plus false positives; unproven issues are excluded\.'/)
   assert.match(html, /class: 'hint-mark', tabindex: 0, title: hint, 'data-hint': hint/)
   assert.match(html, /class: 'hint-tooltip', role: 'tooltip'/)

@@ -81,13 +81,12 @@ function normalizeUsage(record) {
 
 function deriveStatus(record) {
   if (record.dnf) return 'dnf'
-  if (record.salvaged) return 'salvaged'
   if (record.exitCode === 0 && !record.isError && record.result) return 'complete'
   return 'failed'
 }
 
 function isRecommendedRun(run, tokenLimit = DEFAULT_TOKEN_LIMIT) {
-  return ['complete', 'salvaged'].includes(run.status) &&
+  return run.status === 'complete' &&
     run.metrics.real > 0 &&
     run.usage.total != null &&
     run.usage.total <= tokenLimit
@@ -188,6 +187,7 @@ function loadArtifacts(root = ROOT) {
     for (const issue of judgement.issues || []) issues.push({ ...issue, targetId: target.id })
     for (const file of jsonFiles(path.join(root, 'results', target.id))) {
       const record = readJson(path.join(root, 'results', target.id, file))
+      if (record.salvaged) continue
       const findingFile = path.join(root, 'findings', target.id, file)
       const findingRecord = fs.existsSync(findingFile) ? readJson(findingFile) : { findings: [], extractError: null }
       const claims = findingRecord.findings || []
@@ -208,7 +208,6 @@ function loadArtifacts(root = ROOT) {
         signal: record.signal || null,
         isError: Boolean(record.isError),
         apiErrorStatus: record.apiErrorStatus || null,
-        salvaged: Boolean(record.salvaged),
         wallMsDerived: Boolean(record.wallMsDerived),
         attempts: finite(record.attempts),
         dnfReason: record.dnfReason || null,

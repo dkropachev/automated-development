@@ -57,7 +57,7 @@
     'Candidate': 'The skill, model stack, or language currently being ranked.',
     'Cache read': 'Previously cached prompt tokens reused by the model.',
     'Claims': 'Raw findings extracted from a run before duplicate merging and verification.',
-    'Completeness': 'Distinct real issues found divided by all real issues found by eligible complete or salvaged runs.',
+    'Completeness': 'Distinct real issues found divided by all real issues found by eligible complete runs.',
     'Completeness / dollar': 'Completeness percentage points divided by total recorded cost for every attempted run.',
     'Cost': 'Recorded API usage cost in U.S. dollars.',
     'Cost / real': 'Total recorded cost for attempted runs divided by distinct verified real issues.',
@@ -81,12 +81,12 @@
     'Real': 'Distinct judged issues attributed to the run and verified as real problems.',
     'Real / $': 'Verified real issues found per U.S. dollar of recorded cost.',
     'Real / dollar': 'Verified real issues found per U.S. dollar of recorded cost.',
-    'Real / run': 'Distinct verified real issues divided by complete or salvaged runs.',
+    'Real / run': 'Distinct verified real issues divided by complete runs.',
     'Real findings': 'Distinct judged issues attributed to the run and verified as real problems.',
     'Recorded cost (USD)': 'Recorded API usage cost in U.S. dollars.',
     'Shared': 'Verified real issues also found by at least one other selected skill.',
-    'Success': 'Complete or salvaged runs divided by all attempted runs.',
-    'Status': 'Run outcome: complete, salvaged from stored output, failed, or did not finish (DNF).',
+    'Success': 'Complete runs divided by all attempted runs.',
+    'Status': 'Run outcome: complete, failed, or did not finish (DNF).',
     'Thinking': 'Reasoning tokens reported within the model’s output-token count.',
     'Thinking (within output)': 'Reasoning tokens shown separately for visibility but already included in output tokens.',
     'Tokens': 'Input, output, cache-read, and cache-creation tokens combined; thinking is already included in output.',
@@ -304,7 +304,7 @@
       checklist('Languages', 'languages', languages.map((language) => [language, language]), params),
       checklist('Targets', 'targets', DATA.targets.map((target) => [target.id, `${target.id} · ${target.language}`]), params),
     )
-    if (status) bar.append(field('Runs', select('status-filter', [['all', 'All runs'], ['recommended', 'Useful only'], ['complete', 'Complete'], ['salvaged', 'Salvaged'], ['failed', 'Failed'], ['dnf', 'DNF']], params.get('status') || 'all', (event) => viewParams(params, { status: event.target.value === 'all' ? '' : event.target.value }))))
+    if (status) bar.append(field('Runs', select('status-filter', [['all', 'All runs'], ['recommended', 'Useful only'], ['complete', 'Complete'], ['failed', 'Failed'], ['dnf', 'DNF']], params.get('status') || 'all', (event) => viewParams(params, { status: event.target.value === 'all' ? '' : event.target.value }))))
     if (search) {
       const input = el('input', { id: 'run-search', type: 'search', value: params.get('q') || '', placeholder: 'Search…', onchange: (event) => viewParams(params, { q: event.target.value.trim() }) })
       bar.append(field('Search', input, 'search'))
@@ -339,7 +339,7 @@
     return DATA.runs.filter((run) => {
       if (selectedRunIds.length && !selectedRunIds.includes(run.id)) return false
       if (!matchesOverviewDimensions(run, params)) return false
-      if (status === 'recommended' && !(['complete', 'salvaged'].includes(run.status) && run.metrics.real > 0 && run.usage.total != null && run.usage.total <= DATA.defaultTokenLimit)) return false
+      if (status === 'recommended' && !(run.status === 'complete' && run.metrics.real > 0 && run.usage.total != null && run.usage.total <= DATA.defaultTokenLimit)) return false
       return ['all', 'recommended'].includes(status) || run.status === status
     })
   }
@@ -381,7 +381,7 @@
   }
 
   function aggregateRuns(id, label, dimension, rows, universeRows) {
-    const usable = rows.filter((run) => ['complete', 'salvaged'].includes(run.status))
+    const usable = rows.filter((run) => run.status === 'complete')
     const issueRows = new Map()
     for (const run of usable) for (const issue of run.issues) issueRows.set(issueKey(run.targetId, issue), { issue, targetId: run.targetId })
     const distinct = [...issueRows.values()]
@@ -392,7 +392,7 @@
     const medium = real.filter((row) => row.issue.severity === 'medium').length
     const targetIds = [...new Set(rows.map((run) => run.targetId))]
     const universe = new Map()
-    for (const run of universeRows.filter((item) => ['complete', 'salvaged'].includes(item.status) && targetIds.includes(item.targetId))) {
+    for (const run of universeRows.filter((item) => item.status === 'complete' && targetIds.includes(item.targetId))) {
       for (const issue of run.issues) if (issue.verdict === 'real') universe.set(issueKey(run.targetId, issue), issue)
     }
     const cost = total(rows, (run) => run.usage.costUsd)
@@ -616,7 +616,7 @@
     const sort = params.get('decision') || 'value'
     const groups = orderGroups(groupedStats(base, groupBy, base), sort)
     const selected = selectionFrom(params)
-    const distinctReal = new Set(base.filter((run) => ['complete', 'salvaged'].includes(run.status)).flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
+    const distinctReal = new Set(base.filter((run) => run.status === 'complete').flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
     const controls = el('div', { class: 'compact-controls decision-controls' },
       field('Group candidates by', select('decision-group', [['skill', 'Skill'], ['skillModel', 'Skill + model stack'], ['model', 'Model stack'], ['language', 'Language']], groupBy, (event) => viewParams(params, { group: event.target.value === 'skill' ? '' : event.target.value, compareSkills: event.target.value === 'skill' ? params.get('compareSkills') : '' }))),
       field('Rank for', select('decision-sort', [['value', 'Best value'], ['quality', 'Highest completeness'], ['precision', 'Highest precision'], ['reliability', 'Most reliable'], ['cost', 'Lowest cost']], sort, (event) => viewParams(params, { decision: event.target.value === 'value' ? '' : event.target.value }))),
@@ -693,7 +693,7 @@
 
   function renderInsights(params) {
     const visible = DATA.runs.filter((run) => matchesOverviewDimensions(run, params))
-    const completed = visible.filter((run) => ['complete', 'salvaged'].includes(run.status))
+    const completed = visible.filter((run) => run.status === 'complete')
     frame(el('div', {},
       compactHero('Broad analysis', 'See the whole benchmark landscape.', 'Use mixed charts to explore price, quality, robustness, model stacks, and target-level variation.'),
       filterBar(params),
@@ -997,7 +997,7 @@
   function issueUniverse(targetIds, scope) {
     const found = new Set()
     for (const run of DATA.runs) {
-      if (!['complete', 'salvaged'].includes(run.status) || !targetIds.includes(run.targetId)) continue
+      if (run.status !== 'complete' || !targetIds.includes(run.targetId)) continue
       for (const issue of run.issues) {
         if (issue.verdict !== 'real' || (scope === 'in' && issue.scope !== 'in-scope')) continue
         found.add(issueKey(run.targetId, issue))
@@ -1008,7 +1008,7 @@
 
   function skillModelGroups(items, params) {
     const grouped = new Map()
-    const usable = items.filter((run) => ['complete', 'salvaged'].includes(run.status) && run.usage.costUsd > 0)
+    const usable = items.filter((run) => run.status === 'complete' && run.usage.costUsd > 0)
     for (const run of usable) {
       const modelNames = Object.keys(run.usage.models || {}).sort()
       const modelMix = modelNames.length ? modelNames.join(' + ') : 'model unavailable'
@@ -1180,7 +1180,7 @@
     const robustControl = field(hintedLabel('Metric', metricHints[robustLabel]), select('robustness-metric', [['completeness', 'Completeness'], ['efficiency', 'Findings / dollar']], robustKey, (event) => overviewParams(params, { robust: event.target.value === 'completeness' ? '' : event.target.value })))
     return el('section', { class: 'analysis-section' },
       el('div', { class: 'analysis-intro' },
-        el('div', {}, el('div', { class: 'eyebrow' }, 'Skill + model analysis'), el('h2', {}, 'Quality-adjusted economics'), el('p', {}, 'Charts include every complete or salvaged run with recorded cost, including zero-yield and token-heavy runs. Each row groups one skill with its exact model stack. Multi-model findings cannot be attributed to one model, so full run cost and outcomes stay together. Completeness uses unique real judgement IDs found by all complete or salvaged runs on eligible targets.')),
+        el('div', {}, el('div', { class: 'eyebrow' }, 'Skill + model analysis'), el('h2', {}, 'Quality-adjusted economics'), el('p', {}, 'Charts include every complete run with recorded cost, including zero-yield and token-heavy runs. Each row groups one skill with its exact model stack. Multi-model findings cannot be attributed to one model, so full run cost and outcomes stay together. Completeness uses unique real judgement IDs found by all complete runs on eligible targets.')),
       ),
       el('div', { class: 'analysis-grid' },
         analysisPanel('Finding / price efficiency', 'Sorted best-first by all-scope unique real findings per dollar.', seriesChart(groups, [{ label: 'In scope', hint: 'Distinct in-scope real issues found per U.S. dollar of recorded cost.', get: (group) => group.efficiencyIn }, { label: 'All scopes', hint: 'Distinct real issues in any scope found per U.S. dollar of recorded cost.', get: (group) => group.efficiencyAll }])),
@@ -1224,7 +1224,7 @@
         run.dnfReason ? el('div', { class: 'notice' }, run.dnfReason) : null,
         el('dl', { class: 'summary-grid' },
           summaryItem('Target', externalLink(`${target.id} PR #${target.pr}`, target.prUrl), target.title),
-          summaryItem('Status', run.status, run.salvaged ? 'report salvaged from stored run data' : null),
+          summaryItem('Status', run.status),
           summaryItem('Wall time', fmt(run.wallMs, 'minutes'), run.wallMsDerived ? 'derived' : 'recorded'),
           summaryItem('Recorded cost', fmt(run.usage.costUsd, 'money'), el('span', {}, 'source: ', usageSourceLabel(run.usage.source))),
           summaryItem('Tokens', fmt(run.usage.total), 'input + output + cache classes'),
