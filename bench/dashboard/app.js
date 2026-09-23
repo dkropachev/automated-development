@@ -473,10 +473,10 @@
   }
 
   function leaderCard(label, group, value, note) {
-    return el('article', { class: 'leader-card' },
+    return el('article', { class: 'rank-card value-leader-card' },
       el('div', { class: 'eyebrow' }, label),
-      el('h3', {}, group.label),
-      el('strong', { class: 'leader-value' }, value),
+      el('h3', {}, hashLink(group.label, skillHash(group.id))),
+      el('strong', {}, value),
       el('p', {}, note),
       hashLink('See leaderboard →', '#choose', 'subline'),
     )
@@ -504,14 +504,23 @@
 
   function renderLanding(params) {
     const groups = groupedStats(DATA.runs, 'skill', DATA.runs).filter((group) => group.cost > 0)
-    const findingsLeader = [...groups].sort((a, b) => (b.realPerDollar ?? -1) - (a.realPerDollar ?? -1))[0]
-    const completenessLeader = [...groups].sort((a, b) => (b.completenessPerDollar ?? -1) - (a.completenessPerDollar ?? -1))[0]
     const verifiedReal = new Set(DATA.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(issue.targetId, issue)))
     const catalogue = skillCatalogue()
     const requestedScope = params.get('completeness') || 'all'
     const completenessScope = ['all', 'major', 'majorMinor'].includes(requestedScope) ? requestedScope : 'all'
     const scopeLabels = { all: 'All issues', major: 'Major only', majorMinor: 'Major + minor' }
-    const completenessGroups = [...groups]
+    const scopeIssueLabels = { all: 'all', major: 'major', majorMinor: 'major + minor' }
+    const scopedGroups = groups.map((group) => {
+      const completeness = group.completenessBreakdown[completenessScope]
+      return {
+        ...group,
+        scopedFindingsPerDollar: completeness.found / group.cost,
+        scopedCompletenessPerDollar: completeness.value == null ? null : completeness.value * 100 / group.cost,
+      }
+    })
+    const findingsLeader = [...scopedGroups].sort((a, b) => b.scopedFindingsPerDollar - a.scopedFindingsPerDollar || a.label.localeCompare(b.label))[0]
+    const completenessLeader = [...scopedGroups].sort((a, b) => (b.scopedCompletenessPerDollar ?? -1) - (a.scopedCompletenessPerDollar ?? -1) || a.label.localeCompare(b.label))[0]
+    const completenessGroups = [...scopedGroups]
       .filter((group) => group.completenessBreakdown[completenessScope].value != null)
       .sort((a, b) => b.completenessBreakdown[completenessScope].value - a.completenessBreakdown[completenessScope].value || a.label.localeCompare(b.label))
       .slice(0, 3)
@@ -533,17 +542,19 @@
         ),
       ),
       el('section', { class: 'landing-section', 'aria-labelledby': 'leaders-title' },
-        el('div', { class: 'landing-section-head' }, el('div', {}, el('div', { class: 'eyebrow' }, 'Leaders'), el('h2', { id: 'leaders-title' }, 'Best return for the money'), el('p', {}, 'Both measures include the cost of failed or interrupted attempts. Higher is better.'))),
-        el('div', { class: 'leader-grid' },
-          leaderCard('Findings / price', findingsLeader, `${findingsLeader.realPerDollar.toFixed(2)} / $`, `${findingsLeader.real} verified findings for ${fmt(findingsLeader.cost, 'money')}.`),
-          leaderCard('Completeness / price', completenessLeader, `${completenessLeader.completenessPerDollar.toFixed(2)} pts / $`, `${fmt(completenessLeader.completeness, 'percent')} of all verified findings for ${fmt(completenessLeader.cost, 'money')}.`),
+        el('div', { class: 'landing-section-head' },
+          el('div', {}, el('div', { class: 'eyebrow' }, 'Leaders'), el('h2', { id: 'leaders-title' }, `Best return for the money · ${scopeLabels[completenessScope]}`), el('p', {}, 'Both measures include the cost of failed or interrupted attempts. Higher is better.')),
+          completenessPicker,
         ),
-        el('p', { class: 'method-note' }, 'Completeness means the share of distinct verified findings found on the targets a skill reviewed. This is a small benchmark: three pull requests, one per language.'),
+        el('div', { class: 'leader-grid' },
+          leaderCard('Findings / price', findingsLeader, `${findingsLeader.scopedFindingsPerDollar.toFixed(2)} / $`, `${findingsLeader.completenessBreakdown[completenessScope].found} verified findings for ${fmt(findingsLeader.cost, 'money')}.`),
+          leaderCard('Completeness / price', completenessLeader, `${completenessLeader.scopedCompletenessPerDollar.toFixed(2)} pts / $`, `${fmt(completenessLeader.completenessBreakdown[completenessScope].value, 'percent')} of ${scopeIssueLabels[completenessScope]} verified findings for ${fmt(completenessLeader.cost, 'money')}.`),
+        ),
+        el('p', { class: 'method-note' }, 'Count applies to every leader calculation. Completeness means the share of distinct verified findings found on the targets a skill reviewed. This is a small benchmark: three pull requests, one per language.'),
       ),
       el('section', { class: 'landing-section', 'aria-labelledby': 'completeness-title' },
         el('div', { class: 'landing-section-head' },
           el('div', {}, el('div', { class: 'eyebrow' }, 'Completeness leaders'), el('h2', { id: 'completeness-title' }, `Best coverage · ${scopeLabels[completenessScope]}`), el('p', {}, 'Major means high severity. Major + minor includes high and medium severity.')),
-          completenessPicker,
         ),
         el('div', { class: 'completeness-grid' }, completenessGroups.map((group, index) => completenessRankCard(group, index + 1, completenessScope))),
       ),
@@ -832,7 +843,7 @@
       })
       body.append(el('tr', {},
         el('td', {}, box),
-        el('td', {}, hashLink(run.toolLabel, runHash(run), 'run-link'), el('span', { class: 'subline' }, skillInfoLink(run.toolId), ` · ${run.targetId} · ${run.toolId} · `, hintedLabel(run.toolSource || 'source unavailable', 'Plugin package or built-in source identifier recorded by the benchmark.'))),
+        el('td', {}, hashLink(run.toolLabel, runHash(run), 'run-link'), el('span', { class: 'subline' }, `${run.targetId} · `, hashLink(run.toolId, skillHash(run.toolId), 'skill-info-link'))),
         el('td', {}, badge(run.status, run.status)),
         el('td', { class: 'num' }, fmt(run.usage.costUsd, 'money'), el('span', { class: 'subline' }, usageSourceLabel(run.usage.source))),
         el('td', { class: 'num' }, fmt(run.wallMs, 'minutes')),
