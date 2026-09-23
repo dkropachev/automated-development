@@ -19,4 +19,14 @@ module.exports = [
       'no-empty': ['error', { allowEmptyCatch: true }],
     },
   },
+  {
+    files: ['bench/dashboard/**/*.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: {
+        document: 'readonly', window: 'readonly', location: 'readonly', Node: 'readonly',
+        URL: 'readonly', URLSearchParams: 'readonly',
+      },
+    },
+  },
 ]
