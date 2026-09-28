@@ -50,3 +50,23 @@ test('totalsForCwd is zero, not a throw, for a directory that never ran anything
   assert.equal(t.total, 0)
   assert.equal(t.sessions, 0)
 })
+
+test('totalsForCwd follows a custom Claude config directory', () => {
+  const config = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-claude-config-'))
+  const cwd = '/tmp/custom-config-review/repo'
+  const project = path.join(usage.projectsRoot(config), usage.slugFor(cwd))
+  try {
+    fs.mkdirSync(project, { recursive: true })
+    fs.writeFileSync(path.join(project, 'session.jsonl'), JSON.stringify({
+      type: 'cost-state',
+      totalCostUSD: 1.25,
+      modelUsage: { 'claude-opus-test': { inputTokens: 2, outputTokens: 3, costUSD: 1.25 } },
+    }) + '\n')
+    const totals = usage.totalsForCwd(cwd, { configDir: config })
+    assert.equal(totals.sessions, 1)
+    assert.equal(totals.total, 5)
+    assert.equal(totals.models['claude-opus-test'], 1.25)
+  } finally {
+    fs.rmSync(config, { recursive: true, force: true })
+  }
+})

@@ -5,8 +5,10 @@ act on it. Three drafting skills — a PR description, an issue, a commit messag
 driver, plus a PR review-and-fix pipeline; the layout expects more.
 
 The [`Review Bench`](docs/index.html) compares installed review skills by verified quality, cost,
-model stack, language, and target. It includes focused choose, compare, findings, insights, and
-raw-run views and is published to GitHub Pages from `main`.
+requested model, language, and target. Benchmark runs are kept as immutable model cohorts, so a new
+model can be measured without replacing the historical results. Its model picker defaults to the
+pinned Claude Opus 5.5 cohort while keeping legacy runs available. The site includes focused
+choose, compare, findings, insights, and raw-run views and is published to GitHub Pages from `main`.
 
 ## Install
 

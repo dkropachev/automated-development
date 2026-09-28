@@ -2,3 +2,5 @@ node_modules/
 bench/work/
 bench/logs/
 bench/results/**/*.lock
+bench/runs/**/*.lock
+bench/runs/**/.*.tmp-*

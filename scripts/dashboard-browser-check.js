@@ -53,7 +53,17 @@ function assertTopThree(cards) {
 try {
   assert.ok(fs.existsSync(DASHBOARD), 'run make bench-dashboard before the browser check')
 
-  const home = render('home')
+  const defaultHome = render('home')
+  assert.match(defaultHome.app, /<option value="claude-opus-5-5" selected="">Claude Opus 5\.5<\/option>/)
+  if (/No benchmark runs recorded for Claude Opus 5\.5 yet/.test(defaultHome.app)) {
+    assert.match(defaultHome.app, /<strong>0<\/strong><span>review runs<\/span>/)
+  } else {
+    assert.match(defaultHome.app, /<strong>[1-9][0-9]*<\/strong><span>review runs<\/span>/)
+  }
+
+  // Pin historical assertions to legacy Opus. `model=all` intentionally changes whenever a new
+  // completed cohort lands, while this slice remains stable before and after that event.
+  const home = render('home?model=claude-opus-5')
   assert.match(home.app, /Find the code-review skill worth its price\./)
   assert.match(home.app, /<h2 id="leaders-title">Leaders<\/h2>/)
   assert.doesNotMatch(home.app, /Completeness leaders/)
@@ -67,7 +77,7 @@ try {
   assertTopThree(valueCards)
   assert.doesNotMatch(valueCards, /value-leader-card|class="eyebrow"|See leaderboard/)
   assert.equal(count(home.app, /class="skill-summary-card"/g), 8)
-  assert.match(home.app, /href="#skills\/superpowers-review"/)
+  assert.match(home.app, /href="#skills\/superpowers-review\?model=claude-opus-5"/)
   assert.doesNotMatch(home.app, /review-bakeoff\.md/)
   assert.match(home.app, /Best coverage · All issues/)
   assert.match(home.app, /Compound Engineering ce-code-review<\/a><\/h3><strong>56\.8%/)
@@ -79,21 +89,21 @@ try {
   assertTopThree(rankingCards(home.app, 'unique-grid'))
   assert.equal(count(home.app, /class="leader-section"/g), 4)
 
-  const majorHome = render('home?completeness=major')
+  const majorHome = render('home?model=claude-opus-5&completeness=major')
   assert.match(majorHome.app, /Best return for the money · Major only/)
   assert.match(majorHome.app, /0\.45 findings \/ \$/)
   assert.match(majorHome.app, /Best coverage · Major only/)
   assert.match(majorHome.app, /Compound Engineering ce-code-review<\/a><\/h3><strong>75\.0%/)
   assertTopThree(rankingCards(majorHome.app, 'leader-grid'))
 
-  const majorMinorHome = render('home?completeness=majorMinor')
+  const majorMinorHome = render('home?model=claude-opus-5&completeness=majorMinor')
   assert.match(majorMinorHome.app, /Best return for the money · Major \+ minor/)
   assert.match(majorMinorHome.app, /1\.21 findings \/ \$/)
   assert.match(majorMinorHome.app, /Best coverage · Major \+ minor/)
   assert.match(majorMinorHome.app, /Superpowers requesting-code-review<\/a><\/h3><strong>69\.6%/)
   assertTopThree(rankingCards(majorMinorHome.app, 'leader-grid'))
 
-  const goHome = render('home?language=Go')
+  const goHome = render('home?model=claude-opus-5&language=Go')
   assert.match(goHome.app, /Best return for the money · All issues · Go/)
   assert.match(goHome.app, /Best coverage · All issues · Go/)
   assert.match(goHome.app, /Fastest useful review · All issues · Go/)
@@ -102,16 +112,16 @@ try {
   assertTopThree(rankingCards(goHome.app, 'completeness-grid'))
   assert.doesNotMatch(rankingCards(goHome.app, 'completeness-grid'), /[23] targets/)
 
-  const rustMajorHome = render('home?completeness=major&language=Rust')
+  const rustMajorHome = render('home?model=claude-opus-5&completeness=major&language=Rust')
   assert.match(rustMajorHome.app, /Fastest useful review · Major only · Rust/)
   assert.match(rustMajorHome.app, /Most unique discoveries · Major only · Rust/)
 
-  const choose = render('choose')
+  const choose = render('choose?model=claude-opus-5')
   for (const label of ['Candidate', 'Cost', 'Real / run', 'High + med', 'Precision', 'Completeness', 'Cost / real', 'Success']) {
     assert.match(choose.app, new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*?class="hint-mark"`, 's'), `${label} needs a rendered hint`)
   }
   assert.match(choose.app, /href="#runs\?runIds=[^"]+" class="runs-link">3 runs<\/a>/)
-  assert.match(choose.app, /href="#skills\/superpowers-review" class="skill-info-link">Skill info<\/a>/)
+  assert.match(choose.app, /href="#skills\/superpowers-review\?model=claude-opus-5" class="skill-info-link">Skill info<\/a>/)
   assert.match(choose.dom, /class="hint-tooltip" role="tooltip" hidden=""/)
 
   const runs = render('runs?runIds=ironweave%2Ftob-c-review')
@@ -119,44 +129,45 @@ try {
   const runBody = runs.app.match(/<tbody>([\s\S]*?)<\/tbody>/)
   assert.ok(runBody, 'the exact run-set view must render a table body')
   assert.equal(count(runBody[1], /<tr>/g), 1, 'the exact run-set link must render one row')
-  assert.match(runs.app, /href="#run\/ironweave\/tob-c-review" class="run-link">Trail of Bits c-review<\/a>/)
+  assert.match(runs.app, /href="#run\/legacy%2Fironweave%2Ftob-c-review" class="run-link">Trail of Bits c-review<\/a>/)
   assert.match(runs.app, /Read from the stored Claude Code transcript cost and usage records\./)
 
   const anthropicRun = render('runs?runIds=tidepool%2Fanthropic-pr-review')
-  assert.match(anthropicRun.app, /<span class="subline">tidepool · <a href="#skills\/anthropic-pr-review" class="skill-info-link">anthropic-pr-review<\/a><\/span>/)
+  assert.match(anthropicRun.app, /<span class="subline">tidepool · Claude Opus 5 · legacy · <a href="#skills\/anthropic-pr-review" class="skill-info-link">anthropic-pr-review<\/a><\/span>/)
   assert.doesNotMatch(anthropicRun.app, /pr-review-toolkit@claude-plugins-official|>Skill info</)
 
   const pickedRuns = render('runs?pick=tidepool%2Fbuiltin-code-review%2Ctidepool%2Fsuperpowers-review')
-  assert.match(pickedRuns.app, /href="#run\/tidepool\/builtin-code-review" class="run-link">Claude Code \/code-review<\/a> ↔/)
-  assert.match(pickedRuns.app, /href="#run\/tidepool\/superpowers-review" class="run-link">Superpowers requesting-code-review<\/a>/)
+  assert.match(pickedRuns.app, /href="#run\/legacy%2Ftidepool%2Fbuiltin-code-review" class="run-link">Claude Code \/code-review<\/a> ↔/)
+  assert.match(pickedRuns.app, /href="#run\/legacy%2Ftidepool%2Fsuperpowers-review" class="run-link">Superpowers requesting-code-review<\/a>/)
 
   const run = render('run/ironweave/tob-c-review')
   for (const label of ['Input', 'Output', 'Cache read', 'Cache creation', 'Thinking (within output)', 'Field provenance']) {
     assert.match(run.app, new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*?class="hint-mark"`, 's'), `${label} needs a rendered hint`)
   }
   assert.match(run.app, /source: <span class="hinted-label">transcript/)
+  assert.match(run.app, /Upstream human review/)
 
-  const insights = render('insights')
+  const insights = render('insights?model=claude-opus-5')
   assert.match(insights.app, /non-dominated frontier<span class="hint-mark"/)
   assert.match(insights.app, /Bubble size: <span class="hinted-label">False-positive rate/)
   assert.match(insights.app, /class="chart-link"[^>]*role="link"/)
 
-  const skills = render('skills')
+  const skills = render('skills?model=claude-opus-5')
   assert.equal(count(skills.app, /class="skill-card"/g), 8)
   assert.equal(count(skills.app, />GitHub ↗<\/a>/g), 8)
   assert.equal(count(skills.app, />Skill page ↗<\/a>/g), 8)
   assert.match(skills.app, /The benchmark ran these as Claude Code plugins\./)
 
-  const skillComparison = render('compare?compareSkills=builtin-code-review%2Csuperpowers-review')
+  const skillComparison = render('compare?model=claude-opus-5&compareSkills=builtin-code-review%2Csuperpowers-review')
   for (const label of ['Attempted cost', 'Distinct real', 'Only this skill', 'Shared', 'Completeness', 'Precision', 'Success']) {
     assert.match(skillComparison.app, new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*?class="hint-mark"`, 's'), `${label} needs a rendered hint`)
   }
   assert.match(skillComparison.app, />6 attempted runs<\/a>/)
-  assert.match(skillComparison.app, /href="#skills\/builtin-code-review" class="skill-info-link">Skill info<\/a>/)
+  assert.match(skillComparison.app, /href="#skills\/builtin-code-review\?model=claude-opus-5" class="skill-info-link">Skill info<\/a>/)
 
   const comparison = render('compare/tidepool/builtin-code-review/tidepool/superpowers-review')
-  assert.match(comparison.app, /href="#run\/tidepool\/builtin-code-review" class="run-link">tidepool\/builtin-code-review<\/a>/)
-  assert.match(comparison.app, /href="#run\/tidepool\/superpowers-review" class="run-link">tidepool\/superpowers-review<\/a>/)
+  assert.match(comparison.app, /href="#run\/legacy%2Ftidepool%2Fbuiltin-code-review" class="run-link">legacy\/tidepool\/builtin-code-review<\/a>/)
+  assert.match(comparison.app, /href="#run\/legacy%2Ftidepool%2Fsuperpowers-review" class="run-link">legacy\/tidepool\/superpowers-review<\/a>/)
   assert.match(comparison.app, /Thinking<span class="hint-mark"/)
 
   process.stdout.write('dashboard-browser-check: all rendered routes passed\n')
