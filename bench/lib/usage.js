@@ -22,7 +22,8 @@
 const fs = require('node:fs')
 const path = require('node:path')
 
-const projectsRoot = () => path.join(process.env.HOME || '.', '.claude', 'projects')
+const configRoot = (override) => override || process.env.CLAUDE_CONFIG_DIR || path.join(process.env.HOME || '.', '.claude')
+const projectsRoot = (override) => path.join(configRoot(override), 'projects')
 const slugFor = (cwd) => path.resolve(cwd).replace(/[^a-zA-Z0-9]/g, '-')
 
 function readLines(file) {
@@ -55,7 +56,7 @@ function walkSubagents(dir, acc) {
 
 function totalsForCwd(cwd, opts) {
   const since = (opts && opts.since) || 0
-  const dir = path.join(projectsRoot(), slugFor(cwd))
+  const dir = path.join(projectsRoot(opts && opts.configDir), slugFor(cwd))
   const acc = {
     input: 0, output: 0, thinking: 0, cacheRead: 0, cacheCreation: 0, costUsd: 0,
     sessions: 0, models: {}, bySession: {}, rawMessages: 0, rawOutput: 0, rawCacheRead: 0,
@@ -103,4 +104,4 @@ function totalsForCwd(cwd, opts) {
   return finish()
 }
 
-module.exports = { totalsForCwd, slugFor }
+module.exports = { configRoot, projectsRoot, totalsForCwd, slugFor }

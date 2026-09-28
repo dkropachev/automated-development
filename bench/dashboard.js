@@ -6,6 +6,7 @@
 // from the repository alone.
 const fs = require('node:fs')
 const path = require('node:path')
+const { cellId, discoverCohorts, loadModelConfig, manifestMetadata, readComplete } = require('./lib/artifacts')
 
 const ROOT = __dirname
 const ASSET_DIR = path.join(ROOT, 'dashboard')
@@ -109,10 +110,10 @@ function metricsFor(issues, claims, usage, wallMs) {
     unproven,
     inScope: real.filter((issue) => issue.scope === 'in-scope').length,
     prIntroduced: real.filter((issue) => issue.introducedByPr).length,
-    uniqueReal: real.filter((issue) => (issue.reportedBy || []).length === 1).length,
-    severityHigh: severityAtLeast(['high']),
-    severityMediumPlus: severityAtLeast(['high', 'medium']),
-    severityLowPlus: severityAtLeast(['high', 'medium', 'low']),
+    uniqueReal: real.filter((issue) => (issue.reporterIds || issue.reportedByRuns || issue.reportedBy || []).length === 1).length,
+    severityHigh: severityAtLeast(['blocker', 'high']),
+    severityMediumPlus: severityAtLeast(['blocker', 'high', 'medium']),
+    severityLowPlus: severityAtLeast(['blocker', 'high', 'medium', 'low']),
     precision: ratio(real.length, real.length + falsePositive),
     falsePositiveRate: ratio(falsePositive, real.length + falsePositive),
     realPerDollar: ratio(real.length, usage.costUsd),
@@ -123,6 +124,13 @@ function metricsFor(issues, claims, usage, wallMs) {
 
 function comparisonFor(left, right) {
   if (!left || !right) return { compatible: false, reason: 'Two runs are required.', shared: [], leftOnly: [], rightOnly: [] }
+  if (left.cohortId && right.cohortId && left.cohortId !== right.cohortId) {
+    return {
+      compatible: false,
+      reason: 'Issue overlap is unavailable because these runs use different judgement snapshots.',
+      shared: [], leftOnly: [], rightOnly: [],
+    }
+  }
   if (left.targetId !== right.targetId) {
     return {
       compatible: false,
@@ -168,90 +176,320 @@ function jsonFiles(dir) {
   return fs.readdirSync(dir).filter((file) => file.endsWith('.json')).sort()
 }
 
+function cohortDirectories(cohort, root) {
+  const base = cohort.legacy ? root : path.join(root, 'runs', cohort.runId)
+  const paths = cohort.paths || {}
+  return {
+    results: paths.results || paths.result || cohort.resultsDir || path.join(base, 'results'),
+    findings: paths.findings || cohort.findingsDir || path.join(base, 'findings'),
+    judgement: paths.judgement || paths.judgments || cohort.judgementDir || path.join(base, 'judgement'),
+  }
+}
+
+function assertCohortMetadata(record, cohort, kind, file) {
+  if (!record || record.schemaVersion !== 2) throw new Error(`${kind} has invalid schemaVersion: ${file}`)
+  for (const [key, expected] of Object.entries(manifestMetadata(cohort))) {
+    if (record[key] !== expected) {
+      throw new Error(`${kind} ${key} does not match cohort ${cohort.runId}: ${file}`)
+    }
+  }
+}
+
+function assertCellIdentity(record, cohort, targetId, fileName, kind, file) {
+  assertCohortMetadata(record, cohort, kind, file)
+  if (record.target !== targetId) throw new Error(`${kind} target does not match directory ${targetId}: ${file}`)
+  if (typeof record.tool !== 'string' || `${record.tool}.json` !== fileName) {
+    throw new Error(`${kind} filename does not match tool: ${file}`)
+  }
+  const expected = cellId(cohort.runId, targetId, record.tool)
+  if (record.cellId !== expected) throw new Error(`${kind} cellId does not match cohort: ${file}`)
+}
+
+function assertJudgementIdentity(record, cohort, targetId, file) {
+  assertCohortMetadata(record, cohort, 'judgement', file)
+  if (record.target !== targetId) throw new Error(`judgement target does not match filename ${targetId}: ${file}`)
+}
+
+function targetView(target, groundtruth = null) {
+  return {
+    id: target.id,
+    language: target.language,
+    title: target.upstreamTitle,
+    fork: target.fork,
+    pr: target.forkPr,
+    prUrl: target.forkPrUrl,
+    upstreamUrl: target.upstreamPrUrl,
+    diffBytes: finite(target.localDiffBytes),
+    commits: finite(target.commits),
+    preparedAt: target.preparedAt || null,
+    groundtruth,
+  }
+}
+
+function toolView(tool) {
+  const {
+    id, label, source, languages, parked, parkedReason, catalogId, catalogLabel,
+    description, install, invoke, repoUrl, pageUrl,
+  } = tool
+  return {
+    id, label, source, languages: languages || null, parked: Boolean(parked), parkedReason: parkedReason || null,
+    catalogId: catalogId || id, catalogLabel: catalogLabel || label, description: description || null,
+    install: install || null, invoke: invoke || null, repoUrl: repoUrl || null, pageUrl: pageUrl || null,
+  }
+}
+
+function modelLookup(config) {
+  return new Map((config.models || []).map((model) => [model.id, model]))
+}
+
+function modelIdentity(cohort, record, configById, usage) {
+  const requestedModel = cohort.legacy ? null : cohort.requestedModel || record.requestedModel || null
+  const observedNames = Object.keys(usage.models || {})
+  const observedModel = cohort.observedModel || (cohort.legacy && observedNames.length === 1 ? observedNames[0] : null)
+  const id = requestedModel || observedModel
+  const configured = configById.get(id)
+  const label = cohort.modelLabel || record.modelLabel || (configured && configured.label) || id || 'Model unavailable'
+  return {
+    requestedModel,
+    requestedModelLabel: requestedModel ? label : null,
+    id,
+    label,
+    provenance: requestedModel ? 'requested' : observedModel ? (cohort.observedModel ? 'observed' : 'inferred') : 'unavailable',
+  }
+}
+
+function reporterReferences(issue) {
+  return Array.isArray(issue.reportedByRuns) ? issue.reportedByRuns : issue.reportedBy || []
+}
+
+function referenceMatchesRun(reference, run, record) {
+  if (reference && typeof reference === 'object') {
+    const id = reference.id || reference.run || reference.runKey || null
+    if (id && referenceMatchesRun(id, run, record)) return true
+    const cohort = reference.cohortId || reference.runId || null
+    const target = reference.targetId || reference.target || null
+    const tool = reference.toolId || reference.tool || null
+    return (!cohort || cohort === run.cohortId) && (!target || target === run.targetId) && (!tool || tool === run.toolId) && Boolean(cohort || target || tool)
+  }
+  const value = String(reference || '')
+  const candidates = new Set([
+    run.id,
+    `${run.cohortId}/${run.toolId}`,
+    `${run.targetId}/${run.toolId}`,
+    `${record.runId || run.cohortId}/${run.toolId}`,
+    record.id,
+    record.runKey,
+    record.cellId,
+  ].filter(Boolean))
+  return candidates.has(value) || value === run.toolId
+}
+
+function namespacedIssue(cohortId, targetId, issue) {
+  const judgementId = String(issue.id)
+  const id = `${cohortId}/${targetId}/${judgementId}`
+  const reporterIds = reporterReferences(issue).map((reference) => typeof reference === 'string' ? reference : JSON.stringify(reference))
+  return {
+    ...issue,
+    id,
+    key: id,
+    issueId: judgementId,
+    judgementId,
+    cohortId,
+    targetId,
+    reporterIds: [...new Set(reporterIds)],
+  }
+}
+
 function loadArtifacts(root = ROOT) {
-  const state = readJson(path.join(root, 'state.json'))
-  const toolFile = readJson(path.join(root, 'tools.json'))
-  const targets = Object.values(state.targets || {})
-  const tools = toolFile.tools || []
-  const toolById = new Map(tools.map((tool) => [tool.id, tool]))
-  const targetData = []
+  const modelConfig = loadModelConfig(root)
+  const configuredModels = modelLookup(modelConfig)
+  const discovered = discoverCohorts(root)
+  const stateFile = path.join(root, 'state.json')
+  const toolsFile = path.join(root, 'tools.json')
+  const state = fs.existsSync(stateFile) ? readJson(stateFile) : { targets: {} }
+  const liveToolFile = fs.existsSync(toolsFile) ? readJson(toolsFile) : { context: '', tools: [] }
+  const groundtruthFor = (targetId) => {
+    const file = path.join(root, 'groundtruth', `${targetId}.json`)
+    return fs.existsSync(file) ? readJson(file) : null
+  }
+  const contexts = []
+  const omittedCohorts = []
+  for (const entry of discovered) {
+    if (entry.legacy) {
+      contexts.push({
+        cohort: entry,
+        targets: Object.values(state.targets || {}),
+        toolFile: liveToolFile,
+        groundtruth: Object.fromEntries(Object.keys(state.targets || {}).map((targetId) => [targetId, groundtruthFor(targetId)])),
+        cells: null,
+      })
+      continue
+    }
+    // In-progress cohorts are intentionally invisible. A present complete marker is a promise that
+    // all hashes validate, so readComplete remains strict and propagates any corruption.
+    if (!entry.paths.complete || !fs.existsSync(entry.paths.complete)) {
+      omittedCohorts.push({ id: entry.runId, reason: 'incomplete' })
+      continue
+    }
+    // A nonlegacy cohort is displayable only after all three artifact layers have been sealed and
+    // hashed. readComplete also returns the immutable target/tool snapshots used by that run.
+    const completed = readComplete(root, entry.runId)
+    const manifest = completed.manifest
+    contexts.push({
+      cohort: { ...entry, ...manifest, label: manifest.modelLabel, complete: true },
+      targets: Object.values(manifest.targetMetadata),
+      toolFile: manifest.toolConfig,
+      groundtruth: manifest.groundtruth || {},
+      cells: completed.seal.cells,
+    })
+  }
+  const targetDataById = new Map()
+  const toolDataById = new Map()
+  for (const context of contexts) {
+    for (const target of context.targets) {
+      const snapshot = targetView(target, context.groundtruth[target.id] || null)
+      if (!targetDataById.has(target.id)) targetDataById.set(target.id, { ...snapshot, runIds: [], snapshots: {} })
+      targetDataById.get(target.id).snapshots[context.cohort.runId] = snapshot
+    }
+    for (const tool of context.toolFile.tools || []) {
+      const snapshot = toolView(tool)
+      if (!toolDataById.has(tool.id)) toolDataById.set(tool.id, { ...snapshot, snapshots: {} })
+      toolDataById.get(tool.id).snapshots[context.cohort.runId] = snapshot
+    }
+  }
   const runs = []
   const issues = []
 
-  for (const target of targets) {
-    const judgementFile = path.join(root, 'judgement', `${target.id}.json`)
-    const groundtruthFile = path.join(root, 'groundtruth', `${target.id}.json`)
-    const judgement = fs.existsSync(judgementFile) ? readJson(judgementFile) : { issues: [] }
-    const groundtruth = fs.existsSync(groundtruthFile) ? readJson(groundtruthFile) : null
-    const targetRuns = []
-    for (const issue of judgement.issues || []) issues.push({ ...issue, targetId: target.id })
-    for (const file of jsonFiles(path.join(root, 'results', target.id))) {
-      const record = readJson(path.join(root, 'results', target.id, file))
-      if (record.salvaged) continue
-      const findingFile = path.join(root, 'findings', target.id, file)
-      const findingRecord = fs.existsSync(findingFile) ? readJson(findingFile) : { findings: [], extractError: null }
-      const claims = findingRecord.findings || []
-      const issues = (judgement.issues || []).filter((issue) => (issue.reportedBy || []).includes(record.tool))
-      const usage = normalizeUsage(record)
-      const tool = toolById.get(record.tool)
-      const run = {
-        id: `${target.id}/${record.tool}`,
-        targetId: target.id,
-        targetLabel: `${target.id} · ${target.language}`,
-        toolId: record.tool,
-        toolLabel: record.label || (tool && tool.label) || record.tool,
-        toolSource: record.source || (tool && tool.source) || null,
-        status: deriveStatus(record),
-        wallMs: finite(record.wallMs),
-        finishedAt: record.finishedAt || null,
-        exitCode: finite(record.exitCode),
-        signal: record.signal || null,
-        isError: Boolean(record.isError),
-        apiErrorStatus: record.apiErrorStatus || null,
-        wallMsDerived: Boolean(record.wallMsDerived),
-        attempts: finite(record.attempts),
-        dnfReason: record.dnfReason || null,
-        usage,
-        numTurns: finite(record.numTurns),
-        sessionId: record.sessionId || null,
-        subagentStats: record.subagentStats || null,
-        claims,
-        extractError: findingRecord.extractError || null,
-        issueIds: issues.map((issue) => issue.id),
-        metrics: metricsFor(issues, claims, usage, record.wallMs),
-        report: record.result || '',
-        prompt: record.prompt || expandPrompt(tool, target, toolFile.context),
-        promptSource: record.prompt ? 'recorded' : 'reconstructed from tools.json',
-        stderr: record.stderrTail || '',
-        metadata: cleanMetadata(record),
+  for (const context of contexts) {
+    const { cohort, toolFile } = context
+    const cohortId = cohort.runId
+    const dirs = cohortDirectories(cohort, root)
+    const toolById = new Map((toolFile.tools || []).map((tool) => [tool.id, tool]))
+    for (const target of context.targets) {
+      // Ground-truth comments live once on the global target entry. Embedding them into every run
+      // snapshot multiplies the self-contained dashboard by megabytes.
+      const snapshot = targetView(target)
+      const judgementFile = path.join(dirs.judgement, `${target.id}.json`)
+      const judgement = fs.existsSync(judgementFile) ? readJson(judgementFile) : { issues: [] }
+      if (!cohort.legacy && fs.existsSync(judgementFile)) assertJudgementIdentity(judgement, cohort, target.id, judgementFile)
+      const cohortIssues = (judgement.issues || []).map((issue) => ({
+        ...namespacedIssue(cohortId, target.id, issue),
+        targetSnapshot: snapshot,
+      }))
+      issues.push(...cohortIssues)
+      const findingDir = path.join(dirs.findings, target.id)
+      const findingRecords = new Map()
+      if (!cohort.legacy) {
+        for (const file of jsonFiles(findingDir)) {
+          const findingFile = path.join(findingDir, file)
+          const findingRecord = readJson(findingFile)
+          assertCellIdentity(findingRecord, cohort, target.id, file, 'finding', findingFile)
+          findingRecords.set(file, findingRecord)
+        }
       }
-      runs.push(run)
-      targetRuns.push(run.id)
+      const resultDir = path.join(dirs.results, target.id)
+      const resultFiles = cohort.legacy
+        ? jsonFiles(resultDir)
+        : context.cells.filter((cell) => cell.target === target.id).map((cell) => `${cell.tool}.json`)
+      for (const file of resultFiles) {
+        const resultFile = path.join(resultDir, file)
+        const record = readJson(resultFile)
+        if (!cohort.legacy) assertCellIdentity(record, cohort, target.id, file, 'result', resultFile)
+        if (record.salvaged) continue
+        const legacyFinding = path.join(findingDir, file)
+        const findingRecord = cohort.legacy && fs.existsSync(legacyFinding)
+          ? readJson(legacyFinding)
+          : findingRecords.get(file) || { findings: [], extractError: null }
+        const claims = findingRecord.findings || []
+        const usage = normalizeUsage(record)
+        const tool = toolById.get(record.tool)
+        const toolSnapshot = tool ? toolView(tool) : { id: record.tool, label: record.label || record.tool }
+        if (!toolDataById.has(record.tool)) toolDataById.set(record.tool, { ...toolSnapshot, snapshots: {} })
+        toolDataById.get(record.tool).snapshots[cohortId] = toolSnapshot
+        const identity = modelIdentity(cohort, record, configuredModels, usage)
+        const run = {
+          id: `${cohortId}/${target.id}/${record.tool}`,
+          cellId: `${cohortId}/${target.id}/${record.tool}`,
+          recordedCellId: record.cellId || null,
+          runId: cohortId,
+          recordedRunId: record.runId || null,
+          cohortId,
+          cohortLabel: cohort.label || cohortId,
+          targetId: target.id,
+          targetLabel: `${target.id} · ${target.language}`,
+          targetSnapshot: snapshot,
+          toolId: record.tool,
+          toolLabel: (tool && tool.label) || record.label || record.tool,
+          toolSource: (tool && tool.source) || record.source || null,
+          toolSnapshot,
+          status: deriveStatus(record),
+          wallMs: finite(record.wallMs),
+          finishedAt: record.finishedAt || null,
+          exitCode: finite(record.exitCode),
+          signal: record.signal || null,
+          isError: Boolean(record.isError),
+          apiErrorStatus: record.apiErrorStatus || null,
+          wallMsDerived: Boolean(record.wallMsDerived),
+          attempts: finite(record.attempts),
+          dnfReason: record.dnfReason || null,
+          usage,
+          numTurns: finite(record.numTurns),
+          sessionId: record.sessionId || null,
+          subagentStats: record.subagentStats || null,
+          claims,
+          extractError: findingRecord.extractError || null,
+          report: record.result || '',
+          prompt: record.prompt || expandPrompt(tool, target, toolFile.context),
+          promptSource: record.prompt ? 'recorded' : 'reconstructed from tools.json',
+          stderr: record.stderrTail || '',
+          metadata: cleanMetadata(record),
+          requestedModel: identity.requestedModel,
+          requestedModelId: identity.requestedModel,
+          requestedModelLabel: identity.requestedModelLabel,
+          modelId: identity.id,
+          modelLabel: identity.label,
+          modelProvenance: identity.provenance,
+          modelUnderTest: { id: identity.id, label: identity.label, provenance: identity.provenance },
+          observedModels: Object.keys(usage.models || {}).sort(),
+        }
+        const runIssues = cohortIssues.filter((issue) => Array.isArray(issue.reportedByRuns)
+          ? issue.reportedByRuns.some((reference) => referenceMatchesRun(reference, run, record))
+          : (issue.reportedBy || []).includes(record.tool))
+        run.issueIds = runIssues.map((issue) => issue.id)
+        run.metrics = metricsFor(runIssues, claims, usage, record.wallMs)
+        runs.push(run)
+        targetDataById.get(target.id).runIds.push(run.id)
+      }
     }
-    targetData.push({
-      id: target.id,
-      language: target.language,
-      title: target.upstreamTitle,
-      fork: target.fork,
-      pr: target.forkPr,
-      prUrl: target.forkPrUrl,
-      upstreamUrl: target.upstreamPrUrl,
-      diffBytes: finite(target.localDiffBytes),
-      commits: finite(target.commits),
-      preparedAt: target.preparedAt || null,
-      runIds: targetRuns,
-      groundtruth,
-    })
+  }
+  const cohorts = contexts.map((context) => context.cohort)
+  const targetData = [...targetDataById.values()]
+  const tools = [...toolDataById.values()]
+  const models = (modelConfig.models || []).map(({ id, label, cliModel }) => ({ id, label: label || id, cliModel: cliModel || null }))
+  for (const cohort of cohorts) {
+    const modelId = cohort.requestedModel || cohort.observedModel
+    if (modelId && !models.some((model) => model.id === modelId)) models.push({ id: modelId, label: cohort.modelLabel || modelId, cliModel: null })
   }
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     defaultTokenLimit: DEFAULT_TOKEN_LIMIT,
-    targets: targetData,
-    tools: tools.map(({ id, label, source, languages, parked, parkedReason, catalogId, catalogLabel, description, install, invoke, repoUrl, pageUrl }) => ({
-      id, label, source, languages: languages || null, parked: Boolean(parked), parkedReason: parkedReason || null,
-      catalogId: catalogId || id, catalogLabel: catalogLabel || label, description: description || null,
-      install: install || null, invoke: invoke || null, repoUrl: repoUrl || null, pageUrl: pageUrl || null,
+    defaultModel: modelConfig.defaultModel || (models[0] && models[0].id) || null,
+    models,
+    omittedCohorts,
+    cohorts: cohorts.map((cohort) => ({
+      id: cohort.runId,
+      runId: cohort.runId,
+      label: cohort.label || cohort.runId,
+      requestedModel: cohort.requestedModel || null,
+      observedModel: cohort.observedModel || null,
+      modelLabel: cohort.modelLabel || null,
+      modelProvenance: cohort.requestedModel ? 'requested' : cohort.observedModel ? 'observed' : 'unavailable',
+      claudeVersion: cohort.claudeVersion || null,
+      createdAt: cohort.createdAt || null,
+      legacy: Boolean(cohort.legacy),
     })),
+    targets: targetData,
+    tools,
     issues,
     runs,
   }

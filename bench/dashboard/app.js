@@ -3,16 +3,24 @@
 (() => {
   const DATA = JSON.parse(document.getElementById('dashboard-data').textContent)
   const app = document.getElementById('app')
-  const issues = new Map(DATA.issues.map((issue) => [`${issue.targetId}/${issue.id}`, issue]))
-  for (const run of DATA.runs) run.issues = run.issueIds.map((id) => issues.get(`${run.targetId}/${id}`)).filter(Boolean)
+  const issues = new Map(DATA.issues.map((issue) => [issue.id, issue]))
+  for (const run of DATA.runs) run.issues = run.issueIds.map((id) => issues.get(id)).filter(Boolean)
   const runs = new Map(DATA.runs.map((run) => [run.id, run]))
+  const legacyRunAliases = new Map(DATA.runs.filter((run) => run.cohortId === 'legacy').map((run) => [`${run.targetId}/${run.toolId}`, run.id]))
   const targets = new Map(DATA.targets.map((target) => [target.id, target]))
   const tools = new Map(DATA.tools.map((tool) => [tool.id, tool]))
-  const modelNames = [...new Set(DATA.runs.flatMap((run) => Object.keys(run.usage.models || {})))].sort()
-  const languages = [...new Set(DATA.targets.map((target) => target.language))].sort()
+  const targetForRun = (run) => {
+    const global = targets.get(run.targetId) || {}
+    const cohort = global.snapshots?.[run.cohortId] || {}
+    const snapshot = run.targetSnapshot || {}
+    return { ...global, ...cohort, ...snapshot, groundtruth: snapshot.groundtruth || cohort.groundtruth || global.groundtruth || null }
+  }
+  const configuredModels = DATA.models || []
+  const languages = [...new Set(DATA.runs.map((run) => targetForRun(run)?.language).filter(Boolean))].sort()
   const targetColors = ['#67e8c1', '#77a7ff', '#f4bf62', '#dd8cff', '#fb7185']
   const svgNs = 'http://www.w3.org/2000/svg'
   let activeView = 'home'
+  let activeParams = new URLSearchParams()
 
   const el = (tag, attrs = {}, ...children) => {
     const node = document.createElement(tag)
@@ -54,7 +62,7 @@
     'Attempted cost': 'Total recorded API usage cost for every attempted run, including unsuccessful runs.',
     'Cache create': 'Tokens written to the prompt cache.',
     'Cache creation': 'Tokens written to the prompt cache.',
-    'Candidate': 'The skill, model stack, or language currently being ranked.',
+    'Candidate': 'The skill, model under test, or language currently being ranked.',
     'Cache read': 'Previously cached prompt tokens reused by the model.',
     'Claims': 'Raw findings extracted from a run before duplicate merging and verification.',
     'Completeness': 'Distinct real issues found divided by all real issues found by eligible complete runs.',
@@ -67,7 +75,7 @@
     'False positives': 'Judged issues determined not to be real problems.',
     'False-positive rate': 'False positives divided by real issues plus false positives; unproven issues are excluded.',
     'Findings / dollar': 'Distinct verified real issues found per U.S. dollar of recorded cost.',
-    'High + med': 'Distinct verified real issues rated high or medium severity.',
+    'High + med': 'Distinct verified real issues rated blocker, high, or medium severity.',
     'In scope': 'Only verified real issues within the benchmark’s review scope.',
     'In-scope real': 'Verified real issues within the benchmark’s review scope.',
     'In-scope real findings': 'Verified real issues within the benchmark’s review scope.',
@@ -165,7 +173,13 @@
   }
 
   const badge = (text, type = '') => el('span', { class: `badge ${type}`.trim() }, text)
-  const hashLink = (label, hash, className) => el('a', { href: hash, class: className }, label)
+  function preserveModel(hash) {
+    const model = activeParams.get('model')
+    if (!hash.startsWith('#') || !model || /(?:^|[?&])model=/.test(hash)) return hash
+    return `${hash}${hash.includes('?') ? '&' : '?'}model=${encodeURIComponent(model)}`
+  }
+
+  const hashLink = (label, hash, className) => el('a', { href: preserveModel(hash), class: className }, label)
   const externalLink = (label, href) => {
     try {
       const url = new URL(href)
@@ -214,29 +228,38 @@
     const [path, query = ''] = raw.split('?')
     const parts = path.split('/').map(decodeURIComponent)
     const params = new URLSearchParams(query)
+    activeParams = params
     activeView = parts[0] === 'overview' ? 'runs' : parts[0]
     if (activeView === 'home') renderLanding(params)
-    else if (parts[0] === 'run' && parts.length >= 3) renderRun(`${parts[1]}/${parts[2]}`)
-    else if (parts[0] === 'compare' && parts.length >= 5) renderComparison(`${parts[1]}/${parts[2]}`, `${parts[3]}/${parts[4]}`)
-    else if (activeView === 'choose') renderChoose(params)
+    else if (parts[0] === 'run' && parts.length >= 2) {
+      const id = parts.length === 2 ? parts[1] : parts.length >= 4 ? `${parts[1]}/${parts[2]}/${parts[3]}` : `${parts[1]}/${parts[2]}`
+      renderRun(id)
+    } else if (parts[0] === 'compare' && parts.length >= 3) {
+      if (parts.length >= 7) renderComparison(`${parts[1]}/${parts[2]}/${parts[3]}`, `${parts[4]}/${parts[5]}/${parts[6]}`)
+      else if (parts.length >= 5) renderComparison(`${parts[1]}/${parts[2]}`, `${parts[3]}/${parts[4]}`)
+      else renderComparison(parts[1], parts[2])
+    } else if (activeView === 'choose') renderChoose(params)
     else if (activeView === 'compare') renderSkillCompare(params)
     else if (activeView === 'insights') renderInsights(params)
     else if (activeView === 'findings') renderFindings(params)
-    else if (activeView === 'skills') renderSkills(parts[1] || null)
+    else if (activeView === 'skills') renderSkills(parts[1] || null, params)
     else renderOverview(params)
     window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
-  const runHash = (run) => `#run/${encodeURIComponent(run.targetId)}/${encodeURIComponent(run.toolId)}`
-  const compareHash = (left, right) => `#compare/${encodeURIComponent(left.targetId)}/${encodeURIComponent(left.toolId)}/${encodeURIComponent(right.targetId)}/${encodeURIComponent(right.toolId)}`
+  const runHash = (run) => preserveModel(`#run/${encodeURIComponent(run.id)}`)
+  const compareHash = (left, right) => preserveModel(`#compare/${encodeURIComponent(left.id)}/${encodeURIComponent(right.id)}`)
   const catalogueId = (toolId) => tools.get(toolId)?.catalogId || toolId
-  const skillHash = (toolId) => `#skills/${encodeURIComponent(catalogueId(toolId))}`
+  const skillHash = (toolId) => preserveModel(`#skills/${encodeURIComponent(catalogueId(toolId))}`)
   const skillInfoLink = (toolId) => hashLink('Skill info', skillHash(toolId), 'skill-info-link')
+  const resolveRunId = (id) => runs.has(id) ? id : legacyRunAliases.get(id) || id
 
   function runsHash(rows) {
     const ids = [...new Set(rows.map((run) => run.id))]
     const params = new URLSearchParams()
     if (ids.length) params.set('runIds', ids.join(','))
+    const model = activeParams.get('model')
+    if (model) params.set('model', model)
     return '#runs' + (params.toString() ? '?' + params.toString() : '')
   }
 
@@ -294,25 +317,57 @@
     )
   }
 
+  function selectedModel(params) {
+    const requested = params.get('model')
+    // Exact linked run sets predate model filters. When they do not name a model, show their
+    // preserved rows as an all-model snapshot and keep the picker honest about that scope.
+    if (requested == null && values(params, 'runIds').length) return 'all'
+    if (requested === 'all') return 'all'
+    if (configuredModels.some((model) => model.id === requested)) return requested
+    return DATA.defaultModel || (configuredModels[0] && configuredModels[0].id) || 'all'
+  }
+
+  function modelLabel(id) {
+    if (id === 'all') return 'All models'
+    return configuredModels.find((model) => model.id === id)?.label || id || 'Model unavailable'
+  }
+
+  function modelPicker(params, extraClass = '') {
+    const selected = selectedModel(params)
+    const choices = configuredModels.map((model) => [model.id, model.label])
+    choices.push(['all', 'All models / history'])
+    return field('Model under test', select('model-filter', choices, selected, (event) => {
+      viewParams(params, { model: event.target.value === DATA.defaultModel ? '' : event.target.value })
+    }), extraClass)
+  }
+
+  function matchesSelectedModel(run, params) {
+    const selected = selectedModel(params)
+    return selected === 'all' || run.modelId === selected
+  }
+
   function filterBar(params, { search = false, status = false, skills = true } = {}) {
     const bar = el('section', { class: 'filter-bar', 'aria-label': 'Benchmark filters' })
+    const runsInModel = DATA.runs.filter((run) => matchesSelectedModel(run, params))
+    const skillChoices = [...new Map(runsInModel.map((run) => [run.toolId, run.toolLabel])).entries()]
+    const targetChoices = [...new Map(runsInModel.map((run) => [run.targetId, targetForRun(run)])).entries()]
     const linkedRuns = values(params, 'runIds')
     if (linkedRuns.length) bar.append(el('span', { class: 'linked-run-set' }, `Linked set · ${linkedRuns.length} run${linkedRuns.length === 1 ? '' : 's'}`))
-    if (skills) bar.append(checklist('Skills', 'skills', DATA.tools.filter((tool) => DATA.runs.some((run) => run.toolId === tool.id)).map((tool) => [tool.id, tool.label]), params))
+    if (skills) bar.append(checklist('Skills', 'skills', skillChoices, params))
     bar.append(
-      checklist('Models', 'models', modelNames.map((model) => [model, model]), params),
+      modelPicker(params),
       checklist('Languages', 'languages', languages.map((language) => [language, language]), params),
-      checklist('Targets', 'targets', DATA.targets.map((target) => [target.id, `${target.id} · ${target.language}`]), params),
+      checklist('Targets', 'targets', targetChoices.map(([targetId, target]) => [targetId, `${targetId} · ${target?.language || 'unknown'}`]), params),
     )
     if (status) bar.append(field('Runs', select('status-filter', [['all', 'All runs'], ['recommended', 'Useful only'], ['complete', 'Complete'], ['failed', 'Failed'], ['dnf', 'DNF']], params.get('status') || 'all', (event) => viewParams(params, { status: event.target.value === 'all' ? '' : event.target.value }))))
     if (search) {
       const input = el('input', { id: 'run-search', type: 'search', value: params.get('q') || '', placeholder: 'Search…', onchange: (event) => viewParams(params, { q: event.target.value.trim() }) })
       bar.append(field('Search', input, 'search'))
     }
-    const hasFilters = ['skills', 'models', 'languages', 'targets', 'q', 'status', 'runIds'].some((key) => params.has(key))
+    const hasFilters = ['skills', 'model', 'languages', 'targets', 'q', 'status', 'runIds'].some((key) => params.has(key))
     if (hasFilters) bar.append(el('button', { class: 'clear-filters', onclick: () => {
       const next = new URLSearchParams(params)
-      for (const key of ['skills', 'models', 'languages', 'targets', 'q', 'status', 'runIds']) next.delete(key)
+      for (const key of ['skills', 'model', 'languages', 'targets', 'q', 'status', 'runIds']) next.delete(key)
       location.hash = activeView + (next.toString() ? '?' + next.toString() : '')
     } }, 'Clear filters'))
     return bar
@@ -321,21 +376,20 @@
   function matchesOverviewDimensions(run, params) {
     const selectedTargets = values(params, 'targets')
     const selectedTools = values(params, 'skills')
-    const selectedModels = values(params, 'models')
     const selectedLanguages = values(params, 'languages')
-    const target = targets.get(run.targetId)
+    const target = targetForRun(run)
     const q = (params.get('q') || '').toLowerCase()
     if (selectedTargets.length && !selectedTargets.includes(run.targetId)) return false
     if (selectedTools.length && !selectedTools.includes(run.toolId)) return false
     if (selectedLanguages.length && (!target || !selectedLanguages.includes(target.language))) return false
-    if (selectedModels.length && !Object.keys(run.usage.models || {}).some((model) => selectedModels.includes(model))) return false
-    if (q && !`${run.targetId} ${target ? target.language : ''} ${run.toolId} ${run.toolLabel} ${run.toolSource || ''} ${Object.keys(run.usage.models || {}).join(' ')}`.toLowerCase().includes(q)) return false
+    if (!matchesSelectedModel(run, params)) return false
+    if (q && !`${run.id} ${run.cohortLabel || ''} ${run.targetId} ${target ? target.language : ''} ${run.toolId} ${run.toolLabel} ${run.toolSource || ''} ${run.modelId || ''} ${run.modelLabel || ''} ${Object.keys(run.usage.models || {}).join(' ')}`.toLowerCase().includes(q)) return false
     return true
   }
 
   function filteredRuns(params) {
     const status = params.get('status') || 'all'
-    const selectedRunIds = values(params, 'runIds')
+    const selectedRunIds = values(params, 'runIds').map(resolveRunId)
     return DATA.runs.filter((run) => {
       if (selectedRunIds.length && !selectedRunIds.includes(run.id)) return false
       if (!matchesOverviewDimensions(run, params)) return false
@@ -380,6 +434,10 @@
     return names.length ? names.join(' + ') : 'Model unavailable'
   }
 
+  function testedModel(run) {
+    return run.modelLabel ? `${run.modelLabel} (${run.modelProvenance})` : 'Model unavailable'
+  }
+
   function aggregateRuns(id, label, dimension, rows, universeRows) {
     const usable = rows.filter((run) => run.status === 'complete')
     const issueRows = new Map()
@@ -388,11 +446,12 @@
     const real = distinct.filter((row) => row.issue.verdict === 'real')
     const inScope = real.filter((row) => row.issue.scope === 'in-scope')
     const falsePositive = distinct.filter((row) => row.issue.verdict === 'false-positive')
-    const high = real.filter((row) => row.issue.severity === 'high').length
+    const high = real.filter((row) => ['blocker', 'high'].includes(row.issue.severity)).length
     const medium = real.filter((row) => row.issue.severity === 'medium').length
     const targetIds = [...new Set(rows.map((run) => run.targetId))]
+    const cohortTargets = new Set(rows.map((run) => `${run.cohortId}/${run.targetId}`))
     const universe = new Map()
-    for (const run of universeRows.filter((item) => item.status === 'complete' && targetIds.includes(item.targetId))) {
+    for (const run of universeRows.filter((item) => item.status === 'complete' && cohortTargets.has(`${item.cohortId}/${item.targetId}`))) {
       for (const issue of run.issues) if (issue.verdict === 'real') universe.set(issueKey(run.targetId, issue), issue)
     }
     const cost = total(rows, (run) => run.usage.costUsd)
@@ -404,9 +463,9 @@
       return { found, possible, value: possible ? found / possible : null }
     }
     const completenessBreakdown = {
-      all: completenessFor(['high', 'medium', 'low', 'nit']),
-      major: completenessFor(['high']),
-      majorMinor: completenessFor(['high', 'medium']),
+      all: completenessFor(['blocker', 'high', 'medium', 'low', 'nit']),
+      major: completenessFor(['blocker', 'high']),
+      majorMinor: completenessFor(['blocker', 'high', 'medium']),
     }
     return {
       id, label, dimension, rows, usable, issueRows, realRows: real, targetIds,
@@ -427,8 +486,9 @@
       realPerDollar: cost > 0 ? real.length / cost : null,
       completenessPerDollar: cost > 0 && universe.size ? (real.length / universe.size) * 100 / cost : null,
       qualityPerDollar: cost > 0 ? Math.max(0, weightedQuality) / cost : null,
-      languages: [...new Set(rows.map((run) => targets.get(run.targetId)?.language).filter(Boolean))],
+      languages: [...new Set(rows.map((run) => targetForRun(run)?.language).filter(Boolean))],
       modelStacks: [...new Set(rows.map(modelStack))],
+      testedModels: [...new Set(rows.map(testedModel))],
       skillIds: [...new Set(rows.map((run) => run.toolId))],
     }
   }
@@ -440,10 +500,10 @@
       grouped.get(id).rows.push(run)
     }
     for (const run of rows) {
-      const target = targets.get(run.targetId)
-      if (groupBy === 'model') add(modelStack(run), modelStack(run), 'Model stack', run)
+      const target = targetForRun(run)
+      if (groupBy === 'model') add(run.modelId || 'unavailable', testedModel(run), 'Model under test', run)
       else if (groupBy === 'language') add(target?.language || 'Unknown', target?.language || 'Unknown', 'Language', run)
-      else if (groupBy === 'skillModel') add(`${run.toolId}::${modelStack(run)}`, `${run.toolLabel} · ${modelStack(run)}`, 'Skill + model stack', run)
+      else if (groupBy === 'skillModel') add(`${run.toolId}::${run.modelId || 'unavailable'}`, `${run.toolLabel} · ${testedModel(run)}`, 'Skill + model', run)
       else add(run.toolId, run.toolLabel, 'Skill', run)
     }
     return [...grouped.values()].map((group) => aggregateRuns(group.id, group.label, group.dimension, group.rows, universeRows))
@@ -481,8 +541,8 @@
     )
   }
 
-  function landingSkillCard(skill) {
-    const stats = aggregateRuns(skill.id, skill.label, 'Skill', skill.rows, DATA.runs)
+  function landingSkillCard(skill, universeRows) {
+    const stats = aggregateRuns(skill.id, skill.label, 'Skill', skill.rows, universeRows)
     return el('article', { class: 'skill-summary-card' },
       skill.parked ? badge('did not finish', 'dnf') : null,
       el('h3', {}, hashLink(skill.label, `#skills/${encodeURIComponent(skill.id)}`)),
@@ -497,20 +557,20 @@
   }
 
   function renderLanding(params) {
-    const verifiedReal = new Set(DATA.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(issue.targetId, issue)))
-    const catalogue = skillCatalogue()
     const requestedScope = params.get('completeness') || 'all'
     const completenessScope = ['all', 'major', 'majorMinor'].includes(requestedScope) ? requestedScope : 'all'
     const requestedLanguage = params.get('language') || 'all'
     const selectedLanguage = languages.includes(requestedLanguage) ? requestedLanguage : 'all'
     const scopeLabels = { all: 'All issues', major: 'Major only', majorMinor: 'Major + minor' }
-    const scopeSeverities = { all: ['high', 'medium', 'low', 'nit'], major: ['high'], majorMinor: ['high', 'medium'] }
-    const leaderRuns = DATA.runs.filter((run) => selectedLanguage === 'all' || targets.get(run.targetId)?.language === selectedLanguage)
+    const scopeSeverities = { all: ['blocker', 'high', 'medium', 'low', 'nit'], major: ['blocker', 'high'], majorMinor: ['blocker', 'high', 'medium'] }
+    const leaderRuns = DATA.runs.filter((run) => matchesSelectedModel(run, params) && (selectedLanguage === 'all' || targetForRun(run)?.language === selectedLanguage))
+    const verifiedReal = new Set(leaderRuns.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
+    const catalogue = skillCatalogue(leaderRuns)
     const groups = groupedStats(leaderRuns, 'skill', leaderRuns).filter((group) => group.cost > 0)
     const scopedGroups = groups.map((group) => {
       const completeness = group.completenessBreakdown[completenessScope]
       const elapsedMs = total(group.rows, (run) => run.wallMs)
-      const unique = group.realRows.filter((row) => scopeSeverities[completenessScope].includes(row.issue.severity) && (row.issue.reportedBy || []).length === 1).length
+      const unique = group.realRows.filter((row) => scopeSeverities[completenessScope].includes(row.issue.severity) && reporterCount(row.issue) === 1).length
       return {
         ...group,
         scopedFindingsPerDollar: completeness.found / group.cost,
@@ -535,6 +595,7 @@
     const sectionScope = `${scopeLabels[completenessScope]}${selectedLanguage === 'all' ? '' : ` · ${selectedLanguage}`}`
     const completenessPicker = field('Count', select('completeness-scope', Object.entries(scopeLabels), completenessScope, (event) => viewParams(params, { completeness: event.target.value === 'all' ? '' : event.target.value })), 'landing-picker')
     const languagePicker = field('Language', select('language-scope', [['all', 'All languages'], ...languages.map((language) => [language, language])], selectedLanguage, (event) => viewParams(params, { language: event.target.value === 'all' ? '' : event.target.value })), 'landing-picker')
+    const selectedModelPicker = modelPicker(params, 'landing-picker')
     frame(el('div', {},
       el('section', { class: 'landing-hero hero' },
         el('div', {},
@@ -547,14 +608,15 @@
         ),
         el('div', { class: 'landing-proof', 'aria-label': 'Benchmark size' },
           el('div', {}, el('strong', {}, fmt(catalogue.length)), el('span', {}, 'skills tested')),
-          el('div', {}, el('strong', {}, fmt(DATA.runs.length)), el('span', {}, 'review runs')),
+          el('div', {}, el('strong', {}, fmt(leaderRuns.length)), el('span', {}, 'review runs')),
           el('div', {}, el('strong', {}, fmt(verifiedReal.size)), el('span', {}, 'verified findings')),
         ),
       ),
+      leaderRuns.length ? null : el('div', { class: 'notice info evidence-note' }, `No benchmark runs recorded for ${modelLabel(selectedModel(params))} yet. Choose “All models / history” to inspect preserved earlier runs.`),
       el('section', { class: 'landing-section leaders-section', 'aria-labelledby': 'leaders-title' },
         el('div', { class: 'landing-section-head' },
           el('div', {}, el('div', { class: 'eyebrow' }, 'Benchmark leaders'), el('h2', { id: 'leaders-title' }, 'Leaders'), el('p', {}, 'The strongest value, coverage, speed, and discovery results for the selected filters.')),
-          el('div', { class: 'leader-pickers' }, completenessPicker, languagePicker),
+          el('div', { class: 'leader-pickers' }, selectedModelPicker, completenessPicker, languagePicker),
         ),
         el('div', { class: 'leader-section', 'aria-labelledby': 'value-leaders-title' },
           el('div', { class: 'leader-section-head' },
@@ -571,7 +633,7 @@
         el('div', { class: 'leader-section', 'aria-labelledby': 'completeness-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'completeness-title' }, `Best coverage · ${sectionScope}`),
-            el('p', {}, 'Ranked by the share of distinct verified issues found. Major means high severity; major + minor includes high and medium.'),
+            el('p', {}, 'Ranked by the share of distinct verified issues found. Major includes blocker and high severity; major + minor also includes medium.'),
           ),
           el('div', { class: 'landing-rank-grid completeness-grid' }, completenessGroups.map((group, index) => completenessRankCard(group, index + 1, completenessScope))),
         ),
@@ -599,14 +661,14 @@
             `${group.completenessBreakdown[completenessScope].found} verified findings in the selected count`,
           ))),
         ),
-        el('p', { class: 'method-note' }, 'Count and language apply to every leader calculation. Completeness means the share of distinct verified findings found on the selected targets a skill reviewed. This is a small benchmark: three pull requests, one per language.'),
+        el('p', { class: 'method-note' }, 'Model, count, and language apply to every leader calculation. Completeness means the share of distinct verified findings found on the selected targets a skill reviewed. This is a small benchmark: three pull requests, one per language.'),
       ),
       el('section', { class: 'landing-section', 'aria-labelledby': 'skills-title' },
         el('div', { class: 'landing-section-head' },
           el('div', {}, el('div', { class: 'eyebrow' }, 'Skill guide'), el('h2', { id: 'skills-title' }, 'What each skill does'), el('p', {}, 'Short descriptions of every tested skill. Open a card for setup, usage, and exact run evidence.')),
           hashLink('Compare skills →', '#compare', 'button-link'),
         ),
-        el('div', { class: 'skill-summary-grid' }, catalogue.map(landingSkillCard)),
+        el('div', { class: 'skill-summary-grid' }, catalogue.map((skill) => landingSkillCard(skill, leaderRuns))),
       ),
     ))
   }
@@ -661,20 +723,20 @@
     const selected = selectionFrom(params)
     const distinctReal = new Set(base.filter((run) => run.status === 'complete').flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
     const controls = el('div', { class: 'compact-controls decision-controls' },
-      field('Group candidates by', select('decision-group', [['skill', 'Skill'], ['skillModel', 'Skill + model stack'], ['model', 'Model stack'], ['language', 'Language']], groupBy, (event) => viewParams(params, { group: event.target.value === 'skill' ? '' : event.target.value, compareSkills: event.target.value === 'skill' ? params.get('compareSkills') : '' }))),
+      field('Group candidates by', select('decision-group', [['skill', 'Skill'], ['skillModel', 'Skill + model under test'], ['model', 'Model under test'], ['language', 'Language']], groupBy, (event) => viewParams(params, { group: event.target.value === 'skill' ? '' : event.target.value, compareSkills: event.target.value === 'skill' ? params.get('compareSkills') : '' }))),
       field('Rank for', select('decision-sort', [['value', 'Best value'], ['quality', 'Highest completeness'], ['precision', 'Highest precision'], ['reliability', 'Most reliable'], ['cost', 'Lowest cost']], sort, (event) => viewParams(params, { decision: event.target.value === 'value' ? '' : event.target.value }))),
     )
     frame(el('div', {},
-      compactHero('Choose a reviewer', 'Find the right skill for your constraints.', 'Rank skills, model stacks, and languages using verified quality, cost, and reliability. Every result retains its evidence count.'),
+      compactHero('Choose a reviewer', 'Find the right skill for your constraints.', 'Rank skills, models under test, and languages using verified quality, cost, and reliability. Every result retains its evidence count.'),
       filterBar(params),
       el('section', { class: 'kpis decision-kpis' },
         kpi('Candidates', fmt(groups.length), groupBy.replace('skillModel', 'skill + model')),
         kpi('Evidence', runCountLink(base, fmt(base.length)), 'runs in current slice'),
         kpi('Distinct real', fmt(distinctReal.size), 'verified issue IDs'),
-        kpi('Languages', fmt(new Set(base.map((run) => targets.get(run.targetId)?.language)).size), 'in current slice'),
+        kpi('Languages', fmt(new Set(base.map((run) => targetForRun(run)?.language)).size), 'in current slice'),
       ),
       el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Decision leaderboard'), el('p', {}, 'Successful zero-yield runs remain in the denominator. “Best value” weights high ×8, medium ×4, low ×1, false positive −3, then divides by attempted cost.')), controls), leaderboard(groups, params, groupBy)),
-      el('div', { class: 'notice info evidence-note' }, 'Model quality is shown for an exact model stack. In multi-model workflows, findings belong to the whole run and cannot be assigned to one model. Language results are directional because the current benchmark has one target per language.'),
+      el('div', { class: 'notice info evidence-note' }, 'Model quality is grouped by the explicitly requested model under test. Observed runtime model stacks remain visible as execution metadata and do not control this filter. Language results are directional because the current benchmark has one target per language.'),
       comparisonTray(selected, params),
     ))
   }
@@ -708,23 +770,24 @@
     const dimensionParams = new URLSearchParams(params)
     dimensionParams.delete('skills')
     const base = DATA.runs.filter((run) => matchesOverviewDimensions(run, dimensionParams))
-    const targetSets = selected.map((toolId) => new Set(base.filter((run) => run.toolId === toolId).map((run) => run.targetId)))
-    const commonTargets = targetSets.length ? [...targetSets[0]].filter((targetId) => targetSets.every((set) => set.has(targetId))) : []
-    const fairRows = base.filter((run) => selected.includes(run.toolId) && commonTargets.includes(run.targetId))
-    const displayRows = commonTargets.length ? fairRows : base.filter((run) => selected.includes(run.toolId))
-    const universeRows = commonTargets.length ? base.filter((run) => commonTargets.includes(run.targetId)) : base
+    const cellId = (run) => `${run.cohortId}/${run.targetId}`
+    const cellSets = selected.map((toolId) => new Set(base.filter((run) => run.toolId === toolId).map(cellId)))
+    const commonCells = cellSets.length ? [...cellSets[0]].filter((id) => cellSets.every((set) => set.has(id))) : []
+    const fairRows = base.filter((run) => selected.includes(run.toolId) && commonCells.includes(cellId(run)))
+    const displayRows = commonCells.length ? fairRows : base.filter((run) => selected.includes(run.toolId))
+    const universeRows = commonCells.length ? base.filter((run) => commonCells.includes(cellId(run))) : base
     const groups = selected.map((toolId) => aggregateRuns(toolId, tools.get(toolId)?.label || toolId, 'Skill', displayRows.filter((run) => run.toolId === toolId), universeRows))
     const unionReal = new Set(groups.flatMap((group) => group.realRows.map((row) => issueKey(row.targetId, row.issue))))
     const portfolioCost = total(groups, (group) => group.cost)
     frame(el('div', {},
-      compactHero('Compare skills', 'Put reviewers head to head.', 'Select two to five skills. Metrics use the targets every selected skill has in common whenever such a cohort exists.'),
+      compactHero('Compare skills', 'Put reviewers head to head.', 'Select two to five skills. Metrics use snapshot/target cells every selected skill has in common whenever such a cohort exists.'),
       filterBar(dimensionParams, { skills: false }),
       compareSelector(params, selected),
       selected.length < 2 ? el('div', { class: 'empty panel' }, 'Select at least two skills to build a comparison.') : el('div', {},
-        commonTargets.length ? el('div', { class: 'notice info evidence-note' }, `Fair cohort: ${commonTargets.map((id) => `${id} (${targets.get(id)?.language})`).join(', ')}.`) : el('div', { class: 'notice evidence-note' }, 'These skills have no common benchmark target. The table shows all available evidence, so direct ranking is not fair.'),
+        commonCells.length ? el('div', { class: 'notice info evidence-note' }, `Fair snapshot/target cells: ${commonCells.join(', ')}.`) : el('div', { class: 'notice evidence-note' }, 'These skills have no common benchmark snapshot/target cell. The table shows all available evidence, so direct ranking is not fair.'),
         el('section', { class: 'kpis decision-kpis' },
           kpi('Selected', fmt(selected.length), 'skills'),
-          kpi('Common cohort', fmt(commonTargets.length), 'targets'),
+          kpi('Common cohort', fmt(commonCells.length), 'snapshot/target cells'),
           kpi('Portfolio cost', fmt(portfolioCost, 'money'), runCountLink(displayRows, `${displayRows.length} attempted run${displayRows.length === 1 ? '' : 's'}`)),
           kpi('Combined coverage', fmt(unionReal.size), 'distinct real issues'),
         ),
@@ -738,27 +801,31 @@
     const visible = DATA.runs.filter((run) => matchesOverviewDimensions(run, params))
     const completed = visible.filter((run) => run.status === 'complete')
     frame(el('div', {},
-      compactHero('Broad analysis', 'See the whole benchmark landscape.', 'Use mixed charts to explore price, quality, robustness, model stacks, and target-level variation.'),
+      compactHero('Broad analysis', 'See the whole benchmark landscape.', 'Use mixed charts to explore price, quality, robustness, requested models, observed runtime stacks, and target-level variation.'),
       filterBar(params),
       skillModelAnalysis(completed, params),
       chartGrid(visible, params),
     ))
   }
 
-  function skillCatalogue() {
+  function skillCatalogue(sourceRuns = DATA.runs) {
     const grouped = new Map()
-    for (const tool of DATA.tools.filter((item) => DATA.runs.some((run) => run.toolId === item.id))) {
+    const visibleTools = [...new Map(sourceRuns.map((run) => {
+      const global = tools.get(run.toolId) || {}
+      return [run.toolId, { ...global, ...(run.toolSnapshot || {}), id: run.toolId }]
+    })).values()]
+    for (const tool of visibleTools) {
       const key = tool.catalogId || tool.id
       if (!grouped.has(key)) grouped.set(key, { ...tool, id: key, label: tool.catalogLabel || tool.label, tools: [], rows: [] })
       const entry = grouped.get(key)
       entry.tools.push(tool)
-      entry.rows.push(...DATA.runs.filter((run) => run.toolId === tool.id))
+      entry.rows.push(...sourceRuns.filter((run) => run.toolId === tool.id))
     }
     return [...grouped.values()].sort((a, b) => a.label.localeCompare(b.label))
   }
 
   function skillCard(skill) {
-    const languages = [...new Set(skill.rows.map((run) => targets.get(run.targetId)?.language).filter(Boolean))]
+    const languages = [...new Set(skill.rows.map((run) => targetForRun(run)?.language).filter(Boolean))]
     return el('article', { class: 'skill-card', id: `skill-${skill.id}` },
       el('div', { class: 'skill-card-head' },
         el('div', {}, el('h2', {}, skill.label), el('span', { class: 'subline' }, hintedLabel(skill.source, 'Plugin package or built-in source identifier recorded by the benchmark.'), ` · ${languages.join(', ') || 'all benchmark languages'}`)),
@@ -778,13 +845,14 @@
     )
   }
 
-  function renderSkills(focusId = null) {
-    const catalogue = skillCatalogue()
+  function renderSkills(focusId = null, params = new URLSearchParams()) {
+    const catalogue = skillCatalogue(DATA.runs.filter((run) => matchesSelectedModel(run, params)))
     const focused = focusId ? catalogue.find((skill) => skill.id === focusId) : null
     if (focusId && !focused) return renderNotFound('Skill not found', focusId)
     const visible = focused ? [focused] : catalogue
     frame(el('div', {},
       compactHero('Tested skills', focused ? focused.label : 'Know what was benchmarked—and how to try it.', focused ? 'Tested skill details, Claude Code installation and invocation, source references, and exact benchmark evidence.' : 'The benchmark ran these as Claude Code plugins. Each entry explains the skill, links to its exact run evidence, and points to its GitHub project and skill page.'),
+      modelPicker(params),
       focused ? el('div', { class: 'catalogue-back' }, hashLink('← View all tested skills', '#skills')) : null,
       el('section', { class: 'kpis decision-kpis' },
         kpi('Skills', fmt(catalogue.length), 'distinct tested skills'),
@@ -803,26 +871,26 @@
     const verdict = params.get('verdict') || 'all'
     const severity = params.get('severity') || 'all'
     const shown = rows.filter((issue) => (verdict === 'all' || issue.verdict === verdict) && (severity === 'all' || issue.severity === severity)).sort((a, b) => {
-      const rank = { high: 0, medium: 1, low: 2, nit: 3 }
+      const rank = { blocker: 0, high: 1, medium: 2, low: 3, nit: 4 }
       return (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9) || a.title.localeCompare(b.title)
     })
     const findingControls = el('div', { class: 'compact-controls' },
       field('Verdict', select('finding-verdict', [['all', 'All verdicts'], ['real', 'Real'], ['false-positive', 'False positive'], ['unproven', 'Unproven']], verdict, (event) => viewParams(params, { verdict: event.target.value === 'all' ? '' : event.target.value }))),
-      field('Severity', select('finding-severity', [['all', 'All severities'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low'], ['nit', 'Nit']], severity, (event) => viewParams(params, { severity: event.target.value === 'all' ? '' : event.target.value }))),
+      field('Severity', select('finding-severity', [['all', 'All severities'], ['blocker', 'Blocker'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low'], ['nit', 'Nit']], severity, (event) => viewParams(params, { severity: event.target.value === 'all' ? '' : event.target.value }))),
     )
     const list = el('div', { class: 'finding-table' }, shown.map((issue) => el('article', { class: 'finding-row' },
-      el('div', {}, el('strong', {}, issue.title), el('span', { class: 'subline' }, `${issue.targetId} · ${targets.get(issue.targetId)?.language || 'unknown'} · ${issue.file || 'no file'}${issue.line ? ':' + issue.line : ''}`)),
+      el('div', {}, el('strong', {}, issue.title), el('span', { class: 'subline' }, `${issue.targetId} · ${issue.targetSnapshot?.language || targets.get(issue.targetId)?.language || 'unknown'} · ${issue.file || 'no file'}${issue.line ? ':' + issue.line : ''}`)),
       el('div', { class: 'badges' }, badge(issue.verdict, issue.verdict), badge(issue.severity), badge(issue.scope || 'scope unavailable', issue.scope)),
-      el('div', { class: 'reporter-list' }, `${(issue.reportedBy || []).length} reporter${(issue.reportedBy || []).length === 1 ? '' : 's'}`),
+      el('div', { class: 'reporter-list' }, `${reporterCount(issue)} reporter${reporterCount(issue) === 1 ? '' : 's'}`),
     )))
     frame(el('div', {},
-      compactHero('Finding explorer', 'Understand what reviewers actually catch.', 'Browse distinct judged issues across any selected skills, model stacks, languages, or targets.'),
+      compactHero('Finding explorer', 'Understand what reviewers actually catch.', 'Browse distinct judged issues across selected skills, models under test, languages, or targets.'),
       filterBar(params),
       el('section', { class: 'kpis decision-kpis' },
         kpi('Distinct issues', fmt(rows.length), 'in current slice'),
         kpi('Verified real', fmt(rows.filter((issue) => issue.verdict === 'real').length), 'unique target issue IDs'),
-        kpi('High + medium', fmt(rows.filter((issue) => issue.verdict === 'real' && ['high', 'medium'].includes(issue.severity)).length), 'verified real'),
-        kpi('Single reporter', fmt(rows.filter((issue) => (issue.reportedBy || []).length === 1).length), 'all verdicts'),
+        kpi('High + medium', fmt(rows.filter((issue) => issue.verdict === 'real' && ['blocker', 'high', 'medium'].includes(issue.severity)).length), 'verified real'),
+        kpi('Single reporter', fmt(rows.filter((issue) => reporterCount(issue) === 1).length), 'all verdicts'),
       ),
       el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Judged issue catalogue'), el('p', {}, `${shown.length} issues match the local verdict and severity controls.`)), findingControls), el('div', { class: 'panel-body' }, shown.length ? list : el('div', { class: 'empty' }, 'No findings match these filters.'))),
     ))
@@ -831,7 +899,7 @@
   function renderOverview(params) {
     const visible = filteredRuns(params)
     const ordered = sortedRuns(visible, params)
-    const picked = (params.get('pick') || '').split(',').filter((id) => runs.has(id)).slice(0, 2)
+    const picked = (params.get('pick') || '').split(',').map(resolveRunId).filter((id) => runs.has(id)).slice(0, 2)
     const distinctReal = new Set(visible.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
 
     const content = el('div', {},
@@ -846,7 +914,7 @@
         kpi('Failures', fmt(visible.filter((run) => ['failed', 'dnf'].includes(run.status)).length), 'failed or did not finish'),
       ),
       el('section', { class: 'panel' },
-        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Run matrix'), el('p', {}, 'All runs are visible by default. Use “Useful only” to apply the historical successful, non-zero-yield, token-capped view.'))),
+        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Run matrix'), el('p', {}, 'All runs for the selected model are visible. Use “Useful only” to apply the historical successful, non-zero-yield, token-capped view.'))),
         runTable(ordered, params, picked),
       ),
       comparisonDock(picked, params),
@@ -886,7 +954,7 @@
       })
       body.append(el('tr', {},
         el('td', {}, box),
-        el('td', {}, hashLink(run.toolLabel, runHash(run), 'run-link'), el('span', { class: 'subline' }, `${run.targetId} · `, hashLink(run.toolId, skillHash(run.toolId), 'skill-info-link'))),
+        el('td', {}, hashLink(run.toolLabel, runHash(run), 'run-link'), el('span', { class: 'subline' }, `${run.targetId} · ${run.modelLabel || 'model unavailable'} · ${run.cohortId} · `, hashLink(run.toolId, skillHash(run.toolId), 'skill-info-link'))),
         el('td', {}, badge(run.status, run.status)),
         el('td', { class: 'num' }, fmt(run.usage.costUsd, 'money'), el('span', { class: 'subline' }, usageSourceLabel(run.usage.source))),
         el('td', { class: 'num' }, fmt(run.wallMs, 'minutes')),
@@ -923,7 +991,8 @@
   }
 
   function chartLegend() {
-    return el('div', { class: 'chart-key' }, DATA.targets.map((target, index) => el('span', {}, el('i', { class: 'key-dot', style: `background:${targetColors[index % targetColors.length]}` }), hintedLabel(target.id, `${target.language} benchmark target: ${target.title}.`))))
+    const chartTargets = [...new Map(DATA.runs.map((run) => [run.targetId, targetForRun(run)])).entries()]
+    return el('div', { class: 'chart-key' }, chartTargets.map(([targetId, target], index) => el('span', {}, el('i', { class: 'key-dot', style: `background:${targetColors[index % targetColors.length]}` }), hintedLabel(targetId, `${target?.language || 'Unknown'} benchmark target: ${target?.title || targetId}.`))))
   }
 
   const chartAccessors = {
@@ -976,7 +1045,8 @@
     for (const point of points) {
       const cx = scale(point.x, maxX, pad.left, width - pad.left - pad.right)
       const cy = height - pad.bottom - (maxY > 0 ? point.y / maxY : 0) * (height - pad.top - pad.bottom)
-      const circle = svg('circle', { class: 'point', cx, cy, r: 6, tabindex: 0, role: 'link', fill: targetColors[DATA.targets.findIndex((target) => target.id === point.run.targetId) % targetColors.length], 'aria-label': `${point.run.toolLabel} on ${point.run.targetId}: ${fmt(point.x)}, ${fmt(point.y)}` })
+      const targetIndex = [...new Set(items.map((run) => run.targetId))].indexOf(point.run.targetId)
+      const circle = svg('circle', { class: 'point', cx, cy, r: 6, tabindex: 0, role: 'link', fill: targetColors[Math.max(0, targetIndex) % targetColors.length], 'aria-label': `${point.run.toolLabel} on ${point.run.targetId}: ${fmt(point.x)}, ${fmt(point.y)}` })
       circle.addEventListener('click', () => { location.hash = runHash(point.run) })
       circle.addEventListener('keydown', (event) => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); location.hash = runHash(point.run) } })
       const title = svg('title'); title.textContent = `${point.run.toolLabel} · ${point.run.targetId}\n${xLabel}: ${fmt(point.x)} · ${yLabel}: ${fmt(point.y, yKey === 'precision' ? 'percent' : 'number')}`
@@ -990,7 +1060,8 @@
 
   function toolChart(items, key) {
     const width = 680, rowHeight = 31, left = 190, right = 46
-    const toolsInView = DATA.tools.filter((tool) => items.some((run) => run.toolId === tool.id))
+    const toolsInView = [...new Map(items.map((run) => [run.toolId, run.toolSnapshot || tools.get(run.toolId) || { id: run.toolId, label: run.toolLabel }])).values()]
+    const targetsInView = [...new Map(items.map((run) => [run.targetId, targetForRun(run)])).entries()]
     const height = Math.max(300, 55 + toolsInView.length * rowHeight)
     const [getter, label] = chartAccessors[key]
     const value = (run) => key === 'wall' ? (run.wallMs == null ? null : run.wallMs / 60000) : key === 'cost' ? run.usage.costUsd : getter(run)
@@ -1010,15 +1081,20 @@
       labelText.addEventListener('click', () => { location.hash = skillHash(tool.id) })
       labelText.addEventListener('keydown', (event) => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); location.hash = skillHash(tool.id) } })
       graph.append(labelText)
-      DATA.targets.forEach((target, targetIndex) => {
-        const run = items.find((item) => item.toolId === tool.id && item.targetId === target.id)
-        const metric = run ? value(run) : null
-        const circle = svg('circle', { class: run ? 'point' : 'na', cx: metric == null ? left : scale(metric, max, left, width - left - right), cy: y + (targetIndex - (DATA.targets.length - 1) / 2) * 6, r: 4, fill: metric == null ? '#3a4553' : targetColors[targetIndex % targetColors.length], tabindex: run ? 0 : null, role: run ? 'link' : null, 'aria-label': run ? `Open ${run.toolLabel} on ${run.targetId}` : `${tool.label} on ${target.id}: no run` })
-        if (run) {
+      targetsInView.forEach(([targetId], targetIndex) => {
+        const targetRuns = items.filter((item) => item.toolId === tool.id && item.targetId === targetId)
+        if (!targetRuns.length) {
+          const circle = svg('circle', { class: 'na', cx: left, cy: y + (targetIndex - (targetsInView.length - 1) / 2) * 6, r: 4, fill: '#3a4553', 'aria-label': `${tool.label} on ${targetId}: no run` })
+          const title = svg('title'); title.textContent = `${tool.label} · ${targetId}: N/A`; circle.append(title); graph.append(circle)
+        }
+        targetRuns.forEach((run, runIndex) => {
+          const metric = value(run)
+          const spread = targetRuns.length === 1 ? 0 : (runIndex - (targetRuns.length - 1) / 2) * 3
+          const circle = svg('circle', { class: 'point', cx: metric == null ? left : scale(metric, max, left, width - left - right), cy: y + (targetIndex - (targetsInView.length - 1) / 2) * 6 + spread, r: 4, fill: metric == null ? '#3a4553' : targetColors[targetIndex % targetColors.length], tabindex: 0, role: 'link', 'aria-label': `Open ${run.toolLabel} on ${run.targetId}, ${run.modelLabel || 'model unavailable'}` })
           circle.addEventListener('click', () => { location.hash = runHash(run) })
           circle.addEventListener('keydown', (event) => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); location.hash = runHash(run) } })
-        }
-        const title = svg('title'); title.textContent = `${tool.label} · ${target.id}: ${fmt(metric, key === 'precision' ? 'percent' : key === 'cost' ? 'money' : 'number')}`; circle.append(title); graph.append(circle)
+          const title = svg('title'); title.textContent = `${tool.label} · ${targetId} · ${run.modelLabel || 'model unavailable'} · ${run.cohortId}: ${fmt(metric, key === 'precision' ? 'percent' : key === 'cost' ? 'money' : 'number')}`; circle.append(title); graph.append(circle)
+        })
       })
     })
     return el('div', {}, graph, el('div', { class: 'chart-key metric-definition' }, metricLabel(label)))
@@ -1027,20 +1103,29 @@
   function eligibleTargets(toolId, params) {
     const selectedTargets = values(params, 'targets')
     const selectedLanguages = values(params, 'languages')
-    const tool = DATA.tools.find((item) => item.id === toolId)
-    return DATA.targets.filter((target) =>
-      (!selectedTargets.length || selectedTargets.includes(target.id)) &&
-      (!selectedLanguages.length || selectedLanguages.includes(target.language)) &&
-      (!tool || !tool.languages || tool.languages.includes(target.language)),
-    ).map((target) => target.id)
+    const eligible = new Set()
+    for (const run of DATA.runs) {
+      if (run.toolId !== toolId || !matchesSelectedModel(run, params)) continue
+      const target = targetForRun(run)
+      const tool = run.toolSnapshot || tools.get(toolId)
+      if (selectedTargets.length && !selectedTargets.includes(run.targetId)) continue
+      if (selectedLanguages.length && !selectedLanguages.includes(target?.language)) continue
+      if (tool?.languages && !tool.languages.includes(target?.language)) continue
+      eligible.add(run.targetId)
+    }
+    return [...eligible]
   }
 
-  function issueKey(targetId, issue) { return `${targetId}/${issue.id}` }
+  function issueKey(targetId, issue) { return issue.id || `${targetId}/${issue.issueId}` }
 
-  function issueUniverse(targetIds, scope) {
+  function reporterCount(issue) {
+    return (issue.reporterIds || issue.reportedByRuns || issue.reportedBy || []).length
+  }
+
+  function issueUniverse(targetIds, scope, params, cohortTargets = null) {
     const found = new Set()
     for (const run of DATA.runs) {
-      if (run.status !== 'complete' || !targetIds.includes(run.targetId)) continue
+      if (run.status !== 'complete' || !targetIds.includes(run.targetId) || (cohortTargets && !cohortTargets.has(`${run.cohortId}/${run.targetId}`)) || (params && !matchesSelectedModel(run, params))) continue
       for (const issue of run.issues) {
         if (issue.verdict !== 'real' || (scope === 'in' && issue.scope !== 'in-scope')) continue
         found.add(issueKey(run.targetId, issue))
@@ -1055,8 +1140,9 @@
     for (const run of usable) {
       const modelNames = Object.keys(run.usage.models || {}).sort()
       const modelMix = modelNames.length ? modelNames.join(' + ') : 'model unavailable'
-      const key = `${run.toolId}::${modelMix}`
-      if (!grouped.has(key)) grouped.set(key, { key, toolId: run.toolId, label: run.toolLabel, source: run.toolSource, modelMix, runs: [], cost: 0, issues: new Map() })
+      const modelUnderTest = testedModel(run)
+      const key = `${run.toolId}::${run.modelId || 'unavailable'}::${modelMix}`
+      if (!grouped.has(key)) grouped.set(key, { key, toolId: run.toolId, label: run.toolLabel, source: run.toolSource, modelUnderTest, modelMix, runs: [], cost: 0, issues: new Map() })
       const group = grouped.get(key)
       group.runs.push(run)
       group.cost += run.usage.costUsd
@@ -1065,13 +1151,14 @@
     const groups = []
     for (const group of grouped.values()) {
       const targetIds = eligibleTargets(group.toolId, params)
+      const cohortTargets = new Set(group.runs.map((run) => `${run.cohortId}/${run.targetId}`))
       const rows = [...group.issues.values()].filter((row) => targetIds.includes(row.targetId))
       const real = rows.filter((row) => row.issue.verdict === 'real')
       const inScope = real.filter((row) => row.issue.scope === 'in-scope')
       const falsePositive = rows.filter((row) => row.issue.verdict === 'false-positive').length
       const decided = real.length + falsePositive
-      const universeAll = issueUniverse(targetIds, 'all').size
-      const universeIn = issueUniverse(targetIds, 'in').size
+      const universeAll = issueUniverse(targetIds, 'all', params, cohortTargets).size
+      const universeIn = issueUniverse(targetIds, 'in', params, cohortTargets).size
       const severity = (allowed) => real.filter((row) => allowed.includes(row.issue.severity)).length
       const perTarget = targetIds.map((targetId) => {
         const targetRuns = group.runs.filter((run) => run.targetId === targetId)
@@ -1079,7 +1166,7 @@
         const targetCost = total(targetRuns, (run) => run.usage.costUsd)
         const targetReal = new Set()
         for (const run of targetRuns) for (const issue of run.issues) if (issue.verdict === 'real') targetReal.add(issueKey(targetId, issue))
-        const denominator = issueUniverse([targetId], 'all').size
+        const denominator = issueUniverse([targetId], 'all', params, cohortTargets).size
         return {
           targetId,
           completeness: denominator ? targetReal.size / denominator : null,
@@ -1094,9 +1181,9 @@
         inReal: inScope.length,
         efficiencyAll: group.cost > 0 ? real.length / group.cost : null,
         efficiencyIn: group.cost > 0 ? inScope.length / group.cost : null,
-        severityHigh: group.cost > 0 ? severity(['high']) / group.cost : null,
-        severityMedium: group.cost > 0 ? severity(['high', 'medium']) / group.cost : null,
-        severityLow: group.cost > 0 ? severity(['high', 'medium', 'low']) / group.cost : null,
+        severityHigh: group.cost > 0 ? severity(['blocker', 'high']) / group.cost : null,
+        severityMedium: group.cost > 0 ? severity(['blocker', 'high', 'medium']) / group.cost : null,
+        severityLow: group.cost > 0 ? severity(['blocker', 'high', 'medium', 'low']) / group.cost : null,
         completenessAll: universeAll ? real.length / universeAll : null,
         completenessIn: universeIn ? inScope.length / universeIn : null,
         falsePositiveRate: decided ? falsePositive / decided : null,
@@ -1113,7 +1200,7 @@
   function analysisLabel(group) {
     return el('div', { class: 'analysis-label' },
       el('strong', {}, hashLink(group.label, skillHash(group.toolId), 'skill-info-link')),
-      el('span', {}, hintedLabel(group.source || 'source unavailable', 'Plugin package or built-in source identifier recorded by the benchmark.'), ' · ', hintedLabel(group.modelMix, 'Exact model stack recorded for these runs.'), ` · ${group.coverage}/${group.targetIds.length} targets · `, runCountLink(group.runs), ` · ${fmt(group.cost, 'money')}`),
+      el('span', {}, hintedLabel(group.source || 'source unavailable', 'Plugin package or built-in source identifier recorded by the benchmark.'), ' · ', hintedLabel(group.modelUnderTest, 'Requested model under test and its provenance.'), ' · observed ', hintedLabel(group.modelMix, 'Exact runtime model stack recorded for these runs.'), ` · ${group.coverage}/${group.targetIds.length} targets · `, runCountLink(group.runs), ` · ${fmt(group.cost, 'money')}`),
     )
   }
 
@@ -1223,23 +1310,23 @@
     const robustControl = field(hintedLabel('Metric', metricHints[robustLabel]), select('robustness-metric', [['completeness', 'Completeness'], ['efficiency', 'Findings / dollar']], robustKey, (event) => overviewParams(params, { robust: event.target.value === 'completeness' ? '' : event.target.value })))
     return el('section', { class: 'analysis-section' },
       el('div', { class: 'analysis-intro' },
-        el('div', {}, el('div', { class: 'eyebrow' }, 'Skill + model analysis'), el('h2', {}, 'Quality-adjusted economics'), el('p', {}, 'Charts include every complete run with recorded cost, including zero-yield and token-heavy runs. Each row groups one skill with its exact model stack. Multi-model findings cannot be attributed to one model, so full run cost and outcomes stay together. Completeness uses unique real judgement IDs found by all complete runs on eligible targets.')),
+        el('div', {}, el('div', { class: 'eyebrow' }, 'Skill + model analysis'), el('h2', {}, 'Quality-adjusted economics'), el('p', {}, 'Charts include every complete run with recorded cost, including zero-yield and token-heavy runs. Each row groups one skill by requested model under test and observed runtime stack. Findings stay attached to the whole run. Completeness uses unique real judgement IDs found by complete runs in the selected model cohort.')),
       ),
       el('div', { class: 'analysis-grid' },
         analysisPanel('Finding / price efficiency', 'Sorted best-first by all-scope unique real findings per dollar.', seriesChart(groups, [{ label: 'In scope', hint: 'Distinct in-scope real issues found per U.S. dollar of recorded cost.', get: (group) => group.efficiencyIn }, { label: 'All scopes', hint: 'Distinct real issues in any scope found per U.S. dollar of recorded cost.', get: (group) => group.efficiencyAll }])),
-        analysisPanel('Severity yield / price', 'Sorted best-first by ≥low yield; cumulative thresholds exclude nits.', seriesChart(groups, [{ label: '≥ high', hint: 'High-severity real issues found per U.S. dollar of recorded cost.', get: (group) => group.severityHigh }, { label: '≥ medium', hint: 'High- or medium-severity real issues found per U.S. dollar of recorded cost.', get: (group) => group.severityMedium }, { label: '≥ low', hint: 'High-, medium-, or low-severity real issues found per U.S. dollar of recorded cost; nits excluded.', get: (group) => group.severityLow }])),
+        analysisPanel('Severity yield / price', 'Sorted best-first by ≥low yield; cumulative thresholds exclude nits.', seriesChart(groups, [{ label: '≥ high', hint: 'Blocker- or high-severity real issues found per U.S. dollar of recorded cost.', get: (group) => group.severityHigh }, { label: '≥ medium', hint: 'Blocker-, high-, or medium-severity real issues found per U.S. dollar of recorded cost.', get: (group) => group.severityMedium }, { label: '≥ low', hint: 'Blocker-, high-, medium-, or low-severity real issues found per U.S. dollar of recorded cost; nits excluded.', get: (group) => group.severityLow }])),
         analysisPanel('Completeness', 'Sorted best-first by all-scope unique-issue completeness.', seriesChart(groups, [{ label: 'In scope', hint: 'In-scope real issues found divided by all in-scope real issues in eligible targets.', get: (group) => group.completenessIn }, { label: 'All scopes', hint: 'Real issues in any scope found divided by all real issues in eligible targets.', get: (group) => group.completenessAll }], 'percent', 1)),
         analysisPanel('False-positive rate', 'Sorted best-first: lowest false ÷ (real + false); unproven excluded.', seriesChart(groups, [{ label: 'False-positive rate', get: (group) => group.falsePositiveRate }], 'percent', 1, 0, true)),
         analysisPanel('Cost / completeness frontier', 'Upper-left points dominate: lower cost and higher completeness.', paretoChart(groups)),
-        el('section', { class: 'panel chart-panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, hintedLabel('Target robustness', 'Variation in the selected metric across benchmark targets for each skill and model stack.')), el('p', {}, 'Sorted best-first by median; bars show min / median / max across targets.')), robustControl), el('div', { class: 'panel-body' }, rangeChart(groups, robustKey, robustKey === 'completeness' ? 'percent' : 'number'))),
+        el('section', { class: 'panel chart-panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, hintedLabel('Target robustness', 'Variation in the selected metric across benchmark targets for each skill, model under test, and observed runtime stack.')), el('p', {}, 'Sorted best-first by median; bars show min / median / max across targets.')), robustControl), el('div', { class: 'panel-body' }, rangeChart(groups, robustKey, robustKey === 'completeness' ? 'percent' : 'number'))),
       ),
     )
   }
 
   function renderRun(id) {
-    const run = runs.get(id)
+    const run = runs.get(resolveRunId(id))
     if (!run) return renderNotFound('Run not found', id)
-    const target = targets.get(run.targetId)
+    const target = targetForRun(run)
     const content = el('div', {},
       hero('Run detail', run.toolLabel, `${run.targetId} · ${run.toolSource || run.toolId}`, [hashLink('Overview', '#overview'), ' / ', hashLink(run.id, runHash(run))]),
       runSummary(run, target),
@@ -1274,7 +1361,9 @@
           summaryItem('Sessions', fmt(run.usage.sessions), run.sessionId ? `parent ${run.sessionId}` : null),
           summaryItem('Turns', fmt(run.numTurns), `exit ${fmt(run.exitCode)}`),
           summaryItem('Subagents', subagentText),
-          summaryItem('Model costs', modelText),
+          summaryItem('Model under test', run.modelLabel || 'N/A', `${run.modelProvenance || 'unavailable'}${run.requestedModel ? ` · requested ${run.requestedModel}` : ''}`),
+          summaryItem('Observed model stack', modelText, 'runtime usage.models; not used for cohort filtering'),
+          summaryItem('Cohort', run.cohortLabel || run.cohortId, run.cohortId),
           summaryItem('Finished', run.finishedAt ? new Date(run.finishedAt).toLocaleString() : 'N/A'),
           summaryItem('Attempts', fmt(run.attempts), run.attempts ? 'DNF attempts' : null),
           summaryItem('Usage provenance', usageSourceLabel(run.usage.source, true)),
@@ -1318,7 +1407,7 @@
   function issueCard(issue, showReason = true) {
     const where = issue.file ? `${issue.file}${issue.line ? ':' + issue.line : ''}` : 'No file location'
     return el('article', { class: 'issue' },
-      el('div', { class: 'issue-head' }, el('div', {}, el('h3', {}, issue.title), el('div', { class: 'where' }, where)), el('span', { class: 'muted' }, issue.id)),
+      el('div', { class: 'issue-head' }, el('div', {}, el('h3', {}, issue.title), el('div', { class: 'where' }, where)), el('span', { class: 'muted', title: issue.id }, issue.issueId || issue.id)),
       el('div', { class: 'badges' }, badge(issue.verdict, issue.verdict), badge(issue.scope, issue.scope), badge(issue.severity), issue.introducedByPr ? badge('PR-introduced', 'in-scope') : badge('pre-existing')),
       showReason && issue.verdictReason ? el('p', {}, issue.verdictReason) : null,
       showReason && issue.scopeReason ? el('p', { class: 'muted' }, `Scope: ${issue.scopeReason}`) : null,
@@ -1344,7 +1433,7 @@
       list.replaceChildren(...(visible.length ? visible.map((issue) => issueCard(issue)) : [el('div', { class: 'empty' }, 'No judged issues match these filters.')]))
     }
     controls.append(
-      field('Severity', select('issue-severity', [['all', 'All'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low'], ['nit', 'Nit']], 'all', (event) => { filters.severity = event.target.value; update() })),
+      field('Severity', select('issue-severity', [['all', 'All'], ['blocker', 'Blocker'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low'], ['nit', 'Nit']], 'all', (event) => { filters.severity = event.target.value; update() })),
       field('Verdict', select('issue-verdict', [['all', 'All'], ['real', 'Real'], ['false-positive', 'False positive'], ['unproven', 'Unproven']], 'all', (event) => { filters.verdict = event.target.value; update() })),
       field('Scope', select('issue-scope', [['all', 'All'], ['in-scope', 'In scope'], ['out-of-scope', 'Out of scope']], 'all', (event) => { filters.scope = event.target.value; update() })),
     )
@@ -1354,7 +1443,7 @@
       field('Reason', el('input', { id: 'issue-reason', type: 'search', placeholder: 'Verdict or scope reason…', oninput: (event) => { filters.reason = event.target.value; update() } })),
     )
     update()
-    return el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Judged issues'), el('p', {}, `${run.issues.length} stable target-level issues attributed to this run.`)), controls), el('div', { class: 'panel-body' }, list))
+    return el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Judged issues'), el('p', {}, `${run.issues.length} snapshot-scoped issues attributed to this run.`)), controls), el('div', { class: 'panel-body' }, list))
   }
 
   function claimSection(run) {
@@ -1432,7 +1521,7 @@
   ]
 
   function renderComparison(leftId, rightId) {
-    const left = runs.get(leftId), right = runs.get(rightId)
+    const left = runs.get(resolveRunId(leftId)), right = runs.get(resolveRunId(rightId))
     if (!left || !right) return renderNotFound('Comparison not found', `${leftId} ↔ ${rightId}`)
     const overlap = comparisonData(left, right)
     const content = el('div', {},
@@ -1448,7 +1537,7 @@
   }
 
   function compareRun(run) {
-    return el('div', { class: 'compare-run' }, hashLink(run.toolLabel, runHash(run), 'run-link'), el('span', { class: 'subline' }, hashLink(run.id, runHash(run), 'run-link'), ' · ', skillInfoLink(run.toolId)), el('div', { class: 'badges' }, badge(run.status, run.status), usageSourceLabel(run.usage.source, true)))
+    return el('div', { class: 'compare-run' }, hashLink(run.toolLabel, runHash(run), 'run-link'), el('span', { class: 'subline' }, hashLink(run.id, runHash(run), 'run-link'), ` · ${run.modelLabel || 'model unavailable'} · `, skillInfoLink(run.toolId)), el('div', { class: 'badges' }, badge(run.status, run.status), usageSourceLabel(run.usage.source, true)))
   }
 
   function comparisonTable(left, right) {
@@ -1487,6 +1576,7 @@
   }
 
   function comparisonData(left, right) {
+    if (left.cohortId !== right.cohortId) return { compatible: false, reason: 'Issue overlap is unavailable because these runs use different judgement snapshots.', shared: [], leftOnly: [], rightOnly: [] }
     if (left.targetId !== right.targetId) return { compatible: false, reason: 'Issue overlap is unavailable because these runs reviewed different targets.', shared: [], leftOnly: [], rightOnly: [] }
     const leftMap = new Map(left.issues.map((issue) => [issue.id, issue]))
     const rightMap = new Map(right.issues.map((issue) => [issue.id, issue]))

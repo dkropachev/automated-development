@@ -9,21 +9,39 @@ offline dashboard:
   directly from disk; it has no server, framework, CDN, or network dependency. The legacy
   `docs/run-explorer.html` path contains the same export.
 
-Every stage is a Node script behind a Makefile target, and every stage is resumable - a stage that
-is interrupted, or a run the account's usage limit kills, is picked up on the next pass instead of
-starting the matrix over.
+Every stage is a Node script behind a Makefile target. Result stages are resumable and append-only:
+an interrupted cohort can continue, but a recorded result is never replaced. Each new benchmark
+cohort lives under `runs/<runId>/`; its manifest freezes target commits, target metadata, tool
+configuration, and expected cells before results are accepted. The original `results/`,
+`findings/`, and `judgement/` trees are the immutable `legacy` cohort.
 
 ```
 make bench-prepare   # republish each upstream PR into a blinded private repo, fetch ground truth
-make bench-run       # 26 tool x PR pairs, each in its own headless `claude -p` and its own cwd
-make bench-extract   # turn each prose report into comparable JSON findings
-make bench-judge     # merge across tools, verify against the code, classify
-make bench-report    # render docs/review-bakeoff.md
-make bench-dashboard # render docs/run-explorer.html
+make bench-run       # run the default claude-opus-5-5 cohort
+make bench-extract   # seal the complete result matrix, then extract comparable JSON findings
+make bench-judge     # merge, verify, classify, and mark the full cohort complete
+make bench-report    # verify the completed snapshot and render its cohort-specific report
+make bench-dashboard # render every cohort into docs/index.html and docs/run-explorer.html
 ```
 
-`ARGS` passes through: `make bench-run ARGS="--only ironweave --concurrency 2"`,
-`make bench-judge ARGS="--only tidepool"`.
+The runner pins the configured default, `claude-opus-5-5`; it does not rely on Claude Code's moving
+`opus` alias. `MODEL` selects another configured model and `RUN` supplies a new, filesystem-safe
+cohort ID. Use the same `RUN` for downstream stages:
+
+```
+make bench-run MODEL=claude-opus-5-5 RUN=opus-5-5-2026-09-28
+make bench-extract bench-judge RUN=opus-5-5-2026-09-28
+make bench-report RUN=opus-5-5-2026-09-28
+make bench-report RUN=legacy             # regenerate the historical narrative report
+```
+
+A repeated run command resumes cells in that cohort's original expected matrix. Extraction creates
+`seal.json` only after every expected result exists; from that point no result can be added or
+changed. Use a new `RUN` to extend the matrix, rerun a cell, or make any fresh measurement. Judging
+creates `complete.json` only after every sealed finding and target judgement exists. Reports and the
+dashboard accept new cohorts only through that hash-verified complete snapshot. New cohort reports
+have cohort-specific filenames, so they cannot replace the legacy `docs/review-bakeoff.md`. `ARGS`
+passes other flags through, for example `make bench-run ARGS="--only ironweave --concurrency 2"`.
 
 ## Why each PR is republished
 
@@ -42,12 +60,16 @@ under review. See the analysis in the report.
 |---|---|
 | `targets.json` | the three PRs, their blinded repositories and any extra strings to rewrite |
 | `tools.json` | the tool matrix: one prompt per tool, plus the shared context block |
+| `models.json` | configured model IDs and the pinned default model |
 | `state.json` | what `prepare.js` published, written once and read by every later stage |
 | `groundtruth/` | the upstream human review, for comparison after the fact |
-| `results/` | one record per run: the report, exit status, wall time, token accounting |
-| `findings/` | the same reports as JSON findings |
-| `judgement/` | per PR, the merged and verified issue list |
-| `analysis.md` | the hand-written half of the report; `report.js` appends it verbatim |
+| `results/`, `findings/`, `judgement/` | original artifacts, exposed as the read-only `legacy` cohort |
+| `runs/<runId>/manifest.json` | requested model and Claude version; pinned base/head commits; frozen target metadata, upstream ground truth, tool prompts/context, and expected cell matrix |
+| `runs/<runId>/seal.json` | hashes of every expected result; extraction creates it and permanently closes the result set |
+| `runs/<runId>/complete.json` | final seal, finding, and judgement hashes; required by reports and dashboard |
+| `runs/<runId>/{results,findings,judgement}/` | append-only artifacts for one new model cohort |
+| `runs/<runId>/recovered/` | audit-only transcript recoveries; never scored as results, so their cells must be rerun |
+| `analysis.md` | hand-written analysis for the legacy narrative report |
 | `dashboard.js`, `dashboard/` | deterministic dashboard generator and browser assets |
 | `work/`, `logs/` | working trees and run logs, not committed |
 
@@ -56,20 +78,21 @@ stays in the matrix and in the report, and `run.js` skips it unless `--include-p
 
 ## Accounting
 
-Each run gets a working directory nobody else uses, and Claude Code files transcripts per working
-directory, so the directory is the run - including the sessions a fan-out workflow spawns, which is
-where most of the tokens go. `lib/usage.js` sums each session's last `cost-state` record, and
-`opts.since` narrows the sum to the attempt that actually produced the report, so a pair the usage
-limit hit five times is not charged five times for one review.
+Each new attempt gets a working directory nobody else uses, and Claude Code files transcripts per
+working directory, including the sessions a fan-out workflow spawns. The runner stores that final
+attempt's transcript total in its result record. Reports for new cohorts use only this committed
+`transcriptUsage`; they never rescan mutable local transcripts. The legacy report retains its
+historical accounting behavior, including its hand-reconstructed attempt windows and lost spend.
 
 ## Dashboard data and metrics
 
-The dashboard generator reads only committed `state.json`, `tools.json`, `results/`, `findings/`,
-`judgement/`, and `groundtruth/` artifacts. Unlike the narrative report's historical accounting,
-it never scans `work/`, logs, or local Claude transcripts. Recorded usage therefore means the
-stored cell total. It prefers `transcriptUsage` fields already present in a result, fills missing
-fields from `modelUsage`, then `reportedUsage`/`reportedCostUsd`, and labels the provenance. Missing
-measurements remain unavailable rather than becoming zero.
+The dashboard generator reads committed legacy inputs plus hash-verified complete cohorts under
+`runs/`. New-cohort targets and tools come from each manifest snapshot, not current `state.json` or
+`tools.json`. It never scans `work/`, logs, or local Claude transcripts. Recorded usage therefore
+means the stored cell total. It prefers
+`transcriptUsage` fields already present in a result, fills missing fields from `modelUsage`, then
+`reportedUsage`/`reportedCostUsd`, and labels the provenance. Missing measurements remain
+unavailable rather than becoming zero.
 
 Quality measures are intentionally direct: extracted claims; real, false-positive, and unproven
 judgements; in-scope, PR-introduced, and unique real findings; and precision (`real / (real + false
@@ -77,26 +100,31 @@ positive)`, excluding unproven). Efficiency views show real findings per dollar 
 real finding. A zero denominator is shown as N/A. Upstream review comments are context only and
 never affect these measures.
 
-The run explorer shows every run by default. Its optional **Useful only** filter retains the old
-view: complete or salvaged, at least one real finding, known token use, and no more than 25 million
+The run explorer defaults to cohorts for the configured requested model. Choosing **All models**
+exposes the full history. Its optional **Useful only** filter retains the old quality slice:
+complete, at least one real finding, known token use, and no more than 25 million
 tokens. Decision aggregates include successful zero-yield runs and display reliability separately.
 
-The focused views share URL-persisted multi-select filters for skills, exact model stacks,
-languages, and targets. **Choose** ranks configurable groupings, **Compare** evaluates two to five
-skills on their common target cohort, **Insights** combines the economic and robustness charts,
-**Findings** browses distinct judged issue IDs, and **Runs** audits the raw benchmark cells.
+The focused views share URL-persisted multi-select filters for skills, languages, and targets. A
+single requested-model picker scopes every view and defaults to the configured
+`claude-opus-5-5`; `#runs?model=all` exposes the full history. Observed runtime model stacks remain
+visible as audit metadata but are not the cohort picker. Legacy model names are shown as
+observed/inferred metadata, never as a model that the old runner requested. **Choose**
+ranks configurable groupings, **Compare** evaluates two to five skills on their common target
+cohort, **Insights** combines the economic and robustness charts, **Findings** browses distinct
+judged issue IDs, and **Runs** audits the raw benchmark cells.
 
 Skill economics group runs by skill plus exact model mix. Multi-model runs remain one group because
 the artifacts attribute findings to the run, not to an individual model. The analysis shows
 in-scope and all-scope real findings per dollar, cumulative severity yield (`>= high`, `>= medium`,
 and `>= low`, excluding nits), unique-issue completeness, and false-positive rate. Completeness uses
-the union of real judgement IDs found by every complete or salvaged run on targets eligible for that
+the union of real judgement IDs found by every complete run on targets eligible for that
 skill; false-positive rate is `false / (real + false)`, excluding unproven issues. The Pareto chart
 shows cost versus completeness, and target robustness shows min/median/max completeness or
 findings-per-dollar across eligible targets.
 
-Analysis charts include every complete or salvaged run with recorded cost, including zero-yield and
-token-heavy runs. Skill, model-stack, language, and target filters narrow chart inputs.
+Analysis charts include every complete run with recorded cost, including zero-yield and
+token-heavy runs. Skill, requested-model, language, and target filters narrow chart inputs.
 
 `docs/index.html` and `docs/run-explorer.html` are committed so the dashboard works from a checkout
 or static docs host. After any benchmark artifact changes, run `make bench-dashboard`; the test

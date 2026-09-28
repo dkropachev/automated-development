@@ -4,6 +4,13 @@
 NODE ?= node
 NPM  ?= npm
 CLAUDE ?= claude
+export CLAUDE
+
+# MODEL is forwarded only to the runner. RUN names the immutable cohort used by every result stage.
+# Example: make bench-run MODEL=claude-opus-5-5 RUN=opus-5-5-2026-09-28
+#          make bench-extract bench-judge RUN=opus-5-5-2026-09-28
+BENCH_MODEL_ARG = $(if $(strip $(MODEL)),--model "$(MODEL)")
+BENCH_RUN_ARG = $(if $(strip $(RUN)),--run "$(RUN)")
 
 .PHONY: help install test lint check ci validate-plugin eval-parse validate eval release \
 	bench-prepare bench-run bench-extract bench-judge bench-report bench-dashboard dashboard-browser-check
@@ -40,24 +47,22 @@ eval: ## run the eval suite with real model calls; CASE and THRESHOLD override
 release: ## bump, verify, commit, tag, push, GitHub release; BUMP=patch|minor|major|X.Y.Z
 	$(NODE) scripts/release.js "$(or $(BUMP),patch)"
 
-# The review-tool bake-off. Each step is resumable and skips work already on disk; pass ARGS="--force"
-# to redo one. bench-run spends real money - it is a matrix of headless `claude -p` review sessions.
+# The review-tool bake-off. Each result stage is resumable and never replaces a recorded cell;
+# choose a new RUN for a fresh cohort. bench-run spends real money on headless review sessions.
 bench-prepare: ## republish each benchmark PR into a blinded private repo
 	$(NODE) bench/prepare.js $(ARGS)
 
-bench-run: ## run every review tool against every benchmark PR
-	$(NODE) bench/run.js $(ARGS)
+bench-run: ## run benchmark cohort; MODEL and RUN override its model and id
+	$(NODE) bench/run.js $(BENCH_MODEL_ARG) $(BENCH_RUN_ARG) $(ARGS)
 
-bench-extract: ## turn each tool's prose report into comparable findings
-	$(NODE) bench/extract.js $(ARGS)
+bench-extract: ## seal RUN results, then extract them (default: pinned model cohort)
+	$(NODE) bench/extract.js $(BENCH_RUN_ARG) $(ARGS)
 
-bench-judge: ## merge and verify the findings against the code, per PR
-	$(NODE) bench/judge.js $(ARGS)
+bench-judge: ## judge RUN findings and finalize complete snapshot
+	$(NODE) bench/judge.js $(BENCH_RUN_ARG) $(ARGS)
 
-bench-report: ## render docs/review-bakeoff.md from what is on disk
-	@mkdir -p docs
-	$(NODE) bench/report.js > docs/review-bakeoff.md
-	@echo docs/review-bakeoff.md
+bench-report: ## write RUN cohort report; default Opus 5.5, RUN=legacy is historical
+	$(NODE) bench/report.js --run "$(or $(RUN),claude-opus-5-5)" --write
 
 bench-dashboard: ## render the offline dashboard and GitHub Pages entry point
 	@mkdir -p docs

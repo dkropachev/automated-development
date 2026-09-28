@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "defaultModel": "claude-opus-5-5",
+  "models": [
+    {
+      "id": "claude-opus-5-5",
+      "label": "Claude Opus 5.5"
+    },
+    {
+      "id": "claude-opus-5",
+      "label": "Claude Opus 5"
+    }
+  ],
+  "legacyCohort": {
+    "runId": "legacy",
+    "label": "Original benchmark",
+    "requestedModel": null,
+    "observedModel": "claude-opus-5",
+    "modelLabel": "Claude Opus 5"
+  }
+}
