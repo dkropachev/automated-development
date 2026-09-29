@@ -586,11 +586,20 @@ test('only successful exact requested-model Claude responses are publishable', (
   assert.throws(() => runner.assertPublishableResponse(response, {
     ...success, usage: { ...success.usage, output_tokens: '2' },
   }, model), /reported usage\.output_tokens/)
+  assert.doesNotThrow(() => runner.assertPublishableResponse(response, {
+    ...success,
+    modelUsage: {
+      ...success.modelUsage,
+      'claude-haiku-4-5-20251001': {
+        inputTokens: 1, outputTokens: 1, costUSD: 0.01, canonicalModel: 'claude-haiku-4-5',
+      },
+    },
+  }, model))
   assert.throws(() => runner.assertPublishableResponse(response, {
     ...success,
     modelUsage: {
       ...success.modelUsage,
-      'subagent-model': { inputTokens: 1, outputTokens: 1, costUSD: 0.01, canonicalModel: 'wrong-model' },
+      'subagent-model': { inputTokens: 1, outputTokens: 1, costUSD: 0.01, canonicalModel: null },
     },
   }, model), /canonicalModel for subagent-model/)
 })
@@ -924,7 +933,7 @@ test('resume and sealing reject a semantically poisoned canonical result', async
       modelUsage: {
         ...record.modelUsage,
         'subagent-model': {
-          inputTokens: 1, outputTokens: 1, costUSD: 0.01, canonicalModel: 'wrong-model',
+          inputTokens: 1, outputTokens: 1, costUSD: 0.01, canonicalModel: null,
         },
       },
     }
