@@ -11,9 +11,11 @@ export CLAUDE
 #          make bench-extract bench-judge RUN=opus-5-5-2026-09-28
 BENCH_MODEL_ARG = $(if $(strip $(MODEL)),--model "$(MODEL)")
 BENCH_RUN_ARG = $(if $(strip $(RUN)),--run "$(RUN)")
+BENCH_NEXT_CALL_ARG = $(if $(strip $(NEXT_CALL)),--next-call "$(NEXT_CALL)")
 
 .PHONY: help install test lint check ci validate-plugin eval-parse validate eval release \
-	bench-prepare bench-run bench-extract bench-judge bench-report bench-dashboard dashboard-browser-check
+	bench-prepare bench-quota bench-probe bench-run bench-extract bench-judge bench-report bench-dashboard \
+	dashboard-browser-check
 
 help:
 	@$(NODE) -e "const fs=require('fs');for(const l of fs.readFileSync('Makefile','utf8').split('\n')){const m=/^([a-z-]+):.*## (.*)$$/.exec(l);if(m)console.log(m[1].padEnd(16),m[2])}"
@@ -51,6 +53,12 @@ release: ## bump, verify, commit, tag, push, GitHub release; BUMP=patch|minor|ma
 # choose a new RUN for a fresh cohort. bench-run spends real money on headless review sessions.
 bench-prepare: ## republish each benchmark PR into a blinded private repo
 	$(NODE) bench/prepare.js $(ARGS)
+
+bench-quota: ## record a standalone quota check; requires RUN and NEXT_CALL (or ARGS=--final)
+	$(NODE) bench/quota.js $(BENCH_RUN_ARG) $(BENCH_NEXT_CALL_ARG) $(ARGS)
+
+bench-probe: ## quota-gate and record the exact Fable model for an initialized RUN
+	$(NODE) bench/probe.js $(BENCH_RUN_ARG) $(ARGS)
 
 bench-run: ## run benchmark cohort; MODEL and RUN override its model and id
 	$(NODE) bench/run.js $(BENCH_MODEL_ARG) $(BENCH_RUN_ARG) $(ARGS)

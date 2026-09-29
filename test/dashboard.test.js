@@ -49,7 +49,26 @@ function createCompleteDashboardCohort(root, options = {}) {
   const result = {
     schemaVersion: 2, ...artifacts.manifestMetadata(manifest), cellId, target: target.id, tool: 'tool',
     label: 'Pinned Tool', source: 'snapshot-source', baseSha: BASE_SHA, headSha: HEAD_SHA,
-    exitCode: 0, isError: false, result: 'new', transcriptUsage: { models: { 'claude-sonnet-observed': 2 } },
+    exitCode: 0, signal: null, isError: false, apiErrorStatus: null, result: 'new',
+    reportedCostUsd: 0.25,
+    reportedUsage: { input_tokens: 1, output_tokens: 2 },
+    modelUsage: {
+      'claude-opus-5-5': {
+        inputTokens: 1, outputTokens: 2, thinkingTokens: 1,
+        cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
+        costUSD: 0.25, canonicalModel: 'claude-opus-5-5',
+      },
+      'claude-sonnet-observed': {
+        inputTokens: 1, outputTokens: 1, thinkingTokens: 0,
+        cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
+        costUSD: 0.05, canonicalModel: 'claude-sonnet-observed',
+      },
+    },
+    transcriptUsage: {
+      input: 1, output: 2, thinking: 1, cacheRead: 0, cacheCreation: 0,
+      costUsd: 0.3, sessions: 1,
+      models: { 'claude-opus-5-5': 0.25, 'claude-sonnet-observed': 0.05 }, total: 3,
+    },
   }
   fs.mkdirSync(path.dirname(resultFile), { recursive: true })
   fs.writeFileSync(resultFile, JSON.stringify(result))
@@ -60,7 +79,15 @@ function createCompleteDashboardCohort(root, options = {}) {
     schemaVersion: 2, ...artifacts.manifestMetadata(manifest), cellId, target: target.id, tool: 'tool',
     baseSha: BASE_SHA, headSha: HEAD_SHA, sourceResultSha256: cell.sha256,
     findings: [{ title: 'New claim', file: 'src/new.js', line: 1, severity: 'medium', kind: 'bug', claim: 'New claim.', selfRejected: false }],
-    extractError: null,
+    extractError: null, sourceReportEmpty: false, extractorRequestedModel: 'claude-sonnet-5',
+    extractorModelUsage: {
+      'claude-sonnet-5': {
+        inputTokens: 1, outputTokens: 2, thinkingTokens: 1,
+        cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
+        costUSD: 0.25, canonicalModel: 'claude-sonnet-5',
+      },
+    },
+    extractionSkippedReason: null,
   }
   fs.mkdirSync(path.dirname(findingFile), { recursive: true })
   fs.writeFileSync(findingFile, JSON.stringify(finding))
@@ -68,6 +95,14 @@ function createCompleteDashboardCohort(root, options = {}) {
   const judgement = {
     schemaVersion: 2, ...artifacts.manifestMetadata(manifest), target: target.id, language: target.language,
     baseSha: BASE_SHA, headSha: HEAD_SHA, rawFindings: 1,
+    judgeRequestedModel: 'claude-sonnet-5', judgeCostUsd: 0.25,
+    judgeModelUsage: {
+      'claude-sonnet-5': {
+        inputTokens: 1, outputTokens: 2, thinkingTokens: 1,
+        cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
+        costUSD: 0.25, canonicalModel: 'claude-sonnet-5',
+      },
+    },
     issues: [{
       id: 'I1', title: 'New issue', file: 'src/new.js', line: 1, kind: 'bug', severity: 'medium',
       verdict: 'real', verdictReason: 'Verified.', introducedByPr: true, scope: 'in-scope', scopeReason: 'Added here.',
@@ -119,6 +154,7 @@ test('normalizeUsage reaches reported fields and preserves unavailable values', 
 
 test('deriveStatus preserves complete, failed, and DNF states', () => {
   assert.equal(dashboard.deriveStatus({ exitCode: 0, isError: false, result: 'ok' }), 'complete')
+  assert.equal(dashboard.deriveStatus({ exitCode: 0, isError: false, result: '' }), 'complete')
   assert.equal(dashboard.deriveStatus({ exitCode: 1, isError: true, result: null }), 'failed')
   assert.equal(dashboard.deriveStatus({ exitCode: 0, result: 'partial', dnf: true }), 'dnf')
 })
@@ -179,7 +215,7 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
   const data = dashboard.loadArtifacts()
   assert.equal(data.schemaVersion, 2)
   assert.equal(data.defaultModel, 'claude-opus-5-5')
-  assert.deepEqual(data.models.map((model) => model.id), ['claude-opus-5-5', 'claude-opus-5'])
+  assert.deepEqual(data.models.map((model) => model.id), ['claude-opus-5-5', 'claude-fable-5-1', 'claude-opus-5'])
   assert.ok(data.cohorts.some((cohort) => cohort.id === 'legacy'))
   assert.equal(data.targets.length, 3)
   assert.equal(data.tools.length, 8)
@@ -282,7 +318,7 @@ test('artifact loader uses complete cohort snapshots after live state and tools 
     assert.equal(run.prompt, 'Pinned review of snapshot/project')
     assert.equal(run.requestedModel, 'claude-opus-5-5')
     assert.equal(run.modelProvenance, 'requested')
-    assert.deepEqual(run.observedModels, ['claude-sonnet-observed'])
+    assert.deepEqual(run.observedModels, ['claude-opus-5-5', 'claude-sonnet-observed'])
     assert.deepEqual(run.issueIds, ['claude-opus-5-5/sample/I1'])
     assert.equal(data.targets[0].snapshots['claude-opus-5-5'].groundtruth.url, 'https://example.test/pinned-review')
   } finally {
@@ -359,6 +395,7 @@ test('dashboard exposes tested-skill metadata and exact run-set links', () => {
 
 test('dashboard model picker defaults to requested model and keeps observed stack separate', () => {
   const html = dashboard.render(dashboard.loadArtifacts())
+  assert.match(html, /"id":"claude-fable-5-1","label":"Claude Fable 5\.1"/)
   assert.match(html, /function selectedModel\(params\)/)
   assert.match(html, /return DATA\.defaultModel \|\|/)
   assert.match(html, /\['all', 'All models \/ history'\]/)

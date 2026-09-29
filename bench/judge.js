@@ -13,16 +13,18 @@ const {
   ensureComplete,
   findingFileForCell,
   manifestMetadata,
+  readFindingRecord,
   readJudgementRecord,
   readSeal,
   releaseLocalLock,
-  validateFindingRecord,
+  validateClaudeResponse,
   validateIssues,
   validateJudgementRecord,
   writeJsonExclusive,
 } = require('./lib/artifacts')
 const { normalizeTitle } = require('./extract')
 const { checkoutPrepared } = require('./run')
+const quota = require('./quota')
 
 const ROOT = __dirname
 const CLAUDE = process.env.CLAUDE || 'claude'
@@ -99,6 +101,7 @@ function judgeArgs(text) {
     '-p', text,
     '--output-format', 'json',
     '--model', JUDGE_MODEL,
+    '--effort', 'high',
     '--permission-mode', 'bypassPermissions',
     '--disallowedTools', 'WebSearch', 'WebFetch',
   ]
@@ -134,7 +137,7 @@ function loadSealedFindings(root, manifest, seal) {
   for (const sealedCell of seal.cells) {
     const file = findingFileForCell(root, manifest.runId, sealedCell)
     if (!fs.existsSync(file)) throw new Error(`missing successful finding for sealed cell: ${sealedCell.id}`)
-    const record = validateFindingRecord(JSON.parse(fs.readFileSync(file, 'utf8')), manifest, sealedCell)
+    const record = readFindingRecord(file, manifest, sealedCell)
     const blob = byTarget.get(sealedCell.target) || []
     for (const finding of record.findings) blob.push({ ...finding, tool: sealedCell.tool, cellId: sealedCell.id })
     byTarget.set(sealedCell.target, blob)
@@ -162,22 +165,28 @@ function judgeTarget(root, manifest, target, cells, blob, out, dependencies) {
     }
     const prepareCheckout = dependencies.checkoutPrepared || checkoutPrepared
     const runJudge = dependencies.spawnSync || spawnSync
+    const authorize = dependencies.authorizePaidCall || quota.authorizePaidCall
     const checkout = prepareCheckout(root, target, { id: '_judge' }, manifest.runId, manifest.targets[target.id])
     console.log(`judging ${target.id}: ${blob.length} raw findings from ${cells.length} tools`)
     const file = path.join(checkout.repo, 'judgement.json')
     if (fs.existsSync(file)) throw new Error(`judge workspace is not fresh: ${file}`)
-    const result = runJudge(CLAUDE, judgeArgs(prompt(target, JSON.stringify(blob, null, 1))), {
+    let executable = CLAUDE
+    let authorization = null
+    if (manifest.requestedModel === 'claude-fable-5-1') {
+      authorization = authorize(root, {
+        runId: manifest.runId, stage: 'judge', target: target.id, tool: null,
+        claudeVersion: manifest.claudeVersion,
+      }, dependencies)
+      executable = authorization.executable
+    }
+    const result = runJudge(executable, judgeArgs(prompt(target, JSON.stringify(blob, null, 1))), {
       cwd: checkout.repo, maxBuffer: 1 << 28, encoding: 'utf8',
     })
-    if (result.error) throw new Error(`judge failed for ${target.id}: ${result.error.message}`)
-    if (result.status !== 0) throw new Error(`judge exited ${result.status} for ${target.id}: ${(result.stderr || '').slice(-400)}`)
     let meta
     try { meta = JSON.parse(result.stdout) } catch (error) {
       throw new Error(`invalid judge response for ${target.id}: ${error.message}`, { cause: error })
     }
-    if (meta.is_error || meta.api_error_status || /hit your (session|usage) limit|usage limit reached|rate_limit_error/i.test(meta.result || '')) {
-      throw new Error(`judge model error for ${target.id}: ${meta.result || meta.api_error_status}`)
-    }
+    validateClaudeResponse(result, meta, JUDGE_MODEL)
     if (!fs.existsSync(file)) throw new Error(`judge produced no judgement.json for ${target.id}`)
     const issues = normalizeAttribution(JSON.parse(fs.readFileSync(file, 'utf8')), blob, manifest.runId, target.id)
     validateIssues(issues, cells)
@@ -193,6 +202,9 @@ function judgeTarget(root, manifest, target, cells, blob, out, dependencies) {
       judgeCostUsd: meta && meta.total_cost_usd,
       judgeRequestedModel: JUDGE_MODEL,
       judgeModelUsage: meta && meta.modelUsage,
+      ...(manifest.requestedModel === 'claude-fable-5-1'
+        ? { quotaEvidence: authorization && authorization.quotaEvidence }
+        : {}),
       workspace: checkout.workspace,
       judgedAt: new Date().toISOString(),
     }

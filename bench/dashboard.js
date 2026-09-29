@@ -82,7 +82,7 @@ function normalizeUsage(record) {
 
 function deriveStatus(record) {
   if (record.dnf) return 'dnf'
-  if (record.exitCode === 0 && !record.isError && record.result) return 'complete'
+  if (record.exitCode === 0 && !record.isError && typeof record.result === 'string') return 'complete'
   return 'failed'
 }
 

@@ -431,7 +431,7 @@ for (const t of targets) {
 P('### Runs that did not complete\n')
 const bad = []
 for (const t of targets) for (const [id, rec] of Object.entries(results[t.id] || {})) {
-  if (rec.exitCode === 0 && !rec.isError && rec.result) continue
+  if (rec.exitCode === 0 && !rec.isError && typeof rec.result === 'string') continue
   const how = `exit ${rec.exitCode}${rec.signal ? ' ' + rec.signal : ''}${rec.apiErrorStatus ? ' api ' + rec.apiErrorStatus : ''}`
   const spent = `${fmt(rec.cell.total)} tokens and ${money(rec.cell.costUsd)} spent across ${rec.cell.sessions} sessions`
   bad.push(`- \`${t.id}/${id}\` - ${how}, ${spent}.${rec.dnfReason ? ' ' + rec.dnfReason : ''}`)

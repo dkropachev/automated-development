@@ -9,7 +9,7 @@ const path = require('node:path')
 const { projectsRoot, totalsForCwd, slugFor } = require('./lib/usage')
 const {
   acquireLocalLock, assertCohortOpen, assertSafeId, cellId, cohortPaths, defaultRunId,
-  loadModelConfig, manifestMetadata, readManifest, releaseLocalLock, validateResultRecord,
+  loadModelConfig, manifestMetadata, readManifest, releaseLocalLock, validateResultIdentity,
   writeJsonExclusive,
 } = require('./lib/artifacts')
 
@@ -206,7 +206,7 @@ const record = {
 }
 // Recovered text is audit evidence, never a benchmark result. Runner must rerun this cell and
 // publish its own canonical result through the normal parsed-response path.
-validateResultRecord(record, cohort, target, tool)
+validateResultIdentity(record, cohort, target, tool)
 const stamp = new Date(when || Date.now()).toISOString().replace(/[-:.]/g, '')
 const recovered = path.join(cohort.paths.root, 'recovered', target, `${tool}-${stamp}.json`)
 try {
