@@ -55,7 +55,8 @@ function percent(value, label) {
   return value
 }
 
-function resetAt(value, label) {
+function resetAt(value, label, allowNull = false) {
+  if (allowNull && value === null) return null
   if (typeof value !== 'string' || !value || !Number.isFinite(Date.parse(value))) {
     throw new Error(`${label} must have a valid resets_at timestamp`)
   }
@@ -63,11 +64,14 @@ function resetAt(value, label) {
 }
 
 function normalizeUsage(rows) {
-  return LIMITS.map(({ label }) => ({
-    label,
-    percentUsed: percent(rows[label].percent, label),
-    resetsAt: resetAt(rows[label].resetsAt, label),
-  }))
+  return LIMITS.map(({ label }) => {
+    const percentUsed = percent(rows[label].percent, label)
+    return {
+      label,
+      percentUsed,
+      resetsAt: resetAt(rows[label].resetsAt, label, rows[label].allowNullReset === true && percentUsed === 0),
+    }
+  })
 }
 
 // Parse the semantic fields returned by the get_usage control request. In particular, the Fable
@@ -93,8 +97,14 @@ function parseStructuredUsage(payload) {
     entry.kind === 'weekly_scoped' && isObject(entry.scope) && isObject(entry.scope.model) &&
     entry.scope.surface === null && entry.scope.model.display_name === 'Fable'
   ))
+  const inactiveSession = session.percent === 0 && session.resets_at === null && session.is_active === false
+  if (session.resets_at === null && !inactiveSession) {
+    throw new Error('Current session may omit resets_at only when inactive at 0%')
+  }
   return normalizeUsage({
-    'Current session': { percent: session.percent, resetsAt: session.resets_at },
+    'Current session': {
+      percent: session.percent, resetsAt: session.resets_at, allowNullReset: inactiveSession,
+    },
     'Current week (all models)': { percent: week.percent, resetsAt: week.resets_at },
     'Current week (Fable)': { percent: fable.percent, resetsAt: fable.resets_at },
   })
@@ -214,9 +224,10 @@ function decide(usage) {
     if (!isObject(entry) || typeof entry.label !== 'string' || byLabel.has(entry.label)) {
       throw new Error('normalized quota usage contains an invalid or duplicate label')
     }
+    const percentUsed = percent(entry.percentUsed, entry.label)
     byLabel.set(entry.label, {
-      percentUsed: percent(entry.percentUsed, entry.label),
-      resetsAt: resetAt(entry.resetsAt, entry.label),
+      percentUsed,
+      resetsAt: resetAt(entry.resetsAt, entry.label, entry.label === 'Current session' && percentUsed === 0),
     })
   }
   if (byLabel.size !== LIMITS.length || LIMITS.some(({ label }) => !byLabel.has(label))) {
