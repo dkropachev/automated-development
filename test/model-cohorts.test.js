@@ -319,7 +319,10 @@ test('Fable requires Claude Code 2.1.284 or newer before cohort creation', async
     const runId = 'fable-old-client'
     await assert.rejects(runner.main([
       '--model', 'claude-fable-5-1', '--run', runId, '--only', 'absent', '--concurrency', '1',
-    ], root, { claudeVersion: () => '2.1.283 (Claude Code)' }), /requires Claude Code 2\.1\.284\+/)
+    ], root, {
+      resolveExecutable: () => '/absolute/test-claude',
+      claudeVersion: () => '2.1.283 (Claude Code)',
+    }), /requires Claude Code 2\.1\.284\+/)
     assert.equal(fs.existsSync(artifacts.cohortPaths(root, runId).manifest), false)
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
