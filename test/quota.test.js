@@ -139,10 +139,10 @@ test('labeled parser keys by exact section labels and bounds the Fable section',
 })
 
 test('thresholds are inclusive and any overage denies the next call', () => {
-  assert.equal(quota.decide(quota.parseStructuredUsage(payload(50, 90, 90))).allowed, true)
-  assert.equal(quota.decide(quota.parseStructuredUsage(payload(50.01, 10, 10))).allowed, false)
-  assert.equal(quota.decide(quota.parseStructuredUsage(payload(10, 90.01, 10))).allowed, false)
-  assert.equal(quota.decide(quota.parseStructuredUsage(payload(10, 10, 90.01))).allowed, false)
+  assert.equal(quota.decide(quota.parseStructuredUsage(payload(95, 95, 95))).allowed, true)
+  assert.equal(quota.decide(quota.parseStructuredUsage(payload(95.01, 10, 10))).allowed, false)
+  assert.equal(quota.decide(quota.parseStructuredUsage(payload(10, 95.01, 10))).allowed, false)
+  assert.equal(quota.decide(quota.parseStructuredUsage(payload(10, 10, 95.01))).allowed, false)
 })
 
 test('query uses only initialize and get_usage control messages with the pinned Fable model', () => {
@@ -181,7 +181,7 @@ test('allowed and denied preflights append sanitized records and return the matc
     }), 0)
     assert.equal(quota.main(['--run', 'fable-5-1-test', '--next-call', 'extract:tidepool/tool'], root, {
       ...baseDependencies,
-      queryClaudeUsage: () => quota.parseStructuredUsage(payload(51, 20, 20)),
+      queryClaudeUsage: () => quota.parseStructuredUsage(payload(96, 20, 20)),
     }), 1)
 
     const file = path.join(root, 'runs', 'fable-5-1-test', 'quota.jsonl')
@@ -194,6 +194,11 @@ test('allowed and denied preflights append sanitized records and return the matc
       'Current session': 50,
       'Current week (all models)': 90,
       'Current week (Fable)': 90,
+    })
+    assert.deepEqual(records[0].thresholds, {
+      'Current session': 95,
+      'Current week (all models)': 95,
+      'Current week (Fable)': 95,
     })
     assert.equal(records[0].claudeVersion, '2.1.284 (Claude Code)')
     assert.equal(records[0].claudeExecutableSha256, 'a'.repeat(64))
@@ -281,7 +286,7 @@ test('paid-call authorization is fresh, bound, durable, and returns the inspecte
       claudeVersion: '2.1.284 (Claude Code)',
     }, {
       ...dependencies,
-      queryClaudeUsage: () => quota.parseStructuredUsage(payload(51, 2, 3)),
+      queryClaudeUsage: () => quota.parseStructuredUsage(payload(96, 2, 3)),
     }), /quota denied for judge:sample/)
     const records = fs.readFileSync(authorized.audit, 'utf8').trim().split('\n').map(JSON.parse)
     assert.equal(records.length, 2)

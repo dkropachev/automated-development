@@ -26,9 +26,9 @@ const QUERY_TIMEOUT_MS = 30_000
 const NEXT_CALL = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/
 
 const LIMITS = Object.freeze([
-  Object.freeze({ label: 'Current session', threshold: 50 }),
-  Object.freeze({ label: 'Current week (all models)', threshold: 90 }),
-  Object.freeze({ label: 'Current week (Fable)', threshold: 90 }),
+  Object.freeze({ label: 'Current session', threshold: 95 }),
+  Object.freeze({ label: 'Current week (all models)', threshold: 95 }),
+  Object.freeze({ label: 'Current week (Fable)', threshold: 95 }),
 ])
 
 const QUERY_ARGS = Object.freeze([

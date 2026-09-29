@@ -687,6 +687,16 @@ test('every Fable paid stage authorizes immediately and uses the authorized exec
       quotaEvidence: appendQuota({ stage: 'probe', target: null, tool: null }),
       probedAt: '2026-09-29T14:00:00.000Z',
     })
+    const historical = quota.buildRecord({
+      run: manifest.runId, final: false, nextCall: 'review:unused/historical',
+      stage: 'review', target: 'unused', tool: 'historical',
+    }, decision, metadata, new Date(`2026-09-29T14:00:0${tick++}.000Z`))
+    historical.thresholds = {
+      'Current session': 50,
+      'Current week (all models)': 90,
+      'Current week (Fable)': 90,
+    }
+    quota.appendAuditRecord(root, manifest.runId, historical)
     const authorizePaidCall = (_root, binding) => {
       events.push(['authorize', binding.stage, binding.target, binding.tool, binding.runId, binding.claudeVersion])
       return { executable: authorized, quotaEvidence: appendQuota(binding) }
@@ -755,7 +765,7 @@ test('every Fable paid stage authorizes immediately and uses the authorized exec
     const denied = quota.buildRecord({
       run: manifest.runId, final: false, nextCall: 'judge:unused', stage: 'judge', target: 'unused', tool: null,
     }, quota.decide([
-      { label: 'Current session', percentUsed: 51, resetsAt: '2026-10-01T00:00:00.000Z' },
+      { label: 'Current session', percentUsed: 96, resetsAt: '2026-10-01T00:00:00.000Z' },
       { label: 'Current week (all models)', percentUsed: 2, resetsAt: '2026-10-01T00:00:00.000Z' },
       { label: 'Current week (Fable)', percentUsed: 3, resetsAt: '2026-10-01T00:00:00.000Z' },
     ]), metadata, new Date('2026-09-29T14:00:08.000Z'))
@@ -765,8 +775,8 @@ test('every Fable paid stage authorizes immediately and uses the authorized exec
     assert.throws(() => appendQuota({ stage: 'judge', target: 'later', tool: null }), /finalized/)
     const completion = artifacts.ensureComplete(root, manifest.runId)
     assert.equal(completion.complete.schemaVersion, 2)
-    assert.equal(completion.complete.quota.finalLine, 7)
-    assert.equal(completion.complete.quota.records, 7)
+    assert.equal(completion.complete.quota.finalLine, 8)
+    assert.equal(completion.complete.quota.records, 8)
     assert.equal(completion.complete.probe.file, 'probe.json')
 
     assert.deepEqual(events.map((event) => event.slice(0, 3)), [
