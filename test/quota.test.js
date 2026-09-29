@@ -62,6 +62,15 @@ test('structured parser maps semantic quota fields and the unique Fable display 
     { label: 'Current week (Fable)', percentUsed: 56, resetsAt: RESET },
   ])
   assert.deepEqual(quota.parseControlOutput(controlOutput()), quota.parseStructuredUsage(payload()))
+
+  const afterReset = payload(0, 34, 56)
+  const session = afterReset.rate_limits.limits.find((entry) => entry.kind === 'session')
+  session.resets_at = null
+  session.is_active = false
+  assert.deepEqual(quota.parseStructuredUsage(afterReset)[0], {
+    label: 'Current session', percentUsed: 0, resetsAt: null,
+  })
+  assert.equal(quota.decide(quota.parseStructuredUsage(afterReset)).allowed, true)
 })
 
 test('structured parser fails closed on unavailable, missing, duplicate, or non-finite values', () => {
@@ -82,6 +91,12 @@ test('structured parser fails closed on unavailable, missing, duplicate, or non-
   assert.throws(() => quota.parseStructuredUsage(payload(Infinity)), /finite percent/)
   assert.throws(() => quota.parseStructuredUsage(payload(1, 2, null)), /finite percent/)
   assert.throws(() => quota.parseStructuredUsage(payload(101)), /finite percent/)
+
+  const ambiguousReset = payload(0)
+  const session = ambiguousReset.rate_limits.limits.find((entry) => entry.kind === 'session')
+  session.resets_at = null
+  session.is_active = true
+  assert.throws(() => quota.parseStructuredUsage(ambiguousReset), /omit resets_at only when inactive at 0%/)
 
   const surfaceOnly = payload()
   const scoped = surfaceOnly.rate_limits.limits.find((entry) => entry.scope && entry.scope.model.display_name === 'Fable')

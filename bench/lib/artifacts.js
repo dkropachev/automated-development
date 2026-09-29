@@ -1031,10 +1031,12 @@ function parseQuotaLedger(file, runId) {
     const expectedThresholds = [50, 90, 90]
     for (let offset = 0; offset < labels.length; offset += 1) {
       const name = labels[offset]
+      const reset = record.resetsAt && record.resetsAt[name]
+      const resetIsValid = (typeof reset === 'string' && Number.isFinite(Date.parse(reset))) ||
+        (name === 'Current session' && record.usage && record.usage[name] === 0 && reset === null)
       if (!record.usage || typeof record.usage[name] !== 'number' || !Number.isFinite(record.usage[name]) ||
           record.usage[name] < 0 || record.usage[name] > 100 || !record.thresholds ||
-          record.thresholds[name] !== expectedThresholds[offset] || !record.resetsAt ||
-          typeof record.resetsAt[name] !== 'string' || !Number.isFinite(Date.parse(record.resetsAt[name]))) {
+          record.thresholds[name] !== expectedThresholds[offset] || !record.resetsAt || !resetIsValid) {
         throw new Error(`quota ledger line ${index + 1} has invalid ${name} evidence`)
       }
     }
