@@ -704,11 +704,16 @@ test('legacy result, finding, and judgement bytes stay unchanged', async () => {
   assert.deepEqual(snapshot(dirs), before)
 })
 
-test('judge keeps tool attribution and adds cohort cell attribution', () => {
+test('judge normalizes display titles and preserves tool plus cohort cell attribution', () => {
   const blob = [{ tool: 'reviewer', cellId: 'cohort-a/sample/reviewer', claim: 'bad thing' }]
   const issues = judge.normalizeAttribution([{
-    id: 'I1', reportedBy: ['reviewer'], reportedAs: { reviewer: 'bad thing' },
+    id: 'I1',
+    title: 'A merged judgement title that is intentionally much too long for the report and dashboard display ceiling',
+    reportedBy: ['reviewer'],
+    reportedAs: { reviewer: 'bad thing' },
   }], blob, 'cohort-a', 'sample')
+  assert.ok(issues[0].title.length <= extractor.TITLE_LIMIT)
+  assert.match(issues[0].title, /…$/)
   assert.deepEqual(issues[0].reportedBy, ['reviewer'])
   assert.deepEqual(issues[0].reportedByRuns, ['cohort-a/sample/reviewer'])
   assert.deepEqual(issues[0].reportedAsByRun, { 'cohort-a/sample/reviewer': 'bad thing' })
