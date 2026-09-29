@@ -15,10 +15,12 @@ const {
   readFindingRecord,
   releaseLocalLock,
   resultFileForCell,
+  validateClaudeResponse,
   validateFinding,
   validateFindingRecord,
   writeJsonExclusive,
 } = require('./lib/artifacts')
+const quota = require('./quota')
 
 const ROOT = __dirname
 const CLAUDE = process.env.CLAUDE || 'claude'
@@ -65,6 +67,7 @@ function extractorArgs(report) {
     '-p', INSTRUCTIONS + report,
     '--output-format', 'json',
     '--model', EXTRACTOR_MODEL,
+    '--effort', 'high',
     '--permission-mode', 'bypassPermissions',
     '--disallowedTools', 'WebSearch', 'WebFetch', 'Bash', 'Edit', 'Write',
   ]
@@ -90,24 +93,20 @@ function normalizeFindings(findings) {
   ))
 }
 
-function extractOne(file, cwd) {
+function extractOne(file, cwd, executable = CLAUDE, dependencies = {}) {
   const record = JSON.parse(fs.readFileSync(file, 'utf8'))
   const report = record.result || ''
   if (!report.trim()) return { ok: true, record, findings: [], extractError: null, modelUsage: null, sourceReportEmpty: true }
-  const result = spawnSync(CLAUDE, extractorArgs(report), { maxBuffer: 1 << 28, encoding: 'utf8', cwd })
-  if (result.error) return { ok: false, record, error: result.error.message }
-  if (result.status !== 0) return { ok: false, record, error: `extractor exited ${result.status}: ${(result.stderr || '').slice(0, 300)}` }
+  const runExtractor = dependencies.spawnSync || spawnSync
+  const result = runExtractor(executable, extractorArgs(report), { maxBuffer: 1 << 28, encoding: 'utf8', cwd })
   let meta
   try {
     meta = JSON.parse(result.stdout)
   } catch (error) {
     return { ok: false, record, error: `invalid extractor response: ${error.message}: ${(result.stdout || result.stderr || '').slice(0, 300)}` }
   }
-  const errorText = `${meta.result || ''} ${result.stderr || ''}`
-  if (meta.is_error || meta.api_error_status || /hit your (session|usage) limit|usage limit reached|rate_limit_error/i.test(errorText)) {
-    return { ok: false, record, error: `extractor model error: ${errorText.trim().slice(0, 300) || meta.api_error_status}` }
-  }
   try {
+    validateClaudeResponse(result, meta, EXTRACTOR_MODEL)
     const text = meta.result || ''
     const body = text.replace(/^```(?:json)?/m, '').replace(/```\s*$/m, '').trim()
     const start = body.indexOf('[')
@@ -133,6 +132,7 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
   const { manifest, seal } = ensureSeal(root, options.runId)
   const cwd = fs.existsSync(path.join(root, 'work')) ? path.join(root, 'work') : root
   const runExtract = dependencies.extractOne || extractOne
+  const authorize = dependencies.authorizePaidCall || quota.authorizePaidCall
   let failures = 0
   for (const sealedCell of seal.cells) {
     const { target, tool } = sealedCell
@@ -158,18 +158,26 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
         console.log(`skip ${target}/${tool}`)
         continue
       }
-      const extracted = runExtract(input, cwd)
+      const source = JSON.parse(fs.readFileSync(input, 'utf8'))
+      let executable = CLAUDE
+      let authorization = null
+      if (manifest.requestedModel === 'claude-fable-5-1' && source.result.trim()) {
+        authorization = authorize(root, {
+          runId: manifest.runId, stage: 'extract', target, tool,
+          claudeVersion: manifest.claudeVersion,
+        }, dependencies)
+        executable = authorization.executable
+      }
+      const extracted = runExtract(input, cwd, executable, dependencies)
       if (!extracted.ok) {
-        failures += 1
         console.error(`FAIL ${target}/${tool}: ${extracted.error}`)
-        continue
+        return failures + 1
       }
       try {
         extracted.findings.forEach((finding, index) => validateFinding(finding, `${sealedCell.id} finding ${index + 1}`))
       } catch (error) {
-        failures += 1
         console.error(`FAIL ${target}/${tool}: ${error.message}`)
-        continue
+        return failures + 1
       }
       const pins = manifest.targets[target]
       const record = {
@@ -188,6 +196,9 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
         extractorRequestedModel: extracted.sourceReportEmpty ? null : EXTRACTOR_MODEL,
         extractorModelUsage: extracted.modelUsage,
         extractionSkippedReason: extracted.sourceReportEmpty ? 'empty-source-report' : null,
+        ...(manifest.requestedModel === 'claude-fable-5-1'
+          ? { quotaEvidence: extracted.sourceReportEmpty ? null : authorization && authorization.quotaEvidence }
+          : {}),
         extractedAt: new Date().toISOString(),
       }
       validateFindingRecord(record, manifest, sealedCell)

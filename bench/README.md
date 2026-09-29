@@ -1,7 +1,8 @@
 # bench - the review-tool bake-off
 
-Ten review tools and three real pull requests in three languages, published as a report and an
-offline dashboard:
+Eight configured review tools and three real pull requests in three languages, published as a
+report and an offline dashboard. The active matrix has 19 cells; parked
+`ironweave/tob-c-review` is excluded:
 
 - [`docs/review-bakeoff.md`](../docs/review-bakeoff.md) is the narrative report.
 - [`docs/index.html`](../docs/index.html) is a self-contained skill-selection workbench. It separates
@@ -17,6 +18,8 @@ configuration, and expected cells before results are accepted. The original `res
 
 ```
 make bench-prepare   # republish each upstream PR into a blinded private repo, fetch ground truth
+make bench-quota     # record a zero-spend quota preflight before the next paid call
+make bench-probe     # quota-gate and record exact-model Fable evidence
 make bench-run       # run the default claude-opus-5-5 cohort
 make bench-extract   # seal the complete result matrix, then extract comparable JSON findings
 make bench-judge     # merge, verify, classify, and mark the full cohort complete
@@ -25,8 +28,11 @@ make bench-dashboard # render every cohort into docs/index.html and docs/run-exp
 ```
 
 The runner pins the configured default, `claude-opus-5-5`; it does not rely on Claude Code's moving
-`opus` alias. `MODEL` selects another configured model and `RUN` supplies a new, filesystem-safe
-cohort ID. Use the same `RUN` for downstream stages:
+`opus` alias. Review calls explicitly use medium effort, matching the existing Opus 5.5 cohort;
+Sonnet extraction and judgement calls explicitly use their existing high effort. This prevents a
+local Claude Code setting from changing a cohort while isolating the reviewer-model change. `MODEL`
+selects another configured model and `RUN` supplies a new, filesystem-safe cohort ID. Use the same
+`RUN` for downstream stages:
 
 ```
 make bench-run MODEL=claude-opus-5-5 RUN=opus-5-5-2026-09-28
@@ -34,6 +40,23 @@ make bench-extract bench-judge RUN=opus-5-5-2026-09-28
 make bench-report RUN=opus-5-5-2026-09-28
 make bench-report RUN=legacy             # regenerate the historical narrative report
 ```
+
+Use `ARGS="--concurrency 1 --limit-retries 0"` for quota-gated orchestration. With zero retries, a
+usage-limit response fails the cell without publishing a canonical result, so the orchestrator can
+recheck quota before resuming that missing cell.
+
+Every paid Fable review, extraction, and judgement call runs a structured zero-spend quota gate
+immediately before its model process. The gate resolves, versions, and hashes the executable
+selected by `CLAUDE`, then the paid stage launches that exact realpath. It permits the call only
+when the current session is at most 50%, the all-model week is at most 90%, and the Fable week is
+at most 90%; missing or ambiguous quota data fails closed. Before the probe, initialize the Fable
+manifest with a zero-call run filtered to a nonexistent cell, then verify its pins, frozen inputs,
+and 19-cell scope against the Opus 5.5 manifest. Run
+`make bench-probe RUN=fable-5-1-2026-09-29`; it performs its own fresh authorization and immediately
+launches the returned executable with exact Fable 5.1, medium effort, no tools, and the minimal
+exact-`OK` prompt. After the third judgement, run `make bench-quota RUN=... ARGS=--final`, then
+rerun `make bench-judge RUN=...`; recorded judgements are skipped and completion requires no paid
+call.
 
 A repeated run command resumes cells in that cohort's original expected matrix. Extraction creates
 `seal.json` only after every expected result exists; from that point no result can be added or
@@ -67,6 +90,8 @@ under review. See the analysis in the report.
 | `runs/<runId>/manifest.json` | requested model and Claude version; pinned base/head commits; frozen target metadata, upstream ground truth, tool prompts/context, and expected cell matrix |
 | `runs/<runId>/seal.json` | hashes of every expected result; extraction creates it and permanently closes the result set |
 | `runs/<runId>/complete.json` | final seal, finding, and judgement hashes; required by reports and dashboard |
+| `runs/<runId>/probe.json` | sanitized exact-model probe evidence and its quota reference |
+| `runs/<runId>/quota.jsonl` | sanitized quota preflights and final snapshot; no raw account or UI data |
 | `runs/<runId>/{results,findings,judgement}/` | append-only artifacts for one new model cohort |
 | `runs/<runId>/recovered/` | audit-only transcript recoveries; never scored as results, so their cells must be rerun |
 | `analysis.md` | hand-written analysis for the legacy narrative report |

@@ -14,6 +14,9 @@ const FINDING_KINDS = new Set(['bug', 'security', 'test-gap', 'style', 'docs', '
 const SEVERITIES = new Set(['blocker', 'high', 'medium', 'low', 'nit'])
 const VERDICTS = new Set(['real', 'false-positive', 'unproven'])
 const SCOPES = new Set(['in-scope', 'out-of-scope'])
+const EVALUATOR_MODEL = 'claude-sonnet-5'
+const FABLE_MODEL = 'claude-fable-5-1'
+const REPORTED_USAGE_NUMBER = /(?:^|_)(?:input_tokens|output_tokens|thinking_tokens|web_search_requests|web_fetch_requests)$/
 const ownedLocks = new Map()
 const MALFORMED_LOCK_GRACE_MS = 5 * 60_000
 
@@ -118,6 +121,8 @@ function cohortPaths(root = ROOT, runId = defaultRunId(root)) {
     seal: legacy ? null : path.join(cohortRoot, 'seal.json'),
     sealLock: legacy ? null : path.join(cohortRoot, 'seal.json.lock'),
     complete: legacy ? null : path.join(cohortRoot, 'complete.json'),
+    probe: legacy ? null : path.join(cohortRoot, 'probe.json'),
+    quota: legacy ? null : path.join(cohortRoot, 'quota.jsonl'),
     results: path.join(cohortRoot, 'results'),
     findings: path.join(cohortRoot, 'findings'),
     judgement: path.join(cohortRoot, 'judgement'),
@@ -608,7 +613,100 @@ function assertRecordMetadata(record, manifest, kind = 'record') {
   return record
 }
 
-function validateResultRecord(record, manifest, targetId, toolId) {
+function validateModelUsage(modelUsage, requestedModel, label = 'claude modelUsage') {
+  if (!modelUsage || typeof modelUsage !== 'object' || Array.isArray(modelUsage)) {
+    throw new Error(`${label} is invalid`)
+  }
+  if (!Object.hasOwn(modelUsage, requestedModel)) {
+    throw new Error(`${label} is missing requested model ${requestedModel}`)
+  }
+  for (const [model, usage] of Object.entries(modelUsage)) {
+    if (!usage || typeof usage !== 'object' || Array.isArray(usage)) {
+      throw new Error(`${label} for ${model} is invalid`)
+    }
+    if (usage.canonicalModel !== model) {
+      throw new Error(`${label} canonicalModel for ${model} is ${JSON.stringify(usage.canonicalModel)}`)
+    }
+    const tokenFields = Object.entries(usage).filter(([name]) => name.endsWith('Tokens'))
+    if (!tokenFields.length || !tokenFields.every(([, amount]) => Number.isFinite(amount) && amount >= 0)) {
+      throw new Error(`${label} token usage for ${model} must contain only finite non-negative values`)
+    }
+    if (!Number.isFinite(usage.costUSD) || usage.costUSD < 0) {
+      throw new Error(`${label} cost usage for ${model} must be finite and non-negative`)
+    }
+  }
+  const requestedUsage = modelUsage[requestedModel]
+  const billedTokenFields = new Set([
+    'inputTokens', 'outputTokens', 'cacheReadInputTokens', 'cacheCreationInputTokens', 'thinkingTokens',
+  ])
+  if (!Object.entries(requestedUsage).some(([name, amount]) => billedTokenFields.has(name) && amount > 0)) {
+    throw new Error(`${label} for ${requestedModel} contains no token usage`)
+  }
+  return modelUsage
+}
+
+function validateReportedUsage(usage, label = 'claude reported usage') {
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) throw new Error(`${label} is invalid`)
+  let numericFields = 0
+  const visit = (value, name, field) => {
+    if (REPORTED_USAGE_NUMBER.test(name)) {
+      numericFields += 1
+      if (!Number.isFinite(value) || value < 0) throw new Error(`${field} must be finite and non-negative`)
+      return
+    }
+    if (Array.isArray(value)) {
+      value.forEach((entry, index) => visit(entry, '', `${field}[${index}]`))
+    } else if (value && typeof value === 'object') {
+      for (const [childName, child] of Object.entries(value)) visit(child, childName, `${field}.${childName}`)
+    }
+  }
+  for (const [name, value] of Object.entries(usage)) visit(value, name, `${label}.${name}`)
+  if (!numericFields) throw new Error(`${label} contains no numeric usage fields`)
+  return usage
+}
+
+function validateTranscriptUsage(usage, requestedModel, label = 'claude transcript usage') {
+  if (!usage || typeof usage !== 'object' || Array.isArray(usage)) throw new Error(`${label} is invalid`)
+  for (const field of ['input', 'output', 'thinking', 'cacheRead', 'cacheCreation', 'costUsd']) {
+    if (!Number.isFinite(usage[field]) || usage[field] < 0) {
+      throw new Error(`${label} ${field} must be finite and non-negative`)
+    }
+  }
+  if (!Number.isFinite(usage.total) || usage.total <= 0) throw new Error(`${label} total must be finite and positive`)
+  if (usage.total !== usage.input + usage.output + usage.cacheRead + usage.cacheCreation) {
+    throw new Error(`${label} total does not match token classes`)
+  }
+  if (!Number.isInteger(usage.sessions) || usage.sessions < 1) throw new Error(`${label} must contain at least one session`)
+  if (!usage.models || typeof usage.models !== 'object' || Array.isArray(usage.models)) {
+    throw new Error(`${label} models are invalid`)
+  }
+  if (!Object.hasOwn(usage.models, requestedModel)) throw new Error(`${label} is missing requested model ${requestedModel}`)
+  for (const [model, cost] of Object.entries(usage.models)) {
+    if (!Number.isFinite(cost) || cost < 0) throw new Error(`${label} cost for ${model} must be finite and non-negative`)
+  }
+  return usage
+}
+
+function validateClaudeResponse(response, parsed, requestedModel, options = {}) {
+  if (response.error) throw new Error(`claude process failed: ${response.error.message}`, { cause: response.error })
+  if (response.signal) throw new Error(`claude process ended by ${response.signal}`)
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('claude returned no valid JSON result')
+  const exitCode = response.code == null ? response.status : response.code
+  if (exitCode !== 0) throw new Error(`claude process exited ${exitCode}`)
+  if (parsed.is_error !== false) throw new Error('claude result is marked as an error')
+  if (parsed.api_error_status != null) throw new Error(`claude result has API error status ${parsed.api_error_status}`)
+  if (typeof parsed.result !== 'string' || (!options.allowEmptyResult && !parsed.result.trim())) {
+    throw new Error(`claude result is not a${options.allowEmptyResult ? '' : ' nonempty'} string`)
+  }
+  if (!Number.isFinite(parsed.total_cost_usd) || parsed.total_cost_usd < 0) {
+    throw new Error('claude total_cost_usd must be finite and non-negative')
+  }
+  validateReportedUsage(parsed.usage)
+  validateModelUsage(parsed.modelUsage, requestedModel)
+  return parsed
+}
+
+function validateResultIdentity(record, manifest, targetId, toolId) {
   if (!record || record.schemaVersion !== 2) throw new Error(`result schemaVersion is invalid: ${targetId}/${toolId}`)
   assertRecordMetadata(record, manifest, `result ${targetId}/${toolId}`)
   if (record.target !== targetId || record.tool !== toolId) throw new Error(`result identity does not match path: ${targetId}/${toolId}`)
@@ -617,6 +715,21 @@ function validateResultRecord(record, manifest, targetId, toolId) {
   if (!pins || record.baseSha !== pins.baseSha || record.headSha !== pins.headSha) {
     throw new Error(`result git pins do not match manifest: ${targetId}/${toolId}`)
   }
+  return record
+}
+
+function validateResultRecord(record, manifest, targetId, toolId) {
+  validateResultIdentity(record, manifest, targetId, toolId)
+  validateClaudeResponse({ code: record.exitCode, signal: record.signal }, {
+    is_error: record.isError,
+    api_error_status: record.apiErrorStatus,
+    result: record.result,
+    total_cost_usd: record.reportedCostUsd,
+    usage: record.reportedUsage,
+    modelUsage: record.modelUsage,
+  }, manifest.requestedModel, { allowEmptyResult: true })
+  validateTranscriptUsage(record.transcriptUsage, manifest.requestedModel)
+  if (manifest.requestedModel === FABLE_MODEL) validateQuotaEvidence(record.quotaEvidence, `result ${targetId}/${toolId}`)
   return record
 }
 
@@ -779,6 +892,22 @@ function validateFindingRecord(record, manifest, cell) {
   if (record.sourceResultSha256 !== cell.sha256) throw new Error(`finding source hash does not match seal: ${cell.id}`)
   if (!Array.isArray(record.findings) || record.extractError != null) throw new Error(`finding extraction is not successful: ${cell.id}`)
   record.findings.forEach((finding, index) => validateFinding(finding, `${cell.id} finding ${index + 1}`))
+  if (typeof record.sourceReportEmpty !== 'boolean') throw new Error(`finding sourceReportEmpty is invalid: ${cell.id}`)
+  if (record.sourceReportEmpty) {
+    if (record.findings.length || record.extractorRequestedModel !== null || record.extractorModelUsage !== null ||
+        record.extractionSkippedReason !== 'empty-source-report') {
+      throw new Error(`empty-source finding provenance is invalid: ${cell.id}`)
+    }
+    if (manifest.requestedModel === FABLE_MODEL && record.quotaEvidence !== null) {
+      throw new Error(`empty-source finding quota evidence must be null: ${cell.id}`)
+    }
+  } else {
+    if (record.extractorRequestedModel !== EVALUATOR_MODEL || record.extractionSkippedReason !== null) {
+      throw new Error(`finding extractor model provenance is invalid: ${cell.id}`)
+    }
+    validateModelUsage(record.extractorModelUsage, EVALUATOR_MODEL, `finding extractor modelUsage for ${cell.id}`)
+    if (manifest.requestedModel === FABLE_MODEL) validateQuotaEvidence(record.quotaEvidence, `finding ${cell.id}`)
+  }
   return record
 }
 
@@ -840,6 +969,11 @@ function validateJudgementRecord(record, manifest, targetId, cells) {
   if (record.target !== targetId) throw new Error(`judgement target mismatch: ${targetId}`)
   const pins = manifest.targets[targetId]
   if (!pins || record.baseSha !== pins.baseSha || record.headSha !== pins.headSha) throw new Error(`judgement git pins mismatch: ${targetId}`)
+  if (!Number.isInteger(record.rawFindings) || record.rawFindings < 0) throw new Error(`judgement rawFindings is invalid: ${targetId}`)
+  if (record.judgeRequestedModel !== EVALUATOR_MODEL) throw new Error(`judgement model provenance is invalid: ${targetId}`)
+  if (!Number.isFinite(record.judgeCostUsd) || record.judgeCostUsd < 0) throw new Error(`judgement cost is invalid: ${targetId}`)
+  validateModelUsage(record.judgeModelUsage, EVALUATOR_MODEL, `judgement modelUsage for ${targetId}`)
+  if (manifest.requestedModel === FABLE_MODEL) validateQuotaEvidence(record.quotaEvidence, `judgement ${targetId}`)
   validateIssues(record.issues, cells)
   return record
 }
@@ -848,15 +982,173 @@ function readJudgementRecord(file, manifest, targetId, cells) {
   return validateJudgementRecord(readJson(file), manifest, targetId, cells)
 }
 
-function validateComplete(complete, manifest, seal, findings, judgements) {
-  if (!complete || complete.schemaVersion !== 1) throw new Error('invalid complete marker schema')
+function validateComplete(complete, manifest, seal, findings, judgements, paid = null) {
+  const schema = manifest.requestedModel === FABLE_MODEL ? 2 : 1
+  if (!complete || complete.schemaVersion !== schema) throw new Error('invalid complete marker schema')
   assertRecordMetadata(complete, manifest, 'complete marker')
   if (typeof complete.createdAt !== 'string' || !complete.createdAt) throw new Error('complete marker createdAt is required')
   if (complete.manifestSha256 !== manifest.sha256) throw new Error('complete marker manifest hash mismatch')
   if (complete.sealSha256 !== seal.sha256) throw new Error('complete marker seal hash mismatch')
   if (JSON.stringify(complete.findings) !== JSON.stringify(findings)) throw new Error('complete marker finding hashes mismatch')
   if (JSON.stringify(complete.judgements) !== JSON.stringify(judgements)) throw new Error('complete marker judgement hashes mismatch')
+  if (schema === 2) {
+    if (JSON.stringify(complete.quota) !== JSON.stringify(paid.quota)) throw new Error('complete marker quota ledger hash mismatch')
+    if (JSON.stringify(complete.probe) !== JSON.stringify(paid.probe)) throw new Error('complete marker probe hash mismatch')
+  }
   return complete
+}
+
+function validateQuotaEvidence(evidence, label = 'quota evidence') {
+  if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence) || evidence.file !== 'quota.jsonl' ||
+      !Number.isInteger(evidence.line) || evidence.line < 1 || !FILE_HASH.test(evidence.sha256 || '')) {
+    throw new Error(`${label} quota evidence is invalid`)
+  }
+  return evidence
+}
+
+function parseQuotaLedger(file, runId) {
+  assertExistingPathSafe(file)
+  if (!fs.existsSync(file)) throw new Error(`cohort ${runId} is missing quota.jsonl`)
+  const stat = fs.lstatSync(file)
+  if (stat.isSymbolicLink() || !stat.isFile()) throw new Error(`refusing unsafe quota log: ${file}`)
+  const raw = fs.readFileSync(file, 'utf8')
+  if (!raw || !raw.endsWith('\n')) throw new Error(`cohort ${runId} quota ledger is empty or not newline terminated`)
+  const lines = raw.slice(0, -1).split('\n')
+  const records = lines.map((line, index) => {
+    let record
+    try { record = JSON.parse(line) } catch { throw new Error(`quota ledger line ${index + 1} is invalid JSON`) }
+    if (JSON.stringify(record) !== line) throw new Error(`quota ledger line ${index + 1} is not canonical JSON`)
+    if (!record || record.schemaVersion !== 1 || record.runId !== runId || !['preflight', 'final'].includes(record.kind)) {
+      throw new Error(`quota ledger line ${index + 1} has invalid identity`)
+    }
+    if (typeof record.timestamp !== 'string' || !Number.isFinite(Date.parse(record.timestamp)) ||
+        record.source !== 'claude-control-get_usage' || typeof record.claudeVersion !== 'string' || !record.claudeVersion ||
+        !FILE_HASH.test(record.claudeExecutableSha256 || '')) {
+      throw new Error(`quota ledger line ${index + 1} has invalid metadata`)
+    }
+    const labels = ['Current session', 'Current week (all models)', 'Current week (Fable)']
+    const expectedThresholds = [50, 90, 90]
+    for (let offset = 0; offset < labels.length; offset += 1) {
+      const name = labels[offset]
+      if (!record.usage || typeof record.usage[name] !== 'number' || !Number.isFinite(record.usage[name]) ||
+          record.usage[name] < 0 || record.usage[name] > 100 || !record.thresholds ||
+          record.thresholds[name] !== expectedThresholds[offset] || !record.resetsAt ||
+          typeof record.resetsAt[name] !== 'string' || !Number.isFinite(Date.parse(record.resetsAt[name]))) {
+        throw new Error(`quota ledger line ${index + 1} has invalid ${name} evidence`)
+      }
+    }
+    for (const field of ['usage', 'thresholds', 'resetsAt']) {
+      if (Object.keys(record[field]).sort().join('\n') !== [...labels].sort().join('\n')) {
+        throw new Error(`quota ledger line ${index + 1} has unexpected ${field} labels`)
+      }
+    }
+    const allowed = labels.every((name, offset) => record.usage[name] <= expectedThresholds[offset])
+    if (record.allowed !== allowed) throw new Error(`quota ledger line ${index + 1} has inconsistent allowed decision`)
+    if (record.kind === 'final') {
+      if (record.nextCall !== null || record.stage !== null || record.target !== null || record.tool !== null) {
+        throw new Error(`quota ledger line ${index + 1} has invalid final binding`)
+      }
+    }
+    return { record, line, sha256: crypto.createHash('sha256').update(line).digest('hex') }
+  })
+  const finals = records.map(({ record }, index) => record.kind === 'final' ? index : -1).filter((index) => index >= 0)
+  if (finals.length > 1 || (finals.length === 1 && finals[0] !== records.length - 1)) {
+    throw new Error(`cohort ${runId} quota ledger must have at most one final record and it must be last`)
+  }
+  return { raw, records, finalLine: finals.length ? finals[0] + 1 : null }
+}
+
+function quotaBinding(stage, target = null, tool = null) {
+  return {
+    stage,
+    target,
+    tool,
+    nextCall: stage === 'probe' ? 'probe' : `${stage}:${target}${tool ? `/${tool}` : ''}`,
+  }
+}
+
+function claimQuotaEvidence(ledger, evidence, expected, manifest, claims, label) {
+  validateQuotaEvidence(evidence, label)
+  const row = ledger.records[evidence.line - 1]
+  if (!row || row.sha256 !== evidence.sha256) throw new Error(`${label} quota evidence does not match quota.jsonl`)
+  if (claims.has(evidence.line)) throw new Error(`${label} reuses quota evidence claimed by ${claims.get(evidence.line)}`)
+  const record = row.record
+  if (record.kind !== 'preflight' || record.allowed !== true || record.claudeVersion !== manifest.claudeVersion ||
+      record.stage !== expected.stage || record.target !== expected.target || record.tool !== expected.tool ||
+      record.nextCall !== expected.nextCall) {
+    throw new Error(`${label} quota evidence has a denied or mismatched paid-call binding`)
+  }
+  if (claims.executableSha256 && claims.executableSha256 !== record.claudeExecutableSha256) {
+    throw new Error(`${label} quota evidence uses a different Claude executable`)
+  }
+  claims.executableSha256 = record.claudeExecutableSha256
+  claims.set(evidence.line, label)
+}
+
+function validateProbeRecord(record, manifest) {
+  if (!record || record.schemaVersion !== 1 || record.runId !== manifest.runId ||
+      record.requestedModel !== FABLE_MODEL || record.canonicalModel !== FABLE_MODEL ||
+      record.modelLabel !== manifest.modelLabel || record.claudeVersion !== manifest.claudeVersion ||
+      record.configSha256 !== manifest.configSha256 || record.reply !== 'OK' ||
+      typeof record.probedAt !== 'string' || !record.probedAt || !Number.isFinite(record.reportedCostUsd) ||
+      record.reportedCostUsd < 0) {
+    throw new Error(`cohort ${manifest.runId} has invalid Fable probe evidence`)
+  }
+  validateReportedUsage(record.reportedUsage, 'probe reported usage')
+  validateModelUsage(record.modelUsage, FABLE_MODEL, 'probe modelUsage')
+  validateQuotaEvidence(record.quotaEvidence, 'probe')
+  return record
+}
+
+function readProbeRecord(root, manifest) {
+  const paths = cohortPaths(root, manifest.runId)
+  if (!fs.existsSync(paths.probe)) throw new Error(`cohort ${manifest.runId} is missing probe.json`)
+  return validateProbeRecord(readJson(paths.probe), manifest)
+}
+
+function fablePaidInputs(root, manifest, seal, findings, judgements, options = {}) {
+  if (manifest.requestedModel !== FABLE_MODEL) return null
+  const paths = cohortPaths(root, manifest.runId)
+  const ledger = parseQuotaLedger(paths.quota, manifest.runId)
+  if (options.requireFinal && ledger.finalLine == null) return null
+  const probe = readProbeRecord(root, manifest)
+  const claims = new Map()
+  claimQuotaEvidence(ledger, probe.quotaEvidence, quotaBinding('probe'), manifest, claims, 'probe')
+  for (const cell of seal.cells) {
+    const result = readResultRecord(resultFileForCell(root, manifest.runId, cell), manifest, cell.target, cell.tool)
+    claimQuotaEvidence(ledger, result.quotaEvidence, quotaBinding('review', cell.target, cell.tool), manifest, claims, `result ${cell.id}`)
+  }
+  for (const entry of findings.records) {
+    if (!entry.record.sourceReportEmpty) {
+      claimQuotaEvidence(ledger, entry.record.quotaEvidence,
+        quotaBinding('extract', entry.cell.target, entry.cell.tool), manifest, claims, `finding ${entry.cell.id}`)
+    }
+  }
+  for (const entry of judgements.records) {
+    claimQuotaEvidence(ledger, entry.record.quotaEvidence,
+      quotaBinding('judge', entry.target), manifest, claims, `judgement ${entry.target}`)
+  }
+  for (let index = 0; index < ledger.records.length; index += 1) {
+    const record = ledger.records[index].record
+    if (record.kind === 'preflight' && record.allowed === true &&
+        (record.claudeVersion !== manifest.claudeVersion ||
+         record.claudeExecutableSha256 !== claims.executableSha256)) {
+      throw new Error(`allowed quota preflight line ${index + 1} uses different Claude metadata`)
+    }
+  }
+  if (ledger.finalLine != null) {
+    const final = ledger.records[ledger.finalLine - 1].record
+    if (final.claudeVersion !== manifest.claudeVersion || final.claudeExecutableSha256 !== claims.executableSha256) {
+      throw new Error(`cohort ${manifest.runId} final quota snapshot uses different Claude metadata`)
+    }
+  }
+  return {
+    quota: {
+      file: 'quota.jsonl', sha256: sha256File(paths.quota),
+      records: ledger.records.length, finalLine: ledger.finalLine,
+    },
+    probe: { file: 'probe.json', sha256: sha256File(paths.probe) },
+  }
 }
 
 function relativeJsonFiles(base, prefix, nested) {
@@ -876,11 +1168,13 @@ function relativeJsonFiles(base, prefix, nested) {
 
 function completionInputs(root, manifest, seal) {
   const findings = []
+  const findingRecords = []
   for (const cell of seal.cells) {
     const file = findingFileForCell(root, manifest.runId, cell)
     if (!fs.existsSync(file)) return null
-    validateFindingRecord(readJson(file), manifest, cell)
+    const record = validateFindingRecord(readJson(file), manifest, cell)
     findings.push({ file: `findings/${cell.target}/${cell.tool}.json`, sha256: sha256File(file) })
+    findingRecords.push({ cell, record })
   }
   const paths = cohortPaths(root, manifest.runId)
   const actualFindings = relativeJsonFiles(paths.findings, 'findings', true)
@@ -888,19 +1182,21 @@ function completionInputs(root, manifest, seal) {
     throw new Error(`cohort ${manifest.runId} has unexpected finding artifacts`)
   }
   const judgements = []
+  const judgementRecords = []
   const targets = [...new Set(seal.cells.map((cell) => cell.target))].sort()
   for (const target of targets) {
     const file = path.join(paths.judgement, `${target}.json`)
     if (!fs.existsSync(file)) return null
     const cells = seal.cells.filter((cell) => cell.target === target)
-    validateJudgementRecord(readJson(file), manifest, target, cells)
+    const record = validateJudgementRecord(readJson(file), manifest, target, cells)
     judgements.push({ file: `judgement/${target}.json`, sha256: sha256File(file) })
+    judgementRecords.push({ target, record })
   }
   const actualJudgements = relativeJsonFiles(paths.judgement, 'judgement', false)
   if (JSON.stringify(actualJudgements) !== JSON.stringify(judgements.map((entry) => entry.file).sort())) {
     throw new Error(`cohort ${manifest.runId} has unexpected judgement artifacts`)
   }
-  return { findings, judgements }
+  return { findings, judgements, findingRecords, judgementRecords }
 }
 
 function readComplete(root, runId, targetIds = null) {
@@ -909,6 +1205,14 @@ function readComplete(root, runId, targetIds = null) {
   if (!fs.existsSync(paths.complete)) throw new Error(`cohort ${runId} is not complete`)
   const inputs = completionInputs(root, manifest, seal)
   if (!inputs) throw new Error(`cohort ${runId} complete marker has missing artifacts`)
+  const paid = fablePaidInputs(root, manifest, seal, {
+    records: inputs.findingRecords,
+  }, {
+    records: inputs.judgementRecords,
+  }, { requireFinal: true })
+  if (manifest.requestedModel === FABLE_MODEL && !paid) {
+    throw new Error(`cohort ${runId} complete marker has no final quota snapshot`)
+  }
   return {
     manifest,
     seal,
@@ -916,7 +1220,7 @@ function readComplete(root, runId, targetIds = null) {
       ...manifest, sha256: sha256File(paths.manifest),
     }, {
       ...seal, sha256: sha256File(paths.seal),
-    }, inputs.findings, inputs.judgements),
+    }, inputs.findings, inputs.judgements, paid),
   }
 }
 
@@ -925,14 +1229,21 @@ function ensureComplete(root, runId, targetIds = null) {
   const inputs = completionInputs(root, manifest, seal)
   if (!inputs) return null
   const paths = cohortPaths(root, runId)
+  const paid = fablePaidInputs(root, manifest, seal, {
+    records: inputs.findingRecords,
+  }, {
+    records: inputs.judgementRecords,
+  })
+  if (manifest.requestedModel === FABLE_MODEL && paid.quota.finalLine == null) return null
   const complete = {
-    schemaVersion: 1,
+    schemaVersion: manifest.requestedModel === FABLE_MODEL ? 2 : 1,
     ...manifestMetadata(manifest),
     createdAt: new Date().toISOString(),
     manifestSha256: sha256File(paths.manifest),
     sealSha256: sha256File(paths.seal),
     findings: inputs.findings,
     judgements: inputs.judgements,
+    ...(manifest.requestedModel === FABLE_MODEL ? { quota: paid.quota, probe: paid.probe } : {}),
   }
   try { writeJsonExclusive(paths.complete, complete) } catch (error) {
     if (error.code !== 'EEXIST') throw error
@@ -962,6 +1273,7 @@ module.exports = {
   manifestMetadata,
   modelById,
   readManifest,
+  readProbeRecord,
   readResultRecord,
   readComplete,
   readFindingRecord,
@@ -977,7 +1289,14 @@ module.exports = {
   validateIssues,
   validateJudgementRecord,
   validateManifest,
+  validateClaudeResponse,
+  validateModelUsage,
+  validateProbeRecord,
+  validateQuotaEvidence,
+  validateReportedUsage,
+  validateResultIdentity,
   validateResultRecord,
   validateSeal,
+  validateTranscriptUsage,
   writeJsonExclusive,
 }

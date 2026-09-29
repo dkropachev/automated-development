@@ -2,7 +2,8 @@
 // Run every review tool against every prepared PR, one headless `claude -p` process per pair.
 //
 //   node bench/run.js [--model <model>] [--run <run-id>] [--only <target>] [--tool <tool>]
-//                     [--concurrency N] [--timeout MIN] [--include-parked] [--list]
+//                     [--concurrency N] [--limit-retries N] [--timeout MIN]
+//                     [--include-parked] [--list]
 //
 // New artifacts land in bench/runs/<run-id>/results/. The original flat results directory is a
 // read-only legacy cohort. Recorded cells are immutable: an existing result is always skipped.
@@ -29,11 +30,18 @@ const {
   sha256File,
   snapshotGroundtruth,
   snapshotTargetMetadata,
+  validateClaudeResponse,
+  validateModelUsage,
+  validateResultRecord,
+  validateTranscriptUsage,
   writeJsonExclusive,
 } = require('./lib/artifacts')
+const quota = require('./quota')
 
 const ROOT = __dirname
 const CLAUDE = process.env.CLAUDE || 'claude'
+const FABLE_MODEL = 'claude-fable-5-1'
+const MIN_FABLE_CLAUDE_VERSION = Object.freeze({ major: 2, minor: 1, patch: 284 })
 
 function validateInputs(state, config) {
   if (!state || !state.targets || typeof state.targets !== 'object') throw new Error('invalid state.json targets')
@@ -60,6 +68,7 @@ function parseArgs(argv, root = ROOT) {
     concurrency: 2,
     timeoutMs: 120 * 60_000,
     includeParked: false,
+    limitRetries: Infinity,
     listOnly: false,
     model: config.defaultModel,
     modelExplicit: false,
@@ -80,8 +89,17 @@ function parseArgs(argv, root = ROOT) {
     if (arg === '--model') { options.model = value(arg, i++); options.modelExplicit = true; continue }
     if (arg === '--run') { options.runId = assertSafeId(value(arg, i++), 'run id'); options.runExplicit = true; continue }
     if (arg === '--concurrency') {
-      options.concurrency = Number(value(arg, i++))
-      if (!Number.isInteger(options.concurrency) || options.concurrency < 1) throw new Error('--concurrency must be a positive integer')
+      const concurrency = value(arg, i++)
+      options.concurrency = /^\d+$/.test(concurrency) ? Number(concurrency) : NaN
+      if (!Number.isSafeInteger(options.concurrency) || options.concurrency < 1 || options.concurrency > 256) {
+        throw new Error('--concurrency must be a positive integer no greater than 256')
+      }
+      continue
+    }
+    if (arg === '--limit-retries') {
+      const retries = value(arg, i++)
+      options.limitRetries = /^\d+$/.test(retries) ? Number(retries) : NaN
+      if (!Number.isSafeInteger(options.limitRetries)) throw new Error('--limit-retries must be a non-negative integer')
       continue
     }
     if (arg === '--timeout') {
@@ -93,6 +111,12 @@ function parseArgs(argv, root = ROOT) {
     throw new Error(`unknown argument: ${arg}`)
   }
   modelById(config, options.model)
+  if (!options.listOnly && options.model === FABLE_MODEL && options.concurrency !== 1) {
+    throw new Error(`${FABLE_MODEL} requires --concurrency 1`)
+  }
+  if (!options.listOnly && options.model === FABLE_MODEL && options.includeParked) {
+    throw new Error(`${FABLE_MODEL} excludes parked benchmark cells`)
+  }
   if (!options.runId) options.runId = deriveRunId(options.model)
   return options
 }
@@ -150,6 +174,12 @@ function expectedCellsForPairs(runId, pairs) {
   return pairs.map(({ target, tool }) => ({
     id: cellId(runId, target.id, tool.id), target: target.id, tool: tool.id,
   })).sort((left, right) => left.id.localeCompare(right.id))
+}
+
+function expectedCellsForFreshCohort(root, options, paths, state, config) {
+  const pairs = buildPairs(root, { ...options, only: null, onlyTool: null }, paths, state, config)
+    .filter((pair) => !pair.tool.parked || options.includeParked)
+  return expectedCellsForPairs(options.runId, pairs)
 }
 
 function pairsForManifest(root, options, paths, state, config, manifest) {
@@ -228,8 +258,9 @@ function checkoutPrepared(root, target, tool, runId, pins) {
   return { repo, workspace: path.relative(root, repo).split(path.sep).join('/'), ...pins }
 }
 
-function claudeVersion() {
-  const result = spawnSync(CLAUDE, ['--version'], { encoding: 'utf8' })
+function claudeVersion(executable = CLAUDE, dependencies = {}) {
+  const runVersion = dependencies.versionSpawnSync || spawnSync
+  const result = runVersion(executable, ['--version'], { encoding: 'utf8', env: dependencies.env || process.env })
   if (result.error) throw new Error(`claude --version: ${result.error.message}`)
   if (result.status !== 0) throw new Error(`claude --version exited ${result.status}: ${(result.stderr || '').trim()}`)
   const version = (result.stdout || result.stderr || '').trim()
@@ -237,11 +268,41 @@ function claudeVersion() {
   return version
 }
 
+function parseClaudeVersion(version) {
+  if (typeof version !== 'string') throw new Error(`invalid Claude Code version: ${JSON.stringify(version)}`)
+  const match = /^\s*(\d+)\.(\d+)\.(\d+)(?:\s+\(Claude Code\))?\s*$/.exec(version)
+  if (!match) throw new Error(`invalid Claude Code version: ${JSON.stringify(version)}`)
+  const parsed = { major: Number(match[1]), minor: Number(match[2]), patch: Number(match[3]) }
+  if (!Object.values(parsed).every(Number.isSafeInteger)) {
+    throw new Error(`invalid Claude Code version: ${JSON.stringify(version)}`)
+  }
+  return parsed
+}
+
+function compareVersions(left, right) {
+  for (const key of ['major', 'minor', 'patch']) {
+    if (left[key] !== right[key]) return left[key] < right[key] ? -1 : 1
+  }
+  return 0
+}
+
+function assertClaudeVersionSupportsModel(version, requestedModel) {
+  if (requestedModel !== FABLE_MODEL) return
+  let parsed
+  try { parsed = parseClaudeVersion(version) } catch {
+    throw new Error(`${FABLE_MODEL} requires Claude Code 2.1.284+; could not parse version ${JSON.stringify(version)}`)
+  }
+  if (compareVersions(parsed, MIN_FABLE_CLAUDE_VERSION) < 0) {
+    throw new Error(`${FABLE_MODEL} requires Claude Code 2.1.284+; found ${version}`)
+  }
+}
+
 function claudeArgs(prompt, requestedModel) {
   return [
     '-p', prompt,
     '--output-format', 'json',
     '--model', requestedModel,
+    '--effort', 'medium',
     '--permission-mode', 'bypassPermissions',
     // No web: the upstream project's own PR, with the maintainers' review already on it, is one
     // search away, and a reviewer that reads it is not reviewing anything.
@@ -249,10 +310,10 @@ function claudeArgs(prompt, requestedModel) {
   ]
 }
 
-function claudeRun(prompt, cwd, requestedModel, timeoutMs) {
+function claudeRun(prompt, cwd, requestedModel, timeoutMs, executable = CLAUDE) {
   return new Promise((resolve) => {
     const started = Date.now()
-    const child = spawn(CLAUDE, claudeArgs(prompt, requestedModel), {
+    const child = spawn(executable, claudeArgs(prompt, requestedModel), {
       cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'],
     })
     let out = '', err = '', processError = null
@@ -267,12 +328,12 @@ function claudeRun(prompt, cwd, requestedModel, timeoutMs) {
   })
 }
 
-function assertPublishableResponse(response, parsed) {
-  if (response.error) throw new Error(`claude process failed: ${response.error.message}`, { cause: response.error })
-  if (response.signal) throw new Error(`claude process ended by ${response.signal}`)
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('claude returned no valid JSON result')
-  return parsed
+function assertPublishableResponse(response, parsed, requestedModel) {
+  return validateClaudeResponse(response, parsed, requestedModel, { allowEmptyResult: true })
 }
+
+const assertRequestedModelUsage = validateModelUsage
+const assertTranscriptUsage = validateTranscriptUsage
 
 function claim(outFile) {
   return acquireLocalLock(outFile + '.lock')
@@ -286,9 +347,14 @@ function hitLimit(parsed, out) {
 }
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-async function execPair(pair, context) {
+async function execPair(pair, context, dependencies = {}) {
   const { target, tool, outFile } = pair
   const { options, cohort, config, root } = context
+  const prepareCheckout = dependencies.checkoutPrepared || checkoutPrepared
+  const runClaude = dependencies.claudeRun || claudeRun
+  const waitFor = dependencies.sleep || sleep
+  const readUsage = dependencies.totalsForCwd || totalsForCwd
+  const authorize = dependencies.authorizePaidCall || quota.authorizePaidCall
   if (fs.existsSync(outFile)) {
     readResultRecord(outFile, cohort, target.id, tool.id)
     console.log(`skip ${target.id}/${tool.id} (recorded)`)
@@ -304,20 +370,33 @@ async function execPair(pair, context) {
       return
     }
     const prompt = fill(tool.prompt, target, tool, config)
-    let checkout, response, parsed, attempts
+    let checkout, response, parsed, attempts, authorization = null
     for (attempts = 1; ; attempts += 1) {
-      checkout = checkoutPrepared(root, target, tool, cohort.runId, cohort.targets[target.id])
+      checkout = prepareCheckout(root, target, tool, cohort.runId, cohort.targets[target.id])
       console.log(`start ${target.id}/${tool.id}${attempts > 1 ? ` (attempt ${attempts})` : ''}`)
-      response = await claudeRun(prompt, checkout.repo, cohort.requestedModel, options.timeoutMs)
+      let executable = CLAUDE
+      if (cohort.requestedModel === FABLE_MODEL) {
+        authorization = authorize(root, {
+          runId: cohort.runId, stage: 'review', target: target.id, tool: tool.id,
+          claudeVersion: cohort.claudeVersion,
+        }, dependencies)
+        executable = authorization.executable
+      }
+      response = await runClaude(prompt, checkout.repo, cohort.requestedModel, options.timeoutMs, executable)
       parsed = null
       try { parsed = JSON.parse(response.out) } catch {}
       if (!hitLimit(parsed, response.out)) break
+      const limitRetries = options.limitRetries == null ? Infinity : options.limitRetries
+      if (attempts > limitRetries) {
+        throw new Error(`usage limit reached; exhausted --limit-retries ${limitRetries} after ${attempts} attempt${attempts === 1 ? '' : 's'}`)
+      }
       const wait = Math.min(30, 5 * attempts)
       console.log(`limit  ${target.id}/${tool.id} - ${(parsed && parsed.result) || 'usage limit'}; retrying in ${wait} min`)
-      await sleep(wait * 60_000)
+      await waitFor(wait * 60_000)
     }
-    assertPublishableResponse(response, parsed)
-    const usage = totalsForCwd(checkout.repo)
+    assertPublishableResponse(response, parsed, cohort.requestedModel)
+    const usage = readUsage(checkout.repo)
+    assertTranscriptUsage(usage, cohort.requestedModel)
     const record = {
       schemaVersion: 2,
       ...manifestMetadata(cohort),
@@ -345,11 +424,13 @@ async function execPair(pair, context) {
       apiErrorStatus: parsed ? parsed.api_error_status : null,
       transcriptUsage: usage,
       result: parsed ? parsed.result : null,
+      ...(cohort.requestedModel === FABLE_MODEL ? { quotaEvidence: authorization && authorization.quotaEvidence } : {}),
       stderrTail: response.err.slice(-4000),
       attempts,
       workspace: checkout.workspace,
       finishedAt: new Date().toISOString(),
     }
+    validateResultRecord(record, cohort, target.id, tool.id)
     writeJsonExclusive(outFile, record)
     console.log(`done  ${target.id}/${tool.id} exit=${response.code} ${Math.round(response.wallMs / 1000)}s tokens=${usage.total} cost=${record.reportedCostUsd}`)
   } finally {
@@ -366,6 +447,12 @@ async function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}
   const requestedPaths = cohortPaths(root, options.runId)
   const validateTargetIds = !options.listOnly && requestedPaths.manifest && fs.existsSync(requestedPaths.manifest) ? targetIds : null
   const cohort = selectCohort(root, options, validateTargetIds)
+  if (!options.listOnly && cohort.requestedModel === FABLE_MODEL && options.concurrency !== 1) {
+    throw new Error(`${FABLE_MODEL} requires --concurrency 1`)
+  }
+  if (!options.listOnly && cohort.requestedModel === FABLE_MODEL && options.includeParked) {
+    throw new Error(`${FABLE_MODEL} excludes parked benchmark cells`)
+  }
   const paths = cohortPaths(root, cohort.runId)
   const configFile = path.join(root, 'tools.json')
   const config = JSON.parse(fs.readFileSync(configFile, 'utf8'))
@@ -386,18 +473,19 @@ async function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}
     return
   }
   assertCohortOpen(root, cohort.runId)
-  const version = (dependencies.claudeVersion || claudeVersion)()
+  const env = dependencies.env || process.env
+  const versionExecutable = cohort.requestedModel === FABLE_MODEL
+    ? (dependencies.resolveExecutable || quota.resolveExecutable)(env.CLAUDE || CLAUDE, env, dependencies.cwd || process.cwd())
+    : CLAUDE
+  const version = (dependencies.claudeVersion || claudeVersion)(versionExecutable, dependencies)
+  assertClaudeVersionSupportsModel(version, cohort.requestedModel)
   const configSha256 = sha256File(configFile)
   const targets = cohort.targets || resolveManifestTargets(root, state)
   const targetMetadata = snapshotTargetMetadata(state.targets)
   const groundtruth = cohort.groundtruth || snapshotGroundtruth(root, targetIds)
   const scopeOptions = { ...options, only: null, onlyTool: null }
   const allEligiblePairs = buildPairs(root, scopeOptions, paths, state, config)
-  const initialPairs = cohort.expectedCells ? null : allEligiblePairs
-  const expectedCells = cohort.expectedCells || expectedCellsForPairs(
-    cohort.runId,
-    initialPairs.filter((pair) => !pair.tool.parked || options.includeParked),
-  )
+  const expectedCells = cohort.expectedCells || expectedCellsForFreshCohort(root, options, paths, state, config)
   if (cohort.expectedCells) assertParkedScope(cohort.runId, cohort.expectedCells, allEligiblePairs, options.includeParked)
   const manifest = ensureManifest(root, {
     ...cohort, claudeVersion: version, configSha256, targets, targetMetadata, expectedCells,
@@ -409,12 +497,15 @@ async function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}
   const context = { options, cohort: manifest, config: manifest.toolConfig, root }
   const queue = pairs.slice()
   let failures = 0
-  const workers = Array.from({ length: options.concurrency }, async () => {
+  let stopped = false
+  const workers = Array.from({ length: Math.min(options.concurrency, pairs.length) }, async () => {
     for (;;) {
+      if (stopped) return
       const pair = queue.shift()
       if (!pair) return
-      try { await execPair(pair, context) } catch (error) {
+      try { await execPair(pair, context, dependencies) } catch (error) {
         failures += 1
+        stopped = true
         console.log(`FAIL ${pair.target.id}/${pair.tool.id}: ${error.message.slice(0, 500)}`)
       }
     }
@@ -424,6 +515,7 @@ async function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}
 }
 
 module.exports = {
+  assertClaudeVersionSupportsModel,
   buildPairs,
   checkoutPrepared,
   claim,
@@ -431,13 +523,17 @@ module.exports = {
   claudeRun,
   claudeVersion,
   execPair,
+  expectedCellsForFreshCohort,
   expectedCellsForPairs,
   fill,
   hitLimit,
   assertPublishableResponse,
+  assertRequestedModelUsage,
+  assertTranscriptUsage,
   assertParkedScope,
   main,
   parseArgs,
+  parseClaudeVersion,
   parseLsRemote,
   pairsForManifest,
   resolveManifestTargets,

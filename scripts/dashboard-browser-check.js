@@ -61,6 +61,14 @@ try {
     assert.match(defaultHome.app, /<strong>[1-9][0-9]*<\/strong><span>review runs<\/span>/)
   }
 
+  const fableHome = render('home?model=claude-fable-5-1')
+  assert.match(fableHome.app, /<option value="claude-fable-5-1" selected="">Claude Fable 5\.1<\/option>/)
+  if (/No benchmark runs recorded for Claude Fable 5\.1 yet/.test(fableHome.app)) {
+    assert.match(fableHome.app, /<strong>0<\/strong><span>review runs<\/span>/)
+  } else {
+    assert.match(fableHome.app, /<strong>[1-9][0-9]*<\/strong><span>review runs<\/span>/)
+  }
+
   // Pin historical assertions to legacy Opus. `model=all` intentionally changes whenever a new
   // completed cohort lands, while this slice remains stable before and after that event.
   const home = render('home?model=claude-opus-5')
