@@ -21,6 +21,7 @@ const {
   validateJudgementRecord,
   writeJsonExclusive,
 } = require('./lib/artifacts')
+const { normalizeTitle } = require('./extract')
 const { checkoutPrepared } = require('./run')
 
 const ROOT = __dirname
@@ -124,7 +125,7 @@ function normalizeAttribution(issues, blob, runId, targetId) {
       if (reportedAsByRun[id] == null && reportedAs[tool] != null) reportedAsByRun[id] = reportedAs[tool]
       if (reportedAs[tool] == null && reportedAsByRun[id] != null) reportedAs[tool] = reportedAsByRun[id]
     }
-    return { ...issue, reportedBy, reportedByRuns, reportedAs, reportedAsByRun }
+    return { ...issue, title: normalizeTitle(issue.title), reportedBy, reportedByRuns, reportedAs, reportedAsByRun }
   })
 }
 
