@@ -184,6 +184,17 @@ test('runner defaults to pinned model/run and every model invocation is explicit
   assert.equal(judgeArgs[judgeArgs.indexOf('--model') + 1], 'claude-sonnet-5')
 })
 
+test('extractor normalizes overlong display titles without changing finding evidence', () => {
+  const claim = 'The detailed evidence remains unchanged.'
+  const title = 'A generated benchmark finding title that is intentionally far too long for the dashboard and report ceiling'
+  const [finding] = extractor.normalizeFindings([{ title, claim, severity: 'medium' }])
+  assert.ok(finding.title.length <= extractor.TITLE_LIMIT)
+  assert.match(finding.title, /…$/)
+  assert.equal(finding.claim, claim)
+  assert.equal(finding.severity, 'medium')
+  assert.equal(extractor.normalizeTitle('  Short title  '), 'Short title')
+})
+
 test('manifests pin exact target commits and preserve target metadata', () => {
   const root = fixture()
   try {
