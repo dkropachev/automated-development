@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/quillstone/anthropic-pr-review",
+  "target": "quillstone",
+  "tool": "anthropic-pr-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "272558193649de91a0253cc7f0dfff06e96123edeb9242744c2ae705287ee2c6",
+  "label": "Anthropic pr-review-toolkit",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Invalid current keyspace permanently stops the pool from refilling",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "The refiller stores current_keyspace before knowing whether USE succeeded and never clears it, so a failed use_keyspace or a DROP KEYSPACE of the session's keyspace causes every new connection to be thrown away, draining pools that never refill, blocking newly discovered nodes from opening any connection, and causing HostListener to report the node as down via a spurious Lost event.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 994,
+      "title": "Metric fix misses rejected shard-aware connections, leaking total_connections",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "When a shard-aware connection lands on an already-full shard it is dropped without decrementing total_connections (incremented earlier via inc_total_connections), so the metric drifts upward despite commit de164845's claim to balance metrics on discarded connections; the same leak hits connections rejected after keyspace setup.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 903,
+      "title": "Keyspace setup failures dropped from warn! to debug! logging",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The old code warned on keyspace setup failure; the new code logs at debug! and discards the connection, so combined with finding 1, a pool stuck failing to set the keyspace shows nothing at default log levels.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1473,
+      "title": "keyspace_setup_failure_triggers_refill test doesn't prove a refill actually happens",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test only calls handle_ready_connection and checks need_filling() without running run(), so it doesn't show a refill is actually scheduled or that backoff grows, and it doesn't test a keyspace failure with requested_shard set or cover finding 2.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1360,
+      "title": "decrement_total_connections decrements one at a time instead of in bulk",
+      "severity": "nit",
+      "kind": "perf",
+      "claim": "decrement_total_connections calls fetch_sub(1) once per connection; a Metrics::sub_total_connections(n) doing a single fetch_sub(n) would be simpler and update the counter in one step.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 4,
+      "outputTokens": 1936,
+      "cacheReadInputTokens": 62081,
+      "cacheCreationInputTokens": 21381,
+      "webSearchRequests": 0,
+      "costUSD": 0.1173082,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 157,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:41:45.402Z"
+}

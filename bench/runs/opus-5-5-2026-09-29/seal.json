@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "createdAt": "2026-09-29T02:38:16.710Z",
+  "cells": [
+    {
+      "id": "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+      "target": "ironweave",
+      "tool": "anthropic-pr-review",
+      "file": "results/ironweave/anthropic-pr-review.json",
+      "sha256": "6b455d1de0ff422510346b99f8d375aed3aac165e91bd1b36d157a11f60e17cd"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/ironweave/builtin-code-review",
+      "target": "ironweave",
+      "tool": "builtin-code-review",
+      "file": "results/ironweave/builtin-code-review.json",
+      "sha256": "b39259405a07bdabe068a4dc91d3748f4f980a7d614a8a1926319819bdaab528"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/ironweave/ce-code-review",
+      "target": "ironweave",
+      "tool": "ce-code-review",
+      "file": "results/ironweave/ce-code-review.json",
+      "sha256": "685221f9fe6828e8d434d342565cd253e897957b5c6085e7befcf8da5693f91e"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "target": "ironweave",
+      "tool": "mattpocock-review",
+      "file": "results/ironweave/mattpocock-review.json",
+      "sha256": "de4facdc491087ba665ef33573185d656905e21595287194c631c76549737f3e"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/ironweave/superpowers-review",
+      "target": "ironweave",
+      "tool": "superpowers-review",
+      "file": "results/ironweave/superpowers-review.json",
+      "sha256": "032a94b0add5d576cfaaaacc78ecb199a230863cc42bdf430508b54ce7c35938"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/ironweave/tob-diff-review",
+      "target": "ironweave",
+      "tool": "tob-diff-review",
+      "file": "results/ironweave/tob-diff-review.json",
+      "sha256": "7725507bbc70e1c1325edbef9148c8e4a967bbdff0aaff4a4adf609bd72c96b6"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/quillstone/anthropic-pr-review",
+      "target": "quillstone",
+      "tool": "anthropic-pr-review",
+      "file": "results/quillstone/anthropic-pr-review.json",
+      "sha256": "272558193649de91a0253cc7f0dfff06e96123edeb9242744c2ae705287ee2c6"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/quillstone/builtin-code-review",
+      "target": "quillstone",
+      "tool": "builtin-code-review",
+      "file": "results/quillstone/builtin-code-review.json",
+      "sha256": "6966a1f20691cb0ef892678728195799eeeb253f89215d1f2d226bb7b10ba7c0"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/quillstone/ce-code-review",
+      "target": "quillstone",
+      "tool": "ce-code-review",
+      "file": "results/quillstone/ce-code-review.json",
+      "sha256": "6c2b776573e964ffaa27f6f67765a35454366744458c825e8efd3ab42a707fef"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "target": "quillstone",
+      "tool": "mattpocock-review",
+      "file": "results/quillstone/mattpocock-review.json",
+      "sha256": "4d5ac23ccdba004a5e3f457d2edf0dd62cb8fc3c73355bd4000717f41f748ff1"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/quillstone/superpowers-review",
+      "target": "quillstone",
+      "tool": "superpowers-review",
+      "file": "results/quillstone/superpowers-review.json",
+      "sha256": "cf1828eec46fa75caf4a2996662715744ca03ed156068a454718e91dfc89c704"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/quillstone/tob-diff-review",
+      "target": "quillstone",
+      "tool": "tob-diff-review",
+      "file": "results/quillstone/tob-diff-review.json",
+      "sha256": "93c955f51898098e982f151d52d5e9ec8382ea75a8721e33d3e778aced559af9"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/quillstone/tob-rust-review",
+      "target": "quillstone",
+      "tool": "tob-rust-review",
+      "file": "results/quillstone/tob-rust-review.json",
+      "sha256": "730aaad89ea28b80656f70be7c4090a5313997620cbbbe6deb08b09b92d31627"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/tidepool/anthropic-pr-review",
+      "target": "tidepool",
+      "tool": "anthropic-pr-review",
+      "file": "results/tidepool/anthropic-pr-review.json",
+      "sha256": "3a2e19ae11d5e225556b735d0c51f2535387804300d44029fe8c0a0021ee1d56"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/tidepool/builtin-code-review",
+      "target": "tidepool",
+      "tool": "builtin-code-review",
+      "file": "results/tidepool/builtin-code-review.json",
+      "sha256": "36b93084d1f42b44b2e9227cb4be9e4fc258e0a17030db9356180b2e4f6fa20d"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/tidepool/ce-code-review",
+      "target": "tidepool",
+      "tool": "ce-code-review",
+      "file": "results/tidepool/ce-code-review.json",
+      "sha256": "985192523facf3aa759225f8e3869ddf9ff28add6aba8b0e021f93835967c5c8"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/tidepool/mattpocock-review",
+      "target": "tidepool",
+      "tool": "mattpocock-review",
+      "file": "results/tidepool/mattpocock-review.json",
+      "sha256": "1c408fdcd5560f76aca6f3a051fcfd47e431f23e23e6d92d151011fd27c60005"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/tidepool/superpowers-review",
+      "target": "tidepool",
+      "tool": "superpowers-review",
+      "file": "results/tidepool/superpowers-review.json",
+      "sha256": "e0df3cec4023bcbe3c3414e5eb659fa6ab98b8db0fd61cb719b54b4e52aa8076"
+    },
+    {
+      "id": "opus-5-5-2026-09-29/tidepool/tob-diff-review",
+      "target": "tidepool",
+      "tool": "tob-diff-review",
+      "file": "results/tidepool/tob-diff-review.json",
+      "sha256": "bf411d38dca692205980dc93c8e21f038f65bded6795994d5eea87fbd741cac4"
+    }
+  ]
+}

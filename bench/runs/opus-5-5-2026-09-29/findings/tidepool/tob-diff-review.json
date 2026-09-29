@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/tidepool/tob-diff-review",
+  "target": "tidepool",
+  "tool": "tob-diff-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "bf411d38dca692205980dc93c8e21f038f65bded6795994d5eea87fbd741cac4",
+  "label": "Trail of Bits differential-review",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 998,
+      "title": "New size check runs before float fast paths, preventing overflow and zero-length payload…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The new size check ensures Dimensions*8 and Dimensions*4 can no longer overflow, rejects a zero-length payload when the vector has dimensions, and matches the check unmarshalList already does.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 1125,
+      "title": "vectorElemMinSize could divide by zero or overflow or reject valid data",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "vectorElemMinSize never returns 0 (no divide-by-zero), caps its result at MaxInt32 before int64 math could wrap, and never demands more bytes than the smallest real encoding for any vector with at least one dimension, so valid data isn't rejected.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 0,
+      "title": "Caller-built vector with dimensions but no SubType could panic",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The zero-dimension/nil-data skip avoids dereferencing a nil SubType, but a caller-built vector with dimensions and no SubType still panics at info.SubType.Type(); this behavior already existed before the PR.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 1045,
+      "title": "t == nil guard handles VectorType.Zero() returning untyped nil",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The t == nil guard catches VectorType.Zero() returning an untyped nil, which happens when goType fails for a nested inner vector or an unknown element type.",
+      "selfRejected": true
+    },
+    {
+      "file": "helpers.go",
+      "line": 280,
+      "title": "Unknown-type name change in getCassandraLongType only affects error message text",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "getCassandraLongType is only called from frame.go:860 and asVectorType; since asVectorType only matches names starting with VectorType( and handles the vector branch first, the only visible change from this fallback is that String() and error messages now include the type name.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 0,
+      "title": "Allocations in marshalVectorFloat32/64 sized by caller slice, not server-controlled",
+      "severity": "low",
+      "kind": "security",
+      "claim": "The allocations in marshalVectorFloat32/64 are sized by the caller's slice, which must already equal Dimensions, so the server can't drive them.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Possible flakiness in TestUnmarshalVectorRejectsNestedCountBeforeAllocating…",
+      "severity": "nit",
+      "kind": "test-gap",
+      "claim": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating measures process-wide allocation against a 128 KB limit; it runs outside parallel tests so only background goroutines could disturb it, and the unfixed code allocates about 25 MB giving a large margin, so this is an unconfirmed concern not counted as a finding.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 2294,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19857,
+      "webSearchRequests": 0,
+      "costUSD": 0.1065768,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1083,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:55:41.980Z"
+}

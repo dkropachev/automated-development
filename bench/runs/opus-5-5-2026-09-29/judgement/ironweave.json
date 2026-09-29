@@ -1,0 +1,766 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "target": "ironweave",
+  "language": "C++",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "rawFindings": 41,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Test never asserts send() actually throws closed_error after stream_close()",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2017,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The try { stream_send_empty_frame().get(); } catch (const rpc::closed_error&) {} block at tests/unit/rpc_test.cc:2016-2019 passes whether or not the exception is thrown; the only real check of the fix is the indirect BOOST_REQUIRE_MESSAGE(!st.put_after_close, ...) later, which itself depends on the batch-flush poller running within the following 10 yield() calls.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a brand-new regression test added by the PR, so its assertion gap is the PR's own to fix.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+        "opus-5-5-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Test never verifies frame was refused; try/catch passes either way",
+        "mattpocock-review": "Test never asserts send() actually fails with closed_error",
+        "superpowers-review": "Refusal error is never asserted, only inferred indirectly"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review": "The try/catch(closed_error) block passes whether or not closed_error is thrown, so a regression where send() silently drops the frame or completes without calling put() would still pass the test; a BOOST_REQUIRE_THROW/BOOST_CHECK_EXCEPTION on closed_error would state the contract.",
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "The PR says send() fails with closed_error from then on, but the try/catch (closed_error) block also passes if the send succeeds; the contract is only indirectly checked via put_after_close, which depends on the batch-flush poller running within 10 yields. BOOST_REQUIRE_THROW(..., rpc::closed_error) would actually pin the contract.",
+        "opus-5-5-2026-09-29/ironweave/superpowers-review": "The catch (const rpc::closed_error&) swallows the error without recording it; the test relies only on the indirect put_after_close flag, which depends on the batch-flush poller running within 10 yield()s, so a regression could pass if the poller runs late."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "New regression test never exercises the server-side stream hook path",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1965,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "server_factory.hooks is populated by negotiation on the server's stream connection but only client_factory.hooks.back() is ever invoked in the test; connection::send() is shared code so risk is low, but the server path through the same fix is unverified.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Coverage gap in the new test the PR adds.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Server-side hook path is untested"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review": "The server's stream connection gets the same hook via connection::send() (src/rpc/rpc.cc:1103) but server_factory.hooks is filled and never fired, so only the client side of the window is exercised; risk is small since the fix is in shared connection::send()."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "New test's put(std::span<...>) override lacks the SEASTAR_API_LEVEL >= 9 guard used…",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1881,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "include/seastar/core/iostream.hh:110-128 only declares put(std::span<temporary_buffer<char>>) as a virtual member when SEASTAR_API_LEVEL >= 9; tls_test.cc guards its equivalent override with #if but this new override (and the pre-existing one in output_stream_test.cc) does not, so a build configured at level 7 (still listed as a selectable Seastar_API_LEVEL value in CMakeLists.txt) would fail to compile this file.",
+      "introducedByPr": true,
+      "scope": "out-of-scope",
+      "scopeReason": "The PR's new code merely follows the same unguarded pattern already present in tests/unit/output_stream_test.cc:68, an existing repo-wide inconsistency the PR did not create and the default build (level 9, the only level any CI job builds) is unaffected.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Test won't compile below API level 9"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review": "put(std::span<temporary_buffer<char>>) only exists when SEASTAR_API_LEVEL >= 9, but CMake still lists 7 as a selectable value; tls_test.cc guards the same override with #if while this test and output_stream_test.cc don't, though no CI job builds at an old level so it's minor."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "New doc sentence \"shut down only once both halves are closed\" contradicts the rest of…",
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "doc/rpc-streaming.md:49 (also touched by this PR) says closing the client aborts any open stream, and the connection is also torn down by a peer/IO error or by client::abort_all_streams(); \"only once both halves are closed\" overstates the normal-shutdown case as the sole case.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The sentence is new text added by this PR's documentation commit.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+        "opus-5-5-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Doc overstates when the connection shuts down",
+        "mattpocock-review": "Doc sentence about when the stream connection is shut down is inaccurate",
+        "superpowers-review": "Doc statement that connection shuts down only when both halves close contradicts itself"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review": "The statement \"The stream's connection is shut down only once both halves are closed\" contradicts line 49 of the same file, which says closing the client aborts the stream; a connection error or server stop also shuts it down. The same wording issue appears in the sink doxygen at include/seastar/rpc/rpc_types.hh:339-342. Suggested fix: \"...is shut down normally once both halves are closed\".",
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "\"The stream's connection is shut down only once both halves are closed\" is wrong: the connection is also shut down on a peer or IO error, and by abort_all_streams() when the parent client closes; text a few lines above already says this correctly.",
+        "opus-5-5-2026-09-29/ironweave/superpowers-review": "\"The stream's connection is shut down only once both halves are closed\" is contradicted elsewhere in the same doc: connection errors and abort_all_streams() also shut it down, and line 49 says closing the client aborts streams; wording should be changed to something like \"normally shuts down once\"."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "doc/rpc-streaming.md and sink doxygen wrongly claim reading a source until it throws…",
+      "file": "doc/rpc-streaming.md",
+      "line": 110,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "source_impl<...>::operator() in include/seastar/rpc/rpc_impl.hh:941-983 only calls con->close_source() when con->stream_receive() itself fails or returns empty (eof); an exception thrown by unmarshall() inside process_one_buffer (called directly, not inside the try/close_source wrapping) propagates to the caller without _source_closed ever being set, so an application that stops reading at that throw, exactly as the new doc text instructs, leaves the stream half open.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The doc text making this incorrect claim is new, added by this PR's documentation commit, even though the underlying source_impl behavior it misdescribes is pre-existing.",
+      "reportedBy": [
+        "superpowers-review",
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/superpowers-review",
+        "opus-5-5-2026-09-29/ironweave/tob-diff-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "Doc claim that reading until throw closes the source is wrong",
+        "tob-diff-review": "Doc claims reading until throw closes the source, but unmarshall failures don't"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/superpowers-review": "The doc (and the source doc in include/seastar/rpc/rpc_types.hh:384-389) says reading until it throws closes the stream, but only failures from stream_receive() call close_source(); an exception from unmarshall() in process_one_buffer reaches the caller without closing the source, so a reader that stops at that throw leaves the stream half open.",
+        "opus-5-5-2026-09-29/ironweave/tob-diff-review": "The doc (and doc/rpc-streaming.md:110) says reading until it throws closes the source and there is no other way to do it, but source_impl::operator() only calls close_source() on stream_receive failure or eof; if unmarshall() throws inside process_one_buffer, the exception propagates while _source_closed stays false, so an application following the documented contract leaks the stream connection."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Comment claiming \"nothing else waits for _outgoing_queue_ready\" is imprecise and…",
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "stop_send_loop() (src/rpc/rpc.cc:225) still literally does when_all(std::move(_outgoing_queue_ready), ...) after stream_close() runs; it happens to resolve trivially because stream_close() already exchanged _outgoing_queue_ready for a ready future, but the comment's stated invariant is enforced only by that side-effect and by every future writer (e.g. client::enqueue_zero_frame() at rpc.cc:877, though it only ever runs once at construction time before any stream activity) independently respecting it, not by any code-level guard.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment and the invariant it documents are new in this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Code comment slightly inaccurate about who waits on _outgoing_queue_ready",
+        "mattpocock-review": "Ordering invariant on _outgoing_queue_ready enforced only by a comment"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review": "The comment \"Nothing else waits for _outgoing_queue_ready from here on\" isn't quite true because stop_send_loop() still does when_all(std::move(_outgoing_queue_ready), ...); it now gets the ready future via std::exchange, and the real drain is observed through _sink_closed_future. The comment should say that.",
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "The claim that nothing else waits for _outgoing_queue_ready from here on is guaranteed only by a comment; any future writer of _outgoing_queue_ready, such as enqueue_zero_frame() at rpc.cc:877, has to independently know about it."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Test compressor factory mutates hooks via const_cast instead of a mutable member",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "negotiate(...) const override at tests/unit/rpc_test.cc:1956-1959 uses const_cast<hook_capturing_compressor_factory*>(this)->hooks.push_back(...) to record state from a const method; the existing cfactory helper elsewhere in this file (rpc_test.cc:330) uses a mutable member for the same purpose, which would be more idiomatic here.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New test helper class added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+        "opus-5-5-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "const_cast used to mutate hooks from a const override",
+        "mattpocock-review": "hooks recorded via const_cast instead of mutable, inconsistent with existing style",
+        "superpowers-review": "Test hooks recorded via const_cast instead of a mutable member"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review": "The test factory uses const_cast to mutate hooks from a const override; declaring hooks as mutable would be cleaner.",
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "The existing cfactory in the same file (rpc_test.cc:330) declares its state mutable instead of using const_cast; hooks should follow that existing style and be mutable too.",
+        "opus-5-5-2026-09-29/ironweave/superpowers-review": "Test negotiate() records hooks through a const_cast; making hooks a mutable member would be cleaner."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "PR description ends with a Claude Code attribution line",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "gh pr view confirms the PR body ends with \"🤖 Generated with [Claude Code](https://claude.com/claude-code)\", which the user's global CLAUDE.md explicitly forbids adding to anything authored on their behalf.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR description is authored as part of this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+        "opus-5-5-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "PR description ends with Claude Code attribution line",
+        "superpowers-review": "PR description ends with a Claude Code attribution line"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review": "The PR body ends with \"🤖 Generated with Claude Code\", which the user's global rules say must never appear.",
+        "opus-5-5-2026-09-29/ironweave/superpowers-review": "The PR description ends with \"🤖 Generated with Claude Code\", which the user's global instructions forbid."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "\"Fixes #3663\" / \"Refs #3653\" resolve against the fork repo, not upstream Seastar",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The repo is dkropachev/ironweave (confirmed via git remote / gh repo view), a fork, and these bare issue numbers are upstream scylladb/seastar issue numbers; on GitHub they resolve against, and \"Fixes\" would auto-close, whatever issue with that number exists in this fork instead.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR description with these references is authored as part of this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+        "opus-5-5-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Issue references resolve against the wrong repo in the fork",
+        "mattpocock-review": "PR description issue references point at nonexistent/wrong-repo issues",
+        "superpowers-review": "Fixes/Refs issue references resolve to the wrong repo"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review": "\"Fixes #3663\" / \"Refs #3653\" are upstream Seastar issue numbers, but in dkropachev/ironweave they resolve against this repo, and \"Fixes\" would auto-close whatever issue #3663 is here on merge.",
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "\"Fixes #3663\" points at nothing since no #3663 exists in dkropachev/ironweave; the reference needs to be scylladb/seastar#3663, and the same applies to \"Refs #3653\".",
+        "opus-5-5-2026-09-29/ironweave/superpowers-review": "In the fork dkropachev/ironweave, \"Fixes #3663\" and \"Refs #3653\" resolve to, and on merge auto-close, this repo's issues rather than upstream Seastar's; use scylladb/seastar#3663 if upstream is meant."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "PR description links internal Jira tickets",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "gh repo view confirms dkropachev/ironweave is a private repository, so linking internal scylladb.atlassian.net CUSTOMER-*/SCYLLADB-* tickets in the PR body is normal internal-engineering practice, not an information disclosure.",
+      "introducedByPr": true,
+      "scope": "out-of-scope",
+      "scopeReason": "Not a defect given the repo's private visibility.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "PR description links internal Jira tickets"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/anthropic-pr-review": "The PR body links internal CUSTOMER-* Jira tickets."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "stream_close() draining the old _outgoing_queue_ready could miss in-flight frames",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Walking connection::send() (rpc.cc:292-344) and stream_close() (rpc.cc:548-573) together shows every entry send() links in before _stream_closing flips is captured by std::exchange(_outgoing_queue_ready, ...) at line 562 and awaited via queue_drained before the write buffer closes; no frame accepted before the flag can be skipped.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns the PR's own new drain logic.",
+      "reportedBy": [
+        "builtin-code-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/builtin-code-review"
+      ],
+      "reportedAs": {
+        "builtin-code-review": "stream_close() waiting on old _outgoing_queue_ready could miss in-flight frames"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/builtin-code-review": "stream_close() now waits on the old _outgoing_queue_ready; the report checked whether frames accepted by send() before _stream_closing was set are properly written before the buffer closes, and whether concurrent stop_send_loop() is properly serialized via _sink_closed_future, and found no issue."
+      }
+    },
+    {
+      "id": "I12",
+      "title": "Possible hang if stream_close() runs before negotiation finishes",
+      "file": "src/rpc/rpc.cc",
+      "line": 548,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Neither client nor server can reach stream_close() before negotiation completes: server-side the stream is only registered post-negotiation, and client-side sink::close() only reaches close_sink()/stream_close() after the eof-marker send() resolves, which itself is gated behind negotiation completing.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns the new stream_close() ordering.",
+      "reportedBy": [
+        "builtin-code-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/builtin-code-review"
+      ],
+      "reportedAs": {
+        "builtin-code-review": "Possible hang if stream_close() runs before negotiation finishes"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/builtin-code-review": "The report considered whether the drain wait could hang if stream_close() ran before negotiation completed, checking both server (stream only registered after negotiation) and client (sink::close() only calls close_sink() after eof send resolves, which itself waits on negotiation) paths, and found no way for this to happen."
+      }
+    },
+    {
+      "id": "I13",
+      "title": "Back-pressure from a non-reading peer can stall the drain in stream_close()",
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "The old code's direct write_buf.close() could already block on the same TCP back-pressure the new queue_drained wait can; this is pre-existing blocking behavior, not a new stall introduced by the PR.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The blocking characteristic under a non-reading peer predates this PR.",
+      "reportedBy": [
+        "builtin-code-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/builtin-code-review"
+      ],
+      "reportedAs": {
+        "builtin-code-review": "Back-pressure from a non-reading peer can stall the drain"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/builtin-code-review": "A peer that stops reading can stall the drain wait, but the report notes this is the same behavior as before since the old write_buf.close() blocked the same way, so it is not a new issue."
+      }
+    },
+    {
+      "id": "I14",
+      "title": "stop() now explicitly blocks on outgoing-queue drain before closing, undocumented",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "stream_close() now formalizes an explicit wait for the front outgoing entry's send_entry() to finish before closing the write buffer; the blocking characteristics under a stalled peer are materially unchanged from before (see I13), but this is a new, explicit synchronization point that the PR description doesn't call out.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The explicit wait is new code from this PR.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "stop() now blocks waiting for the outgoing queue to drain, undocumented"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "If the front entry is stuck in send_entry() because the peer isn't reading, stream_close() blocks until that write finishes, and stream sends have no timeout; this is arguably better than the old behavior but the PR doesn't mention it."
+      }
+    },
+    {
+      "id": "I15",
+      "title": "New _stream_closing flag is a second lifecycle flag send() must check alongside _error",
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 305,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "connection::send() at src/rpc/rpc.cc:293 now guards on !_error && !_stream_closing; this is a valid but subjective observation that a can_send()-style predicate or single state enum would be more resistant to a future caller forgetting to check one of the flags.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new flag and check are added by this PR.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "New _stream_closing flag adds a third lifecycle flag send() must check"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "_stream_closing joins _error, _sink_closed, _source_closed and _sink_closed_future, and send() must now check two flags; a can_send() predicate or a single state enum would keep future callers from forgetting one (possible Primitive Obsession or Data Clumps)."
+      }
+    },
+    {
+      "id": "I16",
+      "title": "New test's pass-through socket/sink wrapper classes duplicate patterns already in…",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1877,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "tests/unit/loopback_socket.hh already has loopback_connected_socket_impl and loopback_socket_impl implementing the same net::connected_socket_impl/net::socket_impl interfaces; the roughly 60 new lines of delegating wrappers in rpc_test.cc (needed because these wrap a real connected_socket rather than a synthetic loopback pipe) are structurally similar boilerplate, though not literally identical code.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New test helper code added by this PR.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Pass-through socket wrappers duplicate loopback_socket.hh implementations"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "About 60 lines of pass-through socket wrappers in rpc_test.cc:1877-1937 overlap with the implementations already in tests/unit/loopback_socket.hh (possible Duplicated Code)."
+      }
+    },
+    {
+      "id": "I17",
+      "title": "New \\brief doxygen blocks left alongside the old single-line comments they duplicate",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 337,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The diff adds /// \\brief blocks above sink and source (rpc_types.hh:337-342 and :384-392) without removing the pre-existing // send data Out... / // receive data In... one-line comments directly below them, leaving two comments describing the same class.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both comment blocks now coexist because of this PR's own edit.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Duplicate comments left after adding new \\brief blocks"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "New /// \\brief blocks were added above the old // send data Out... and // receive data In... comments (also at :384-392) without removing or merging the old lines, leaving two comments per class."
+      }
+    },
+    {
+      "id": "I18",
+      "title": "Doc understates that dropping an unclosed sink is a hard SEASTAR_ASSERT crash",
+      "file": "doc/rpc-streaming.md",
+      "line": 109,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "sink_impl<...>::~sink_impl() at include/seastar/rpc/rpc_impl.hh:935 does SEASTAR_ASSERT(this->_con->get()->sink_closed()), i.e. an abort, not a soft/logical \"error\"; the doc's \"Dropping an unclosed sink is an error\" is true but understates the consequence.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New documentation text added by this PR.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Doc understates that dropping an unclosed sink crashes via assertion"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "\"Dropping an unclosed sink is an error\" understates that it's actually a SEASTAR_ASSERT crash in ~sink_impl (include/seastar/rpc/rpc_impl.hh:935); the doc should say so explicitly."
+      }
+    },
+    {
+      "id": "I19",
+      "title": "New sentence appended to an already-overlong doc line",
+      "file": "doc/rpc-streaming.md",
+      "line": 49,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The pre-existing sentence beginning \"Given RPC client `rc`...\" on that line was already 181 characters wide before this PR; the PR's new opening clause is appended to the same line rather than wrapped, though the overlength itself predates the PR.",
+      "introducedByPr": true,
+      "scope": "out-of-scope",
+      "scopeReason": "The line was already far over the file's usual ~80-column wrap before this PR touched it; the PR just added more text to a pre-existing long line rather than creating the problem.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "New text appended to an already overlong line"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "New text was appended to an already long line, while the rest of the file wraps at about 80 columns."
+      }
+    },
+    {
+      "id": "I20",
+      "title": "Test helper class/type names don't convey their close-parking/late-put-recording behavior",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1870,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "test_sink_state and test_data_sink_impl are generic names for classes whose specific job is to park close() until released and flag any put() that arrives after close() was entered; a more descriptive name would aid readers, though this is a matter of taste.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New test helper types added by this PR.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Unclear helper names that don't convey their close-parking/late-put-recording behavior"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "test_sink_state and test_data_sink_impl (also at :1877) don't indicate that they park close() and record late put() calls."
+      }
+    },
+    {
+      "id": "I21",
+      "title": "Reference into client_factory.hooks vector could dangle if the vector ever reallocates…",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2001,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "auto& stream_send_empty_frame = client_factory.hooks.back() binds a reference into a std::vector<std::function<...>>; no further negotiate() call (and hence no further push_back) happens for the rest of the test so the reference stays valid today, but the pattern is fragile against future edits that add another negotiation before the reference is used.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New test code added by this PR.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Reference taken into a vector that can be reallocated"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "auto& stream_send_empty_frame = client_factory.hooks.back() points into a vector that any later negotiation's push_back could reallocate; it's safe today but should be a copy instead of a reference."
+      }
+    },
+    {
+      "id": "I22",
+      "title": "hooks.size() == 2 assertion assumes stream negotiation ordering that reviewers flagged…",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "By the time this assertion runs, make_stream_sink<...>().get() has already resolved, which internally awaits the stream client's own await_connection()/_negotiated future (include/seastar/rpc/rpc.hh:621-647) before returning the sink, and call(c, 1, sink).get() has already returned a value, which is only possible once the parent connection's negotiation completed (negotiation gates the compressor used to encode/decode the exchanged frames); both hook pushes are therefore guaranteed complete deterministically, not merely likely on loopback.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New test assertion added by this PR.",
+      "reportedBy": [
+        "builtin-code-review",
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/builtin-code-review",
+        "opus-5-5-2026-09-29/ironweave/ce-code-review"
+      ],
+      "reportedAs": {
+        "builtin-code-review": "New test asserts client_factory.hooks.size() == 2 assuming stream negotiation ordering",
+        "ce-code-review": "Assertion assumes stream negotiation completes before call reply, unguaranteed ordering"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/builtin-code-review": "The new test asserts client_factory.hooks.size() == 2 before any data has gone over the stream, which assumes the client-side stream connection has already negotiated when call(...) returns; the report could not confirm this ordering is guaranteed and flagged the check could be flaky, but was not confident enough to call it a bug.",
+        "opus-5-5-2026-09-29/ironweave/ce-code-review": "BOOST_REQUIRE_EQUAL(client_factory.hooks.size(), 2u) assumes the client has negotiated the stream connection before the call's reply arrives, but these travel over two separate TCP connections; on loopback the order holds in practice but nothing guarantees it, creating an unconfirmed flakiness risk."
+      }
+    },
+    {
+      "id": "I23",
+      "title": "New flag could theoretically be set multiple times or on non-stream connections",
+      "file": "src/rpc/rpc.cc",
+      "line": 552,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "stream_close() only sets _stream_closing = true inside the if (!error()) guard, and stream_close() is only ever invoked (via close_sink()/close_source()) once both stream halves are closed, so the flag is set at most once and only on connections that actually go through the stream-close path.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns the new flag's set-once behavior.",
+      "reportedBy": [
+        "builtin-code-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/builtin-code-review"
+      ],
+      "reportedAs": {
+        "builtin-code-review": "New flag could be set multiple times or on non-stream connections"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/builtin-code-review": "The report checked the new flag and confirmed it is only set on stream connections and only once, due to the !error() guard, so this is not a problem."
+      }
+    },
+    {
+      "id": "I24",
+      "title": "Wait on close_entered_cv is unbounded and a mid-test assertion failure would abort…",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "st.close_entered_cv.wait(...) at line 2011 has no timeout, so if a later regression stops sink.close() from ever reaching the wrapped data_sink::close(), the test hangs until the 300s test.py timeout rather than failing with a clear message; separately, sink_impl<...> is constructed with _sink_closed = false at rpc_impl.hh:839 and stays false until close_sink() runs, so if BOOST_REQUIRE_EQUAL(hooks.size(), 2u) at line 2000 (before sink.close() is ever called) or the try/catch at 2016-2019 (if it throws something other than closed_error) fails, release_close is never set, sink.close()'s future is never awaited, and ~sink_impl()'s SEASTAR_ASSERT(sink_closed()) at rpc_impl.hh:935 aborts the whole test binary instead of reporting a normal BOOST test failure.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New test code added by this PR.",
+      "reportedBy": [
+        "ce-code-review",
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/ce-code-review",
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+        "opus-5-5-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "Wait on close_entered_cv has no timeout",
+        "mattpocock-review": "Test can hang instead of failing on regression",
+        "superpowers-review": "Assertion/exception failure inside parked window aborts process instead of failing test"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/ce-code-review": "The test's wait on `close_entered_cv` is unbounded; if a later change stops `sink.close()` from reaching the wrapped `data_sink::close()`, the test hangs until the 300s test.py timeout instead of failing with a clear message. A bounded wait (e.g. `wait(timeout, pred)`) would produce a readable failure instead.",
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "The wait on close_entered_cv has no timeout, and release_close.set_value() is skipped if the hook throws anything other than closed_error, so a regression hangs until the ctest timeout rather than reporting a failure.",
+        "opus-5-5-2026-09-29/ironweave/superpowers-review": "If BOOST_REQUIRE_EQUAL(hooks.size(), 2u) fails, or the hook throws anything other than closed_error, release_close is never set and sink_closed is never awaited, causing ~sink_impl to hit SEASTAR_ASSERT(sink_closed()) and abort instead of failing the test cleanly."
+      }
+    },
+    {
+      "id": "I25",
+      "title": "server_done.get() could intermittently rethrow stream_closed",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2028,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "sink_impl<...>::close() (rpc_impl.hh:903-929) sends the eof marker via con->send() and only calls close_sink() in a .finally() after that send's future resolves, and connection::send()'s returned future only resolves once send_entry() has fully written and flushed the frame; because the fix now makes stream_close() drain any still-queued entries before closing the write buffer, the eof marker reliably reaches the server before the connection tears down, so the server's source() read reaches a clean eof rather than throwing stream_closed.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns whether the new test is correct given the PR's fix.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "server_done.get() could intermittently rethrow stream_closed"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/ce-code-review": "A second reviewer flagged that `server_done.get()` could intermittently rethrow `stream_closed`, reasoning that the client's `stream_close()` aborts the server's receive queue."
+      }
+    },
+    {
+      "id": "I26",
+      "title": "New regression test doesn't actually exercise the queue-drain half of the fix",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1965,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The test only fires the compressor hook after sink.close() has already sent the eof marker and stream_close() has set _stream_closing, exercising only the send()-refusal path; the eof marker's own send() future only resolves once send_entry() fully completes (rpc.cc:325-340), so by the time stream_close() runs, _outgoing_queue_ready is already a resolved future and the std::exchange/then_wrapped drain logic at rpc.cc:562-570 sees nothing actually in flight to drain -- that code path could be reverted and this test would still pass.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Coverage gap in the new regression test the PR adds for its own fix.",
+      "reportedBy": [
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/tob-diff-review"
+      ],
+      "reportedAs": {
+        "tob-diff-review": "test_stream_send_after_stream_close doesn't cover the queue-drain half of the fix"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/tob-diff-review": "The test only fires the hook after stream_close() has set _stream_closing, covering only the send() refusal path; it never has an entry accepted before the flag and still queued when the buffer closes, so the std::exchange(_outgoing_queue_ready, ...)/then_wrapped change in src/rpc/rpc.cc:562-570 could be reverted and the test would still pass."
+      }
+    },
+    {
+      "id": "I27",
+      "title": "PR description doesn't explain whether the parent client's own unflushed frame is…",
+      "file": "",
+      "line": 0,
+      "kind": "question",
+      "severity": "medium",
+      "verdict": "unproven",
+      "verdictReason": "The PR body says the incident's core dump showed the same 141-byte compressor frame stuck unflushed on both the stream connection and its parent client, but the fix only touches stream_close(), which is stream-specific. Tracing the parent's normal teardown path (client::loop()'s unconditional call to stop_send_loop() at rpc.cc:1066, which sets _error = true at the very start, before anything else runs) suggests the parent client does not have the same race window that stream_close() had, since sends are refused before the buffer closes rather than after; but confirming that the parent-side symptom in the original incident was a downstream effect rather than an independent bug would need the original core dump or a repro this session cannot access.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "Directly bears on whether this PR's fix fully addresses the incident it says it fixes.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Parent client's unflushed compressor frame left unexplained by the fix"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-2026-09-29/ironweave/mattpocock-review": "The PR description says the same 141-byte compressor frame was sitting unflushed on both the stream connection and its parent client, but the fix only covers stream connections via stream_close(); it doesn't say whether the parent's pending flush is a separate bug or harmless."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.7236644,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 86,
+      "outputTokens": 51349,
+      "cacheReadInputTokens": 3716112,
+      "cacheCreationInputTokens": 116695,
+      "webSearchRequests": 0,
+      "costUSD": 1.7236644,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 26941,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/ironweave/runs/opus-5-5-2026-09-29/_judge/attempt-wOQABt/repo",
+  "judgedAt": "2026-09-29T03:15:29.644Z"
+}

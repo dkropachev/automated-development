@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/ironweave/builtin-code-review",
+  "target": "ironweave",
+  "tool": "builtin-code-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "b39259405a07bdabe068a4dc91d3748f4f980a7d614a8a1926319819bdaab528",
+  "label": "Claude Code /code-review",
+  "findings": [
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "stream_close() waiting on old _outgoing_queue_ready could miss in-flight frames",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "stream_close() now waits on the old _outgoing_queue_ready; the report checked whether frames accepted by send() before _stream_closing was set are properly written before the buffer closes, and whether concurrent stop_send_loop() is properly serialized via _sink_closed_future, and found no issue.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Possible hang if stream_close() runs before negotiation finishes",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The report considered whether the drain wait could hang if stream_close() ran before negotiation completed, checking both server (stream only registered after negotiation) and client (sink::close() only calls close_sink() after eof send resolves, which itself waits on negotiation) paths, and found no way for this to happen.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Back-pressure from a non-reading peer can stall the drain",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A peer that stops reading can stall the drain wait, but the report notes this is the same behavior as before since the old write_buf.close() blocked the same way, so it is not a new issue.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "New flag could be set multiple times or on non-stream connections",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The report checked the new flag and confirmed it is only set on stream connections and only once, due to the !error() guard, so this is not a problem.",
+      "selfRejected": true
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "New test asserts client_factory.hooks.size() == 2 assuming stream negotiation ordering",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The new test asserts client_factory.hooks.size() == 2 before any data has gone over the stream, which assumes the client-side stream connection has already negotiated when call(...) returns; the report could not confirm this ordering is guaranteed and flagged the check could be flaky, but was not confident enough to call it a bug.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 1379,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19394,
+      "webSearchRequests": 0,
+      "costUSD": 0.09557480000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 504,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:39:11.025Z"
+}

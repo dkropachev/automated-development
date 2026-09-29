@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/tidepool/builtin-code-review",
+  "target": "tidepool",
+  "tool": "builtin-code-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "36b93084d1f42b44b2e9227cb4be9e4fc258e0a17030db9356180b2e4f6fa20d",
+  "label": "Claude Code /code-review",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 0,
+      "title": "Potential overflow of Dimensions*8/*4 in unmarshalVector",
+      "severity": "medium",
+      "kind": "security",
+      "claim": "The report checked whether the dimension bound check in unmarshalVector, which runs before the float fast paths, could let Dimensions*8 or Dimensions*4 exceed len(data) and wrap, or let a huge count reach make/reflect.MakeSlice; it found the check placement prevents this.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "vectorElemMinSize could return 0 or overflow, breaking division",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The report checked vectorElemMinSize's minimum sizes for fixed, variable-length and nested vectors against the wire length prefix, and found it caps at MaxInt32 instead of overflowing and never returns less than 1, so downstream division is safe.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Zero() crashes on nested vector or unknown element type",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "The report notes this was the path that used to crash, and checked that the nil guard now makes a nested vector or an unknown element type decoded into an interface{} return an error instead of crashing.",
+      "selfRejected": true
+    },
+    {
+      "file": "helpers.go",
+      "line": 0,
+      "title": "getCassandraLongType change could affect other readers of NativeType.custom",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The report checked that after the change unknown types keep their name, and verified that nothing outside the diff reads NativeType.custom besides String(), asVectorType and frame.go, none of which behave differently.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Surplus trailing bytes not rejected during decode",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The report identifies surplus trailing bytes as a real gap, but notes it is tracked separately as issue #1086 and out of scope for this PR.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Variable-length element length prefix can wrap negative and decode without error",
+      "severity": "high",
+      "kind": "security",
+      "claim": "The report identifies that a variable-length element's length prefix wrapping to negative and decoding with no error is a real gap, but notes it is tracked separately as issue #1106 and out of scope for this PR.",
+      "selfRejected": true
+    },
+    {
+      "file": "frame.go",
+      "line": 0,
+      "title": "Metadata dimension parse failure silently defaults to 0 in readTypeInfo",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The report identifies that strconv.Atoi errors are ignored in frame.go's readTypeInfo, causing a metadata dimension that fails to parse to silently become 0, but notes rejecting dimensions below 1 is left to issue #1093 and is out of scope here.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Caller-built VectorType with Dimensions>0 and nil SubType still panics",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The report notes a caller-built VectorType with Dimensions > 0 and a nil SubType still panics, but this already panicked in the fast path before this PR, so it is treated as pre-existing and out of scope.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 3296,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19510,
+      "webSearchRequests": 0,
+      "costUSD": 0.1152088,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2002,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:53:59.664Z"
+}

@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/quillstone/superpowers-review",
+  "target": "quillstone",
+  "tool": "superpowers-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "cf1828eec46fa75caf4a2996662715744ca03ed156068a454718e91dfc89c704",
+  "label": "Superpowers requesting-code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Failed/stale keyspace takes node pools down instead of warning",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "use_keyspace sets current_keyspace before knowing whether USE succeeded and never rolls it back (also affects cluster/worker.rs for new nodes), so a failed USE now drops the connection instead of joining the pool with a warning as before; after a typo'd keyspace or a keyspace dropped server-side, refill connections keep failing USE and the pool ends up Broken(UseKeyspaceError), causing nodes to be reported down and even fully-qualified queries to fail after churn or a rolling restart.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 995,
+      "title": "Discard path for a full shard leaks the connection count metric",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "When a shard-aware connection lands on a shard that is already full, the connection is dropped without calling dec_total_connections even though the count was already raised in start_opening_connection (:1051), so total_connections drifts upward, especially behind NAT.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Metrics-fix commits are undocumented in the PR description",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "About half the diff (commits de164845, 0d91aa54, 617139df), including three new tests, fixes a different bug (metrics on pool clear, excess-pool clear and reshard), but the PR description, its Fixes line, and the \"logically coherent\" checkbox only cover the keyspace fix.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Validation command omits --features metrics, skipping metrics assertions",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The checklist's listed validation command does not include --features metrics, which is not a default feature, so it skips the metrics tests and the get_total_connections assertions in the keyspace tests.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Checklist claim that commit messages explain what/why is inaccurate",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "All four commits have a subject line only, with no body, contradicting the checklist claim that commit messages explain what and why.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1474,
+      "title": "Test name overstates coverage of refill/backoff behavior",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "keyspace_setup_failure_triggers_refill only checks need_filling() and never drives run(), so it doesn't actually show that a refill or backoff happens.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 900,
+      "title": "Keyspace switch during in-flight USE wastes a connection instead of retrying",
+      "severity": "low",
+      "kind": "design",
+      "claim": "If the user switches keyspace while USE old_ks is running and it fails, the connection is thrown away and backoff grows, instead of being retried with the new keyspace.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 903,
+      "title": "USE failure downgraded from warn! to debug-level logging",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The failure is now logged only at debug instead of warn! as before, so a misconfigured keyspace no longer shows up at default log levels.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "many_connections test fails, but same failure exists on main",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Running cargo test -p scylla --lib --features metrics network::connection_pool gave 8 of 9 passing; the one failure, many_connections, needs a live Scylla node and fails the same way on main.",
+      "selfRejected": true
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 2003,
+      "title": "Metrics test uses a polling sleep loop instead of a deterministic wait",
+      "severity": "nit",
+      "kind": "test-gap",
+      "claim": "The metrics test uses a 1 ms sleep loop inside a 5 s timeout; it isn't flaky, but paused time or a notification would make it deterministic.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1360,
+      "title": "decrement_total_connections loops single decrements instead of a batch helper",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "decrement_total_connections calls dec_total_connections in a loop; a single decrement-by-N helper would be simpler.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 4072,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 20166,
+      "webSearchRequests": 0,
+      "costUSD": 0.1255928,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2300,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:52:00.875Z"
+}

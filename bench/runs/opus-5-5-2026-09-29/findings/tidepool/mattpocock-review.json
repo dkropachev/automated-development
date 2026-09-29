@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/tidepool/mattpocock-review",
+  "target": "tidepool",
+  "tool": "mattpocock-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "1c408fdcd5560f76aca6f3a051fcfd47e431f23e23e6d92d151011fd27c60005",
+  "label": "Matt Pocock code-review",
+  "findings": [
+    {
+      "file": "CONTRIBUTING.md",
+      "line": 24,
+      "title": "No CHANGELOG entry for a behaviour change",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "CONTRIBUTING.md:24 requires bugfixes and behaviour changes to be logged in CHANGELOG.md, and this PR changes behaviour (empty non-NULL payload now errors instead of decoding to zeros), but no CHANGELOG.md exists in the repo so the rule can't be followed as written; CONTRIBUTING.md:26 says to state that on the PR instead.",
+      "selfRejected": false
+    },
+    {
+      "file": "CONTRIBUTING.md",
+      "line": 30,
+      "title": "Commit messages don't follow documented format/trailer convention",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "Both commit subjects are `fix(marshal): …` and neither includes the `Patch by …; reviewed by … for #####` trailer required by CONTRIBUTING.md:30-48, though recent commits on main ignore this rule too.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 995,
+      "title": "Duplicated guard condition split across two adjacent blocks",
+      "severity": "low",
+      "kind": "design",
+      "claim": "marshal.go:995 and marshal.go:1004 both open `if info.Dimensions > 0 && data != nil {` back to back; they could be merged into one block running the bound check then the fast paths.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1125,
+      "title": "Vector element-type classification duplicated across three functions",
+      "severity": "low",
+      "kind": "design",
+      "claim": "vectorElemMinSize (marshal.go:1125) adds its own elemType.(VectorType) check alongside vectorFixedElemSize and isVectorVariableLengthType (marshal.go:1181), meaning a new vector element type requires changes in all three places.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 0,
+      "title": "Repeated struct literal across vector-type test helpers",
+      "severity": "low",
+      "kind": "style",
+      "claim": "makeVectorType repeats the struct literal already present in makeFloat32VectorType and makeDoubleVectorType; those two could instead be one-line wrappers around makeVectorType.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 280,
+      "title": "Claim that helpers.go change alters metadata String() output everywhere",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The standards sub-agent said the helpers.go:280-284 change alters metadata String() output everywhere, but this was checked and dropped: getCassandraLongType is only called from the vector parsers (frame.go:860, helpers.go:72, helpers.go:263), so only vector subtypes are affected.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description overstates which new tests fail against pristine code",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The PR description says \"Every new test fails against pristine marshal.go/helpers.go\", but TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType would pass against the old code since they check valid input, and TestVectorElemMinSize doesn't even compile against the old code; the description should say \"every new rejection test\" instead.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 2398,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 20366,
+      "webSearchRequests": 0,
+      "costUSD": 0.1096528,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1101,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:54:47.122Z"
+}

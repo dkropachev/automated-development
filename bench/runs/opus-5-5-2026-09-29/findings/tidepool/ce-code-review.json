@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/tidepool/ce-code-review",
+  "target": "tidepool",
+  "tool": "ce-code-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "985192523facf3aa759225f8e3869ddf9ff28add6aba8b0e021f93835967c5c8",
+  "label": "Compound Engineering ce-code-review",
+  "findings": [
+    {
+      "file": "helpers.go",
+      "line": 222,
+      "title": "Map-arity failure returns unnamed custom type instead of server's type name",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The map-arity failure path in the function still returns NewNativeType(protoVer, TypeCustom) with an empty name, so the error doesn't name the type the server sent, contrary to what the PR intends to fix.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 267,
+      "title": "Vector-dimension parse failure returns unnamed custom type instead of server's type name",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The vector-dimension parse failure in the same function still returns NewNativeType(protoVer, TypeCustom) with an empty name; a nested vector whose inner dimension doesn't parse fails with a message like \"no Go type for element type custom()\" that doesn't name the type the server sent.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating may be flaky under -race due to…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test measures runtime.MemStats.TotalAlloc, which counts the whole process; goroutines left running by earlier tests in the package could push it over its 128 KB threshold, making it potentially flaky under -race, though the reviewer has not observed it fail.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 541,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19860,
+      "webSearchRequests": 0,
+      "costUSD": 0.0890588,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 56,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:54:15.287Z"
+}

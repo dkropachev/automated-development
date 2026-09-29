@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+  "target": "quillstone",
+  "tool": "mattpocock-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "4d5ac23ccdba004a5e3f457d2edf0dd62cb8fc3c73355bd4000717f41f748ff1",
+  "label": "Matt Pocock code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "title": "New keyspace tests skip setup_tracing() unlike other new tests",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "keyspace_setup_failure_triggers_refill (:1474) and keyspace_setup_failure_preserves_pool_state (:1526) never call setup_tracing(), even though CONTRIBUTING.md says new tests should and the other new tests at :1869, :1945, :1973 do.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "title": "Metrics fix commit adds decrement_total_connections with no test in same commit",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Commit de164845 adds decrement_total_connections but its tests only arrive in the next commit 0d91aa54, violating CONTRIBUTING.md's requirement that bug fixes be covered with tests and each commit be coherent on its own.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "title": "First keyspace test hand-builds PoolRefiller instead of reusing helper",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The test at :1474-1496 constructs a PoolRefiller itself even though mock_pool_refiller() at :1754 does the same thing (duplicated code).",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1529,
+      "title": "Proxy rules duplicated from start_simulated_node instead of reused",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The make_rules closure (:1529-1566) and proxy builder (:1580-1598) re-create the OPTIONS/STARTUP rules from start_simulated_node (:1809); the reshard test also hand-copies two more rule sets at :1877-1890 and :1904-1926 (duplicated code).",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/errors.rs",
+      "line": 600,
+      "title": "New UseKeyspaceError message breaks the file's existing message pattern",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The UseKeyspaceError variant's message doesn't match how the same variant reads elsewhere in the file (:79, :142, :172 use \"'USE KEYSPACE <>' request failed: {0}\"), and its neighbour variant uses transparent.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "title": "Keyspace setup failure downgraded from warn! to debug! logging",
+      "severity": "low",
+      "kind": "design",
+      "claim": "A failure that now discards the connection is logged at debug! instead of warn!, making it quieter for operators than before.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 2001,
+      "title": "Commit message \"Avoid busy-waiting\" doesn't match what the commit does",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Commit 617139df claims to avoid busy-waiting but only replaces yield_now() with sleep(1ms); the test at :2001 still polls the metric in a loop.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 913,
+      "title": "Commit 7f48315d bundles three unrelated changes (Divergent Change)",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The commit adds the fix, adds the new error variant, and moves the keyspace check ahead of maybe_reshard (:913-929), but the commit message doesn't mention the move.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1287,
+      "title": "Failed USE never reverts current_keyspace, draining pool and marking live nodes…",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "PoolRefiller::use_keyspace stores current_keyspace before the USE is checked and never reverts it on failure (error propagates via cluster/worker.rs:767-797); after this PR, a nonexistent or dropped keyspace makes every refill connection fail (:900-911), draining the pool to Broken(UseKeyspaceError) and causing emit_events to send ConnectivityChangeEvent::Lost (:1175), marking up nodes as down even though the spec asked only to retry or drop the connection. The PR neither handles nor mentions this.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1336,
+      "title": "A hung USE is neither retried nor dropped, stalling refills indefinitely",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The TODO for a USE timeout is still present at :1336, so a hung USE keeps is_filling() true, stopping refills and preventing the Broken report at :908 from ever firing, even though the spec asked to retry or discard such connections; the pool-wide path (:1307-1313) does use connect_timeout but this path doesn't.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "title": "Metrics balancing changes are out of scope for this PR/spec",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Commits de164845, 0d91aa54 and 617139df fix total_connections when excess connections are cleared (:674, :1031) and on reshard (:1114), plus ~160 lines of tests; the logic looks correct but isn't part of the spec or PR description and belongs in its own PR.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 913,
+      "title": "Sharder and port updates never applied while USE keeps failing",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Because the keyspace check now runs before maybe_reshard, the shard-aware port update, and block_advanced_shard_awareness (:913-929), sharder and port changes are never applied while USE keeps failing.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "title": "Keyspace failure logging at debug! makes pool draining invisible by default",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The spec notes \"the pool logs the error\" but the log is now debug! (:903); combined with the pool-draining bug, a pool failing due to a bad keyspace makes no noise under default logging.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 6,
+      "outputTokens": 6890,
+      "cacheReadInputTokens": 109969,
+      "cacheCreationInputTokens": 26332,
+      "webSearchRequests": 0,
+      "costUSD": 0.1962338,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2222,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:51:17.440Z"
+}

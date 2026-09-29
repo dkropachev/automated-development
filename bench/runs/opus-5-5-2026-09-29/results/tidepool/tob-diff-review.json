@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/tidepool/tob-diff-review",
+  "target": "tidepool",
+  "language": "Go",
+  "fork": "dkropachev/tidepool",
+  "pr": 1,
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "tool": "tob-diff-review",
+  "label": "Trail of Bits differential-review",
+  "source": "differential-review@trailofbits",
+  "prompt": "/differential-review:diff-review https://github.com/dkropachev/tidepool/pull/1\n\nYou are reviewing pull request #1 of this repository (dkropachev/tidepool) - a Go project. The PR branch `bound-vector-dimensions` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 132199,
+  "reportedCostUsd": 0.7366246,
+  "reportedUsage": {
+    "input_tokens": 26,
+    "cache_creation_input_tokens": 54924,
+    "cache_read_input_tokens": 656943,
+    "output_tokens": 8287,
+    "output_tokens_details": {
+      "thinking_tokens": 5159
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 54924,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1022,
+        "cache_read_input_tokens": 64602,
+        "cache_creation_input_tokens": 910,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 910
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 26,
+      "outputTokens": 8287,
+      "cacheReadInputTokens": 656943,
+      "cacheCreationInputTokens": 54924,
+      "webSearchRequests": 0,
+      "costUSD": 0.7366246,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 5159,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 15,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "98f11093-eadf-4867-a917-2847193800d1",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 26,
+    "output": 8287,
+    "thinking": 5159,
+    "cacheRead": 656943,
+    "cacheCreation": 54924,
+    "costUsd": 0.7366246,
+    "sessions": 1,
+    "models": {
+      "claude-opus-5-5": 0.7366246
+    },
+    "bySession": {
+      "98f11093-eadf-4867-a917-2847193800d1": {
+        "costUsd": 0.7366246,
+        "startTime": 1790648209147,
+        "tokens": 720180
+      }
+    },
+    "rawMessages": 25,
+    "rawOutput": 19539,
+    "rawCacheRead": 1238514,
+    "since": 0,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-tidepool-runs-opus-5-5-2026-09-29-tob-diff-review-attempt-QEEWPw-repo",
+    "total": 720180
+  },
+  "result": "I found nothing I'm confident is a bug in PR #1. The PR's own vector tests pass (`go test -tags unit -run Vector`); I didn't run the full `make test-unit` or `make check`.\n\nWhat I checked in `git diff main...HEAD`:\n\n- **The new size check (`marshal.go:998-1003`):**\n  - It runs before both float fast paths, so `Dimensions*8` and `Dimensions*4` can no longer overflow.\n  - It rejects a zero-length payload when the vector has dimensions, as the PR description says it now does.\n  - It matches the check `unmarshalList` already does.\n- **`vectorElemMinSize` (`marshal.go:1125`):**\n  - It never returns 0, so there is no divide-by-zero.\n  - It caps its result at `MaxInt32` before the int64 maths could wrap, and the capped value always rejects.\n  - For every vector with at least one dimension it never demands more bytes than the smallest real encoding. I worked through float, text, `vector<float,3>`, `vector<text,3>` (1-byte length prefix plus 3 bytes) and a doubly nested case, so valid data isn't rejected.\n- **The zero-dimension / nil-data skip:** it avoids dereferencing a nil `SubType`. A caller-built vector with dimensions but no `SubType` still panics, but it already did before the PR, at `info.SubType.Type()`.\n- **The `t == nil` guard (`marshal.go:1045`):** it catches `VectorType.Zero()` returning an untyped nil. That happens when `goType` fails, both for a nested inner vector, whose type is just the bare `VectorType` name, and for an unknown element type.\n- **The unknown-type name change (`helpers.go:280-284`):** `getCassandraLongType` is only called from `frame.go:860` (the vector's element type) and `asVectorType`. `asVectorType` only matches names starting with `VectorType(`, and the vector branch handles those before this fallback. So the only visible change is that `String()` and error messages now include the type name.\n- **Encoding side:** the allocations in `marshalVectorFloat32/64` are sized by the caller's slice, which must already equal `Dimensions`, so the server can't drive them.\n\nOne minor, unconfirmed concern is test flakiness. `TestUnmarshalVectorRejectsNestedCountBeforeAllocating` measures process-wide allocation against a 128 KB limit. It runs outside the parallel tests, so only background goroutines could disturb it, and the unfixed code allocates about 25 MB, so the margin is large. I don't count it as a finding.\n\nThe PR description already puts #1085, #1086, #1106 and #1093 out of scope, so I didn't report them.\n\nNothing in the repo was changed. I wrote the review report to `/tmp/DIFFERENTIAL_REVIEW_PR1.md`, outside the repo.",
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/tidepool/runs/opus-5-5-2026-09-29/tob-diff-review/attempt-QEEWPw/repo",
+  "finishedAt": "2026-09-29T02:19:01.329Z"
+}

@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "tool": "anthropic-pr-review",
+  "label": "Anthropic pr-review-toolkit",
+  "source": "pr-review-toolkit@claude-plugins-official",
+  "prompt": "/pr-review-toolkit:review-pr all\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 151747,
+  "reportedCostUsd": 0.7523958,
+  "reportedUsage": {
+    "input_tokens": 28,
+    "cache_creation_input_tokens": 53660,
+    "cache_read_input_tokens": 703819,
+    "output_tokens": 9112,
+    "output_tokens_details": {
+      "thinking_tokens": 5512
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 53660,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1930,
+        "cache_read_input_tokens": 64067,
+        "cache_creation_input_tokens": 181,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 181
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 28,
+      "outputTokens": 9112,
+      "cacheReadInputTokens": 703819,
+      "cacheCreationInputTokens": 53660,
+      "webSearchRequests": 0,
+      "costUSD": 0.7523958,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 5512,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 14,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "4e02a387-9675-47c3-a8a9-ca3238e4338c",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 28,
+    "output": 9112,
+    "thinking": 5512,
+    "cacheRead": 703819,
+    "cacheCreation": 53660,
+    "costUsd": 0.7523958,
+    "sessions": 1,
+    "models": {
+      "claude-opus-5-5": 0.7523958
+    },
+    "bySession": {
+      "4e02a387-9675-47c3-a8a9-ca3238e4338c": {
+        "costUsd": 0.7523958,
+        "startTime": 1790646305544,
+        "tokens": 766619
+      }
+    },
+    "rawMessages": 26,
+    "rawOutput": 19852,
+    "rawCacheRead": 1316113,
+    "since": 0,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-ironweave-runs-opus-5-5-2026-09-29-anthropic-pr-review-attempt-qhE8ex-repo",
+    "total": 766619
+  },
+  "result": "The fix looks correct. I found nothing critical or important. There are six low-severity items and one issue with the PR description. I did the review myself rather than through the review agents, and I didn't build or run anything.\n\n**Why the fix holds up.** `send()` now refuses frames once `_stream_closing` is set (`src/rpc/rpc.cc:293`). `stream_close()` waits for the queue to drain before it closes the write buffer (`src/rpc/rpc.cc:562-570`). That wait adds no new stall, because the sink's end-of-stream frame has already been sent and awaited before `close_sink()` runs. Error paths still resolve:\n- `stop_send_loop()` now finds `_outgoing_queue_ready` already resolved, but it still waits for the drain through `_sink_closed_future`.\n- Entries it withdraws resolve the drain with an exception, which `then_wrapped` ignores.\n- `stop_send_loop()` sets `_error` before anything else, so it can't overlap with `stream_close()` in a harmful way.\n\nThe test's `hooks.back()` choice is deterministic: `make_stream_sink()` waits for the parent connection to finish negotiating, then for the stream connection.\n\n## Suggestions (low)\n\n1. **The test never checks that the frame was refused** (`tests/unit/rpc_test.cc:2016-2020`). The `try`/`catch (closed_error)` passes whether or not `closed_error` is thrown. If a regression made `send()` silently drop the frame, or complete it without calling `put()`, the test would still pass. A `BOOST_REQUIRE_THROW` / `BOOST_CHECK_EXCEPTION` on `closed_error` would state the contract.\n\n2. **Server-side hook is untested** (`tests/unit/rpc_test.cc:1967`). The server's stream connection gets the same `[this] { return send({}); }` hook (`src/rpc/rpc.cc:1103`). `server_factory.hooks` is filled but never fired, so only the client side of the window is exercised. The fix is in the shared `connection::send()`, so the risk is small.\n\n3. **The test won't compile below API level 9** (`tests/unit/rpc_test.cc:1883`). `put(std::span<temporary_buffer<char>>)` only exists when `SEASTAR_API_LEVEL >= 9`, and CMake still lists 7 as a selectable value. `tls_test.cc:919` guards the same override with `#if`. `output_stream_test.cc:68` doesn't, and no CI job builds at an old level, so this is minor.\n\n4. **Doc overstates when the connection shuts down** (`doc/rpc-streaming.md:115`). \"The stream's connection is shut down only once both halves are closed\" contradicts the same file's line 49, which says closing the client aborts the stream. A connection error or server stop also shuts it down. The same \"is shut down once…\" wording is in the `sink` doxygen at `include/seastar/rpc/rpc_types.hh:339-342`. Suggested wording: \"…is shut down normally once both halves are closed\".\n\n5. **One code comment is slightly inaccurate** (`src/rpc/rpc.cc:559-561`). \"Nothing else waits for `_outgoing_queue_ready` from here on\" isn't quite true: `stop_send_loop()` still does `when_all(std::move(_outgoing_queue_ready), …)`. It now gets the ready future put there by `std::exchange`, and the real drain is observed through `_sink_closed_future`. The comment should say that.\n\n6. **Nit: `const_cast` in the test factory** (`tests/unit/rpc_test.cc:1953`). It mutates `hooks` from a `const` override. Declaring `hooks` as `mutable` is cleaner. It isn't undefined behavior, because the objects themselves aren't `const`.\n\n## PR description (not code)\n\n- **Attribution line.** The body ends with \"🤖 Generated with Claude Code\", which your global rules say must never appear.\n- **Issue references in the fork.** `Fixes #3663` / `Refs #3653` are upstream Seastar numbers. In `dkropachev/ironweave` they resolve against this repo, and `Fixes` would auto-close whatever issue #3663 is here on merge.\n- **Internal ticket links.** The body links internal `CUSTOMER-*` Jira tickets.\n\n**Strengths.** The window is reproduced deterministically by parking `data_sink::close()`, rather than depending on timing. The explanation of why `_error` can't be set early is correct against `stop()` and `stop_send_loop()`. The commits are split so the fix and test can be backported on their own.\n\n**Recommended action.** Tighten the test assertion (1) and fix the PR description; the rest is optional.",
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/ironweave/runs/opus-5-5-2026-09-29/anthropic-pr-review/attempt-qhE8ex/repo",
+  "finishedAt": "2026-09-29T01:47:37.286Z"
+}

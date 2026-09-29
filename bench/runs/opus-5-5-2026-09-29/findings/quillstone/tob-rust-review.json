@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/quillstone/tob-rust-review",
+  "target": "quillstone",
+  "tool": "tob-rust-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "730aaad89ea28b80656f70be7c4090a5313997620cbbbe6deb08b09b92d31627",
+  "label": "Trail of Bits rust-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Failed USE keyspace permanently empties pool instead of keeping connection",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "A failed USE now drops the new connection instead of adding it to the pool, and current_keyspace is set before USE runs and never cleared on failure, so one bad use_keyspace call or a dropped keyspace causes every refill to fail USE and drain the pool to empty, marking the node Broken/unreachable."
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1003,
+      "title": "Shard-full discard path leaks the total-connections metric",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "When a shard-aware connection lands on a shard that is already full, the Connection is dropped without calling dec_total_connections(), even though it was counted on open, causing the gauge to leak upward especially behind NAT."
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 312,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19791,
+      "webSearchRequests": 0,
+      "costUSD": 0.0864928,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:52:37.673Z"
+}

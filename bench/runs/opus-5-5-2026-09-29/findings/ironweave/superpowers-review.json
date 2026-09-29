@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/ironweave/superpowers-review",
+  "target": "ironweave",
+  "tool": "superpowers-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "032a94b0add5d576cfaaaacc78ecb199a230863cc42bdf430508b54ce7c35938",
+  "label": "Superpowers requesting-code-review",
+  "findings": [
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2006,
+      "title": "Refusal error is never asserted, only inferred indirectly",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The catch (const rpc::closed_error&) swallows the error without recording it; the test relies only on the indirect put_after_close flag, which depends on the batch-flush poller running within 10 yield()s, so a regression could pass if the poller runs late.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1985,
+      "title": "Assertion/exception failure inside parked window aborts process instead of failing test",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "If BOOST_REQUIRE_EQUAL(hooks.size(), 2u) fails, or the hook throws anything other than closed_error, release_close is never set and sink_closed is never awaited, causing ~sink_impl to hit SEASTAR_ASSERT(sink_closed()) and abort instead of failing the test cleanly.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 110,
+      "title": "Doc claim that reading until throw closes the source is wrong",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The doc (and the source doc in include/seastar/rpc/rpc_types.hh:384-389) says reading until it throws closes the stream, but only failures from stream_receive() call close_source(); an exception from unmarshall() in process_one_buffer reaches the caller without closing the source, so a reader that stops at that throw leaves the stream half open.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "title": "Doc statement that connection shuts down only when both halves close contradicts itself",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "\"The stream's connection is shut down only once both halves are closed\" is contradicted elsewhere in the same doc: connection errors and abort_all_streams() also shut it down, and line 49 says closing the client aborts streams; wording should be changed to something like \"normally shuts down once\".",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "Test hooks recorded via const_cast instead of a mutable member",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "Test negotiate() records hooks through a const_cast; making hooks a mutable member would be cleaner.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description ends with a Claude Code attribution line",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The PR description ends with \"🤖 Generated with Claude Code\", which the user's global instructions forbid.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Fixes/Refs issue references resolve to the wrong repo",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "In the fork dkropachev/ironweave, \"Fixes #3663\" and \"Refs #3653\" resolve to, and on merge auto-close, this repo's issues rather than upstream Seastar's; use scylladb/seastar#3663 if upstream is meant.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 4,
+      "outputTokens": 2580,
+      "cacheReadInputTokens": 62069,
+      "cacheCreationInputTokens": 21851,
+      "webSearchRequests": 0,
+      "costUSD": 0.1256258,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 276,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:40:54.881Z"
+}

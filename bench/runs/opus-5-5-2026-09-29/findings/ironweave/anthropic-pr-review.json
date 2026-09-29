@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+  "target": "ironweave",
+  "tool": "anthropic-pr-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "6b455d1de0ff422510346b99f8d375aed3aac165e91bd1b36d157a11f60e17cd",
+  "label": "Anthropic pr-review-toolkit",
+  "findings": [
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "title": "Test never verifies frame was refused; try/catch passes either way",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The try/catch(closed_error) block passes whether or not closed_error is thrown, so a regression where send() silently drops the frame or completes without calling put() would still pass the test; a BOOST_REQUIRE_THROW/BOOST_CHECK_EXCEPTION on closed_error would state the contract."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1967,
+      "title": "Server-side hook path is untested",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The server's stream connection gets the same hook via connection::send() (src/rpc/rpc.cc:1103) but server_factory.hooks is filled and never fired, so only the client side of the window is exercised; risk is small since the fix is in shared connection::send()."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "title": "Test won't compile below API level 9",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "put(std::span<temporary_buffer<char>>) only exists when SEASTAR_API_LEVEL >= 9, but CMake still lists 7 as a selectable value; tls_test.cc guards the same override with #if while this test and output_stream_test.cc don't, though no CI job builds at an old level so it's minor."
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "title": "Doc overstates when the connection shuts down",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The statement \"The stream's connection is shut down only once both halves are closed\" contradicts line 49 of the same file, which says closing the client aborts the stream; a connection error or server stop also shuts it down. The same wording issue appears in the sink doxygen at include/seastar/rpc/rpc_types.hh:339-342. Suggested fix: \"...is shut down normally once both halves are closed\"."
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "title": "Code comment slightly inaccurate about who waits on _outgoing_queue_ready",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment \"Nothing else waits for _outgoing_queue_ready from here on\" isn't quite true because stop_send_loop() still does when_all(std::move(_outgoing_queue_ready), ...); it now gets the ready future via std::exchange, and the real drain is observed through _sink_closed_future. The comment should say that."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1953,
+      "title": "const_cast used to mutate hooks from a const override",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The test factory uses const_cast to mutate hooks from a const override; declaring hooks as mutable would be cleaner.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description ends with Claude Code attribution line",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The PR body ends with \"🤖 Generated with Claude Code\", which the user's global rules say must never appear."
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Issue references resolve against the wrong repo in the fork",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "\"Fixes #3663\" / \"Refs #3653\" are upstream Seastar issue numbers, but in dkropachev/ironweave they resolve against this repo, and \"Fixes\" would auto-close whatever issue #3663 is here on merge."
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description links internal Jira tickets",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The PR body links internal CUSTOMER-* Jira tickets."
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 6,
+      "outputTokens": 2930,
+      "cacheReadInputTokens": 100929,
+      "cacheCreationInputTokens": 28057,
+      "webSearchRequests": 0,
+      "costUSD": 0.1617258,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 237,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:38:48.132Z"
+}

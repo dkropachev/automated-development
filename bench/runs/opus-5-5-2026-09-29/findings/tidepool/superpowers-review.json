@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/tidepool/superpowers-review",
+  "target": "tidepool",
+  "tool": "superpowers-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "e0df3cec4023bcbe3c3414e5eb659fa6ab98b8db0fd61cb719b54b4e52aa8076",
+  "label": "Superpowers requesting-code-review",
+  "findings": [
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description incorrectly claims every new test fails on pristine code",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The PR description says 'Every new test fails against pristine marshal.go/helpers.go', but TestUnmarshalVectorAcceptsWellFormedPayloads, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType, and the 'concrete slice'/'resolvable element type' subtests of the no-Go-type test all still pass on the old code, so the description should distinguish regression guards from tests that actually fail before the fix.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 0,
+      "title": "Allocation-based test can fail spuriously due to unrelated goroutine allocations",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating compares process-wide runtime.MemStats.TotalAlloc against a 128 KB limit, and goroutines from other tests in the package can allocate during measurement and push it over that limit; testing.AllocsPerRun or a looser limit would be more reliable, though the large margin (~25MB vs ~3.5KB) makes a false failure unlikely.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 998,
+      "title": "New length check changes error message for non-pointer/wrong-typed destinations before…",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The new check runs before the destination type is checked, so a short payload scanned into a non-pointer or wrong-typed destination now returns 'N dimensions do not fit in M bytes' instead of 'can not unmarshal into non-pointer ...'; this second error-message change isn't mentioned in the PR description, though it's harmless.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 1581,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19849,
+      "webSearchRequests": 0,
+      "costUSD": 0.0994148,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 882,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:55:12.230Z"
+}

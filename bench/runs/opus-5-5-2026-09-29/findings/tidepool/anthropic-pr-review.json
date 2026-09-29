@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/tidepool/anthropic-pr-review",
+  "target": "tidepool",
+  "tool": "anthropic-pr-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "3a2e19ae11d5e225556b735d0c51f2535387804300d44029fe8c0a0021ee1d56",
+  "label": "Anthropic pr-review-toolkit",
+  "findings": [
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description links to issues that don't exist in this repo",
+      "severity": "high",
+      "kind": "docs",
+      "claim": "Issues #1085, #1086, #1091, #1093, #1106 linked in the PR description all return 'Could not resolve' in dkropachev/tidepool, and the Refs: URL for issue 1091 points to that missing issue; as a result the claimed prerequisite '#1093, which rejects dim < 1' isn't present, and the three 'Out' items (nested vector decoding into interface{}, trailing bytes, negative vint length) aren't tracked anywhere.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1006,
+      "title": "Stale comment claims empty non-nil payloads with Dimensions>0 still fall through to…",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment says 'nil/empty and dim=0 fall through to the generic path,' but the new bound at marshal.go:998-1002 now rejects an empty non-nil payload with Dimensions > 0 before that point; only nil and dim=0 still fall through.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 585,
+      "title": "Test comment claims 32-bit coverage that can't currently be exercised",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment says the word-size-based cases make 'the wrap land on a 32-bit target too,' but the package can't currently be built for 32-bit (GOARCH=386 go vet fails in serialization/varint/marshal_ints.go:126 due to int56 constants overflowing int); the comment claims coverage nobody can run.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body includes forbidden Claude Code attribution line",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The PR body ends with '🤖 Generated with Claude Code,' which the user's global instructions forbid from appearing in PR descriptions.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 4,
+      "outputTokens": 3564,
+      "cacheReadInputTokens": 62108,
+      "cacheCreationInputTokens": 22994,
+      "webSearchRequests": 0,
+      "costUSD": 0.14004560000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2109,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:53:19.406Z"
+}

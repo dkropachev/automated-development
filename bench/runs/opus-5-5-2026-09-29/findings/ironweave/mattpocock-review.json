@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+  "target": "ironweave",
+  "tool": "mattpocock-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "de4facdc491087ba665ef33573185d656905e21595287194c631c76549737f3e",
+  "label": "Matt Pocock code-review",
+  "findings": [
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "title": "Test never asserts send() actually fails with closed_error",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The PR says send() fails with closed_error from then on, but the try/catch (closed_error) block also passes if the send succeeds; the contract is only indirectly checked via put_after_close, which depends on the batch-flush poller running within 10 yields. BOOST_REQUIRE_THROW(..., rpc::closed_error) would actually pin the contract."
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Parent client's unflushed compressor frame left unexplained by the fix",
+      "severity": "medium",
+      "kind": "question",
+      "claim": "The PR description says the same 141-byte compressor frame was sitting unflushed on both the stream connection and its parent client, but the fix only covers stream connections via stream_close(); it doesn't say whether the parent's pending flush is a separate bug or harmless."
+    },
+    {
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 305,
+      "title": "New _stream_closing flag adds a third lifecycle flag send() must check",
+      "severity": "low",
+      "kind": "design",
+      "claim": "_stream_closing joins _error, _sink_closed, _source_closed and _sink_closed_future, and send() must now check two flags; a can_send() predicate or a single state enum would keep future callers from forgetting one (possible Primitive Obsession or Data Clumps)."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1877,
+      "title": "Pass-through socket wrappers duplicate loopback_socket.hh implementations",
+      "severity": "low",
+      "kind": "style",
+      "claim": "About 60 lines of pass-through socket wrappers in rpc_test.cc:1877-1937 overlap with the implementations already in tests/unit/loopback_socket.hh (possible Duplicated Code)."
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 557,
+      "title": "Ordering invariant on _outgoing_queue_ready enforced only by a comment",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The claim that nothing else waits for _outgoing_queue_ready from here on is guaranteed only by a comment; any future writer of _outgoing_queue_ready, such as enqueue_zero_frame() at rpc.cc:877, has to independently know about it."
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "stop() now blocks waiting for the outgoing queue to drain, undocumented",
+      "severity": "low",
+      "kind": "design",
+      "claim": "If the front entry is stuck in send_entry() because the peer isn't reading, stream_close() blocks until that write finishes, and stream sends have no timeout; this is arguably better than the old behavior but the PR doesn't mention it."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "title": "Test can hang instead of failing on regression",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The wait on close_entered_cv has no timeout, and release_close.set_value() is skipped if the hook throws anything other than closed_error, so a regression hangs until the ctest timeout rather than reporting a failure."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "title": "hooks recorded via const_cast instead of mutable, inconsistent with existing style",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The existing cfactory in the same file (rpc_test.cc:330) declares its state mutable instead of using const_cast; hooks should follow that existing style and be mutable too."
+    },
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 337,
+      "title": "Duplicate comments left after adding new \\brief blocks",
+      "severity": "low",
+      "kind": "style",
+      "claim": "New /// \\brief blocks were added above the old // send data Out... and // receive data In... comments (also at :384-392) without removing or merging the old lines, leaving two comments per class."
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 109,
+      "title": "Doc understates that dropping an unclosed sink crashes via assertion",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "\"Dropping an unclosed sink is an error\" understates that it's actually a SEASTAR_ASSERT crash in ~sink_impl (include/seastar/rpc/rpc_impl.hh:935); the doc should say so explicitly."
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "title": "Doc sentence about when the stream connection is shut down is inaccurate",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "\"The stream's connection is shut down only once both halves are closed\" is wrong: the connection is also shut down on a peer or IO error, and by abort_all_streams() when the parent client closes; text a few lines above already says this correctly."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2001,
+      "title": "Reference taken into a vector that can be reallocated",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "auto& stream_send_empty_frame = client_factory.hooks.back() points into a vector that any later negotiation's push_back could reallocate; it's safe today but should be a copy instead of a reference."
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description issue references point at nonexistent/wrong-repo issues",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "\"Fixes #3663\" points at nothing since no #3663 exists in dkropachev/ironweave; the reference needs to be scylladb/seastar#3663, and the same applies to \"Refs #3653\"."
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 49,
+      "title": "New text appended to an already overlong line",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "New text was appended to an already long line, while the rest of the file wraps at about 80 columns."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1870,
+      "title": "Unclear helper names that don't convey their close-parking/late-put-recording behavior",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "test_sink_state and test_data_sink_impl (also at :1877) don't indicate that they park close() and record late put() calls."
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 4446,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 20822,
+      "webSearchRequests": 0,
+      "costUSD": 0.13195679999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2052,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:40:22.085Z"
+}

@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/quillstone/ce-code-review",
+  "target": "quillstone",
+  "tool": "ce-code-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "6c2b776573e964ffaa27f6f67765a35454366744458c825e8efd3ab42a707fef",
+  "label": "Compound Engineering ce-code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Failed/dropped keyspace turns into a permanent pool-refill outage loop",
+      "severity": "blocker",
+      "kind": "bug",
+      "claim": "PoolRefiller::use_keyspace saves current_keyspace before knowing if USE succeeded; after a failed use_keyspace or a DROPped keyspace, every new connection fails USE, gets dropped, and refill is rescheduled endlessly, eventually leaving every node's pool Broken(UseKeyspaceError) and failing all requests to that node, whereas before this PR the connection was kept with just a warn!.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Failed USE for a stale keyspace discards the connection instead of retrying with the…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The error arm never compares evt.keyspace_name with current_keyspace (unlike the Ok arm), so if USE ks1 fails after the user already switched to ks2, the connection is thrown away and counted as an error instead of being retried with ks2.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "title": "Keyspace setup failures now logged only at debug! instead of warn!",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The old code logged keyspace setup failures with warn!, but the new code logs only at debug!, so combined with the endless drop-and-refill loop (P1), nothing shows up at default log levels.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 994,
+      "title": "Extra shard-aware-port connection dropped without decrementing total_connections metric",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "In the branch handling an extra connection that arrived through the shard-aware port, the connection is dropped without calling dec_total_connections, so total_connections keeps growing in NAT or shard-mismatch setups; this predates the PR and makes the PR's 'metrics are balanced' claim incomplete.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description omits three of four commits fixing connection-metric accounting",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Three of the four commits (de164845, 0d91aa54, 617139df) fix connection-metric accounting when the pool clears connections, but the PR description only discusses keyspace setup.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "title": "No double or missed decrement in the new connection-clearing code",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Checked that maybe_reshard decrements and then clears, and remove_connection finds nothing to remove afterwards, so there is no double or missed decrement.",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "title": "Reordering the keyspace check before resharding has no correctness impact",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Checked that moving the keyspace check before resharding does not affect correctness.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "New ConnectionSetupError::Keyspace variant is safe for callers",
+      "severity": "low",
+      "kind": "design",
+      "claim": "ConnectionError is #[non_exhaustive], so adding the new variant is safe for callers.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "New tests pass reliably with and without the metrics feature",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The new tests pass with and without --features metrics and none are flaky; the one observed failure in that module (many_connections) needs a live node and is unrelated.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 2716,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19085,
+      "webSearchRequests": 0,
+      "costUSD": 0.10770880000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1230,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:49:30.056Z"
+}

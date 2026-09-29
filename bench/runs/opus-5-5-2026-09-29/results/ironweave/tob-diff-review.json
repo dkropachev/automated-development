@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/ironweave/tob-diff-review",
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "tool": "tob-diff-review",
+  "label": "Trail of Bits differential-review",
+  "source": "differential-review@trailofbits",
+  "prompt": "/differential-review:diff-review https://github.com/dkropachev/ironweave/pull/1\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 120119,
+  "reportedCostUsd": 0.699416,
+  "reportedUsage": {
+    "input_tokens": 22,
+    "cache_creation_input_tokens": 54589,
+    "cache_read_input_tokens": 467380,
+    "output_tokens": 8457,
+    "output_tokens_details": {
+      "thinking_tokens": 6338
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 54589,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 2449,
+        "cache_read_input_tokens": 62006,
+        "cache_creation_input_tokens": 3171,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 3171
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 22,
+      "outputTokens": 8457,
+      "cacheReadInputTokens": 467380,
+      "cacheCreationInputTokens": 54589,
+      "webSearchRequests": 0,
+      "costUSD": 0.699416,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 6338,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 12,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "8e3f2d5b-5183-409d-a2ad-046205d2c865",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 22,
+    "output": 8457,
+    "thinking": 6338,
+    "cacheRead": 467380,
+    "cacheCreation": 54589,
+    "costUsd": 0.699416,
+    "sessions": 1,
+    "models": {
+      "claude-opus-5-5": 0.699416
+    },
+    "bySession": {
+      "8e3f2d5b-5183-409d-a2ad-046205d2c865": {
+        "costUsd": 0.699416,
+        "startTime": 1790646971390,
+        "tokens": 530448
+      }
+    },
+    "rawMessages": 20,
+    "rawOutput": 17881,
+    "rawCacheRead": 868052,
+    "since": 0,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-ironweave-runs-opus-5-5-2026-09-29-tob-diff-review-attempt-Jqnouc-repo",
+    "total": 530448
+  },
+  "result": "I found no correctness or security bug in the fix itself. The findings are one doc inaccuracy and one test gap. I didn't build or run `rpc_test`, and I didn't write the skill's report file because you asked for a read-only review.\n\n**Why the fix holds up:**\n- **Race closed:** setting `_stream_closing` in `stream_close()` stops the unguarded `send_empty_frame` hook from writing between `write_buf.close()` and `stop()`.\n- **Queue drain can't hang on negotiation:** `make_stream_sink` and server handlers only hand out sinks after negotiation, so the wait on `_outgoing_queue_ready` never waits on `_negotiated`.\n- **Error paths:** a failed entry leaves `queue_drained` exceptional, and it is ignored correctly. `stop_send_loop()` still waits for `_sink_closed_future`, which is chained after the drain, so taking the old `_outgoing_queue_ready` loses nothing. A stuck front entry blocks no more than the old `write_buf.close()` already did, and `shutdown_output()` unblocks it.\n- **Other writers:** every other write path either runs before negotiation or already goes through `send()`.\n\n**Findings**\n\n1. `include/seastar/rpc/rpc_types.hh:386` and `doc/rpc-streaming.md:110` — **\"Reading until it throws closes the source\" isn't true** — Low/Medium (doc correctness).\n   `source_impl::operator()` (`include/seastar/rpc/rpc_impl.hh:945-982`) only calls `close_source()` when `stream_receive()` fails or on eof. If `unmarshall()` throws inside `process_one_buffer` (for example, on a malformed or mismatched payload), the exception reaches the caller but `_source_closed` stays false. An application that follows the new contract (\"read until eof or error\") stops reading, `stream_close()` never runs, and the stream connection is never shut down. That is exactly the leak this doc is meant to prevent. The same applies to the sentence \"there is no other way to do it\" in the header. Either the doc should say only eof or a receive error counts, or `unmarshall` failures should also close the source.\n\n2. `tests/unit/rpc_test.cc:1965` (`test_stream_send_after_stream_close`) — **The queue-drain half of the fix is not tested** — Low (test coverage).\n   The test only fires the hook after `stream_close()` has set `_stream_closing`, so it covers the `send()` refusal. It never has an entry accepted before the flag and still queued when the buffer is closed. The `std::exchange(_outgoing_queue_ready, …)` / `then_wrapped` change (`src/rpc/rpc.cc:562-570`) could be reverted and the test would still pass. It needs a case where the hook fires, or an entry is left in flight, just before `sink.close()` reaches `stream_close()`.",
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/ironweave/runs/opus-5-5-2026-09-29/tob-diff-review/attempt-Jqnouc/repo",
+  "finishedAt": "2026-09-29T01:58:11.499Z"
+}
