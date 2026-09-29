@@ -48,8 +48,8 @@ recheck quota before resuming that missing cell.
 Every paid Fable review, extraction, and judgement call runs a structured zero-spend quota gate
 immediately before its model process. The gate resolves, versions, and hashes the executable
 selected by `CLAUDE`, then the paid stage launches that exact realpath. It permits the call only
-when the current session is at most 50%, the all-model week is at most 90%, and the Fable week is
-at most 90%; missing or ambiguous quota data fails closed. Before the probe, initialize the Fable
+when the current session, all-model week, and Fable week are each at most 95%; missing or ambiguous
+quota data fails closed. Before the probe, initialize the Fable
 manifest with a zero-call run filtered to a nonexistent cell, then verify its pins, frozen inputs,
 and 19-cell scope against the Opus 5.5 manifest. Run
 `make bench-probe RUN=fable-5-1-2026-09-29`; it performs its own fresh authorization and immediately

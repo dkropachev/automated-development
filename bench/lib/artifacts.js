@@ -1028,7 +1028,11 @@ function parseQuotaLedger(file, runId) {
       throw new Error(`quota ledger line ${index + 1} has invalid metadata`)
     }
     const labels = ['Current session', 'Current week (all models)', 'Current week (Fable)']
-    const expectedThresholds = [50, 90, 90]
+    const thresholdPolicies = [[50, 90, 90], [95, 95, 95]]
+    const recordedThresholds = labels.map((name) => record.thresholds && record.thresholds[name])
+    if (!thresholdPolicies.some((policy) => JSON.stringify(policy) === JSON.stringify(recordedThresholds))) {
+      throw new Error(`quota ledger line ${index + 1} has unsupported thresholds`)
+    }
     for (let offset = 0; offset < labels.length; offset += 1) {
       const name = labels[offset]
       const reset = record.resetsAt && record.resetsAt[name]
@@ -1036,7 +1040,7 @@ function parseQuotaLedger(file, runId) {
         (name === 'Current session' && record.usage && record.usage[name] === 0 && reset === null)
       if (!record.usage || typeof record.usage[name] !== 'number' || !Number.isFinite(record.usage[name]) ||
           record.usage[name] < 0 || record.usage[name] > 100 || !record.thresholds ||
-          record.thresholds[name] !== expectedThresholds[offset] || !record.resetsAt || !resetIsValid) {
+          !record.resetsAt || !resetIsValid) {
         throw new Error(`quota ledger line ${index + 1} has invalid ${name} evidence`)
       }
     }
@@ -1045,7 +1049,7 @@ function parseQuotaLedger(file, runId) {
         throw new Error(`quota ledger line ${index + 1} has unexpected ${field} labels`)
       }
     }
-    const allowed = labels.every((name, offset) => record.usage[name] <= expectedThresholds[offset])
+    const allowed = labels.every((name, offset) => record.usage[name] <= recordedThresholds[offset])
     if (record.allowed !== allowed) throw new Error(`quota ledger line ${index + 1} has inconsistent allowed decision`)
     if (record.kind === 'final') {
       if (record.nextCall !== null || record.stage !== null || record.target !== null || record.tool !== null) {
