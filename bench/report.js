@@ -446,7 +446,7 @@ if (!cohort.legacy) {
   P('## Analysis\n')
   P('No hand-written analysis is attached to this cohort. `bench/analysis.md` describes only the immutable `legacy` results.\n')
 }
-const rendered = out.join('\n') + '\n'
+const rendered = out.join('\n').trimEnd() + '\n'
 if (writeReport) {
   const name = cohort.legacy ? 'review-bakeoff.md' : `review-bakeoff-${cohort.runId}.md`
   const file = path.join(ROOT, '..', 'docs', name)

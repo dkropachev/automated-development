@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/ironweave/builtin-code-review",
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "tool": "builtin-code-review",
+  "label": "Claude Code /code-review",
+  "source": "built-in",
+  "prompt": "/code-review 1\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 116396,
+  "reportedCostUsd": 0.5307734,
+  "reportedUsage": {
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "input_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 0,
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "",
+    "iterations": [],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 18,
+      "outputTokens": 8505,
+      "cacheReadInputTokens": 353532,
+      "cacheCreationInputTokens": 57979,
+      "webSearchRequests": 0,
+      "costUSD": 0.5307734,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 6611,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 0,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "bb48f80e-e7fe-4e70-935a-68cd3364ccb7",
+  "isError": false,
+  "transcriptUsage": {
+    "input": 18,
+    "output": 8505,
+    "thinking": 6611,
+    "cacheRead": 353532,
+    "cacheCreation": 57979,
+    "costUsd": 0.5307734,
+    "sessions": 1,
+    "models": {
+      "claude-opus-5-5": 0.5307734
+    },
+    "bySession": {
+      "bb48f80e-e7fe-4e70-935a-68cd3364ccb7": {
+        "costUsd": 0.5307734,
+        "startTime": 1790647149154,
+        "tokens": 420034
+      }
+    },
+    "rawMessages": 16,
+    "rawOutput": 11256,
+    "rawCacheRead": 651836,
+    "since": 0,
+    "subagentTranscripts": 1,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-ironweave-runs-opus-5-5-2026-09-29-builtin-code-review-attempt-tmZqpW-repo",
+    "total": 420034
+  },
+  "result": "I found no issues in PR #1 that I'm confident are real bugs, so the finding list is empty.\n\nWhat I checked:\n\n- **Every path into the drain wait:** `stream_close()` now waits on the old `_outgoing_queue_ready` (`src/rpc/rpc.cc:562`). Frames that `send()` accepted before `_stream_closing` was set are written before the buffer is closed. Withdrawn entries and failed entries still resolve that wait. If `stop_send_loop()` runs at the same time, it is still serialized through `_sink_closed_future`.\n- **Hangs before negotiation:** the wait could hang if `stream_close()` ran before negotiation finished. On the server a stream is only registered after negotiation. On the client, `sink::close()` runs `close_sink()` only after the eof `send()` resolves, and that send waits for negotiation itself. I found no way in.\n- **Back-pressure:** a peer that stops reading can stall the drain. That is the same as before, since the old `write_buf.close()` blocked the same way.\n- **The new flag:** it is only set on stream connections, and only once, because of the `!error()` guard.\n\nOne thing I couldn't settle: the new test asserts `client_factory.hooks.size() == 2` before any data has gone over the stream (`tests/unit/rpc_test.cc`). That assumes the client-side stream connection has already negotiated when `call(...)` returns. I didn't confirm that ordering is guaranteed, so the check could be flaky, but I'm not confident enough to call it a bug.",
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/ironweave/runs/opus-5-5-2026-09-29/builtin-code-review/attempt-tmZqpW/repo",
+  "finishedAt": "2026-09-29T02:01:05.542Z"
+}

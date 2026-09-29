@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/ironweave/tob-diff-review",
+  "target": "ironweave",
+  "tool": "tob-diff-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "7725507bbc70e1c1325edbef9148c8e4a967bbdff0aaff4a4adf609bd72c96b6",
+  "label": "Trail of Bits differential-review",
+  "findings": [
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 386,
+      "title": "Doc claims reading until throw closes the source, but unmarshall failures don't",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The doc (and doc/rpc-streaming.md:110) says reading until it throws closes the source and there is no other way to do it, but source_impl::operator() only calls close_source() on stream_receive failure or eof; if unmarshall() throws inside process_one_buffer, the exception propagates while _source_closed stays false, so an application following the documented contract leaks the stream connection.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1965,
+      "title": "test_stream_send_after_stream_close doesn't cover the queue-drain half of the fix",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test only fires the hook after stream_close() has set _stream_closing, covering only the send() refusal path; it never has an entry accepted before the flag and still queued when the buffer closes, so the std::exchange(_outgoing_queue_ready, ...)/then_wrapped change in src/rpc/rpc.cc:562-570 could be reverted and the test would still pass.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 4,
+      "outputTokens": 1433,
+      "cacheReadInputTokens": 61899,
+      "cacheCreationInputTokens": 20694,
+      "webSearchRequests": 0,
+      "costUSD": 0.1094938,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 493,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:41:18.125Z"
+}

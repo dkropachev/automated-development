@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/quillstone/tob-rust-review",
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "tool": "tob-rust-review",
+  "label": "Trail of Bits rust-review",
+  "source": "rust-review@trailofbits",
+  "prompt": "/rust-review:rust-review\n\nScope the audit strictly to the files this pull request changes; the rest of the crate is out of scope.\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 84264,
+  "reportedCostUsd": 0.7783713999999999,
+  "reportedUsage": {
+    "input_tokens": 14,
+    "cache_creation_input_tokens": 70121,
+    "cache_read_input_tokens": 387137,
+    "output_tokens": 6996,
+    "output_tokens_details": {
+      "thinking_tokens": 4739
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 70121,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1467,
+        "cache_read_input_tokens": 78859,
+        "cache_creation_input_tokens": 1850,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1850
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 14,
+      "outputTokens": 6996,
+      "cacheReadInputTokens": 387137,
+      "cacheCreationInputTokens": 70121,
+      "webSearchRequests": 0,
+      "costUSD": 0.7783713999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 4739,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 8,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "7164e46a-69f7-460e-b665-9bcb0cf6a62c",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 14,
+    "output": 6996,
+    "thinking": 4739,
+    "cacheRead": 387137,
+    "cacheCreation": 70121,
+    "costUsd": 0.7783713999999999,
+    "sessions": 1,
+    "models": {
+      "claude-opus-5-5": 0.7783713999999999
+    },
+    "bySession": {
+      "7164e46a-69f7-460e-b665-9bcb0cf6a62c": {
+        "costUsd": 0.7783713999999999,
+        "startTime": 1790646180686,
+        "tokens": 464268
+      }
+    },
+    "rawMessages": 14,
+    "rawOutput": 13992,
+    "rawCacheRead": 774274,
+    "since": 0,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-quillstone-runs-opus-5-5-2026-09-29-tob-rust-review-attempt-b5GaEA-repo",
+    "total": 464268
+  },
+  "result": "PR #1 has two confirmed findings, one high and one low. I read the diff and the surrounding code in both changed files myself instead of running the plugin's multi-worker pipeline. Nothing was edited or posted.\n\n**1. HIGH: one bad or dropped keyspace permanently empties every pool** (`scylla/src/network/connection_pool.rs:900-911`, with `start_setting_keyspace_for_connection` at `:1341-1345`)\n\nA failed `USE` now drops the new connection instead of adding it to the pool. But the refiller stores the keyspace before any `USE` has run (`use_keyspace`, `connection_pool.rs:1287`), and nothing clears it if the `USE` fails. `Session::use_keyspace` (`session.rs:2008`) behaves the same way.\n\nSo after `session.use_keyspace(\"typo\", false)`, or after the current keyspace is dropped, the user gets an error but every pool keeps `current_keyspace = \"typo\"`. From then on:\n- every refill opens a connection, fails `USE`, and drops it;\n- as the existing connections break, the pool drains to empty and stays that way (`had_error_since_last_refill` only lengthens the backoff);\n- `update_shared_conns` marks the pool `Broken(UseKeyspaceError)` and sends `ConnectivityChangeEvent::Lost`, so the node is reported unreachable.\n\nBefore this PR, such a connection was logged and kept, so queries naming their keyspace explicitly still worked. Now one bad `use_keyspace` call or one `DROP KEYSPACE` takes down the whole session. The PR doesn't separate lasting server errors (keyspace missing, name mismatch) from temporary ones, and doesn't clear `current_keyspace` when a `USE` fails.\n\n**2. LOW: one discard path still leaks the total-connections metric** (`scylla/src/network/connection_pool.rs:1003-1015`)\n\nCommit de164845 aims to decrement the total-connections gauge wherever a counted connection is thrown away, but it misses one branch. When a shard-aware connection lands on a shard that is already full (`else if evt.requested_shard.is_some()`), the `Connection` is dropped with no `dec_total_connections()`, even though `count_in_metrics` counted it when it opened. The gauge rises by one for every such miss, which is common behind NAT, where port rewriting defeats shard-aware connections, since each miss triggers another open. Every other discard path now decrements.\n\nI checked the other suspicious spots and they're fine: the one-time decrement on `USE` failure, the resharding count taken before `conns.clear()`, and the stale weak refs in `connection_errors`, which can't decrement twice.",
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/quillstone/runs/opus-5-5-2026-09-29/tob-rust-review/attempt-b5GaEA/repo",
+  "finishedAt": "2026-09-29T01:44:24.935Z"
+}

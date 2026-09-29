@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "createdAt": "2026-09-29T03:34:50.774Z",
+  "manifestSha256": "e523f1aeb220666ce5ccd6bbe34b859ea644e41ab616347b95256caed2c6b12b",
+  "sealSha256": "e3eef903220f60bc648e041bbc66c5bab78bcbc0eb1b07ffb7023add7e502090",
+  "findings": [
+    {
+      "file": "findings/ironweave/anthropic-pr-review.json",
+      "sha256": "9e532ebedf58a7f0337bcfa4c79d749ef2fd7e743a9fd2de38f69c2a9d4a2c4a"
+    },
+    {
+      "file": "findings/ironweave/builtin-code-review.json",
+      "sha256": "0144b47507ecf1482bba287bc6a054a32f99f2a97643d5297592a44ae4f3a861"
+    },
+    {
+      "file": "findings/ironweave/ce-code-review.json",
+      "sha256": "1595e12318ec94525ce5c42322f81a742eeb69c240876c47a4fe2f7f3922b8b1"
+    },
+    {
+      "file": "findings/ironweave/mattpocock-review.json",
+      "sha256": "bbad8a141146fa0d857b927ef61bb9c16cc74e023b74dea56cc6efefb4506fb9"
+    },
+    {
+      "file": "findings/ironweave/superpowers-review.json",
+      "sha256": "af12f90576c36562e6c457800a7073fe458c5360809177c12e1feab2817459f3"
+    },
+    {
+      "file": "findings/ironweave/tob-diff-review.json",
+      "sha256": "710c2f691c734fb05a375e8e22406cdc097f1142c9f99091422aba035b93e3d8"
+    },
+    {
+      "file": "findings/quillstone/anthropic-pr-review.json",
+      "sha256": "a98527c63b8ccafcd7ada79d213522becd237ef827730086edb65fc6050c28bb"
+    },
+    {
+      "file": "findings/quillstone/builtin-code-review.json",
+      "sha256": "2f618aaabcd71ff7d9f8d845b924f392c17b2a3fb0b7a6777fdfd87d1d4e545d"
+    },
+    {
+      "file": "findings/quillstone/ce-code-review.json",
+      "sha256": "658c273894ab4eb54095b328e8f20c6a384c585f33ea88af22a8ed928c71b263"
+    },
+    {
+      "file": "findings/quillstone/mattpocock-review.json",
+      "sha256": "438db31781e799c56fa885ac8035215a4fbfe40d2436d77d599691894b214f72"
+    },
+    {
+      "file": "findings/quillstone/superpowers-review.json",
+      "sha256": "623e45f5bde41e13de122657d311e5a91956bf4381feb4e025a9e6a608329e13"
+    },
+    {
+      "file": "findings/quillstone/tob-diff-review.json",
+      "sha256": "0d997550c8a32f5d08ef0e365a8609ff21d2dc990b036d51c33f84f9f91a9b17"
+    },
+    {
+      "file": "findings/quillstone/tob-rust-review.json",
+      "sha256": "e48eb0aeed1fe4e5e61a64a4d437210d1421f70555eeecd74694a557840094f8"
+    },
+    {
+      "file": "findings/tidepool/anthropic-pr-review.json",
+      "sha256": "dac69eef67641cf58d8da44b5a5104634feaa5a6c2234554ccdfcc3b04b58206"
+    },
+    {
+      "file": "findings/tidepool/builtin-code-review.json",
+      "sha256": "c4080dcec5d568b065b4f990912892ef7c02b327704cf4d6dfc53595fd774fd7"
+    },
+    {
+      "file": "findings/tidepool/ce-code-review.json",
+      "sha256": "1f064036ffaffa55523865124fce722886b35b87ef1d988be0f9e77118a1fdb5"
+    },
+    {
+      "file": "findings/tidepool/mattpocock-review.json",
+      "sha256": "4d245af95462929ee8846e028c59cd519a394b392c57611ccf89fd9366218b8d"
+    },
+    {
+      "file": "findings/tidepool/superpowers-review.json",
+      "sha256": "a6068474f4dde4b1068f1c6f34ab0a4c24c104ac1b5a68b32d775b9b328324bb"
+    },
+    {
+      "file": "findings/tidepool/tob-diff-review.json",
+      "sha256": "9d232e5bd39cc02f99cd1bc139bbc241d1ecfa3042e2f7eb866e5df199f48f22"
+    }
+  ],
+  "judgements": [
+    {
+      "file": "judgement/ironweave.json",
+      "sha256": "246d470dbeab710e5db4edf68b8eb62f9c13f56c6a9e34f746532aa748620456"
+    },
+    {
+      "file": "judgement/quillstone.json",
+      "sha256": "00e83724d0e0748233b7396579c52abd6477dd516b30436bf47b211136535723"
+    },
+    {
+      "file": "judgement/tidepool.json",
+      "sha256": "0099bc171e827c9c1dc613e980b18c42b1757b323b55c99ebedb5e99d7c06930"
+    }
+  ]
+}

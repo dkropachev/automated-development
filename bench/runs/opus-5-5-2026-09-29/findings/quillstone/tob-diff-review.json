@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/quillstone/tob-diff-review",
+  "target": "quillstone",
+  "tool": "tob-diff-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "93c955f51898098e982f151d52d5e9ec8382ea75a8721e33d3e778aced559af9",
+  "label": "Trail of Bits differential-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Failed USE on new connection permanently breaks pool refilling",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "current_keyspace is set before USE is verified to succeed, so a keyspace typo or a later-dropped keyspace causes every new connection to be discarded with ConnectionSetupError::Keyspace and refill retried with growing backoff forever, leaving the pool permanently Broken(UseKeyspaceError) once existing connections die.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1002,
+      "title": "Shard-aware extra connection drop path omits dec_total_connections",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The branch handling an extra shard-aware connection (else if evt.requested_shard.is_some()) drops the connection without calling dec_total_connections, even though it was counted on open, so total_connections leaks upward permanently for connections landing on the wrong shard (e.g. behind NAT).",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 900,
+      "title": "Stale failed USE for outdated keyspace discards connection instead of retrying",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "If current_keyspace changes while an older USE is still in flight and that USE fails, the connection is dropped and marked as error rather than resent through start_setting_keyspace_for_connection with the new keyspace, unlike the success branch which already re-checks evt.keyspace_name against current_keyspace.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/errors.rs",
+      "line": 600,
+      "title": "New ConnectionError::UseKeyspaceError variant misrepresents CQL errors as connection-fatal",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Adding ConnectionError::UseKeyspaceError with #[from] makes UseKeyspaceError convert into ConnectionError via ?, so callers see a pool-level Broken error for what is really a CQL error (e.g. RequestError(DbError::Invalid) for a missing keyspace), even though ConnectionError is documented as meaning the connection can no longer be used and should be dropped, risking misclassification by callers.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 4,
+      "outputTokens": 1820,
+      "cacheReadInputTokens": 62079,
+      "cacheCreationInputTokens": 21223,
+      "webSearchRequests": 0,
+      "costUSD": 0.1155158,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 176,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:52:24.140Z"
+}

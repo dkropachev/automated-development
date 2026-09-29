@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-2026-09-29",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "opus-5-5-2026-09-29/quillstone/builtin-code-review",
+  "target": "quillstone",
+  "tool": "builtin-code-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "6966a1f20691cb0ef892678728195799eeeb253f89215d1f2d226bb7b10ba7c0",
+  "label": "Claude Code /code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Keyspace that always fails USE permanently empties the pool",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "Every failed USE now discards the new connection instead of keeping it; since the keyspace comes from current_keyspace (set by use_keyspace at line 1287 before the request succeeds), a failed use_keyspace call or a keyspace dropped after USE leaves a name every later connection fails to set, so after a node restart every refill is discarded and retried with growing delays, leaving the pool permanently Broken(UseKeyspaceError). Before this change the error was only logged and the connection was kept, so fully-qualified queries still worked.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 994,
+      "title": "total_connections metric leaks in the excess shard-aware port connection branch",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The PR balances total_connections when pools are cleared, but the 'Excess shard-aware port connection' branch drops an already-counted connection without decrementing total_connections, so on NAT'd clusters shard-aware connections landing on an already-full shard push the metric up on every miss.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 4,
+      "outputTokens": 1043,
+      "cacheReadInputTokens": 61381,
+      "cacheCreationInputTokens": 20060,
+      "webSearchRequests": 0,
+      "costUSD": 0.1029542,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 97,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-29T02:42:05.008Z"
+}
