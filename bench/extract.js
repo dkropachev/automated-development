@@ -23,6 +23,7 @@ const {
 const ROOT = __dirname
 const CLAUDE = process.env.CLAUDE || 'claude'
 const EXTRACTOR_MODEL = 'claude-sonnet-5'
+const TITLE_LIMIT = 90
 
 const INSTRUCTIONS = `You are given one code-review report. Extract every distinct finding it makes.
 
@@ -69,6 +70,26 @@ function extractorArgs(report) {
   ]
 }
 
+// Model output occasionally exceeds its requested title ceiling by a few characters. Titles are
+// display summaries, so shorten only that field mechanically; claims and all scoring fields stay
+// verbatim and still pass strict schema validation below.
+function normalizeTitle(title) {
+  if (typeof title !== 'string') return title
+  const clean = title.trim()
+  if (clean.length <= TITLE_LIMIT) return clean
+  const prefix = clean.slice(0, TITLE_LIMIT - 1)
+  const atWord = prefix.replace(/\s+\S*$/, '').trimEnd()
+  return (atWord || prefix.trimEnd()) + '…'
+}
+
+function normalizeFindings(findings) {
+  return findings.map((finding) => (
+    finding && typeof finding === 'object' && !Array.isArray(finding)
+      ? { ...finding, title: normalizeTitle(finding.title) }
+      : finding
+  ))
+}
+
 function extractOne(file, cwd) {
   const record = JSON.parse(fs.readFileSync(file, 'utf8'))
   const report = record.result || ''
@@ -93,7 +114,7 @@ function extractOne(file, cwd) {
     if (start < 0) throw new Error('JSON array not found')
     const findings = JSON.parse(body.slice(start))
     if (!Array.isArray(findings)) throw new Error('extractor output is not an array')
-    return { ok: true, record, findings, extractError: null, modelUsage: meta.modelUsage || null }
+    return { ok: true, record, findings: normalizeFindings(findings), extractError: null, modelUsage: meta.modelUsage || null }
   } catch (error) {
     return { ok: false, record, error: `invalid extractor findings: ${error.message}: ${(result.stdout || result.stderr || '').slice(0, 300)}` }
   }
@@ -188,7 +209,10 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
   return failures
 }
 
-module.exports = { EXTRACTOR_MODEL, assertRecordCohort, extractOne, extractorArgs, main, parseArgs }
+module.exports = {
+  EXTRACTOR_MODEL, TITLE_LIMIT, assertRecordCohort, extractOne, extractorArgs, main,
+  normalizeFindings, normalizeTitle, parseArgs,
+}
 
 if (require.main === module) {
   try {
