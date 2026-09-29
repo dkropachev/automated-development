@@ -624,9 +624,7 @@ function validateModelUsage(modelUsage, requestedModel, label = 'claude modelUsa
     if (!usage || typeof usage !== 'object' || Array.isArray(usage)) {
       throw new Error(`${label} for ${model} is invalid`)
     }
-    if (usage.canonicalModel !== model) {
-      throw new Error(`${label} canonicalModel for ${model} is ${JSON.stringify(usage.canonicalModel)}`)
-    }
+    assertSafeId(usage.canonicalModel, `${label} canonicalModel for ${model}`)
     const tokenFields = Object.entries(usage).filter(([name]) => name.endsWith('Tokens'))
     if (!tokenFields.length || !tokenFields.every(([, amount]) => Number.isFinite(amount) && amount >= 0)) {
       throw new Error(`${label} token usage for ${model} must contain only finite non-negative values`)
@@ -636,6 +634,9 @@ function validateModelUsage(modelUsage, requestedModel, label = 'claude modelUsa
     }
   }
   const requestedUsage = modelUsage[requestedModel]
+  if (requestedUsage.canonicalModel !== requestedModel) {
+    throw new Error(`${label} canonicalModel for requested model ${requestedModel} is ${JSON.stringify(requestedUsage.canonicalModel)}`)
+  }
   const billedTokenFields = new Set([
     'inputTokens', 'outputTokens', 'cacheReadInputTokens', 'cacheCreationInputTokens', 'thinkingTokens',
   ])
