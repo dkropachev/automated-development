@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/ironweave/tob-diff-review",
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "tool": "tob-diff-review",
+  "label": "Trail of Bits differential-review",
+  "source": "differential-review@trailofbits",
+  "prompt": "/differential-review:diff-review https://github.com/dkropachev/ironweave/pull/1\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 44502,
+  "reportedCostUsd": 0.25431499999999996,
+  "reportedUsage": {
+    "input_tokens": 14,
+    "cache_creation_input_tokens": 41084,
+    "cache_read_input_tokens": 256505,
+    "output_tokens": 3865,
+    "output_tokens_details": {
+      "thinking_tokens": 1959
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 41084,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1233,
+        "cache_read_input_tokens": 46784,
+        "cache_creation_input_tokens": 5111,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 5111
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 14,
+      "outputTokens": 3865,
+      "cacheReadInputTokens": 256505,
+      "cacheCreationInputTokens": 41084,
+      "webSearchRequests": 0,
+      "costUSD": 0.25431499999999996,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 1959,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 9,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "18565850-a51b-44e0-9890-1cfeba72ae30",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 14,
+    "output": 3865,
+    "thinking": 1959,
+    "cacheRead": 256505,
+    "cacheCreation": 41084,
+    "costUsd": 0.25431499999999996,
+    "sessions": 1,
+    "models": {
+      "claude-sonnet-5-5": 0.25431499999999996
+    },
+    "bySession": {
+      "18565850-a51b-44e0-9890-1cfeba72ae30": {
+        "costUsd": 0.25431499999999996,
+        "startTime": 1790779464196,
+        "tokens": 301468
+      }
+    },
+    "rawMessages": 14,
+    "rawOutput": 8795,
+    "rawCacheRead": 525689,
+    "since": 0,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-ironweave-runs-sonnet-5-5-2026-09-30-tob-diff-review-attempt-18LZBN-repo",
+    "total": 301468
+  },
+  "result": "I found two issues in the fix and three smaller ones in the test and PR description. I didn't build or run anything, so all of these come from reading `git diff main...HEAD`.\n\n**1. Medium, `src/rpc/rpc.cc:562-570`: `stream_close()` can close the write buffer while the front entry is still writing.** `queue_drained` is the `done` future of the last queued entry. `stop_send_loop()` (`rpc.cc:206-221`) withdraws every entry except the front one, and `withdraw(it, ex)` sets `done` to an exception straight away.\n- If `stop_send_loop()` runs during the drain wait, for example after a socket error or `abort()`, the last entry's `done` fails immediately, even though the front entry is still inside `send_entry()`.\n- `then_wrapped` then ignores the failure and calls `write_buf.close()` concurrently with that in-flight write and flush.\n- Before this change, `stop_send_loop()` waited on `_outgoing_queue_ready`, which covered the front entry. The `std::exchange` at line 562 took that wait away, and `stop_send_loop()` now waits only on `_sink_closed_future`.\n- A safer approach is to wait for the front entry explicitly, or to keep a real completion signal for the entry in flight.\n\n**2. Low, `src/rpc/rpc.cc:554`: `stream_close()` isn't idempotent.** `_stream_closing` is set, but nothing checks it before the `!error()` branch. A second call while the first is parked on the drain wait or on `write_buf.close()` re-enters the branch. It overwrites `_sink_closed_future` with a new promise and closes the buffer a second time. The old code had the same weakness, but the new drain wait makes the window longer. `if (!error() && !_stream_closing)` would close it.\n\n**3. Low, `tests/unit/rpc_test.cc` (`test_stream_send_after_stream_close`): the test doesn't cover the new drain logic.**\n- The `catch` swallows the result of `stream_send_empty_frame()`, so the test never checks that it fails with `closed_error`. If `send()` accepted the frame, the test would still pass, as long as no `put()` happens after `close()`.\n- No test queues a frame just before `stream_close()` and checks that it is flushed before the close. It also doesn't cover the error path where the queue future is exceptional (finding 1).\n\n**4. Low, `tests/unit/rpc_test.cc`: brittle hook selection.** `client_factory.hooks.back()` is assumed to belong to the stream connection, and the test checks only that there are exactly 2 hooks. The `compress()` override also substitutes an empty `temporary_buffer` when `data.size` is 0, which looks like a workaround for the lz4 delegate and isn't explained.\n\n**5. Nit, PR description: Jira links and a trailer.** It links internal Jira tickets (CUSTOMER-666, CUSTOMER-678, SCYLLADB-4034) in a public repository. It also ends with a \"Generated with Claude Code\" line, which your global instructions forbid on authored text.\n\nI checked the docs changes in `doc/rpc-streaming.md` and `include/seastar/rpc/rpc_types.hh` against `close_sink`/`close_source` and `sink_impl::close`. They are consistent with the code.",
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/ironweave/runs/sonnet-5-5-2026-09-30/tob-diff-review/attempt-18LZBN/repo",
+  "finishedAt": "2026-09-30T14:45:08.686Z"
+}

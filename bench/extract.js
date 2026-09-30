@@ -68,6 +68,7 @@ function extractorArgs(report) {
     '--output-format', 'json',
     '--model', EXTRACTOR_MODEL,
     '--effort', 'high',
+    '--tools', '',
     '--permission-mode', 'bypassPermissions',
     '--disallowedTools', 'WebSearch', 'WebFetch', 'Bash', 'Edit', 'Write',
   ]
@@ -88,7 +89,13 @@ function normalizeTitle(title) {
 function normalizeFindings(findings) {
   return findings.map((finding) => (
     finding && typeof finding === 'object' && !Array.isArray(finding)
-      ? { ...finding, title: normalizeTitle(finding.title) }
+      ? {
+          ...finding,
+          title: normalizeTitle(finding.title),
+          line: typeof finding.line === 'string' && /^\d+(?:-\d+)?$/.test(finding.line.trim())
+            ? Number(finding.line.trim().split('-')[0])
+            : finding.line,
+        }
       : finding
   ))
 }

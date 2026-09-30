@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/quillstone/tob-diff-review",
+  "target": "quillstone",
+  "tool": "tob-diff-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "a30e0c5c95c454c0e2060a167feebb186b93b6a2294c079c281b787eed604762",
+  "label": "Trail of Bits differential-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Failed USE now drops connection and marks node broken instead of keeping it",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The new Err(ConnectionSetupError::Keyspace) branch sets had_error_since_last_refill and, when the pool empties, calls update_shared_conns publishing the pool as Broken(ConnectionError::UseKeyspaceError), so a keyspace-level failure can fail every query to that node and potentially take down the whole session; previously the connection was still added to the pool.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "USE-failure branch skips immediate non-shard-aware retry done by the Connection branch",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The branch skips the immediate non-shard-aware retry that the Connection branch does for requested_shard.is_some(), so a failed shard-aware connection waits for the backed-off refill instead of retrying immediately, causing churn and metric noise on persistent failure.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "USE failure log level dropped from warn! to debug!, making failures invisible at default…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The old code logged warn! in start_setting_keyspace_for_connection, but the new debug! in handle_ready_connection is invisible at default log levels; a partial failure (some connections dropped, others fine) is now silent.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "title": "Unrelated metric fixes bundled into PR beyond the stated keyspace fix scope",
+      "severity": "low",
+      "kind": "design",
+      "claim": "decrement_total_connections calls on clearing excess connections and on resharding (plus three tests) are not mentioned in the PR title or description, widening review and revert scope beyond the Fixes: #1682 keyspace fix; the description should mention them or they should go in a separate PR.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 843,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 35223,
+      "webSearchRequests": 0,
+      "costUSD": 0.149326,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 34,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T15:00:33.240Z"
+}

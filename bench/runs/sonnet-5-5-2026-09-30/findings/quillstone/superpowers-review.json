@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/quillstone/superpowers-review",
+  "target": "quillstone",
+  "tool": "superpowers-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "2921728d866f71531e4f7fc67a2fbd9dc96c80c3f341dd32151f32694b39fcff",
+  "label": "Superpowers requesting-code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 993,
+      "title": "Shard-aware \"missed target shard\" branch drops connection without dec_total_connections()",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "In handle_ready_connection, the else if evt.requested_shard.is_some() branch calls start_opening_connection(None) and drops the connection without decrementing total_connections, causing the metrics gauge to drift upward each time this occurs; no test covers this path.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 900,
+      "title": "Keyspace setup failures now logged only at debug!, losing visibility",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The removed warn! in start_setting_keyspace_for_connection was the only visible signal of a persistent USE failure; a non-empty pool that keeps failing to grow would show nothing at default log levels.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 900,
+      "title": "Keyspace-failure branch behaves differently from Connection error branch without…",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The Connection error branch falls back to the non-shard-aware port when requested_shard.is_some(), but the new Keyspace branch instead sets had_error_since_last_refill and waits for backoff; this may be defensible but the PR description doesn't state it's intentional, and the existing test only asserts the refill flags rather than this distinction.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "keyspace_setup_failure_preserves_pool_state test covers three scenarios in one ~130-line…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test covers the initial connection, a failed USE, and a successful USE, relying on a mutable proxy rule set plus a manual event pump, making failures hard to localise; splitting it into separate tests would help.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Whether PoolRefiller teardown should decrement total_connections for still-live…",
+      "severity": "low",
+      "kind": "question",
+      "claim": "It's unclear whether connections still live when a PoolRefiller is dropped should decrement the metric; the reviewer did not look at teardown.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Whether debug! vs warn! log level change matches upstream convention",
+      "severity": "low",
+      "kind": "question",
+      "claim": "It's unclear whether the log level change matches upstream logging conventions; this was not investigated.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Possible unused-import warnings under --no-default-features (non-metrics build)",
+      "severity": "low",
+      "kind": "style",
+      "claim": "There may be unused-import warnings when building without the metrics feature; this was judged only by reading, not by compiling.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "No changelog entry appears in the diff",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "No changelog entry appears in the diff, and the reviewer doesn't know whether the project keeps one.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 1255,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 35641,
+      "webSearchRequests": 0,
+      "costUSD": 0.155118,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 34,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T15:00:22.687Z"
+}

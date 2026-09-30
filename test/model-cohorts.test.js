@@ -235,12 +235,13 @@ function fakeExecDependencies(root, responses) {
   }
 }
 
-test('model registry exposes Fable while keeping Opus 5.5 default and legacy observed-only', () => {
+test('model registry exposes Sonnet and Fable while keeping Opus 5.5 default and legacy observed-only', () => {
   const config = artifacts.loadModelConfig(ROOT)
   assert.equal(config.defaultModel, 'claude-opus-5-5')
   assert.equal(artifacts.defaultRunId(ROOT), 'claude-opus-5-5')
   assert.deepEqual(config.models.map(({ id, label }) => ({ id, label })), [
     { id: 'claude-opus-5-5', label: 'Claude Opus 5.5' },
+    { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5' },
     { id: 'claude-fable-5-1', label: 'Claude Fable 5.1' },
     { id: 'claude-opus-5', label: 'Claude Opus 5' },
   ])
@@ -268,10 +269,12 @@ test('runner defaults to pinned model/run and every model invocation is explicit
   const extractArgs = extractor.extractorArgs('report')
   assert.equal(extractArgs[extractArgs.indexOf('--model') + 1], 'claude-sonnet-5')
   assert.equal(extractArgs[extractArgs.indexOf('--effort') + 1], 'high')
+  assert.equal(extractArgs[extractArgs.indexOf('--tools') + 1], '')
   assert.equal(judge.JUDGE_MODEL, 'claude-sonnet-5')
   const judgeArgs = judge.judgeArgs('prompt')
   assert.equal(judgeArgs[judgeArgs.indexOf('--model') + 1], 'claude-sonnet-5')
   assert.equal(judgeArgs[judgeArgs.indexOf('--effort') + 1], 'high')
+  assert.ok(judgeArgs.slice(judgeArgs.indexOf('--disallowedTools') + 1).includes('ReportFindings'))
 })
 
 test('runner parses a bounded usage-limit retry budget', () => {
@@ -356,6 +359,14 @@ test('extractor normalizes overlong display titles without changing finding evid
   assert.equal(finding.claim, claim)
   assert.equal(finding.severity, 'medium')
   assert.equal(extractor.normalizeTitle('  Short title  '), 'Short title')
+})
+
+test('extractor normalizes report line ranges to their first line', () => {
+  const [finding] = extractor.normalizeFindings([{
+    title: 'Range', file: 'src/sample.js', line: '12-18', severity: 'low', kind: 'bug',
+    claim: 'The report cited a source range.', selfRejected: false,
+  }])
+  assert.equal(finding.line, 12)
 })
 
 test('manifests pin exact target commits and preserve target metadata', () => {

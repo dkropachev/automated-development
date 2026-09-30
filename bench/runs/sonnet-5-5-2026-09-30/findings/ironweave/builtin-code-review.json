@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/ironweave/builtin-code-review",
+  "target": "ironweave",
+  "tool": "builtin-code-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "e47482da244ed906250e5ff753d8d9435485b783eb7209c634094bbf03d4ec13",
+  "label": "Claude Code /code-review",
+  "findings": [
+    {
+      "file": "",
+      "line": 0,
+      "title": "Stream close ordering could allow stream_close()/_stream_closing to run before sink…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Checked whether sink::close() properly sends the eof marker and waits for it before calling close_sink(), ensuring stream_close() and the new _stream_closing flag only run after all sink traffic is done; found this to be correctly ordered.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Concurrent stop() during stream_close() could cause double write_buf.close() or race",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Checked the case where stop() runs while stream_close() is waiting for the queue to drain; found it still waits on _sink_closed_future and correctly skips the second write_buf.close(), as before.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Exceptional drained queue future might prevent write buffer from being closed",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Checked that an exceptional drained queue future is ignored and the write buffer is still closed; found this handled correctly.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Compressor's send_empty_frame hook now receives closed_error from send({}) during the…",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The send_empty_frame hook now gets closed_error from send({}) during the window; this is stated to be the intended change, but the compressor implementation has to tolerate it.",
+      "selfRejected": true
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "Test catches rpc::closed_error but never asserts it was actually thrown",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "A test catches rpc::closed_error but never asserts one was thrown, so it passes even if the send is accepted without a late put(); the report notes the separate put_after_close check does catch the actual regression, so this gap was not reported as a real issue.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 1283,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 34833,
+      "webSearchRequests": 0,
+      "costUSD": 0.15216600000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 492,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T14:57:49.232Z"
+}

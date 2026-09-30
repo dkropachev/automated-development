@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/quillstone/ce-code-review",
+  "target": "quillstone",
+  "tool": "ce-code-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "fb9fee5cf3f3dad855e18a6739c1b4b7fd5ac6358ae899ad091218c5734138ab",
+  "label": "Compound Engineering ce-code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Persistent USE failure loops forever with no bound or transient/permanent distinction",
+      "severity": "low",
+      "kind": "design",
+      "claim": "When the keyspace is dropped or USE is rejected repeatedly, every new connection fails USE and is discarded, so the pool stays empty and republishes Broken(UseKeyspaceError) each time; nothing bounds this or distinguishes permanent from transient errors, and there's no test for repeated failures.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "No shard-aware fallback to regular port after a keyspace failure",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "When requested_shard is set, the Keyspace branch does not fall back to the regular port and does not remove the shard-aware attempt, so USE failures on an already-open shard-aware connection slow refilling (via had_error_since_last_refill backoff) unlike connect failures on that port.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 2000,
+      "title": "Test still polls with sleep loop despite 'avoid busy-waiting' commit title",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "full_pool_clears_excess_connections_and_balances_metrics loops with sleep(1ms) on get_total_connections() inside a 5s timeout; despite the commit being titled 'avoid busy-waiting', this is still polling and can be flaky under load.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description omits unrelated metric-balance changes",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Most of the metric-balance changes (decrement_total_connections in maybe_reshard and at both excess-clear sites, plus three new tests) are not part of the keyspace fix and are not mentioned in the description, though they appear correct.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 795,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 35359,
+      "webSearchRequests": 0,
+      "costUSD": 0.14939,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 38,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T14:59:45.559Z"
+}

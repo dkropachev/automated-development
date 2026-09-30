@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/tidepool/anthropic-pr-review",
+  "target": "tidepool",
+  "tool": "anthropic-pr-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "5fefcd7c4c4c814adde289d995164c97de8c5f3daa4f32deecd5de94bc32a8ec",
+  "label": "Anthropic pr-review-toolkit",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 1136,
+      "title": "Nil-SubType guard incomplete; vectorElemMinSize can nil-deref on nested SubType",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "vectorElemMinSize recurses into vec.SubType without a nil check, so vectorFixedElemSize(nil) calls .Type() on a nil interface; a hand-built nested VectorType with 50 bytes and a *[][]float32 destination panics with a nil-pointer dereference.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1000,
+      "title": "data != nil guard skips size bound for nil payload with huge Dimensions, untested",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "A nil payload with a huge Dimensions skips the bound intentionally since NULL is legal, but later code may still allocate from Dimensions for a nil payload (e.g. *any or *[N]T destination); this path was not traced and no test covers a large positive Dimensions with nil data.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 280,
+      "title": "Unknown basic types now become CustomType instead of NativeType, with no test coverage",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Every unknown basic type inside collections, tuples, UDTs and vectors now becomes CustomType with custom = name instead of a NativeType with empty custom string, changing String() and Custom() output; only the vector path is tested, nothing covers getCassandraLongType directly or unknown types nested in list, map or UDT, and the PR description doesn't mention this side effect.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1136,
+      "title": "Saturation branch for overflowing minimum size is untested",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "math.MaxInt32 is returned when an inner vector's minimum size overflows; manual probing showed it works but TestVectorElemMinSize has no deeply nested or huge-dimension row covering this.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description contains a Claude Code attribution line",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The PR description contains a \"🤖 Generated with Claude Code\" line, which breaks the rule against attribution in PR bodies and should be removed.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 0,
+      "title": "Allocation test relies on fragile process-wide TotalAlloc threshold",
+      "severity": "nit",
+      "kind": "test-gap",
+      "claim": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating asserts on process-wide TotalAlloc with a payload/8 threshold; it is non-parallel but background goroutines from other packages' init or the runtime can still add allocations, so it could flake.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 1151,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 35549,
+      "webSearchRequests": 0,
+      "costUSD": 0.15370999999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 52,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T15:01:09.240Z"
+}

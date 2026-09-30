@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/ironweave/ce-code-review",
+  "target": "ironweave",
+  "tool": "ce-code-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "e50ff066a374bcf242b38c4f4c57befc737ad129b182a3fda54719d2c649f0a0",
+  "label": "Compound Engineering ce-code-review",
+  "findings": [
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "title": "New comment misstates how stop_send_loop() waits on the queue future",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment says nothing else waits for _outgoing_queue_ready and that stop_send_loop() only waits for _sink_closed_future, but stop_send_loop() at rpc.cc:225 actually waits on both futures via when_all; the comment omits that std::exchange leaves an already-ready queue future so the wait doesn't double-consume it.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "server_factory registered in hook_capturing_compressor_factory but its hooks are never…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test scaffolding registers a server_factory whose hooks are never exercised or checked.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "Unused is_server parameter and const_cast mutation of hooks in a const method",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The is_server parameter is unused, and mutating hooks via const_cast inside a const method is a code smell.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "compress() has an unexplained special case for empty data",
+      "severity": "low",
+      "kind": "style",
+      "claim": "compress() uses data.size ? std::move(data) : rpc::snd_buf(temporary_buffer<char>()), an odd special case with no explanation.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "test_stream_send_after_stream_close cannot distinguish 'refused' from 'never reached'",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The try/catch swallows closed_error and accepts a successful send, with the only real assertion being !st.put_after_close; the test never asserts the hook call actually threw closed_error, so a regression where send() accepts the frame without reaching put() would still pass.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "_stream_closing set before write buffer is touched",
+      "severity": "nit",
+      "kind": "design",
+      "claim": "Reviewer checked and confirms _stream_closing is set before the write buffer is touched, which is correct.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Drain ignores exceptions and still closes the buffer",
+      "severity": "nit",
+      "kind": "design",
+      "claim": "Reviewer checked and confirms the drain ignores exceptions and still closes the buffer, which is correct.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "_error left alone as PR description explains",
+      "severity": "nit",
+      "kind": "design",
+      "claim": "Reviewer checked and confirms _error is intentionally left alone, matching the PR description.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "eof marker from sink_impl::close() awaited before close_sink(), not lost",
+      "severity": "nit",
+      "kind": "bug",
+      "claim": "Reviewer checked and confirms the eof marker is awaited before close_sink() so it is not lost.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Doc/header comments match code regarding sole caller of close_source()",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "Reviewer checked and confirms the doc and header comments match the code: source_impl::operator() is the only caller of close_source().",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 2401,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 35301,
+      "webSearchRequests": 0,
+      "costUSD": 0.165218,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 974,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T14:58:15.117Z"
+}

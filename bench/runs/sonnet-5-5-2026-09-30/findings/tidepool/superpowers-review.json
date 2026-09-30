@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/tidepool/superpowers-review",
+  "target": "tidepool",
+  "tool": "superpowers-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "f93cddc29de1d48011967de04369ac491f6298515e62da313d22eab5e7865e11",
+  "label": "Superpowers requesting-code-review",
+  "findings": [
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description ends with Claude Code attribution line",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The PR body ends with \"🤖 Generated with Claude Code\", which violates the instruction to omit that line from PR descriptions.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "New tests gated behind 'unit' build tag are skipped by plain go test",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The new tests carry the `unit` build tag, so a plain `go test` skips them entirely.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Four TestShardAwarePortMocked*/with_TLS tests fail with cert parsing error",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Four `TestShardAwarePortMocked*/with_TLS` tests fail with \"Failed parsing or appending certs\"; it was not checked whether they also fail on main.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1125,
+      "title": "vectorElemMinSize overestimates minimum size for zero-dimension inner vector",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "`vector<float,0>` can encode to 0 bytes, but the function returns 1 to avoid dividing by zero, so an outer `vector<vector<float,0>,N>` with an empty payload would be incorrectly rejected as \"do not fit\"; this is practically unreachable because #1093 rejects `dim < 1`.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 797,
+      "title": "TestVectorElemMinSize asserts incorrect true minimum with wrong comment",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test asserts 1 as if it were the true minimum size, but its comment \"Neither can describe an element in zero bytes\" is wrong for `vector<float,0>`.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 999,
+      "title": "No nil guard on SubType before calling vectorElemMinSize",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "`vectorElemMinSize(info.SubType)` (marshal.go:999) and `vectorElemMinSize(vec.SubType)` (marshal.go:1135) panic on a nil `SubType` when `Dimensions > 0`; only a hand-built `VectorType` triggers it since parsed metadata never produces one, and the PR guards this nil-SubType case only at zero dimensions.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 836,
+      "title": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating depends on process-wide TotalAlloc",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test relies on process-wide `TotalAlloc`, so allocations from stray goroutines left by earlier serial tests could make it flaky, though the margin is large (about 128 KB threshold against roughly 25 MB if the bound regressed).",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 280,
+      "title": "getCassandraLongType now retains custom name for unknown types, changing String()/equality",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Unknown types become `NativeType` values carrying a `custom` name, so `String()` prints `custom(<name>)` instead of `custom()` and the value no longer equals the old one; the change touches metadata parsing beyond vectors.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 3963,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 35359,
+      "webSearchRequests": 0,
+      "costUSD": 0.18107,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2592,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T15:04:11.678Z"
+}

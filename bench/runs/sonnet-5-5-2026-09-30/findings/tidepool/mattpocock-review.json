@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/tidepool/mattpocock-review",
+  "target": "tidepool",
+  "tool": "mattpocock-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "b1547ea5065d6714bb64407385db3e5109d71eb084aaf7add3ccbb45b3c0ff27",
+  "label": "Matt Pocock code-review",
+  "findings": [
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body ends with Claude Code attribution, forbidden by global CLAUDE.md",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The PR body's last line is \"🤖 Generated with [Claude Code]…\", which violates the user's global CLAUDE.md rule forbidding that attribution in PR descriptions.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 0,
+      "title": "New makeVectorType helper duplicates existing makeFloat32VectorType/makeDoubleVectorType",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The new makeVectorType function sits next to existing makeFloat32VectorType and makeDoubleVectorType, which build the same VectorType{NativeType{TypeCustom, custom: …}} shape, suggesting possible duplicated code.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 0,
+      "title": "Doc comment on TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType doesn't start with…",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The doc comment for TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType starts with \"VectorType, SubType and…\" instead of the function name, unlike the other new tests.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 277,
+      "title": "getApacheCassandraType(name) == TypeCustom used as unknown-type check, changing resolved…",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Using getApacheCassandraType(name) == TypeCustom as the \"unknown type\" test and building NewCustomType(..., TypeCustom, name) inline changes the resolved TypeInfo for every caller of getCassandraLongType (frame.go:860, helpers.go:72), not just vector elements—the type now carries a custom name where it was previously empty, and nothing in the diff shows other callers were checked.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1121,
+      "title": "vectorElemMinSize returns 1 for zero-dimension inner vector instead of true minimum of 0",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A zero-dimension inner vector's real minimum size is 0 bytes when fixed-size, but vectorElemMinSize returns 1, causing vector<vector<float,0>,N> with a short payload to be incorrectly rejected as \"do not fit\"; this is only reachable until dim < 1 rejection from #1093 lands, and the code comment doesn't note the floor is deliberately over-strict.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1000,
+      "title": "Guard skips data == nil but errors on empty non-nil payload with Dimensions > 0",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The guard only skips when data == nil, so an empty non-nil payload with Dimensions > 0 now errors even though this is described as intended behavior for short or empty payloads; noted as a behavior change worth a release note rather than a defect.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 995,
+      "title": "Crash class not fully closed: negative vint length narrowing and nil SubType with…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A variable-length element's vint length narrowing to a negative value, and a nil SubType with Dimensions > 0, can still reach vectorFixedElemSize and Unmarshal on Scan's goroutine; the PR defers the first case to #1106, and the comment at marshal.go:995-997 covers only the Dimensions == 0 case.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 1461,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 35587,
+      "webSearchRequests": 0,
+      "costUSD": 0.156962,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 37,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T15:03:28.671Z"
+}

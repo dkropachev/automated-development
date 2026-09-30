@@ -103,7 +103,7 @@ function judgeArgs(text) {
     '--model', JUDGE_MODEL,
     '--effort', 'high',
     '--permission-mode', 'bypassPermissions',
-    '--disallowedTools', 'WebSearch', 'WebFetch',
+    '--disallowedTools', 'WebSearch', 'WebFetch', 'ReportFindings',
   ]
 }
 

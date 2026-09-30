@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/ironweave/anthropic-pr-review",
+  "target": "ironweave",
+  "tool": "anthropic-pr-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "7a5ddf71e712896d04572f9047d638def8cba3a3cf06668b132ea9516afd5f55",
+  "label": "Anthropic pr-review-toolkit",
+  "findings": [
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "Regression test doesn't verify send() was actually refused",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The catch block for rpc::closed_error has no matching failure path, so the test would pass even if the frame were accepted and didn't reach put() before release_close was set; it only detects the bug indirectly via put_after_close after 10 yield() calls.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "Only client-side stream connection is covered by the test",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The server side has the same send_empty_frame hook and runs the same stream_close(), but hook_capturing_compressor_factory only records the client's hook, so the server path isn't tested.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "Test compressor implementation is needlessly odd/unclear",
+      "severity": "low",
+      "kind": "style",
+      "claim": "In hook_capturing_compressor_factory::compressor::compress, the data.size ? std::move(data) : snd_buf(...) substitution is unexplained, the const_cast in negotiate() exists only to record the hook, and the is_server parameter is unused.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description contains a 'Generated with Claude Code' attribution line",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The PR description carries a 'Generated with Claude Code' line, which should be removed per the user's global instructions against such attribution.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 692,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 35214,
+      "webSearchRequests": 0,
+      "costUSD": 0.14778000000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 47,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T14:57:27.190Z"
+}

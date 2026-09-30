@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/ironweave/mattpocock-review",
+  "target": "ironweave",
+  "tool": "mattpocock-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "47cc55e580b38883865106d4a93b4709829b34e12790614dcf452e0445bd83e2",
+  "label": "Matt Pocock code-review",
+  "findings": [
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "title": "Comment claims nothing else waits on _outgoing_queue_ready after swap, but…",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The comment states that nothing else waits on _outgoing_queue_ready after the swap, but stop_send_loop() still waits on it at line 225.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1938,
+      "title": "Test scaffolding is clumsy: unused parameter, const_cast hack, excessive fixture code",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The test scaffolding has an unused is_server parameter, uses a const_cast to mutate hooks, and includes about 130 lines of fixtures for a single test.",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 337,
+      "title": "New doxygen comment placed above stale plain comment; PR body has unrelated…",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The new doxygen comment sits above the existing plain \"// send data Out...\" comment, and the PR body carries a Claude Code attribution line plus issue and Jira references that belong to other trackers.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1990,
+      "title": "Regression test doesn't actually fail if late send_empty_frame() is accepted; relies on…",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The regression test doesn't fail if the late send_empty_frame() is accepted, and it depends on a fixed 10-yield window, making its claimed determinism weak.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "title": "stream_close() swallows queue-drain failure and closes the write buffer anyway",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "stream_close() swallows a queue-drain failure and proceeds to close the write buffer regardless.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 293,
+      "title": "_stream_closing guard only applied in send(), bypassed by other code enqueuing onto…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The new _stream_closing guard is only checked in send(); other code paths that enqueue onto _outgoing_queue bypass this guard.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 104,
+      "title": "Documentation doesn't clarify that dropping an unclosed sink causes a process-aborting…",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The statement \"Dropping an unclosed sink is an error\" doesn't specify that it is actually an assertion that aborts the process.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 2224,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 35043,
+      "webSearchRequests": 0,
+      "costUSD": 0.162416,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1089,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T14:58:35.558Z"
+}

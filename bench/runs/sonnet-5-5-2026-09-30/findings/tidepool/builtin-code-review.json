@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/tidepool/builtin-code-review",
+  "target": "tidepool",
+  "tool": "builtin-code-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "877498479d21c3ee596c0679fd3103dcc8574c92e33049ec84ee736e287c931c",
+  "label": "Claude Code /code-review",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 1140,
+      "title": "vectorElemMinSize returns 1 for zero-dimension fixed-size inner vector, rejecting valid…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "vectorElemMinSize returns 1 for a zero-dimension inner vector with fixed-size elements, but such an element actually encodes in 0 bytes, causing vector<vector<float,0>,3> with an empty non-nil payload to be incorrectly rejected (3 > 0/1); this only matters until #1093 stops dim=0 from being installed.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 726,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 34657,
+      "webSearchRequests": 0,
+      "costUSD": 0.145892,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 486,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T15:01:19.747Z"
+}

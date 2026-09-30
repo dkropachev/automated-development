@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/quillstone/mattpocock-review",
+  "target": "quillstone",
+  "tool": "mattpocock-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "175801e8f29e556b8711148582f6efd4a94221455302f12596ff3c905042935a",
+  "label": "Matt Pocock code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "title": "PR description omits the metrics changes (new decrement + tests)",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The PR adds decrement_total_connections and three metrics regression tests, but the description and title only mention the keyspace-setup fix, and validation only runs keyspace_setup_failure tests, never the metrics tests.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 674,
+      "title": "Repeated log/decrement/clear sequence duplicated at three call sites",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The same log, then decrement, then excess_connections.clear() sequence is repeated at connection_pool.rs:674, :1031, :1115; a small clear_excess_connections() helper would prevent the metric and the vec from drifting apart.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1416,
+      "title": "ConnectionSetupError name easily confused with ConnectionError",
+      "severity": "low",
+      "kind": "style",
+      "claim": "ConnectionSetupError is easy to confuse with ConnectionError, and errors.rs already has ConnectionSetupRequestError; since it's a private two-variant enum, a name like OpenedConnectionFailure would be clearer.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 0,
+      "title": "keyspace_setup_failure_preserves_pool_state builds proxy rules inline instead of reusing…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "keyspace_setup_failure_preserves_pool_state builds its proxy rules inline while other tests use start_simulated_node or mock_pool_refiller; the test is about 150 lines and the metrics tests could share more setup.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 900,
+      "title": "Keyspace-failure path drops the shard-aware fallback that connection errors get",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "A failed USE on a connection opened with requested_shard: Some(..) doesn't recover the way a shard-aware connect failure does: the Connection error path immediately calls start_opening_connection(None), while the keyspace path only waits for the next scheduled refill with backoff, and the code doesn't indicate this is deliberate.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 908,
+      "title": "Keyspace failure marks whole pool Broken without distinguishing transient vs permanent…",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "update_shared_conns(Some(err.into())) makes the whole pool Broken with UseKeyspaceError when the pool is empty and nothing is filling; a transient failure (timeout, IO error) is reported the same as a permanent one (BadKeyspaceName, nonexistent keyspace), and the pool will keep reconnecting and failing USE indefinitely with growing, unbounded backoff.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 912,
+      "title": "Keyspace check now runs before resharding, an undocumented behaviour change",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Previously a connection was resharded first and then had its keyspace set; now a new connection that would trigger a reshard has USE run first. This appears intended and is what makes the 'preserves current pool' test pass, but the description doesn't call it out as a behaviour change.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 0,
+      "title": "keyspace_setup_failure_triggers_refill doesn't actually prove a refill is scheduled",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test name says 'triggers refill' but it only asserts the need_filling() predicate; it never runs the run loop, so it doesn't prove a refill is actually scheduled.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 0,
+      "title": "Test's proxy.finish() accepts DriverDisconnected, hiding real proxy errors",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "keyspace_setup_failure_preserves_pool_state ends with drop(refiller) after proxy.finish(), and the proxy.finish() match accepts DriverDisconnected, which hides real proxy errors.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 0,
+      "title": "Test combines failure and success USE checks in one test, hiding failures in the second…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The failure and success USE checks share one test, so a failure in the first half hides the second.",
+      "selfRejected": false
+    },
+    {
+      "file": "errors.rs",
+      "line": 601,
+      "title": "New public ConnectionError::UseKeyspaceError variant lacks changelog/docs entry",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "ConnectionError::UseKeyspaceError is a new variant on a #[non_exhaustive] public enum (not a breaking change) but is user-visible through Broken(..), and the PR has no changelog or docs entry despite the description stating documentation changes are not needed.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 2658,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 36212,
+      "webSearchRequests": 0,
+      "costUSD": 0.171432,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 671,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T15:00:07.546Z"
+}

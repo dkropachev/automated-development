@@ -98,6 +98,10 @@ try {
     assert.match(fableHome.app, /<strong>[1-9][0-9]*<\/strong><span>review runs<\/span>/)
   }
 
+  const sonnetHome = render('home?model=claude-sonnet-5-5')
+  assert.match(sonnetHome.app, /<option value="claude-sonnet-5-5" selected="">Claude Sonnet 5\.5<\/option>/)
+  assert.match(sonnetHome.app, /<strong>19<\/strong><span>review runs<\/span>/)
+
   // Pin historical assertions to legacy Opus. `model=all` intentionally changes whenever a new
   // completed cohort lands, while this slice remains stable before and after that event.
   const home = render('home?model=claude-opus-5')
