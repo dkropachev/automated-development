@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/quillstone/builtin-code-review",
+  "target": "quillstone",
+  "tool": "builtin-code-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "500bc297e50ac7dc789db889108920a12288c4372c42cff183379ff53680810c",
+  "label": "Claude Code /code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1000,
+      "title": "Excess shard-aware-port connection dropped without decrementing total-connections metric",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "In the `else if evt.requested_shard.is_some()` branch, an excess shard-aware-port connection is dropped without decrementing the total-connections metric, leaving it one too high; `start_opening_connection(None)` then increments it again. This is the same leak the PR fixes elsewhere but this branch was missed.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "title": "Keyspace setup failure downgraded from warn! to debug!, hiding repeated USE failures",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A keyspace setup failure is now logged at debug! instead of the old warn!, so the failed connection is discarded quietly and nobody sees repeated USE failures at default log levels unless the pool ends up empty.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 444,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 34702,
+      "webSearchRequests": 0,
+      "costUSD": 0.143252,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 47,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T14:59:34.916Z"
+}

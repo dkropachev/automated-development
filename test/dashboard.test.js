@@ -216,7 +216,9 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
   const data = dashboard.loadArtifacts()
   assert.equal(data.schemaVersion, 3)
   assert.equal(data.defaultModel, 'claude-opus-5-5')
-  assert.deepEqual(data.models.map((model) => model.id), ['claude-opus-5-5', 'claude-fable-5-1', 'claude-opus-5'])
+  assert.deepEqual(data.models.map((model) => model.id), [
+    'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-fable-5-1', 'claude-opus-5',
+  ])
   assert.ok(data.cohorts.some((cohort) => cohort.id === 'legacy'))
   assert.equal(data.targets.length, 3)
   assert.equal(data.tools.length, 8)

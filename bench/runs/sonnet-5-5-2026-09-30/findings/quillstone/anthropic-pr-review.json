@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/quillstone/anthropic-pr-review",
+  "target": "quillstone",
+  "tool": "anthropic-pr-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "e148640a8c08ddd9869458e567f3946467c3a51a90bc604e4040d5248f5b4d8f",
+  "label": "Anthropic pr-review-toolkit",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Failed USE on shard-aware connection has no fallback/retry",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The Err(Keyspace) branch ignores evt.requested_shard, unlike Err(Connection) which falls back to the regular port. A server failing USE on shard-aware connections grows the backoff without the shard-aware port being retried or blocked.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1341,
+      "title": "Failed USE log downgraded from warn! to debug!",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The old code logged a failed USE at warn! level; the new branch logs at debug!, so a persistent keyspace failure only shows up as reconnect churn if the pool still has connections.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description omits roughly half the diff (metrics changes)",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The metrics changes—new decrement_total_connections calls in maybe_reshard and both places clearing excess connections, plus three new tests for them—are missing from the PR description, and its '2 passed' only covers the keyspace tests; this bookkeeping fix should be called out separately from the title's fix.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1601,
+      "title": "New async test can hang due to missing timeout",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "keyspace_setup_failure_preserves_pool_state calls refiller.ready_connections.next().await twice with no timeout, so a regression in the proxy or USE path would hang the test instead of failing it, unlike full_pool_clears_excess_connections_and_balances_metrics which does use a timeout.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 759,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 35337,
+      "webSearchRequests": 0,
+      "costUSD": 0.148942,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 37,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T14:59:26.727Z"
+}

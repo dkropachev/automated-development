@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/tidepool/ce-code-review",
+  "target": "tidepool",
+  "tool": "ce-code-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "106fb9673ea381f935a877efd33c8d77a8681440ccc8c576b862e2c1538709e2",
+  "label": "Compound Engineering ce-code-review",
+  "findings": [
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description contains Claude Code attribution line",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The PR description ends with \"🤖 Generated with Claude Code\", which violates the user's global instructions forbidding Claude/Anthropic attribution in PR descriptions; the line should be removed.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 280,
+      "title": "getCassandraLongType change affects all unknown basic types, not just vector elements,…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The change to getCassandraLongType is broader than the PR describes: it applies to every unknown basic type at any nesting depth (list, set, map, tuple, UDT members, and metadata parsed via asVectorType), changing TypeInfo.String() output from custom() to custom(<name>) and making Custom() return the name instead of \"\". This is probably harmless and arguably better, but nothing in the diff tests this outside the vector path, so a caller comparing type strings or checking Custom() == \"\" would see an uncovered behavior change.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 588,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 34896,
+      "webSearchRequests": 0,
+      "costUSD": 0.14546800000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 155,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T15:01:29.275Z"
+}

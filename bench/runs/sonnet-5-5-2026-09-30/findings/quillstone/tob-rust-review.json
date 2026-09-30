@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/quillstone/tob-rust-review",
+  "target": "quillstone",
+  "tool": "tob-rust-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "9877b7b4431ffe3c919e06d93a5554ad551059e1a216c7f97ebf165eaa8dc199",
+  "label": "Trail of Bits rust-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Metric accounting for cleared/dropped connections verified correct (no double-decrement)",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Each cleared or dropped connection is decremented once; connections dropped from excess_connections or the old conns don't get decremented a second time when their error futures fire.",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1720,
+      "title": "many_connections test fails with ConnectTimeout opening 400 connections",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The many_connections test fails with ConnectTimeout; the PR doesn't touch this code path, so the reviewer believes it's likely an environment problem, but did not confirm this by running the test on main.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Keyspace (USE) failure logging demoted from warn! to debug!",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The old code warned when USE failed; now a repeated failure is only visible at debug level, which is worse when the pool is non-empty because nothing is published to shared_conns, making the failure invisible while the pool keeps opening connections and failing USE with backoff.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "ConnectionSetupError::Keyspace ignores evt.requested_shard, growing backoff without…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Unlike the old Connection error arm which retried a failed shard-aware attempt once on the regular port without setting had_error_since_last_refill, the new arm always sets had_error_since_last_refill (growing backoff) and never falls back to a non-shard-aware attempt, delaying refills more than a shard-aware connect failure does.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 876,
+      "title": "Moving keyspace check ahead of shard-info handling delays learning the sharder",
+      "severity": "low",
+      "kind": "design",
+      "claim": "block_advanced_shard_awareness, maybe_reshard, and the shard-aware-port update now wait until USE completes; if USE keeps failing on a node (e.g., missing keyspace there), the pool never learns the node's sharding or shard-aware port and stays on the old topology, going through the non-shard-aware path on every refill. This looks intentional given a test name but is not mentioned in the PR description.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1481,
+      "title": "Missing test coverage for shard-aware retry behavior and non-empty-pool USE failure",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test checks the shard-aware retry behaviour described in the requested_shard finding, and none checks that a failed USE on a non-empty pool doesn't overwrite shared_conns with Broken; the only failure-path test with an empty pool runs the handler directly, not through run().",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 2549,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 35367,
+      "webSearchRequests": 0,
+      "costUSD": 0.166962,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1355,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T15:00:57.334Z"
+}

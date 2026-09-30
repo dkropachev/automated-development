@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/ironweave/tob-diff-review",
+  "target": "ironweave",
+  "tool": "tob-diff-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "7b7e215fe4fd2e684b55e46aeecb42f706b61d51823905aa39e8b5f91e998f57",
+  "label": "Trail of Bits differential-review",
+  "findings": [
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "stream_close() may close write buffer while front entry is still sending",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The drain wait relies on queue_drained (the done future of the last queued entry), but stop_send_loop() can set that future to an exception immediately while the front entry is still inside send_entry(); then_wrapped ignores the failure and calls write_buf.close() concurrently with the in-flight write/flush.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 554,
+      "title": "stream_close() is not idempotent",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "_stream_closing is set but never checked before the !error() branch, so a second concurrent call to stream_close() re-enters the branch, overwriting _sink_closed_future and closing the write buffer a second time; the new drain wait widens this pre-existing window.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "test_stream_send_after_stream_close doesn't verify send fails or cover new drain logic",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test swallows the result of stream_send_empty_frame() in a catch, so it never asserts the call fails with closed_error, and it doesn't test queuing a frame right before stream_close() to confirm it flushes before close, nor the exceptional queue-future error path from the first finding.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "Test relies on brittle assumption that client_factory.hooks.back() is the stream…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test assumes client_factory.hooks.back() belongs to the stream connection and only checks that there are exactly 2 hooks, which is a fragile way to select the right hook.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "Unexplained compress() override substituting empty temporary_buffer for zero-size data",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The compress() override substitutes an empty temporary_buffer when data.size is 0, which looks like a workaround for the lz4 delegate but is not explained.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description links internal Jira tickets in a public repository",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The PR description links internal Jira tickets (CUSTOMER-666, CUSTOMER-678, SCYLLADB-4034) in a public repository.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description ends with a 'Generated with Claude Code' trailer",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The PR description ends with a 'Generated with Claude Code' line, which the user's global instructions forbid.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 0,
+      "title": "Docs changes checked against close_sink/close_source and sink_impl::close, found…",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The docs changes in doc/rpc-streaming.md and include/seastar/rpc/rpc_types.hh were checked against close_sink/close_source and sink_impl::close and found to be consistent with the code.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 3416,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 35534,
+      "webSearchRequests": 0,
+      "costUSD": 0.1763,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2087,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T14:59:17.344Z"
+}

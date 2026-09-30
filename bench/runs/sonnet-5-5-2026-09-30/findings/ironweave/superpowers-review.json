@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 2,
+  "runId": "sonnet-5-5-2026-09-30",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.285 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "sonnet-5-5-2026-09-30/ironweave/superpowers-review",
+  "target": "ironweave",
+  "tool": "superpowers-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "4bf7c36aa9af400899a54be2852ba64016de282a6be28e6f743f943ceed2aa4d",
+  "label": "Superpowers requesting-code-review",
+  "findings": [
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "Odd ternary in hook_capturing_compressor_factory::compressor::compress lacks explanatory…",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The `data.size ? std::move(data) : rpc::snd_buf(temporary_buffer<char>())` ternary is odd and unexplained; should be simplified to `_delegate.compress(head_space, std::move(data))` or given a comment.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "Unused is_server parameter in four-argument negotiate override",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The `is_server` parameter in the four-argument `negotiate` override is unused, which can warn under `-Wunused-parameter` with `-Werror`.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 0,
+      "title": "Documentation overstates when stream connection is shut down",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The \"Closing a stream\" doc and the `sink` comment in `rpc_types.hh` state the connection is shut down only once both halves are closed, but it is also stopped on error or peer close (rpc.cc:1063 and rpc.cc:1286); wording should say \"normally shut down\".",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body contains 'Generated with Claude Code' attribution line",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The PR body ends with a \"Generated with Claude Code\" line, which should be removed per instructions forbidding that attribution.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 811,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 34975,
+      "webSearchRequests": 0,
+      "costUSD": 0.148014,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 148,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-09-30T14:58:45.672Z"
+}
