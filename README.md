@@ -262,7 +262,7 @@ not load, or when the version in `plugin.json` and `package.json` disagree.
 | workflow | when | what |
 |---|---|---|
 | `ci` | every PR and push to main | `test` on Node 20 and 22, `lint` (ESLint + `node --check`), `validate` (consistency script, `claude plugin validate`, eval suite parses) |
-| `pages` | every push to main, or manual | regenerates and verifies the self-contained review benchmark, then publishes `docs/` to GitHub Pages |
+| `pages` | every push to main, or manual | regenerates every completed-cohort report and dashboard, verifies the site, then publishes `docs/` to GitHub Pages |
 | `release` | manual, `workflow_dispatch` with `bump` = patch, minor, major or X.Y.Z | bumps the version everywhere, runs the full suite, commits to main, tags `vX.Y.Z`, publishes a GitHub Release with generated notes |
 | `eval` | manual, or Mondays 06:17 UTC | runs `evals/` with real model calls under a $5 ceiling; skips itself with a notice when the `CLAUDE_CODE_OAUTH_TOKEN` secret is absent |
 

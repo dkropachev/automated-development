@@ -10,7 +10,7 @@ working directory so its token spend is attributable.
 
 ## What was reviewed
 
-| Target | Language | Diff | Files | PR under review | Upstream original |
+| Target | Language | Diff | Commits | PR under review | Upstream original |
 |---|---|---:|---:|---|---|
 | `ironweave` | C++ | 15,931 B | 3 commits | https://github.com/dkropachev/ironweave/pull/1 | https://github.com/scylladb/seastar/pull/3664 |
 | `quillstone` | Rust | 26,179 B | 4 commits | https://github.com/dkropachev/quillstone/pull/1 | https://github.com/scylladb/scylla-rust-driver/pull/1801 |
@@ -20,6 +20,13 @@ Each PR was republished into a private repository of its own: full upstream hist
 commits replayed under a neutral author, every `owner/repo` link repointed at the copy, and
 `WebSearch`/`WebFetch` denied to every run. A reviewer that could reach the original PR could read
 the maintainers' review instead of doing its own.
+
+## Cohort accounting
+
+- Reviews: 19 calls, 27,223,505 tokens, $21.36, 68.1 minutes wall time.
+- Extraction: 19 calls, 119 raw claims, $2.23.
+- Judging: 3 calls, 73 merged issues (55 real, 17 false-positive, 1 unproven), $4.80.
+- Total known canonical spend: $28.40. Discarded attempts are not included in immutable stage artifacts.
 
 ## Findings, by issue
 

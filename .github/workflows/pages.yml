@@ -25,8 +25,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: make install
-      - name: Generate dashboard
-        run: make bench-dashboard
+      - name: Generate benchmark site
+        run: make bench-publish
       - name: Verify generated site and code
         run: make ci
       - uses: actions/configure-pages@v5
