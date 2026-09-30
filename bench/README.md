@@ -115,6 +115,11 @@ Opus 5, Fable 5.1, and Opus 5.5 cohorts. Its default ID is
 `model-comparison-2026-09-30`; override it with `GOLD_ID=<id>` when intentionally creating another
 snapshot. Run the four phases in order:
 
+The Models dashboard also lists every hash-verified completed cohort automatically using its own
+judgement snapshot. These cohort-local rows expose recorded quality, cost, runtime, and evidence,
+but do not receive canonical completeness or detection credit until a reviewed gold snapshot maps
+their findings. This keeps new cohorts visible without weakening the sealed comparison.
+
 ```
 make bench-reconcile PHASE=proposal ARGS="--issue-url https://github.com/.../issues/..."
 # Inspect and correct every gold/<id>/proposal/<target>.json mapping and canonical issue.

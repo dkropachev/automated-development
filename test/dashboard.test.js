@@ -14,6 +14,8 @@ const HEAD_SHA = 'b'.repeat(40)
 
 function createCompleteDashboardCohort(root, options = {}) {
   const runId = options.runId || 'claude-opus-5-5'
+  const requestedModel = options.requestedModel || 'claude-opus-5-5'
+  const modelLabel = options.modelLabel || 'Claude Opus 5.5'
   const target = options.target || {
     id: 'sample', language: 'Snapshot JS', fork: 'snapshot/project', forkPr: 7,
     forkPrUrl: 'https://example.test/snapshot/project/pull/7', upstreamPrUrl: 'https://example.test/upstream/pull/7',
@@ -33,8 +35,8 @@ function createCompleteDashboardCohort(root, options = {}) {
   fs.writeFileSync(toolsFile, JSON.stringify(toolFile))
   const manifest = artifacts.ensureManifest(root, {
     runId,
-    requestedModel: 'claude-opus-5-5',
-    modelLabel: 'Claude Opus 5.5',
+    requestedModel,
+    modelLabel,
     claudeVersion: '9.9.9',
     configSha256: artifacts.sha256File(toolsFile),
     targets: { [target.id]: { baseSha: BASE_SHA, headSha: HEAD_SHA } },
@@ -53,10 +55,10 @@ function createCompleteDashboardCohort(root, options = {}) {
     reportedCostUsd: 0.25,
     reportedUsage: { input_tokens: 1, output_tokens: 2 },
     modelUsage: {
-      'claude-opus-5-5': {
+      [requestedModel]: {
         inputTokens: 1, outputTokens: 2, thinkingTokens: 1,
         cacheReadInputTokens: 0, cacheCreationInputTokens: 0,
-        costUSD: 0.25, canonicalModel: 'claude-opus-5-5',
+        costUSD: 0.25, canonicalModel: requestedModel,
       },
       'claude-sonnet-observed': {
         inputTokens: 1, outputTokens: 1, thinkingTokens: 0,
@@ -67,7 +69,7 @@ function createCompleteDashboardCohort(root, options = {}) {
     transcriptUsage: {
       input: 1, output: 2, thinking: 1, cacheRead: 0, cacheCreation: 0,
       costUsd: 0.3, sessions: 1,
-      models: { 'claude-opus-5-5': 0.25, 'claude-sonnet-observed': 0.05 }, total: 3,
+      models: { [requestedModel]: 0.25, 'claude-sonnet-observed': 0.05 }, total: 3,
     },
   }
   fs.mkdirSync(path.dirname(resultFile), { recursive: true })
@@ -220,6 +222,9 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
     'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-fable-5-1', 'claude-opus-5',
   ])
   assert.ok(data.cohorts.some((cohort) => cohort.id === 'legacy'))
+  assert.equal(data.cohorts.find((cohort) => cohort.id === 'legacy').complete, false)
+  assert.ok(data.cohorts.filter((cohort) => !cohort.legacy).every((cohort) => cohort.complete))
+  assert.ok(data.cohorts.some((cohort) => cohort.id === 'sonnet-5-5-2026-09-30' && cohort.complete))
   assert.equal(data.targets.length, 3)
   assert.equal(data.tools.length, 8)
   const legacyRuns = data.runs.filter((run) => run.cohortId === 'legacy')
@@ -316,7 +321,9 @@ test('artifact loader uses complete cohort snapshots after live state and tools 
     fs.copyFileSync(path.join(ROOT, 'bench', 'models.json'), path.join(fixture, 'models.json'))
     fs.writeFileSync(path.join(fixture, 'state.json'), JSON.stringify({ targets: { live: { id: 'live', language: 'Wrong' } } }))
     fs.writeFileSync(path.join(fixture, 'tools.json'), JSON.stringify({ context: 'Live', tools: [{ id: 'tool', label: 'Wrong', prompt: 'Wrong' }] }))
-    const finished = createCompleteDashboardCohort(fixture)
+    const finished = createCompleteDashboardCohort(fixture, {
+      runId: 'future-cohort', requestedModel: 'claude-future-9', modelLabel: 'Claude Future 9',
+    })
     artifacts.ensureManifest(fixture, {
       runId: 'in-progress',
       requestedModel: finished.manifest.requestedModel,
@@ -335,11 +342,13 @@ test('artifact loader uses complete cohort snapshots after live state and tools 
     fs.writeFileSync(path.join(fixture, 'groundtruth', 'sample.json'), JSON.stringify({ url: 'https://example.test/changed-live-review' }))
 
     const data = dashboard.loadArtifacts(fixture)
-    assert.deepEqual(data.runs.map((run) => run.id), ['claude-opus-5-5/sample/tool'])
-    assert.deepEqual(data.issues.map((issue) => issue.id), ['claude-opus-5-5/sample/I1'])
+    assert.deepEqual(data.runs.map((run) => run.id), ['future-cohort/sample/tool'])
+    assert.deepEqual(data.issues.map((issue) => issue.id), ['future-cohort/sample/I1'])
     assert.deepEqual(data.targets.map((target) => target.id), ['sample'])
     assert.deepEqual(data.tools.map((tool) => tool.id), ['tool'])
-    assert.deepEqual(data.cohorts.map((cohort) => cohort.id), ['claude-opus-5-5'])
+    assert.deepEqual(data.cohorts.map((cohort) => cohort.id), ['future-cohort'])
+    assert.equal(data.cohorts[0].complete, true)
+    assert.ok(data.models.some((model) => model.id === 'claude-future-9' && model.label === 'Claude Future 9'))
     assert.deepEqual(data.omittedCohorts, [{ id: 'in-progress', reason: 'incomplete' }])
     const run = data.runs[0]
     assert.equal(run.targetSnapshot.title, 'Pinned snapshot target')
@@ -347,11 +356,11 @@ test('artifact loader uses complete cohort snapshots after live state and tools 
     assert.equal(run.toolSnapshot.label, 'Pinned Tool')
     assert.equal(run.toolSnapshot.source, 'snapshot-source')
     assert.equal(run.prompt, 'Pinned review of snapshot/project')
-    assert.equal(run.requestedModel, 'claude-opus-5-5')
+    assert.equal(run.requestedModel, 'claude-future-9')
     assert.equal(run.modelProvenance, 'requested')
-    assert.deepEqual(run.observedModels, ['claude-opus-5-5', 'claude-sonnet-observed'])
-    assert.deepEqual(run.issueIds, ['claude-opus-5-5/sample/I1'])
-    assert.equal(data.targets[0].snapshots['claude-opus-5-5'].groundtruth.url, 'https://example.test/pinned-review')
+    assert.deepEqual(run.observedModels, ['claude-future-9', 'claude-sonnet-observed'])
+    assert.deepEqual(run.issueIds, ['future-cohort/sample/I1'])
+    assert.equal(data.targets[0].snapshots['future-cohort'].groundtruth.url, 'https://example.test/pinned-review')
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true })
   }

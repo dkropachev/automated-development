@@ -10,6 +10,8 @@ const { pathToFileURL } = require('node:url')
 
 const ROOT = path.join(__dirname, '..')
 const DASHBOARD = path.join(ROOT, 'docs', 'index.html')
+const DASHBOARD_SOURCE = fs.readFileSync(DASHBOARD, 'utf8')
+const DASHBOARD_DATA = JSON.parse(DASHBOARD_SOURCE.match(/<script id="dashboard-data" type="application\/json">([\s\S]*?)<\/script>/)[1])
 
 function chromeExecutable() {
   const candidates = [process.env.CHROME_BIN, 'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'].filter(Boolean)
@@ -63,6 +65,12 @@ function modelRows(text) {
     html: match[1],
     name: (match[1].match(/<strong>([^<]+)<\/strong>/) || [])[1],
   }))
+}
+
+function completedCohortRows(text) {
+  const section = text.match(/<section class="panel completed-cohort-panel"[\s\S]*?<tbody>([\s\S]*?)<\/tbody><\/table>[\s\S]*?<\/section>/)
+  assert.ok(section, 'the Models tab must render completed cohorts')
+  return [...section[1].matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map((match) => match[1])
 }
 
 function leaderboardRows(text) {
@@ -202,6 +210,16 @@ try {
   assert.match(models.app, /href="#runs\?runIds=[^"]+" class="runs-link"/)
   assert.match(models.app, /historical\/inferred|historical \/ inferred/)
   assert.match(models.app, /issues\/42/)
+  const completedRows = completedCohortRows(models.app)
+  const completedCohorts = DASHBOARD_DATA.cohorts.filter((cohort) => cohort.complete && !cohort.legacy)
+  assert.equal(completedRows.length, completedCohorts.length, 'every completed modern cohort must appear automatically')
+  for (const cohort of completedCohorts) {
+    const row = completedRows.find((html) => html.includes(`<strong>${cohort.id}</strong>`))
+    assert.ok(row, `completed cohort ${cohort.id} must appear in Models`)
+    const runCount = DASHBOARD_DATA.runs.filter((run) => run.cohortId === cohort.id).length
+    assert.match(row, new RegExp(`>${runCount} runs?<\\/a>`))
+  }
+  assert.ok(completedRows.some((html) => /Claude Sonnet 5\.5/.test(html) && /sonnet-5-5-2026-09-30/.test(html)))
   const denominators = modelCompletenessDenominators(models.app)
   assert.deepEqual(modelRows(models.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1', 'Claude Opus 5'])
   assert.equal(denominators.length, 3, 'all-model scope must compare exactly three models')

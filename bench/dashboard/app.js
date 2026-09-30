@@ -69,6 +69,10 @@
     'Completeness / dollar': 'Completeness percentage points divided by total recorded cost for every attempted run.',
     'Cost': 'Recorded API usage cost in U.S. dollars.',
     'Cost / real': 'Total recorded cost for attempted runs divided by distinct verified real issues.',
+    'Cohort-local real': 'Distinct verified real issues in this completed cohort after applying the current filters. Cohort-local judgements are not a shared cross-model gold standard.',
+    'Local real / review $': 'Cohort-local real issues per recorded reviewer-call dollar. Extraction and judgement spend are excluded.',
+    'Median review cost': 'Median recorded reviewer-call cost in the completed cohort after applying the current filters.',
+    'Review spend': 'Total recorded reviewer-call spend in the completed cohort after applying the current filters. Extraction and judgement spend are excluded.',
     'Δ': 'Right value minus left value.',
     'Distinct real': 'Verified real issues in the cohort, counted once per target.',
     'Extracted claims': 'Raw findings extracted from a run before duplicate merging and verification.',
@@ -938,11 +942,21 @@
   }
 
   function modelComparisonFilterBar(params, snapshot, scope) {
-    const sources = enrichScopeSources(snapshot, scope)
-    const skillChoices = [...new Set(sources.map((source) => source.toolId).filter(Boolean))].sort().map((id) => [id, tools.get(id)?.label || id])
-    const targetIds = [...new Set(sources.map((source) => source.targetId).filter(Boolean))].sort()
-    const targetChoices = targetIds.map((id) => [id, `${id} · ${targets.get(id)?.language || 'unknown'}`])
-    const languageChoices = [...new Set(targetIds.map((id) => targets.get(id)?.language).filter(Boolean))].sort().map((language) => [language, language])
+    const sources = snapshot && scope ? enrichScopeSources(snapshot, scope) : []
+    const cohortRuns = completedCohortRuns()
+    const skillLabels = new Map(sources.map((source) => [source.toolId, tools.get(source.toolId)?.label || source.toolId]))
+    for (const run of cohortRuns) skillLabels.set(run.toolId, run.toolLabel || tools.get(run.toolId)?.label || run.toolId)
+    const skillChoices = [...skillLabels.entries()].filter(([id]) => id).sort((left, right) => left[1].localeCompare(right[1]))
+    const targetLabels = new Map(sources.map((source) => {
+      const language = targets.get(source.targetId)?.language || 'unknown'
+      return [source.targetId, `${source.targetId} · ${language}`]
+    }))
+    for (const run of cohortRuns) targetLabels.set(run.targetId, `${run.targetId} · ${targetForRun(run)?.language || 'unknown'}`)
+    const targetChoices = [...targetLabels.entries()].filter(([id]) => id).sort((left, right) => left[0].localeCompare(right[0]))
+    const languageChoices = [...new Set([
+      ...sources.map((source) => targets.get(source.targetId)?.language),
+      ...cohortRuns.map((run) => targetForRun(run)?.language),
+    ].filter(Boolean))].sort().map((language) => [language, language])
     const bar = el('section', { class: 'filter-bar model-filter-bar', 'aria-label': 'Model comparison filters' },
       checklist('Skills', 'skills', skillChoices, params),
       checklist('Languages', 'languages', languageChoices, params),
@@ -950,6 +964,89 @@
     )
     if (['skills', 'languages', 'targets'].some((key) => params.has(key))) bar.append(el('button', { class: 'clear-filters', onclick: () => viewParams(params, { skills: '', languages: '', targets: '', evidenceModel: '', evidenceVerdict: '' }) }, 'Clear filters'))
     return bar
+  }
+
+  function completedModernCohorts() {
+    return (DATA.cohorts || []).filter((cohort) => cohort.complete === true && !cohort.legacy)
+  }
+
+  function completedCohortRuns() {
+    const cohortIds = new Set(completedModernCohorts().map((cohort) => cohort.id || cohort.runId))
+    return DATA.runs.filter((run) => cohortIds.has(run.cohortId))
+  }
+
+  function matchesModelPageDimensions(run, params) {
+    const selectedTools = values(params, 'skills')
+    const selectedTargets = values(params, 'targets')
+    const selectedLanguages = values(params, 'languages')
+    if (selectedTools.length && !selectedTools.includes(run.toolId)) return false
+    if (selectedTargets.length && !selectedTargets.includes(run.targetId)) return false
+    const language = targetForRun(run)?.language
+    return !selectedLanguages.length || selectedLanguages.includes(language)
+  }
+
+  function completedCohortStats(params) {
+    const allRows = completedCohortRuns()
+    return completedModernCohorts().map((cohort) => {
+      const cohortId = cohort.id || cohort.runId
+      const cohortRows = allRows.filter((run) => run.cohortId === cohortId)
+      const rows = cohortRows.filter((run) => matchesModelPageDimensions(run, params))
+      const modelId = cohort.requestedModel || cohort.observedModel || cohortRows[0]?.modelId || null
+      const configured = configuredModels.find((model) => model.id === modelId)
+      const stats = aggregateRuns(cohortId, cohort.label || cohortId, 'Completed cohort', rows, rows)
+      return {
+        ...stats,
+        cohortId,
+        createdAt: cohort.createdAt || null,
+        modelId,
+        modelLabel: cohort.modelLabel || configured?.label || cohortRows[0]?.modelLabel || modelId || 'Model unavailable',
+        modelProvenance: cohort.modelProvenance || (cohort.requestedModel ? 'requested' : cohort.observedModel ? 'observed' : 'unavailable'),
+        claudeVersion: cohort.claudeVersion || 'Version unavailable',
+        medianWall: median(rows.map((run) => run.wallMs)),
+      }
+    })
+  }
+
+  function completedCohortTable(stats) {
+    const body = el('tbody')
+    for (const row of stats) {
+      const created = row.createdAt ? String(row.createdAt).slice(0, 10) : null
+      body.append(el('tr', {},
+        el('td', {}, el('strong', {}, row.modelLabel), el('span', { class: 'subline' }, `${row.modelId || 'model unavailable'} · ${row.modelProvenance}`)),
+        el('td', {}, el('strong', {}, row.cohortId), created ? el('span', { class: 'subline' }, `created ${created}`) : null),
+        el('td', {}, row.claudeVersion),
+        el('td', { class: 'num' }, fmt(row.real)),
+        el('td', { class: 'num' }, fmt(row.highMedium)),
+        el('td', { class: 'num' }, fmt(row.precision, 'percent')),
+        el('td', { class: 'num' }, fmt(row.realPerDollar)),
+        el('td', { class: 'num' }, fmt(row.cost, 'money')),
+        el('td', { class: 'num' }, fmt(row.medianCost, 'money')),
+        el('td', { class: 'num' }, fmt(row.medianWall, 'minutes')),
+        el('td', { class: 'num' }, fmt(row.successRate, 'percent')),
+        el('td', { class: 'num' }, runCountLink(row.rows)),
+      ))
+    }
+    const headings = [
+      ['Model', null], ['Cohort', null], ['Claude Code version', null],
+      ['Cohort-local real', metricHints['Cohort-local real']], ['High + med', metricHints['High + med']], ['Precision', metricHints.Precision], ['Local real / review $', metricHints['Local real / review $']],
+      ['Review spend', metricHints['Review spend']], ['Median review cost', metricHints['Median review cost']], ['Median runtime', metricHints['Median runtime']], ['Success', metricHints.Success], ['Evidence', metricHints.Evidence],
+    ]
+    const table = el('table', { class: 'model-comparison-table completed-cohort-table' },
+      el('thead', {}, el('tr', {}, headings.map(([label, hint], index) => el('th', { scope: 'col', class: index >= 3 ? 'num' : '' }, hint ? metricLabel(label, hint) : label)))),
+      body,
+    )
+    return el('div', { class: 'table-wrap model-table-wrap' }, stats.length ? table : el('div', { class: 'empty' }, 'No sealed, completed modern cohorts are available.'))
+  }
+
+  function completedCohortPanel(params) {
+    const stats = completedCohortStats(params)
+    return el('section', { class: 'panel completed-cohort-panel', 'aria-labelledby': 'completed-cohorts-title' },
+      el('div', { class: 'panel-head' }, el('div', {},
+        el('h2', { id: 'completed-cohorts-title' }, 'Completed cohorts'),
+        el('p', {}, 'Every sealed modern cohort appears automatically. These metrics use each cohort’s own judgements and are not a cross-model ranking or part of the canonical gold snapshot.'),
+      )),
+      completedCohortTable(stats),
+    )
   }
 
   function filteredComparisonSources(snapshot, scope, params) {
@@ -1156,7 +1253,13 @@
   function renderModelComparison(params) {
     const snapshot = modelComparisonSnapshot()
     if (!snapshot || !snapshot.scopes.length) {
-      return frame(el('div', {}, compactHero('Choose a reviewer', 'Compare skills and models.', 'The published gold-standard model comparison is unavailable in this dashboard export.'), chooseTabs(params, 'models'), el('div', { class: 'notice info evidence-note' }, 'Regenerate the schema v3 dashboard after sealing a gold snapshot.')))
+      return frame(el('div', {},
+        compactHero('Choose a reviewer', 'Review completed model cohorts.', 'Completed cohort evidence is published automatically. A separate canonical ranking appears only when a gold snapshot has been sealed.'),
+        chooseTabs(params, 'models'),
+        modelComparisonFilterBar(params, null, null),
+        completedCohortPanel(params),
+        el('div', { class: 'notice info evidence-note' }, 'The published gold-standard model comparison is unavailable in this dashboard export. Completed cohort metrics remain visible, but must not be compared as canonical scores.'),
+      ))
     }
     const requestedScope = params.get('scope')
     const scope = snapshot.scopes.find((item) => item.id === requestedScope) || snapshot.scopes.find((item) => item.id === 'all-models') || snapshot.scopes[0]
@@ -1173,6 +1276,7 @@
       chooseTabs(params, 'models'),
       el('section', { class: 'model-scope-controls' }, scopePicker, el('p', {}, 'The completeness denominator is the same for every model: all canonical real issues on the targets selected below.')),
       modelComparisonFilterBar(params, snapshot, scope),
+      completedCohortPanel(params),
       legacyPresent ? el('div', { class: 'notice model-legacy-warning', role: 'note' }, 'Claude Opus 5 is historical/inferred: its request, effort, target pins, prompts, and accounting were not fully recorded. Salvaged reports can expand the canonical gold set but never receive detection credit. ', externalLink('Track the controlled 19-cell rerun in issue #42 ↗', issueUrl)) : null,
       el('section', { class: 'model-winners', 'aria-label': 'Model comparison winners' },
         modelWinnerCard('Best value', valueWinner, (row) => `${fmt(row.realPerDollar)} real / $`, (row) => `${row.real} canonical real · ${fmt(row.cost, 'money')} recorded total`),

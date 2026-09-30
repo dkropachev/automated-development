@@ -730,6 +730,7 @@ function loadArtifacts(root = ROOT) {
       modelProvenance: cohort.requestedModel ? 'requested' : cohort.observedModel ? 'observed' : 'unavailable',
       claudeVersion: cohort.claudeVersion || null,
       createdAt: cohort.createdAt || null,
+      complete: Boolean(cohort.complete),
       legacy: Boolean(cohort.legacy),
     })),
     targets: targetData,
