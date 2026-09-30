@@ -522,20 +522,38 @@
 
   const decisionSorts = {
     value: [(group) => group.qualityPerDollar, -1],
-    quality: [(group) => group.completeness, -1],
-    precision: [(group) => group.precision, -1],
-    reliability: [(group) => group.successRate, -1],
+    candidate: [(group) => group.label, 1],
     cost: [(group) => group.medianCost, 1],
+    realPerRun: [(group) => group.realPerRun, -1],
+    highMedium: [(group) => group.highMedium, -1],
+    precision: [(group) => group.precision, -1],
+    completeness: [(group) => group.completeness, -1],
+    costPerReal: [(group) => group.costPerReal, 1],
+    success: [(group) => group.successRate, -1],
   }
 
-  function orderGroups(groups, key) {
-    const [getter, direction] = decisionSorts[key] || decisionSorts.value
+  const decisionSortAliases = { quality: 'completeness', reliability: 'success' }
+
+  function decisionSortKey(params) {
+    const requested = decisionSortAliases[params.get('decision')] || params.get('decision') || 'value'
+    return decisionSorts[requested] ? requested : 'value'
+  }
+
+  function decisionSortDirection(key, requested) {
+    if (requested === 'asc') return 1
+    if (requested === 'desc') return -1
+    return (decisionSorts[key] || decisionSorts.value)[1]
+  }
+
+  function orderGroups(groups, key, requestedDirection) {
+    const [getter] = decisionSorts[key] || decisionSorts.value
+    const direction = decisionSortDirection(key, requestedDirection)
     return [...groups].sort((a, b) => {
       const av = getter(a), bv = getter(b)
       if (av == null && bv == null) return a.label.localeCompare(b.label)
       if (av == null) return 1
       if (bv == null) return -1
-      return direction * (av - bv) || a.label.localeCompare(b.label)
+      return direction * (typeof av === 'string' ? av.localeCompare(bv) : av - bv) || a.label.localeCompare(b.label)
     })
   }
 
@@ -703,6 +721,27 @@
     )
   }
 
+  function decisionSortHeading(label, key, params, numeric = false) {
+    const active = decisionSortKey(params) === key
+    const defaultDirection = decisionSorts[key][1]
+    const currentDirection = active ? decisionSortDirection(key, params.get('decisionDir')) : defaultDirection
+    const nextDirection = active ? -currentDirection : defaultDirection
+    const currentName = currentDirection === 1 ? 'ascending' : 'descending'
+    const nextName = nextDirection === 1 ? 'ascending' : 'descending'
+    const nextValue = nextDirection === 1 ? 'asc' : 'desc'
+    const defaultValue = defaultDirection === 1 ? 'asc' : 'desc'
+    return el('th', { class: numeric ? 'num' : '', scope: 'col', 'aria-sort': active ? currentName : 'none' },
+      el('span', { class: 'heading-with-hint' },
+        el('button', {
+          class: 'sort-button', type: 'button',
+          onclick: () => viewParams(params, { decision: key, decisionDir: nextValue === defaultValue ? '' : nextValue }),
+          'aria-label': `Sort leaderboard by ${label}, ${nextName}`,
+        }, label, active ? (currentDirection === -1 ? ' ↓' : ' ↑') : ''),
+        metricHints[label] ? hintedLabel('', metricHints[label]) : null,
+      ),
+    )
+  }
+
   function leaderboard(groups, params, groupBy) {
     const selected = selectionFrom(params)
     const body = el('tbody')
@@ -722,7 +761,17 @@
         el('td', { class: 'num' }, fmt(group.successRate, 'percent')),
       ))
     }
-    const table = el('table', {}, el('thead', {}, el('tr', {}, el('th', {}, 'Compare'), el('th', {}, metricLabel('Candidate')), el('th', { class: 'num' }, metricLabel('Cost')), el('th', { class: 'num' }, metricLabel('Real / run')), el('th', { class: 'num' }, metricLabel('High + med')), el('th', { class: 'num' }, metricLabel('Precision')), el('th', { class: 'num' }, metricLabel('Completeness')), el('th', { class: 'num' }, metricLabel('Cost / real')), el('th', { class: 'num' }, metricLabel('Success')))), body)
+    const table = el('table', {}, el('thead', {}, el('tr', {},
+      el('th', { scope: 'col' }, 'Compare'),
+      decisionSortHeading('Candidate', 'candidate', params),
+      decisionSortHeading('Cost', 'cost', params, true),
+      decisionSortHeading('Real / run', 'realPerRun', params, true),
+      decisionSortHeading('High + med', 'highMedium', params, true),
+      decisionSortHeading('Precision', 'precision', params, true),
+      decisionSortHeading('Completeness', 'completeness', params, true),
+      decisionSortHeading('Cost / real', 'costPerReal', params, true),
+      decisionSortHeading('Success', 'success', params, true),
+    )), body)
     return el('div', { class: 'table-wrap' }, groups.length ? table : el('div', { class: 'empty' }, 'No benchmark evidence matches these filters.'))
   }
 
@@ -1157,13 +1206,16 @@
     const base = DATA.runs.filter((run) => matchesOverviewDimensions(run, params))
     const requestedGroup = params.get('group') || 'skill'
     const groupBy = ['skill', 'skillModel', 'language'].includes(requestedGroup) ? requestedGroup : 'skill'
-    const sort = params.get('decision') || 'value'
-    const groups = orderGroups(groupedStats(base, groupBy, base), sort)
+    const sort = decisionSortKey(params)
+    const groups = orderGroups(groupedStats(base, groupBy, base), sort, params.get('decisionDir'))
     const selected = selectionFrom(params)
     const distinctReal = new Set(base.filter((run) => run.status === 'complete').flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
     const controls = el('div', { class: 'compact-controls decision-controls' },
       field('Group candidates by', select('decision-group', [['skill', 'Skill'], ['skillModel', 'Skill + model under test'], ['language', 'Language']], groupBy, (event) => viewParams(params, { group: event.target.value === 'skill' ? '' : event.target.value, compareSkills: event.target.value === 'skill' ? params.get('compareSkills') : '' }))),
-      field('Rank for', select('decision-sort', [['value', 'Best value'], ['quality', 'Highest completeness'], ['precision', 'Highest precision'], ['reliability', 'Most reliable'], ['cost', 'Lowest cost']], sort, (event) => viewParams(params, { decision: event.target.value === 'value' ? '' : event.target.value }))),
+      field('Sort by', select('decision-sort', [
+        ['value', 'Best value'], ['candidate', 'Candidate'], ['cost', 'Cost'], ['realPerRun', 'Real / run'], ['highMedium', 'High + med'],
+        ['precision', 'Precision'], ['completeness', 'Completeness'], ['costPerReal', 'Cost / real'], ['success', 'Success'],
+      ], sort, (event) => viewParams(params, { decision: event.target.value === 'value' ? '' : event.target.value, decisionDir: '' }))),
     )
     frame(el('div', {},
       compactHero('Choose a reviewer', 'Find the right skill for your constraints.', 'Rank skills, models under test, and languages using verified quality, cost, and reliability. Every result retains its evidence count.'),
