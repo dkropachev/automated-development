@@ -212,8 +212,9 @@ test('comparison overlap uses stable IDs only for the same target', () => {
 })
 
 test('artifact loader reads the complete tracked matrix without runtime transcript accounting', () => {
+  const publishedGoldExisted = fs.existsSync(path.join(ROOT, 'bench', 'gold', 'index.json'))
   const data = dashboard.loadArtifacts()
-  assert.equal(data.schemaVersion, 2)
+  assert.equal(data.schemaVersion, 3)
   assert.equal(data.defaultModel, 'claude-opus-5-5')
   assert.deepEqual(data.models.map((model) => model.id), ['claude-opus-5-5', 'claude-fable-5-1', 'claude-opus-5'])
   assert.ok(data.cohorts.some((cohort) => cohort.id === 'legacy'))
@@ -240,6 +241,32 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
   assert.equal(new Set(data.issues.map((issue) => issue.id)).size, data.issues.length)
   assert.equal(data.defaultTokenLimit, 25000000)
   assert.equal(legacyRuns.filter((run) => dashboard.isRecommendedRun(run, data.defaultTokenLimit)).length, 15)
+  if (publishedGoldExisted || data.modelComparison) {
+    const comparison = data.modelComparison
+    assert.ok(comparison, 'a published gold index must populate modelComparison')
+    assert.equal(comparison.id, 'model-comparison-2026-09-30')
+    assert.deepEqual(comparison.scopes.map((scope) => [scope.id, scope.count]), [
+      ['all-models', 17],
+      ['controlled-pair', 19],
+    ])
+    assert.deepEqual(comparison.scopes[0].modelIds, ['claude-opus-5', 'claude-fable-5-1', 'claude-opus-5-5'])
+    assert.deepEqual(comparison.scopes[1].modelIds, ['claude-fable-5-1', 'claude-opus-5-5'])
+    assert.equal(comparison.sourceMappings.length, 403)
+    assert.equal(comparison.complete.counts.eligibleClaims, 403)
+    assert.equal(new Set(comparison.sourceMappings.map((mapping) => `${mapping.cellId}#${mapping.findingIndex}`)).size, 403)
+    assert.ok(comparison.sourceMappings.every((mapping) => mapping.finding.selfRejected !== true))
+    assert.ok(comparison.canonicalIssues.length > 0)
+    assert.ok(comparison.canonicalIssues.every((issue) => ['real', 'false-positive', 'unproven'].includes(issue.verdict)))
+    const legacy = comparison.cohorts.find((cohort) => cohort.modelId === 'claude-opus-5')
+    assert.equal(legacy.provenance, 'historical-inferred')
+    assert.equal(legacy.controlled, false)
+    assert.equal(legacy.pinsInferred, true)
+    const salvage = comparison.sourceEvidence.filter((evidence) => evidence.salvaged)
+    assert.equal(salvage.length, 2)
+    assert.ok(salvage.every((evidence) => evidence.discoveryOnly && !evidence.creditEligible))
+  } else {
+    assert.equal(data.modelComparison, null)
+  }
   const source = fs.readFileSync(path.join(ROOT, 'bench', 'dashboard.js'), 'utf8')
   assert.doesNotMatch(source, /require\(['"]\.\/lib\/usage['"]\)/)
   assert.doesNotMatch(source, /path\.join\(root,\s*['"](?:work|logs)['"]/)
@@ -271,6 +298,8 @@ test('artifact loader limits directory reads to the documented inputs', () => {
     fs.mkdirSync(path.join(fixture, 'logs'), { recursive: true })
     fs.writeFileSync(path.join(fixture, 'logs', 'invalid.json'), 'not json')
     const data = dashboard.loadArtifacts(fixture)
+    assert.equal(data.schemaVersion, 3)
+    assert.equal(data.modelComparison, null)
     assert.equal(data.runs.length, 1)
     assert.equal(data.runs[0].prompt, 'Review x/y')
     assert.equal(data.runs[0].id, 'legacy/sample/tool')
@@ -372,7 +401,7 @@ test('HTML export is deterministic, self-contained, and script-data safe', () =>
 test('dashboard metric hints are visible, concise, and keyboard reachable', () => {
   const html = dashboard.render(dashboard.loadArtifacts())
   assert.match(html, /'Real \/ run': 'Distinct verified real issues divided by complete runs\.'/)
-  assert.doesNotMatch(html, /salvag/i)
+  assert.match(html, /Salvaged discovery-only records are excluded/)
   assert.match(html, /'Precision': 'Real issues divided by real issues plus false positives; unproven issues are excluded\.'/)
   assert.match(html, /class: 'hint-mark', tabindex: 0, title: hint, 'data-hint': hint/)
   assert.match(html, /class: 'hint-tooltip', role: 'tooltip'/)

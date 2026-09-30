@@ -24,6 +24,7 @@ make bench-run       # run the default claude-opus-5-5 cohort
 make bench-extract   # seal the complete result matrix, then extract comparable JSON findings
 make bench-judge     # merge, verify, classify, and mark the full cohort complete
 make bench-report    # verify the completed snapshot and render its cohort-specific report
+make bench-reconcile # propose, review, seal, or validate the canonical model-comparison gold
 make bench-dashboard # render every cohort into docs/index.html and docs/run-explorer.html
 ```
 
@@ -94,12 +95,57 @@ under review. See the analysis in the report.
 | `runs/<runId>/quota.jsonl` | sanitized quota preflights and final snapshot; no raw account or UI data |
 | `runs/<runId>/{results,findings,judgement}/` | append-only artifacts for one new model cohort |
 | `runs/<runId>/recovered/` | audit-only transcript recoveries; never scored as results, so their cells must be rerun |
+| `gold/index.json` | hash-bound pointer to the one published model-comparison snapshot |
+| `gold/<comparisonId>/source-manifest.json` | declared cohorts, pinned targets, exact source hashes, eligibility policy, evidence cells, and comparison scopes |
+| `gold/<comparisonId>/proposal/` | one generated reconciliation per target, editable only during manual review |
+| `gold/<comparisonId>/canonical/` | accepted, reviewed per-target issues and exact `{cellId, findingIndex}` mappings |
+| `gold/<comparisonId>/complete.json` | immutable hashes and totals for the source manifest, reviewed proposals, and canonical target files |
 | `analysis.md` | hand-written analysis for the legacy narrative report |
 | `dashboard.js`, `dashboard/` | deterministic dashboard generator and browser assets |
 | `work/`, `logs/` | working trees and run logs, not committed |
 
 A tool that cannot finish inside one usage window is marked `"parked": true` in `tools.json`. It
 stays in the matrix and in the report, and `run.js` skips it unless `--include-parked` is passed.
+
+## Canonical model-comparison gold
+
+The model comparison does not reuse independent cohort judgements as if they were a shared truth
+set. `bench/reconcile.js` builds one versioned, reviewable gold snapshot from the declared legacy
+Opus 5, Fable 5.1, and Opus 5.5 cohorts. Its default ID is
+`model-comparison-2026-09-30`; override it with `GOLD_ID=<id>` when intentionally creating another
+snapshot. Run the four phases in order:
+
+```
+make bench-reconcile PHASE=proposal ARGS="--issue-url https://github.com/.../issues/..."
+# Inspect and correct every gold/<id>/proposal/<target>.json mapping and canonical issue.
+make bench-reconcile PHASE=accept ARGS="--reviewer <name>"
+make bench-reconcile PHASE=seal
+make bench-reconcile PHASE=validate
+```
+
+`proposal` hashes all source findings, checks the declared cohorts and target pins, and runs one
+`claude-opus-5-5` high-effort reconciliation per target. It merges semantic duplicates, verifies
+claims against the pinned code, and retains canonical `real`, `false-positive`, and `unproven`
+records. Human review may correct the proposal files before `accept`; acceptance validates complete
+source coverage and promotes the reviewed records into `canonical/`. `seal` refuses an already
+sealed snapshot, writes `complete.json`, and publishes its hash through `gold/index.json`.
+`validate` is read-only and rechecks the index, completion marker, source, proposal, and canonical hashes,
+target pins, enums, stable issue IDs, and every mapping. Changed inputs, missing or duplicate
+mappings, cross-target references, incomplete coverage, and post-seal edits all fail validation.
+
+The current source manifest contains 403 eligible, genuinely raised claims. Findings with
+`selfRejected: true` are excluded before reconciliation, and each remaining raw claim is mapped
+exactly once by `{cellId, findingIndex}`. The parked legacy DNF is excluded from evidence and credit
+but remains hash-bound as an excluded source; intentionally deleted historical tool cells are not
+reconstructed. Two recovered legacy C++ reports remain discovery evidence: they may
+support creation of a canonical issue, but are marked discovery-only and can never give Opus 5
+detection credit.
+
+The published manifest defines two exact scopes. **All models · 17 matched cells** compares Opus 5,
+Fable 5.1, and Opus 5.5 only where all three have complete, non-salvaged evidence. **Current
+controlled pair · 19 matched cells** compares every matched Fable 5.1 and Opus 5.5 cell. Every
+matched attempt contributes recorded cost and success/failure evidence; finding credit requires a
+complete, non-salvaged, credit-eligible cell.
 
 ## Accounting
 
@@ -118,6 +164,11 @@ means the stored cell total. It prefers
 `transcriptUsage` fields already present in a result, fills missing fields from `modelUsage`, then
 `reportedUsage`/`reportedCostUsd`, and labels the provenance. Missing measurements remain
 unavailable rather than becoming zero.
+
+The embedded dashboard contract is schema v3. When `gold/index.json` exists, its validated published
+snapshot is exposed as `modelComparison`, including canonical issues, exact source mappings and
+evidence, declared cohorts, 17/19-cell scopes, and hash/pin provenance. Without an index the field is
+`null`, so unsealed proposals never leak into the published comparison.
 
 Quality measures are intentionally direct: extracted claims; real, false-positive, and unproven
 judgements; in-scope, PR-introduced, and unique real findings; and precision (`real / (real + false
@@ -150,6 +201,21 @@ findings-per-dollar across eligible targets.
 
 Analysis charts include every complete run with recorded cost, including zero-yield and
 token-heavy runs. Skill, requested-model, language, and target filters narrow chart inputs.
+
+The **Choose** view has URL-backed **Skills** and **Models** tabs. `#choose` remains the skill
+leaderboard; `#choose?tab=models` opens the canonical model comparison. Historical
+`#choose?group=model` links are treated as aliases for the Models tab, and model comparison omits
+the single-model picker while retaining skill, language, and target filters.
+
+Model completeness is the number of distinct canonical real issues credited to a model divided by
+all canonical real issues on the selected targets; that denominator is fixed across the compared
+models. Precision is canonical real divided by canonical real plus canonical false positives, with
+unproven claims excluded. Value is canonical real findings per recorded benchmark dollar. Cost,
+median cost, wall time, reliability, and evidence counts also come only from recorded benchmark
+attempts—there is no vendor list-price lookup or runtime network request. Opus 5 is explicitly
+historical/inferred because its requested model, effort, target pins, prompts, and accounting were
+not all recorded; the dashboard links its warning to the controlled-rerun issue recorded in the
+gold manifest.
 
 `docs/index.html` and `docs/run-explorer.html` are committed so the dashboard works from a checkout
 or static docs host. After any benchmark artifact changes, run `make bench-dashboard`; the test

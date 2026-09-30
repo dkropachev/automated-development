@@ -50,6 +50,25 @@ function assertTopThree(cards) {
   for (const rank of [1, 2, 3]) assert.match(cards, new RegExp(`<div class="rank-number">#${rank}<\\/div>`))
 }
 
+function modelCompletenessDenominators(text) {
+  const table = text.match(/<table class="model-comparison-table">([\s\S]*?)<\/table>/)
+  assert.ok(table, 'the model comparison must render its metrics table')
+  return [...table[1].matchAll(/<span class="subline">[0-9]+ \/ ([0-9]+)<\/span>/g)].map((match) => Number(match[1]))
+}
+
+function modelRows(text) {
+  const table = text.match(/<table class="model-comparison-table">[\s\S]*?<tbody>([\s\S]*?)<\/tbody><\/table>/)
+  assert.ok(table, 'the model comparison must render model rows')
+  return [...table[1].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((match) => ({
+    html: match[1],
+    name: (match[1].match(/<strong>([^<]+)<\/strong>/) || [])[1],
+  }))
+}
+
+function linkedEvidenceCounts(text) {
+  return modelRows(text).map((row) => Number((row.html.match(/aria-label="View exact contributing runs: ([0-9]+)"/) || [])[1]))
+}
+
 try {
   assert.ok(fs.existsSync(DASHBOARD), 'run make bench-dashboard before the browser check')
 
@@ -125,12 +144,78 @@ try {
   assert.match(rustMajorHome.app, /Most unique discoveries · Major only · Rust/)
 
   const choose = render('choose?model=claude-opus-5')
+  assert.match(choose.app, /class="choose-tabs" aria-label="Leaderboard views"/)
+  assert.match(choose.app, /aria-current="page" class="active">Skills<\/a>/)
+  assert.doesNotMatch(choose.app, /<option value="model">Model under test<\/option>/)
   for (const label of ['Candidate', 'Cost', 'Real / run', 'High + med', 'Precision', 'Completeness', 'Cost / real', 'Success']) {
     assert.match(choose.app, new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*?class="hint-mark"`, 's'), `${label} needs a rendered hint`)
   }
   assert.match(choose.app, /href="#runs\?runIds=[^"]+" class="runs-link">3 runs<\/a>/)
   assert.match(choose.app, /href="#skills\/superpowers-review\?model=claude-opus-5" class="skill-info-link">Skill info<\/a>/)
   assert.match(choose.dom, /class="hint-tooltip" role="tooltip" hidden=""/)
+
+  const models = render('choose?tab=models')
+  assert.match(models.app, /Compare models against the canonical gold standard\./)
+  assert.match(models.app, /aria-current="page" class="active">Models<\/a>/)
+  assert.doesNotMatch(models.app, /id="model-filter"/)
+  assert.match(models.app, /id="model-scope"/)
+  assert.match(models.app, /All models · 17 matched cells/)
+  for (const label of ['Best value', 'Most complete', 'Lowest median cost', 'Fastest median runtime']) assert.match(models.app, new RegExp(`>${label}<`))
+  for (const label of ['Real / $', 'Recorded total', 'Median cost', 'Canonical real', 'High + med', 'Precision', 'Completeness', 'Cost / real', 'Median runtime', 'Success', 'Evidence']) {
+    assert.match(models.app, new RegExp(`aria-label="Sort models by ${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`), `${label} must be sortable`)
+  }
+  assert.match(models.app, /aria-sort="descending"/)
+  assert.match(models.app, /<svg class="chart"[^>]*role="group"[^>]*aria-label="Cost versus completeness Pareto frontier"/)
+  assert.match(models.app, /class="canonical-evidence-link"/)
+  assert.match(models.app, /id="canonical-evidence-title"/)
+  assert.match(models.app, /href="#runs\?runIds=[^"]+" class="runs-link"/)
+  assert.match(models.app, /historical\/inferred|historical \/ inferred/)
+  assert.match(models.app, /issues\/42/)
+  const denominators = modelCompletenessDenominators(models.app)
+  assert.deepEqual(modelRows(models.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1', 'Claude Opus 5'])
+  assert.equal(denominators.length, 3, 'all-model scope must compare exactly three models')
+  assert.equal(new Set(denominators).size, 1, 'completeness denominator must be fixed across models')
+  assert.deepEqual(linkedEvidenceCounts(models.app), [17, 17, 17])
+
+  const skillFilteredModels = render('choose?tab=models&skills=builtin-code-review')
+  assert.match(skillFilteredModels.app, /Skills · 1/)
+  assert.deepEqual([...new Set(modelCompletenessDenominators(skillFilteredModels.app))], [...new Set(denominators)], 'skill filters must not change the target-level completeness denominator')
+  assert.deepEqual(linkedEvidenceCounts(skillFilteredModels.app), [3, 3, 3], 'skill filters must change contributing evidence')
+  assert.notEqual(modelRows(skillFilteredModels.app)[0].html, modelRows(models.app)[0].html, 'skill filters must change spend and findings')
+
+  const targetFilteredModels = render('choose?tab=models&targets=tidepool')
+  const targetDenominators = modelCompletenessDenominators(targetFilteredModels.app)
+  assert.equal(new Set(targetDenominators).size, 1, 'target-filtered denominator must remain fixed across models')
+  assert.notEqual(targetDenominators[0], denominators[0], 'target filters must change the canonical denominator')
+  assert.deepEqual(linkedEvidenceCounts(targetFilteredModels.app), [6, 6, 6])
+
+  const controlledPair = render('choose?tab=models&scope=controlled-pair')
+  assert.match(controlledPair.app, /Current controlled pair · 19 matched cells/)
+  assert.match(controlledPair.app, /<option value="controlled-pair" selected="">/)
+  assert.deepEqual(modelRows(controlledPair.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1'])
+  assert.deepEqual(linkedEvidenceCounts(controlledPair.app), [19, 19])
+
+  const modelSorted = render('choose?tab=models&modelSort=model')
+  assert.match(modelSorted.app, /<th class="" aria-sort="ascending">/)
+  assert.deepEqual(modelRows(modelSorted.app).map((row) => row.name), ['Claude Fable 5.1', 'Claude Opus 5', 'Claude Opus 5.5'])
+
+  const opusEvidence = render('choose?tab=models&evidenceModel=claude-opus-5-5&evidenceVerdict=real')
+  assert.match(opusEvidence.app, /Canonical real evidence · Claude Opus 5\.5/)
+  assert.match(opusEvidence.app, /class="panel model-evidence-panel" id="canonical-evidence" tabindex="-1"/)
+  const evidencePanel = opusEvidence.app.match(/<section class="panel model-evidence-panel"[\s\S]*?<\/section>/)
+  assert.ok(evidencePanel, 'selected canonical evidence panel must render')
+  assert.equal(count(evidencePanel[0], /class="canonical-issue"/g), 42)
+  assert.doesNotMatch(evidencePanel[0], /class="badge false-positive"|class="badge unproven"/)
+  const firstEvidenceLink = evidencePanel[0].match(/href="(#runs\?runIds=[^"]+)" class="runs-link" aria-label="View exact contributing runs: ([0-9]+) credited cells? · view exact runs"/)
+  assert.ok(firstEvidenceLink, 'canonical findings must link to their exact credited cells')
+  const linkedRuns = render(firstEvidenceLink[1].slice(1).replaceAll('&amp;', '&'))
+  const linkedRunBody = linkedRuns.app.match(/<tbody>([\s\S]*?)<\/tbody>/)
+  assert.ok(linkedRunBody, 'canonical evidence run link must render a run table')
+  assert.equal(count(linkedRunBody[1], /<tr>/g), Number(firstEvidenceLink[2]))
+
+  const modelAlias = render('choose?group=model')
+  assert.match(modelAlias.app, /Compare models against the canonical gold standard\./)
+  assert.match(modelAlias.app, /aria-current="page" class="active">Models<\/a>/)
 
   const runs = render('runs?runIds=ironweave%2Ftob-c-review')
   assert.match(runs.app, /Linked set · 1 run/)

@@ -1,0 +1,1757 @@
+{
+  "schemaVersion": 1,
+  "target": "quillstone",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceManifestSha256": "3a17070a554f1fc0ca777549c0046b1ffff21d50e135c723749f73d308d05fcb",
+  "reviewed": false,
+  "reconciler": {
+    "requestedModel": "claude-opus-5-5",
+    "effort": "high",
+    "costUsd": 1.7199016,
+    "modelUsage": {
+      "claude-opus-5-5": {
+        "inputTokens": 24,
+        "outputTokens": 29100,
+        "thinkingTokens": 16183,
+        "cacheReadInputTokens": 1056348,
+        "cacheCreationInputTokens": 115817,
+        "webSearchRequests": 0,
+        "costUSD": 1.7199016
+      }
+    },
+    "workspace": "work/quillstone/runs/model-comparison-2026-09-30/_gold-reconcile/attempt-AkxPzj/repo",
+    "reconciledAt": "2026-09-30T11:44:53.741Z"
+  },
+  "issues": [
+    {
+      "id": "quillstone-I001",
+      "title": "Persistent USE failure (stale or dropped current keyspace) now discards every new connection and drains the pool to Broken(UseKeyspaceError)",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "PoolRefiller::use_keyspace (connection_pool.rs:1287) and ClusterWorker (worker.rs:351) store the keyspace before USE succeeds and never roll it back; the new Err(Keyspace) arm drops each connection whose USE fails, so after a failed use_keyspace or a DROP KEYSPACE every refill is discarded with growing backoff, the pool drains to Broken(UseKeyspaceError) and emit_events sends ConnectivityChangeEvent::Lost. Before the PR the connection was kept with a warn!, so fully qualified queries kept working.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Direct consequence of the PR's discard-on-USE-failure change."
+    },
+    {
+      "id": "quillstone-I002",
+      "title": "USE failure on a new connection logged at debug! instead of warn!, and only surfaced via shared_conns when the pool is empty",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The removed code logged at warn!; the new arm logs at debug! while now also dropping the connection. With a non-empty pool update_shared_conns is not called, so a pool that can never grow is invisible at default log levels.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Log level changed by this PR's keyspace-failure arm."
+    },
+    {
+      "id": "quillstone-I003",
+      "title": "Excess shard-aware connection dropped without decrementing total_connections",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 994,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The else-if requested_shard.is_some() branch drops a connection that count_in_metrics already counted via inc_total_connections, with no dec_total_connections; the counter drifts up on every shard-aware miss (e.g. behind NAT). Branch is unchanged from base.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "Pre-existing, but it is the one discard site in handle_ready_connection left unbalanced by the PR's own metric-balancing commits."
+    },
+    {
+      "id": "quillstone-I004",
+      "title": "Pool teardown (run() exit / PoolRefiller drop) never decrements total_connections",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 697,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "When the keyspace request channel closes, run() returns and PoolRefiller with all conns and excess_connections is dropped; there is no Drop impl or decrement, so the gauge keeps the pool's full count. full_pool_clears_excess_connections_and_balances_metrics asserts total_connections == 1 after the worker has exited, encoding the leak.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "Pre-existing leak, but the PR's new metrics test bakes it in as expected behavior."
+    },
+    {
+      "id": "quillstone-I005",
+      "title": "No timeout on per-connection use_keyspace in start_setting_keyspace_for_connection; a hung USE stalls all refills",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1336,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The future pushed to ready_connections awaits connection.use_keyspace with no timeout (explicit TODO), keeping is_filling() true so need_filling() never schedules another refill; the sibling PoolRefiller::use_keyspace does wrap USE in tokio::time::timeout.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The untimed await and its TODO exist unchanged at base; the PR does not change hang behavior."
+    },
+    {
+      "id": "quillstone-I006",
+      "title": "USE failure for a stale keyspace discards the connection instead of retrying with the current keyspace",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The Ok arm re-checks evt.keyspace_name against current_keyspace, but the Err(Keyspace) arm does not; if the keyspace changes while an old USE is in flight and that USE fails, the connection is dropped and backoff is raised. Self-heals on the next refill.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the new Err(Keyspace) arm."
+    },
+    {
+      "id": "quillstone-I007",
+      "title": "PR description omits the metric-balancing commits and keyspace/reshard reordering",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The PR body only describes keyspace-setup discard; commits de164845, 0d91aa54 and 617139df (metric decrements and tests) are not mentioned, nor are the warn!->debug! change or the defensible keyspace-before-reshard ordering change.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "PR description accuracy."
+    },
+    {
+      "id": "quillstone-I008",
+      "title": "PR validation command never compiled or ran the metrics tests or metrics assertions",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The listed command filters to keyspace_setup_failure tests without --features metrics (not a default feature), so the three #[cfg(feature = \"metrics\")] tests and the cfg-gated get_total_connections asserts were never exercised by it. CI does run --all-features.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "PR description accuracy."
+    },
+    {
+      "id": "quillstone-I009",
+      "title": "All four commits are subject-only, contrary to CONTRIBUTING.md and the ticked checklist item",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "git log shows empty bodies for de164845, 0d91aa54, 7f48315d and 617139df; CONTRIBUTING.md requires messages to explain what and why, and none explains the behavior change or the keyspace/reshard reordering.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Commits belong to this PR."
+    },
+    {
+      "id": "quillstone-I010",
+      "title": "'Fixes: #1682' does not resolve in this repository",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "gh issue view 1682 fails in dkropachev/quillstone; the number refers to upstream scylla-rust-driver, so the annotation neither links nor closes anything.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "PR description annotation."
+    },
+    {
+      "id": "quillstone-I011",
+      "title": "Metric-balancing fix is bundled into the keyspace-failure PR",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Three of four commits fix total_connections accounting on pool clears, which is unrelated to the keyspace-setup issue the PR claims to fix.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns the PR's own composition."
+    },
+    {
+      "id": "quillstone-I012",
+      "title": "Commit 617139df is a fixup of 0d91aa54 and should be squashed",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "617139df only swaps yield_now() for a 1 ms sleep inside the test 0d91aa54 added; CONTRIBUTING.md asks for each commit to be one logically coherent change.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Commit structure of this PR."
+    },
+    {
+      "id": "quillstone-I013",
+      "title": "Metric-balancing commit de164845 lands without tests; they come in the next commit",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "de164845 adds decrement_total_connections and the decrement sites; the covering tests are only added in 0d91aa54.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Commit structure of this PR."
+    },
+    {
+      "id": "quillstone-I014",
+      "title": "New keyspace tests do not call setup_tracing()",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_triggers_refill (1474) and keyspace_setup_failure_preserves_pool_state (1526) omit setup_tracing(), while every other test in the module calls it and CONTRIBUTING.md says new tests should.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Tests added by this PR."
+    },
+    {
+      "id": "quillstone-I015",
+      "title": "keyspace_setup_failure_triggers_refill asserts need_filling()/is_empty() which are trivially true and do not prove a refill is scheduled",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1512,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "On a fresh refiller with no conns and no pending futures, is_empty() and need_filling() hold regardless of the fix; run() is never driven, so only had_error_since_last_refill and the Broken snapshot are meaningful.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test added by this PR."
+    },
+    {
+      "id": "quillstone-I016",
+      "title": "No test drives a failing USE through run() to observe the backoff-delayed refill across cycles",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Tests only call handle_ready_connection directly; the scheduling branch in run() and on_fill_error() growth after repeated keyspace failures are covered only transitively.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Behavior introduced by this PR."
+    },
+    {
+      "id": "quillstone-I017",
+      "title": "Keyspace-failure arm untested with a non-empty pool on a shard-aware attempt",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1526,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_preserves_pool_state uses requested_shard: None and does not assert had_error_since_last_refill; the requested_shard: Some case is only tested with an empty pool.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Behavior introduced by this PR."
+    },
+    {
+      "id": "quillstone-I018",
+      "title": "No test covers recovery from Broken(UseKeyspaceError) back to Ready",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "No test drives a pool to Broken via keyspace failure and then admits a connection whose USE succeeds.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New Broken reason introduced by this PR."
+    },
+    {
+      "id": "quillstone-I019",
+      "title": "No test covers keyspace failure emptying the pool and emitting ConnectivityChangeEvent::Lost",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1157,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_triggers_refill uses no connectivity_events_sender, and preserves_pool_state keeps one connection alive, so the Lost transition is never asserted.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New failure path introduced by this PR."
+    },
+    {
+      "id": "quillstone-I020",
+      "title": "maybe_reshard's excess_connections.len() decrement term is never exercised",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1114,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "resharding_discards_old_connections_and_balances_metrics reshards with an empty excess_connections, so a miscount in that half of the sum would go unnoticed.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Decrement added by this PR."
+    },
+    {
+      "id": "quillstone-I021",
+      "title": "Metrics tests increment total_connections manually instead of through start_opening_connection",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Every new test calls metrics.inc_total_connections() by hand before handle_ready_connection, so the real increment in count_in_metrics is never paired with the new decrements.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Tests added by this PR."
+    },
+    {
+      "id": "quillstone-I022",
+      "title": "decrement_total_connections loops single decrements instead of one bulk Metrics operation",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The helper calls dec_total_connections() count times (count RMWs, transient intermediate values); a dec_total_connections_by(n) on Metrics/metrics_noop would be one fetch_sub and live next to its sibling.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Helper added by this PR."
+    },
+    {
+      "id": "quillstone-I023",
+      "title": "dec_total_connections wraps on over-decrement instead of saturating",
+      "file": "scylla/src/observability/metrics.rs",
+      "line": 342,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "unproven",
+      "verdictReason": "fetch_sub on AtomicU64 would wrap if ever over-decremented, but no current over-decrement path exists: cleared connections cannot reach remove_connection, which only decrements when the Arc is found in conns or excess_connections.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Metrics implementation is untouched by the PR; risk is hypothetical."
+    },
+    {
+      "id": "quillstone-I024",
+      "title": "'Decrement then clear excess_connections' pattern duplicated across three sites",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "run() (674), handle_ready_connection (1031) and maybe_reshard (1114) each pair decrement_total_connections with a clear; a clear_excess_connections() helper would keep the invariant in one place.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Pattern added by this PR."
+    },
+    {
+      "id": "quillstone-I025",
+      "title": "Decrement sites lack a comment explaining why they cannot double count",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The decrements are correct only because dropped connections' wait_for_error futures fail to upgrade their Weak and never reach remove_connection; nothing documents this.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Decrements added by this PR."
+    },
+    {
+      "id": "quillstone-I026",
+      "title": "Moved keyspace-setup block has no comment explaining why it must precede resharding",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 913,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The block's comment is unchanged from base and does not say that running maybe_reshard first would wipe the pool for a connection later discarded; only the test guards the ordering.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Reordering done by this PR."
+    },
+    {
+      "id": "quillstone-I027",
+      "title": "Keyspace setup now precedes sharder/shard-aware-port update, deferring shard discovery while USE fails",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 913,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Intentional and harmless: a connection whose USE fails cannot be admitted anyway, and learning its sharder first would reshard and clear the live pool; the PR description states setup completes before resharding and a test asserts it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Reordering done by this PR."
+    },
+    {
+      "id": "quillstone-I028",
+      "title": "Keyspace failure on a shard-aware attempt gets no immediate regular-port retry and raises backoff",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "The Connection arm's carve-out exists because the shard-aware port may be unreachable while the regular port works; a USE failure repeats on any port, so no fallback is useful and raising backoff is appropriate.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Arm added by this PR."
+    },
+    {
+      "id": "quillstone-I029",
+      "title": "ConnectionError::UseKeyspaceError classifies a healthy-transport USE failure as a connection fault",
+      "file": "scylla/src/errors.rs",
+      "line": 600,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "ConnectionError is documented as a connection-level fault, but a USE failure such as DbError::Invalid leaves the transport healthy. The new public variant therefore stretches the error's semantic contract.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Variant added by this PR."
+    },
+    {
+      "id": "quillstone-I030",
+      "title": "UseKeyspaceError variant message diverges from the file's existing pattern",
+      "file": "scylla/src/errors.rs",
+      "line": 600,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Other UseKeyspaceError wrappers in errors.rs (lines 80, 142, 172) use \"'USE KEYSPACE <>' request failed: {0}\".",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Variant added by this PR."
+    },
+    {
+      "id": "quillstone-I031",
+      "title": "Private ConnectionSetupError does not document its Connection-vs-Keyspace invariant",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The enum has no documentation explaining that Keyspace means an already-counted connection that must skip shard-aware fallback, while Connection preserves the previous retry behavior.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Type added by this PR."
+    },
+    {
+      "id": "quillstone-I032",
+      "title": "Err(Keyspace) with keyspace_name: None is representable though impossible in production",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1412,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "OpenedConnectionEvent keeps keyspace_name separate from result, and keyspace_setup_failure_triggers_refill constructs exactly that combination.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Type added by this PR."
+    },
+    {
+      "id": "quillstone-I033",
+      "title": "Private ConnectionSetupError duplicates ConnectionError::UseKeyspaceError",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "The private enum carries a distinct invariant: Keyspace errors come from an already-counted connection and must skip the shard-aware fallback, which folding into ConnectionError would lose.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Type added by this PR."
+    },
+    {
+      "id": "quillstone-I034",
+      "title": "Keyspace-failure test never uses requested_shard",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1502,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "keyspace_setup_failure_triggers_refill explicitly constructs requested_shard: Some(Shard(0)) at lines 1502-1506, so the claim that no test covers a requested shard is incorrect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test added by this PR."
+    },
+    {
+      "id": "quillstone-I035",
+      "title": "Keyspace arm calls dec_total_connections inline instead of decrement_total_connections",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 901,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "A single decrement calling dec_total_connections() directly matches remove_connection (1232); the helper is for counts.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Line added by this PR."
+    },
+    {
+      "id": "quillstone-I036",
+      "title": "Tests re-implement OPTIONS/STARTUP proxy rules instead of reusing start_simulated_node",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1528,
+      "kind": "style",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "make_rules (1528) and the two literal rule sets in the resharding test restate start_simulated_node's rules; a handshake change needs edits in several places.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Tests added by this PR."
+    },
+    {
+      "id": "quillstone-I037",
+      "title": "keyspace_setup_failure_triggers_refill hand-builds PoolRefiller instead of mock_pool_refiller()",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The constructor call duplicates mock_pool_refiller(); the test could use it and read the metrics and pool_updated_notify fields.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test added by this PR."
+    },
+    {
+      "id": "quillstone-I038",
+      "title": "unrequested_connection_event duplicates shard_aware_attempt_result",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1855,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Same body except requested_shard; generalizing the existing helper would remove it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Helper added by this PR."
+    },
+    {
+      "id": "quillstone-I039",
+      "title": "Hand-encoded SET_KEYSPACE RESULT bytes in test are undocumented and silently desync-prone",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1534,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "b\"\\0\\0\\0\\x03\\0\\x08keyspace\" (kind 3, short length 8, name) has no comment and must track the keyspace name and RESULT parsing by hand.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test added by this PR."
+    },
+    {
+      "id": "quillstone-I040",
+      "title": "Test uses ShardInfo::new(...) where sibling tests use struct literals",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1617,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_preserves_pool_state builds ShardInfo via ::new while the other tests use literals.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test added by this PR."
+    },
+    {
+      "id": "quillstone-I041",
+      "title": "initial_shard_info passed to start_simulated_node is immediately overridden in resharding test",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1876,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "change_request_rules replaces SUPPORTED with a non-sharded response right after start_simulated_node(initial_shard_info), so the argument has no effect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test added by this PR."
+    },
+    {
+      "id": "quillstone-I042",
+      "title": "Inconsistent proxy.finish() handling; new metrics tests discard proxy errors with let _",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1939,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_preserves_pool_state matches the result (1689) while the new metrics tests (1939, 1967, 2012) use let _ like pre-existing tests, hiding rule/frame failures.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Tests added by this PR."
+    },
+    {
+      "id": "quillstone-I043",
+      "title": "full_pool metrics test polls the counter with 1 ms sleeps instead of a deterministic wait",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 2002,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The awaited state is reached after one synchronous handle_ready_connection with a 5 s timeout, so it is not load-sensitive; pool_updated_notify is not signaled on the excess-clear path, so it is no alternative.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test added by this PR."
+    },
+    {
+      "id": "quillstone-I044",
+      "title": "Commit subject 'avoid busy-waiting' overstates a change that still polls",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Replacing a yield_now() spin with sleep(1ms) does stop busy-waiting; periodic sleeping is polling, not busy-waiting.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Commit in this PR."
+    },
+    {
+      "id": "quillstone-I045",
+      "title": "New public ConnectionError variant has no changelog entry",
+      "file": "scylla/src/errors.rs",
+      "line": 599,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "The repository has no changelog file; the variant carries a doc comment and the enum is #[non_exhaustive].",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Variant added by this PR."
+    },
+    {
+      "id": "quillstone-I046",
+      "title": "Pool-full excess clear in run() has no test",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "full_pool_clears_excess_connections_and_balances_metrics spawns run() and asserts that exact decrement.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Decrement added by this PR."
+    },
+    {
+      "id": "quillstone-I047",
+      "title": "#[from] publishes an unnecessary From<UseKeyspaceError> for ConnectionError conversion",
+      "file": "scylla/src/errors.rs",
+      "line": 600,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The transparent #[from] attribute adds a public conversion even though only one in-crate site needs to wrap the error; an explicit conversion there would avoid expanding the public API.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Attribute added by this PR."
+    },
+    {
+      "id": "quillstone-I048",
+      "title": "Private ConnectionSetupError lacks Debug",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The new private enum does not derive Debug, forcing tests to manually match variants instead of using ordinary assertion diagnostics.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Type added by this PR."
+    },
+    {
+      "id": "quillstone-I049",
+      "title": "ConnectionSetupError is confusingly close to the public ConnectionSetupRequestError it wraps",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The private enum's name differs by only 'Request' from errors::ConnectionSetupRequestError, even though it represents the broader post-open connection-or-keyspace outcome.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Type added by this PR."
+    }
+  ],
+  "mappings": [
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "quillstone-I008"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I007",
+        "quillstone-I009"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "quillstone-I026"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "quillstone-I031",
+        "quillstone-I048"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "quillstone-I032"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "quillstone-I047"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "quillstone-I024"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "quillstone-I025"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "quillstone-I015"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 13,
+      "issueIds": [
+        "quillstone-I016"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 14,
+      "issueIds": [
+        "quillstone-I020"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 15,
+      "issueIds": [
+        "quillstone-I042"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/ce-code-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I036"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/ce-code-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "quillstone-I017"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/ce-code-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "quillstone-I016"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I009"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I010"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "quillstone-I036"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "quillstone-I039"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "quillstone-I040"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "quillstone-I042"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "quillstone-I044"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "quillstone-I028"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "quillstone-I011"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "quillstone-I009"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 14,
+      "issueIds": [
+        "quillstone-I006"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 15,
+      "issueIds": [
+        "quillstone-I015"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 17,
+      "issueIds": [
+        "quillstone-I008"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I007",
+        "quillstone-I008"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I010"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "quillstone-I043"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/tob-diff-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/tob-diff-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I029"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/tob-diff-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I005"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/tob-rust-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/quillstone/tob-rust-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I004"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "quillstone-I029"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I027"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "quillstone-I043",
+        "quillstone-I044"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "quillstone-I024"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "quillstone-I015"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "quillstone-I039"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "quillstone-I014",
+        "quillstone-I036"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "quillstone-I041"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "quillstone-I010"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 13,
+      "issueIds": [
+        "quillstone-I018"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/anthropic-pr-review",
+      "findingIndex": 14,
+      "issueIds": [
+        "quillstone-I019"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/builtin-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/builtin-code-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I005"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I033"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "quillstone-I038"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "quillstone-I023"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "quillstone-I039"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "quillstone-I007"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 13,
+      "issueIds": [
+        "quillstone-I020"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 14,
+      "issueIds": [
+        "quillstone-I046"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 15,
+      "issueIds": [
+        "quillstone-I017"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 16,
+      "issueIds": [
+        "quillstone-I016"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 17,
+      "issueIds": [
+        "quillstone-I021"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/ce-code-review",
+      "findingIndex": 18,
+      "issueIds": [
+        "quillstone-I005"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I012"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I024"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I049"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "quillstone-I035",
+        "quillstone-I042"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "quillstone-I043",
+        "quillstone-I044"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "quillstone-I028"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "quillstone-I011"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "quillstone-I007"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "quillstone-I045"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/mattpocock-review",
+      "findingIndex": 13,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "quillstone-I004"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I022",
+        "quillstone-I023"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "quillstone-I031",
+        "quillstone-I049"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "quillstone-I009"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "quillstone-I012"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "quillstone-I008"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "quillstone-I026"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "quillstone-I043",
+        "quillstone-I044"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/superpowers-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "quillstone-I036"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/tob-diff-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/tob-diff-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/tob-diff-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I004"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/tob-rust-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/tob-rust-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I004"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/tob-rust-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I005"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/tob-rust-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "quillstone-I027"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/tob-rust-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "cellId": "legacy/quillstone/tob-rust-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "quillstone-I015",
+        "quillstone-I016",
+        "quillstone-I034"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/anthropic-pr-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/builtin-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/builtin-code-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/ce-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/ce-code-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I006"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/ce-code-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/ce-code-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/ce-code-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I007"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I013"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I037"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "quillstone-I036"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I030"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "quillstone-I044"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "quillstone-I009"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "quillstone-I005"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "quillstone-I011"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "quillstone-I027"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/mattpocock-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I007"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "quillstone-I008"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "quillstone-I009"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "quillstone-I015"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "quillstone-I006"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "quillstone-I043"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/superpowers-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/tob-diff-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/tob-diff-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/tob-diff-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "quillstone-I006"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/tob-diff-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "quillstone-I029"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/tob-rust-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/quillstone/tob-rust-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "quillstone-I003"
+      ]
+    }
+  ]
+}

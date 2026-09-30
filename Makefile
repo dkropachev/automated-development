@@ -15,7 +15,7 @@ BENCH_NEXT_CALL_ARG = $(if $(strip $(NEXT_CALL)),--next-call "$(NEXT_CALL)")
 
 .PHONY: help install test lint check ci validate-plugin eval-parse validate eval release \
 	bench-prepare bench-quota bench-probe bench-run bench-extract bench-judge bench-report bench-dashboard \
-	dashboard-browser-check
+	bench-reconcile dashboard-browser-check
 
 help:
 	@$(NODE) -e "const fs=require('fs');for(const l of fs.readFileSync('Makefile','utf8').split('\n')){const m=/^([a-z-]+):.*## (.*)$$/.exec(l);if(m)console.log(m[1].padEnd(16),m[2])}"
@@ -71,6 +71,9 @@ bench-judge: ## judge RUN findings and finalize complete snapshot
 
 bench-report: ## write RUN cohort report; default Opus 5.5, RUN=legacy is historical
 	$(NODE) bench/report.js --run "$(or $(RUN),claude-opus-5-5)" --write
+
+bench-reconcile: ## propose, accept, seal, or validate model-comparison gold; PHASE defaults to proposal
+	$(NODE) bench/reconcile.js --phase "$(or $(PHASE),proposal)" $(if $(strip $(GOLD_ID)),--id "$(GOLD_ID)") $(ARGS)
 
 bench-dashboard: ## render the offline dashboard and GitHub Pages entry point
 	@mkdir -p docs

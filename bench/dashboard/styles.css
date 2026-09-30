@@ -165,6 +165,34 @@ td.num, th.num { text-align: right; }
 .decision-controls { min-width: min(100%, 390px); }
 .decision-kpis { grid-template-columns: repeat(4, minmax(140px, 1fr)); }
 .evidence-note { margin: 1rem 0; }
+.choose-tabs { display: flex; width: fit-content; margin: .2rem 0 1rem; padding: .25rem; border: 1px solid var(--line); border-radius: 10px; background: #0d1219; }
+.choose-tabs a { min-width: 7rem; padding: .55rem 1rem; border-radius: 7px; color: var(--muted); font-weight: 700; text-align: center; text-decoration: none; }
+.choose-tabs a:hover { color: var(--text); }
+.choose-tabs a.active { background: var(--panel-2); color: var(--text); box-shadow: 0 3px 12px rgb(0 0 0 / 25%); }
+.model-scope-controls { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: rgb(17 22 30 / 72%); }
+.model-scope-controls .field { min-width: min(100%, 310px); }
+.model-scope-controls p { max-width: 720px; margin: 0 0 .2rem; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+.model-filter-bar { position: static; }
+.model-legacy-warning a { color: #ffe3ad; font-weight: 700; }
+.model-winners { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 1rem 0; }
+.model-winner-card { min-width: 0; padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(150deg, rgb(26 36 48 / 85%), rgb(13 18 25 / 90%)); box-shadow: var(--shadow); }
+.model-winner-card > span { color: var(--muted); font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.model-winner-card h3 { margin-top: .55rem; overflow-wrap: anywhere; }
+.model-winner-card strong { display: block; margin-top: .8rem; color: var(--accent); font-size: 1.5rem; }
+.model-winner-card p { margin: .35rem 0 0; color: var(--muted); font-size: .75rem; line-height: 1.4; }
+.model-comparison-table td:first-child { min-width: 190px; }
+.model-comparison-table .badge { margin-top: .45rem; }
+.model-comparison-table .canonical-evidence-link { color: var(--text); font-weight: 750; text-underline-offset: .15em; }
+.legacy-model-row { background: rgb(244 191 98 / 3%); }
+.model-evidence-panel { margin-top: 1rem; }
+.canonical-issue-list { display: grid; gap: .7rem; }
+.canonical-issue { padding: .85rem .9rem; border: 1px solid var(--line); border-radius: 9px; background: #0e131a; }
+.canonical-issue-head { display: flex; justify-content: space-between; align-items: start; gap: 1rem; }
+.canonical-issue-head strong { line-height: 1.4; }
+.canonical-issue-head .badges { flex: 0 0 auto; margin-top: 0; }
+.canonical-issue > p { margin: .65rem 0 0; color: #c5cfda; font-size: .85rem; line-height: 1.5; }
+.canonical-source-links { margin-top: .65rem; font-size: .78rem; }
+.model-provenance { margin-bottom: 0; }
 .selection-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(245px, 1fr)); gap: .65rem; margin: 1rem 0; }
 .selection-card { display: grid; grid-template-columns: auto 1fr; gap: .65rem; align-items: start; padding: .85rem; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); cursor: pointer; }
 .selection-card:hover, .selection-card.selected { border-color: #397d6e; background: #13231f; }
@@ -290,6 +318,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   .skill-grid { grid-template-columns: 1fr; }
   .skill-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .model-winners { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .header-actions { flex-wrap: wrap; justify-content: flex-end; }
   .finding-row { grid-template-columns: 1fr auto; }
   .reporter-list { grid-column: 1 / -1; text-align: left; }
@@ -328,6 +357,12 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   .reporter-list { grid-column: auto; }
   .compact-controls { width: 100%; }
   .compact-controls .field { flex: 1; }
+  .choose-tabs { width: 100%; }
+  .choose-tabs a { flex: 1; min-width: 0; }
+  .model-scope-controls { align-items: stretch; flex-direction: column; }
+  .model-scope-controls .field { min-width: 0; }
+  .model-winners { grid-template-columns: 1fr; }
+  .canonical-issue-head { flex-direction: column; }
   th, td { padding: .68rem .6rem; }
 }
 
