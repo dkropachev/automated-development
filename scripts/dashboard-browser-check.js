@@ -65,6 +65,16 @@ function modelRows(text) {
   }))
 }
 
+function leaderboardRows(text) {
+  const table = text.match(/<h2>Decision leaderboard<\/h2>[\s\S]*?<table>[\s\S]*?<tbody>([\s\S]*?)<\/tbody><\/table>/)
+  assert.ok(table, 'the decision leaderboard must render candidate rows')
+  return [...table[1].matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map((match) => {
+    const name = match[1].match(/<strong>[0-9]+\. <a[^>]*>([^<]+)<\/a><\/strong>/)
+    assert.ok(name, 'each decision leaderboard row must name its candidate')
+    return name[1]
+  })
+}
+
 function linkedEvidenceCounts(text) {
   return modelRows(text).map((row) => Number((row.html.match(/aria-label="View exact contributing runs: ([0-9]+)"/) || [])[1]))
 }
@@ -149,10 +159,27 @@ try {
   assert.doesNotMatch(choose.app, /<option value="model">Model under test<\/option>/)
   for (const label of ['Candidate', 'Cost', 'Real / run', 'High + med', 'Precision', 'Completeness', 'Cost / real', 'Success']) {
     assert.match(choose.app, new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*?class="hint-mark"`, 's'), `${label} needs a rendered hint`)
+    assert.match(choose.app, new RegExp(`aria-label="Sort leaderboard by ${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, (?:ascending|descending)"`), `${label} must be sortable`)
   }
+  assert.equal(count(choose.app, /aria-sort="none"/g), 8, 'the hidden best-value preset must not mark a visible column as sorted')
   assert.match(choose.app, /href="#runs\?runIds=[^"]+" class="runs-link">3 runs<\/a>/)
   assert.match(choose.app, /href="#skills\/superpowers-review\?model=claude-opus-5" class="skill-info-link">Skill info<\/a>/)
   assert.match(choose.dom, /class="hint-tooltip" role="tooltip" hidden=""/)
+
+  const candidateAscending = render('choose?model=claude-opus-5&decision=candidate')
+  const ascendingNames = leaderboardRows(candidateAscending.app)
+  assert.deepEqual(ascendingNames, [...ascendingNames].sort((a, b) => a.localeCompare(b)))
+  assert.equal(count(candidateAscending.app, /aria-sort="ascending"/g), 1)
+  assert.equal(count(candidateAscending.app, /aria-sort="none"/g), 7)
+  assert.match(candidateAscending.app, /<option value="candidate" selected="">Candidate<\/option>/)
+
+  const candidateDescending = render('choose?model=claude-opus-5&decision=candidate&decisionDir=desc')
+  assert.deepEqual(leaderboardRows(candidateDescending.app), [...ascendingNames].reverse())
+  assert.equal(count(candidateDescending.app, /aria-sort="descending"/g), 1)
+
+  const costDescending = render('choose?model=claude-opus-5&decision=cost&decisionDir=desc')
+  assert.equal(leaderboardRows(costDescending.app)[0], 'Trail of Bits c-review')
+  assert.match(costDescending.app, /<option value="cost" selected="">Cost<\/option>/)
 
   const models = render('choose?tab=models')
   assert.match(models.app, /Compare models against the canonical gold standard\./)
