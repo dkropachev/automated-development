@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/ironweave/ce-code-review",
+  "target": "ironweave",
+  "tool": "ce-code-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "9ceff7f285f0c1c3a1fa864ff2ea583ca7187748284a2f15e585b24e53b81e93",
+  "label": "Compound Engineering ce-code-review",
+  "findings": [
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "title": "Queued-entries and failed-drain branches of stream_close() have no test",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "stream_close() now waits on the old _outgoing_queue_ready and, via then_wrapped, closes the write buffer even when that future is exceptional, but the only new test empties the queue before stream_close() runs and never injects a failed entry, so a regression that closes the buffer before queued entries drain, or skips the close on a failed drain, would pass the suite.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1988,
+      "title": "Server's unguarded while(source().get()) loop could see stream_closed instead of eof on…",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "Adversarial-codex claimed the server handler's unguarded drain loop can observe stream_closed rather than eof when the client closes its stream half, but tracing the eof-marker send order, the sequential process() loop, and the queue's abort/consume ordering against head 69da8f5b showed the marker is always pushed and consumed before EOS can arrive, and the identical pattern has existed unflagged since 2018 in test_stream_simple.",
+      "selfRejected": true
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "title": "Hook index in new test claimed to depend on negotiation order",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "A candidate finding argued that BOOST_REQUIRE_EQUAL(hooks.size(), 2u) and hooks.back() are fragile relative to negotiation order, but this was discarded because the parent connection is always negotiated before make_stream_sink creates the stream connection, making hooks.back() deterministic.",
+      "selfRejected": true
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2017,
+      "title": "Regression test's try/catch can pass or hang instead of failing on a regression",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "test_stream_send_after_stream_close's try/catch silently accepts a successful send; without the fix the only failure signal is put_after_close after 10 yield()s, so the test could pass or hang rather than fail explicitly on a regression, and should instead assert BOOST_REQUIRE_THROW(..., rpc::closed_error).",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "No test for peer disconnect racing the new drain wait in stream_close()",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "There is no test covering the peer dropping the connection while stream_close() is waiting on the old _outgoing_queue_ready, i.e. stop_send_loop() running concurrently with the new drain wait.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "New test only covers the compressor's send_empty_frame hook, not other send() callers",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The regression test exercises only the compressor's send_empty_frame hook during the closing window and does not test other callers of send().",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "queue_drained wait in stream_close() has no timeout",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The new queue_drained wait added in stream_close() has no timeout and could in principle hang on a stalled peer, but tracing showed the pre-change write_buf.close() flush blocked on the same stalled-peer condition, so no new wedge was introduced, and the wait is unblocked by stop_send_loop()'s shutdown_output() on socket error or receive-loop exit.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Out-of-tree compressors calling send_empty_frame during the new closing window were not…",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Out-of-tree compressors (e.g. a dictionary-announcement hook) that call send_empty_frame and do not expect closed_error while connection::error() is still false were not audited; only the in-tree lz4 and multi_algo factories were checked.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Unresolved _negotiated during stream_close() argued impossible but not tested",
+      "severity": "low",
+      "kind": "design",
+      "claim": "A stream connection whose _negotiated is still unresolved when stream_close() runs was argued to be impossible by reasoning about client/server negotiation ordering, but this invariant is not covered by any test.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Behavior of output_stream::write on an already-closed stream was not traced",
+      "severity": "low",
+      "kind": "question",
+      "claim": "The behaviour of output_stream::write on an already-closed stream (whether it buffers the put, hangs, or throws) was not traced, which bears on how the new test actually fails without the fix.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Author's claim that the new test fails without the fix commit is unverified",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The author's verification that rpc_test passes in the debug build on 1 and 2 shards, and that the new test fails without commit f545c28a, could not be verified by this review because no build directory exists in this checkout.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 5887,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 23116,
+      "webSearchRequests": 0,
+      "costUSD": 0.15554279999999998,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3830,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 27,
+    "sha256": "5a43b4236d60866dcafd0a9191530ca85f88865baf787183c69a1cb15fe36812"
+  },
+  "extractedAt": "2026-09-30T03:17:11.046Z"
+}

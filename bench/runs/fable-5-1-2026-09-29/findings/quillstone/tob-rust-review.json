@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/quillstone/tob-rust-review",
+  "target": "quillstone",
+  "tool": "tob-rust-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "a9478f8fddbe590be1a2d4d7e1561a0376d11388aa4b3262b4d47098bfb4e32d",
+  "label": "Trail of Bits rust-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 897,
+      "title": "Failed/stale keyspace switch causes pool to permanently starve and end up Broken",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "Session::use_keyspace and PoolRefiller::use_keyspace now record the new keyspace before the USE succeeds; every newly opened connection is dropped in the new Keyspace error branch, backoff grows, and once existing connections die the pool ends in Broken(UseKeyspaceError) with no recovery except another successful use_keyspace call, whereas before this PR a connection with a failed USE was still admitted with a warning so fully qualified queries kept working.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "title": "Log level for keyspace-switch failure lowered from warn! to debug!, hiding pool churn",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The same code path that causes pool starvation also lowers the log level from warn! to debug!, making the churn invisible until the node goes down.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Metric increments/decrements checked and found balanced across all paths",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Metric increments and decrements balance on every path traced (open, keyspace failure, excess clearing, reshard, and later error removal of already-cleared connections).",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Reorder of keyspace setup before resharding checked and found correct",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reorder of keyspace setup before resharding is correct.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "New ConnectionError variant confirmed on a #[non_exhaustive] enum",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The new ConnectionError variant is on a #[non_exhaustive] enum, so it was checked and is not a problem.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 1417,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19716,
+      "webSearchRequests": 0,
+      "costUSD": 0.0972428,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 622,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 37,
+    "sha256": "daeeeb62b18e720543fbb83d22c6dd6d7c2df252ecb8bec8286ddb681f5c34aa"
+  },
+  "extractedAt": "2026-09-30T03:24:18.435Z"
+}

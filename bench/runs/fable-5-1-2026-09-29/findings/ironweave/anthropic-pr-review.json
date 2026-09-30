@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+  "target": "ironweave",
+  "tool": "anthropic-pr-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "c9cf1b1b288a124619aefd47fb147a45a079233de2f0351a8121bbe4fac0a94a",
+  "label": "Anthropic pr-review-toolkit",
+  "findings": [
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 386,
+      "title": "Docs claim any throw from source read releases it, but serializer errors don't",
+      "severity": "high",
+      "kind": "docs",
+      "claim": "The documentation states that any exception thrown while reading from a source releases it, but process_one_buffer calls unmarshall outside any handler, so an exception there leaves _source_closed false and stream_close() never runs; only stream_receive() failures and eof actually release the source, so an application following the doc literally will leak the connection."
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "Queue-drain half of the fix has no test coverage",
+      "severity": "high",
+      "kind": "test-gap",
+      "claim": "The new test has the outgoing queue empty by construction when stream_close() runs, so deleting the std::exchange(_outgoing_queue_ready, ...) wait would not fail any existing test; it is coverable using suspend_for_testing() to park the queue and assert close_entered stays false, which also covers the untested 'sink closed first, source eof last' ordering."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "title": "Test never asserts that the frame send was actually refused",
+      "severity": "high",
+      "kind": "test-gap",
+      "claim": "The catch (const rpc::closed_error&) swallows the expected outcome, and a successful hook call would also pass the test; detection relies entirely on put_after_close, which needs the batch flush poller to run before the check. Should use BOOST_REQUIRE_THROW to directly assert the closed_error."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2022,
+      "title": "yield() loop does not guarantee the flush poller actually runs",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "yield() only schedules an empty task; pollers run when the queue drains or quota expires, so without the fix the test could fail either on put_after_close or on the ~output_stream assert depending on timing, making the accompanying comment inaccurate. check_for_io_immediately() would force a poll, and the loop becomes unnecessary if refusal is asserted directly."
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "title": "Comment misstates why _outgoing_queue_ready becomes exceptional",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment says _outgoing_queue_ready is exceptional if an entry failed, but a failed send_entry calls abort() and still runs p->done.set_value(), so a failed entry never makes the chain exceptional; the actual causes are stop_send_loop() withdrawing queued entries and the _negotiated abort."
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "title": "Comment 'nothing else waits for _outgoing_queue_ready from here on' is inaccurate",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "stop_send_loop() still does when_all on _outgoing_queue_ready (it just receives the ready placeholder); also the retained comment at rpc.cc:563-564 now sits far from the _sink_closed_future = p.get_future() line it explains and should be moved."
+    },
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 343,
+      "title": "Stale plain-// comment lines break the new doxygen blocks",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The old '// send data Out...' and '// receive data In...' lines now sit between the new /// doxygen block and the declaration, and the rest of the file uses a plain first line rather than \\brief for consistency; these stale lines should be removed."
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 114,
+      "title": "Doc overstates that the stream connection is shut down 'only' when both halves close",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The connection can also be shut down by a read-loop failure or by closing the parent client via abort_all_streams(), which the doc itself acknowledges earlier, so the word 'only' is too strong."
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "title": "const_cast used in hook-capturing factory instead of a mutable member",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "Declaring hooks as mutable would be cleaner than casting away const on this."
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body and commits carry Claude attribution trailers, violating user's global rule",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The PR body ends with a 'Generated with Claude Code' line and all three commits carry Co-Authored-By: Claude trailers, which violates the user's global CLAUDE.md instruction to never add these; they should be stripped before merge."
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 2865,
+      "cacheReadInputTokens": 15847,
+      "cacheCreationInputTokens": 26938,
+      "webSearchRequests": 0,
+      "costUSD": 0.13957540000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1098,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 25,
+    "sha256": "9958cf966c9e9da1d88e107f24ee8bbe548559eff2fe5814ff7467f5d3c5abd3"
+  },
+  "extractedAt": "2026-09-30T03:15:57.086Z"
+}

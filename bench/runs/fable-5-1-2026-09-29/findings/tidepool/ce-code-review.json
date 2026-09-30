@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/tidepool/ce-code-review",
+  "target": "tidepool",
+  "tool": "ce-code-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "ef3dd0d76749d6c2f73081ca09f40b2c53613c5a1817a2f64bf25ef725edc8d8",
+  "label": "Compound Engineering ce-code-review",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 999,
+      "title": "nil SubType still panics unmarshalVector instead of returning an error",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A caller-built VectorType with nil SubType still panics unmarshalVector on the Scan goroutine instead of returning an error, via vectorElemMinSize(nil) hitting elemType.Type() or info.Zero() calling v.SubType.NewWithError() on a nil interface; reproduced with Unmarshal(VectorType{}, []byte{}, &a) where a is type any.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1137,
+      "title": "Saturation branch of vectorElemMinSize (math.MaxInt32) has no test coverage",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The return math.MaxInt32 branch that prevents the accumulator from wrapping under deeply nested peer-controlled Dimensions is untested; replacing it with return 1<<20 in a worktree left all vector tests green.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 587,
+      "title": "32-bit wrap/saturation cases cannot be executed on GOARCH=386",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The 32-bit wrap cases in TestUnmarshalVectorRejectsUnfittableDimensions and the saturation arithmetic in marshal.go:1136-1137 cannot be executed on GOARCH=386 because dependent packages don't compile on 32-bit; verified only by inspection, and by inspection the arithmetic is safe.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 997,
+      "title": "No test drives the allocation bound through the public Unmarshal entry point",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test exercises the bound via the public Unmarshal entry with variable-length fixed-Go-size elements (smallint/tinyint/date/time) or an array destination at exactly the minimum size; a manual probe passed, so this is coverage, not a defect.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 836,
+      "title": "Memory-measurement test could be flaky from leaked goroutines allocating during…",
+      "severity": "nit",
+      "kind": "test-gap",
+      "claim": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating measures process-wide runtime.MemStats.TotalAlloc with a 128 KB budget and is not t.Parallel, so goroutines leaked by earlier tests in the package could allocate inside the measurement window and cause flakiness; no failure was observed in this run.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1130,
+      "title": "Dimension bound misclassifies zero-length fixed custom types as variable-length",
+      "severity": "nit",
+      "kind": "bug",
+      "claim": "The dimension bound treats every unknown custom element type as variable-length with a 1-byte minimum, which is non-narrowing for a zero-length fixed type (EmptyType) that isVectorVariableLengthType already mis-classifies; described as pre-existing and out of scope, and not a realistic vector element.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 1134,
+      "title": "Recursion depth in vector-type helpers bounded only by short-string type-name length",
+      "severity": "nit",
+      "kind": "security",
+      "claim": "Nested-vector recursion depth across vectorElemMinSize, isVectorVariableLengthType, and getCassandraLongType is bounded by the short-string custom type name length (allowing depth ~1500); this diff adds one more recursive walker of the same depth but does not change the exposure.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 1084,
+      "title": "Negative vint element length can cause element decode from nil data with nil error",
+      "severity": "nit",
+      "kind": "security",
+      "claim": "For a variable-length element, elemSize = int(m) from readUnsignedVInt can go negative on 64-bit (m >= 2^63), and the element then decodes from nil data with a nil error; the new bound limits element count, not per-element lengths. Declared out of scope by the PR (#1106).",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 5123,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 24690,
+      "webSearchRequests": 0,
+      "costUSD": 0.1541988,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3521,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 40,
+    "sha256": "eca6f736095533237844a4d1cd4a2862db44f0ddf683cec3d23098ec95a9fb46"
+  },
+  "extractedAt": "2026-09-30T03:26:24.945Z"
+}

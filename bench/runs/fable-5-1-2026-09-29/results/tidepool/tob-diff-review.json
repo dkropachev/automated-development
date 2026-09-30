@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/tidepool/tob-diff-review",
+  "target": "tidepool",
+  "language": "Go",
+  "fork": "dkropachev/tidepool",
+  "pr": 1,
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "tool": "tob-diff-review",
+  "label": "Trail of Bits differential-review",
+  "source": "differential-review@trailofbits",
+  "prompt": "/differential-review:diff-review https://github.com/dkropachev/tidepool/pull/1\n\nYou are reviewing pull request #1 of this repository (dkropachev/tidepool) - a Go project. The PR branch `bound-vector-dimensions` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 268241,
+  "reportedCostUsd": 2.05894575,
+  "reportedUsage": {
+    "input_tokens": 420,
+    "cache_creation_input_tokens": 60005,
+    "cache_read_input_tokens": 749983,
+    "output_tokens": 13343,
+    "output_tokens_details": {
+      "thinking_tokens": 7171
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 60005,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 737,
+        "cache_read_input_tokens": 68130,
+        "cache_creation_input_tokens": 2463,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 2463
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-fable-5-1": {
+      "inputTokens": 420,
+      "outputTokens": 13343,
+      "cacheReadInputTokens": 749983,
+      "cacheCreationInputTokens": 60005,
+      "webSearchRequests": 0,
+      "costUSD": 2.05894575,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 7171,
+      "canonicalModel": "claude-fable-5-1",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 16,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "31b4688b-8117-47f1-bb74-b2d94b158adf",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 420,
+    "output": 13343,
+    "thinking": 7171,
+    "cacheRead": 749983,
+    "cacheCreation": 60005,
+    "costUsd": 2.05894575,
+    "sessions": 1,
+    "models": {
+      "claude-fable-5-1": 2.05894575
+    },
+    "bySession": {
+      "31b4688b-8117-47f1-bb74-b2d94b158adf": {
+        "costUsd": 2.05894575,
+        "startTime": 1790737832359,
+        "tokens": 823751
+      }
+    },
+    "rawMessages": 28,
+    "rawOutput": 27794,
+    "rawCacheRead": 1401460,
+    "since": 0,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-tidepool-runs-fable-5-1-2026-09-29-tob-diff-review-attempt-CyccRw-repo",
+    "total": 823751
+  },
+  "result": "No code defects found in the diff. The bound is placed before every allocation and before the wrapping `Dimensions*8` products, `vectorElemMinSize` never returns below 1 and saturates safely, and the nil `reflect.TypeOf` guard sits before `.Kind()`. Build, vet and gofmt are clean, the vector tests pass, and I confirmed on a pristine `main` worktree that the three \"rejects\" tests panic or fail there exactly as described. The only unit failures in the full suite are pre-existing TLS tests that need `make .prepare-pki`.\n\nFindings, all in the PR description rather than the code:\n\n1. **LOW — PR description, issue references.** #1085, #1086, #1091, #1093, #1106 do not exist in dkropachev/tidepool. They look like upstream numbers. \"Lands with #1093, which rejects dim < 1 in the metadata parsers\" does not hold in this repo: `frame.go:862` still discards the `Atoi` error and never bounds `dim`, so this PR's negative-dimension check is the only defence here.\n2. **LOW — PR description, test claim.** \"Every new test fails against pristine marshal.go/helpers.go\" is inaccurate. `TestUnmarshalVectorAcceptsWellFormedPayloads` and `TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType` pass on `main`; they are regression guards, not reproductions.\n3. **INFO — PR description, attribution footer.** The \"Generated with Claude Code\" line contradicts your global CLAUDE.md rule against attribution.\n\nOne non-finding worth knowing: the `helpers.go:280` change affects every unknown class name reaching `getCassandraLongType` (tuple, UDT, and collection element types too), not just vector elements. It only alters the `String()` text from `custom()` to `custom(<name>)`, matches what `frame.go:804` already does for wire custom types, and nothing compares `custom == \"\"`, so I do not consider it a defect.\n\nReport written to `/tmp/DIFFERENTIAL_REVIEW_REPORT_tidepool_pr1.md`. Not covered: live-node run and 32-bit execution.",
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 24,
+    "sha256": "a20e999aea2bd84b6cad4fce989d876f5ed7efe58733d7dae66f921f1b323373"
+  },
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/tidepool/runs/fable-5-1-2026-09-29/tob-diff-review/attempt-CyccRw/repo",
+  "finishedAt": "2026-09-30T03:15:00.573Z"
+}

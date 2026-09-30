@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/ironweave/builtin-code-review",
+  "target": "ironweave",
+  "tool": "builtin-code-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "4d8fe197f9757cd1da2f627bd509aeb117ec751ea90efef0d3360fc8370b9abb",
+  "label": "Claude Code /code-review",
+  "findings": [
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1878,
+      "title": "test_data_sink_impl lacks API-level guard, fails to compile under --api-level=7/8",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "test_data_sink_impl only overrides put(std::span<...>), which exists solely for SEASTAR_API_LEVEL >= 9; since --api-level=7/8 is still advertised in CMakeLists.txt:72, rpc_test fails to compile under those levels, unlike tls_test.cc:919 and httpd_test.cc:741 which guard the same helper pattern with #if SEASTAR_API_LEVEL >= 9.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 790,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19427,
+      "webSearchRequests": 0,
+      "costUSD": 0.0898168,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 520,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 26,
+    "sha256": "1cb9624ca1f5a22c2d40d7f009c8dd3acbb19c00480aa24799acb23cfb350c36"
+  },
+  "extractedAt": "2026-09-30T03:16:10.929Z"
+}

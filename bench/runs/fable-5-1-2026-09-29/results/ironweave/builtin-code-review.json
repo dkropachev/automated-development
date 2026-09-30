@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/ironweave/builtin-code-review",
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "tool": "builtin-code-review",
+  "label": "Claude Code /code-review",
+  "source": "built-in",
+  "prompt": "/code-review 1\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 201443,
+  "reportedCostUsd": 1.7189205,
+  "reportedUsage": {
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "input_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 0,
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "",
+    "iterations": [],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-fable-5-1": {
+      "inputTokens": 418,
+      "outputTokens": 13712,
+      "cacheReadInputTokens": 671562,
+      "cacheCreationInputTokens": 68900,
+      "webSearchRequests": 0,
+      "costUSD": 1.7189205,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 9307,
+      "canonicalModel": "claude-fable-5-1",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 0,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "484e7a47-ea26-4a4c-be66-4125317c5284",
+  "isError": false,
+  "transcriptUsage": {
+    "input": 418,
+    "output": 13712,
+    "thinking": 9307,
+    "cacheRead": 671562,
+    "cacheCreation": 68900,
+    "costUsd": 1.7189205,
+    "sessions": 1,
+    "models": {
+      "claude-fable-5-1": 1.7189205
+    },
+    "bySession": {
+      "484e7a47-ea26-4a4c-be66-4125317c5284": {
+        "costUsd": 1.7189205,
+        "startTime": 1790688531012,
+        "tokens": 754592
+      }
+    },
+    "rawMessages": 24,
+    "rawOutput": 13753,
+    "rawCacheRead": 1142035,
+    "since": 0,
+    "subagentTranscripts": 1,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-ironweave-runs-fable-5-1-2026-09-29-builtin-code-review-attempt-nnNVbn-repo",
+    "total": 754592
+  },
+  "result": "The core change checks out: `_stream_closing` closes the only unguarded `send()` path (the compressor's `send_empty_frame` hook), `stream_close()` can only run after negotiation resolved (sink eof is sent through `send()`, which chains on `_negotiated`, and the error path skips `stream_close()` entirely), so waiting on the exchanged `_outgoing_queue_ready` cannot deadlock, and `stop_send_loop()`'s `when_all` still terminates because the front entry's `done` resolves on write failure after `shutdown_output()`. `_sink_closed_future` still correctly skips the duplicate `write_buf.close()`. Test lifetimes are fine: `sink.close()` waits for `stop()`/`_stopped`, so the stream connection (and the wrapper sink referencing `st`) is deregistered and destroyed before `st` goes out of scope, and `make_stream_sink` awaits negotiation so `hooks.size() == 2` is deterministic.\n\nOne finding:\n\n- `tests/unit/rpc_test.cc:1878` — `test_data_sink_impl` only overrides `put(std::span<...>)`, which exists solely for `SEASTAR_API_LEVEL >= 9`; with `--api-level=7/8` (still advertised in `CMakeLists.txt:72`) rpc_test fails to compile. Other tests with the same helper pattern (`tls_test.cc:919`, `httpd_test.cc:741`) guard with `#if SEASTAR_API_LEVEL >= 9`. Low severity.",
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 3,
+    "sha256": "90a303f042f8d844d1b10a5668f6a0d84c957a9f748058f46fef946d42eca744"
+  },
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/ironweave/runs/fable-5-1-2026-09-29/builtin-code-review/attempt-nnNVbn/repo",
+  "finishedAt": "2026-09-29T13:32:12.433Z"
+}

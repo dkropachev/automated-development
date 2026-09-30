@@ -1,0 +1,945 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "target": "tidepool",
+  "language": "Go",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "rawFindings": 64,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "unmarshalVector panics on *any dest with nil SubType via VectorType.Zero()",
+      "file": "marshal.go",
+      "line": 1044,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Reproduced: unmarshalVector(VectorType{}, []byte{}, &dst) with dst any panics 'invalid memory address or nil pointer dereference' because info.Zero() calls v.SubType.NewWithError() on a nil interface at marshal.go:1044-1049; only reachable via a caller-constructed VectorType (wire parsing never leaves SubType nil), and the new test TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType (marshal_vector_test.go:937) only exercises *[]float64, not *any, so it doesn't cover this.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "The panic path itself predates the PR unchanged, but this PR's own stated goal is closing exactly this class of nil-dereference panic and its new comment/test imply the guarantee holds generally, so completing it here is appropriate.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+        "fable-5-1-2026-09-29/tidepool/ce-code-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "\"Zero dimensions never touches SubType\" guarantee is false for an *any destination",
+        "ce-code-review": "nil SubType still panics unmarshalVector instead of returning an error"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "unmarshalVector(VectorType{}, data, new(any)) reaches the interface branch at marshal.go:1044, calls info.Zero(), which calls v.SubType.NewWithError() on a nil interface and panics; the new comment and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType claim a property the code does not have, since the test only covers *[]float64.",
+        "fable-5-1-2026-09-29/tidepool/ce-code-review": "A caller-built VectorType with nil SubType still panics unmarshalVector on the Scan goroutine instead of returning an error, via vectorElemMinSize(nil) hitting elemType.Type() or info.Zero() calling v.SubType.NewWithError() on a nil interface; reproduced with Unmarshal(VectorType{}, []byte{}, &a) where a is type any."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "vectorElemMinSize panics recursing into a nested VectorType with nil inner SubType",
+      "file": "marshal.go",
+      "line": 1134,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Reproduced: vectorElemMinSize(VectorType{SubType: VectorType{Dimensions: 3}, Dimensions: 2}) panics because the recursion at marshal.go:1134-1139 calls vectorElemMinSize(nil) one level down; vectorFixedElemSize(nil) then dereferences the nil TypeInfo. Only reachable via a caller-constructed nested VectorType (wire parsing always supplies a concrete SubType).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize is new code added by this PR; the crash is a direct consequence of the new recursive function it introduced.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "vectorElemMinSize dereferences a nil inner SubType"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "VectorType{SubType: VectorType{Dimensions: 3}, Dimensions: 2} panics in vectorFixedElemSize(nil) because the recursion recreates one level down the deref the outer guard was written to avoid; noted as caller-constructed only."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Comment overstates protection: Dimensions>0 with nil SubType still panics (pre-existing)",
+      "file": "marshal.go",
+      "line": 996,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "With Dimensions > 0 and data != nil, vectorElemMinSize(info.SubType) at marshal.go:999 is called unconditionally and panics if SubType is nil; this exact trigger (Dimensions>0, data!=nil, SubType nil) already panicked pre-PR at the fast path's info.SubType.Type() call on main (verified via git show main:marshal.go), so this specific panic is not a new regression, just relocated earlier.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The panic trigger and code path predate this PR unchanged; the PR only moved where in the function it fires.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Comment about SubType == nil overstates the guard it describes"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "With `Dimensions > 0` and a nil `SubType`, `vectorElemMinSize(nil)` still panics on `elemType.Type()`, so the comment overstates the protection given, though this is pre-existing (the fast path at :1008 panics too) and not a regression."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "frame.go silently discards vector-dimension parse errors, yielding Dimensions=0",
+      "file": "frame.go",
+      "line": 861,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "frame.go:861 does `dim, _ := strconv.Atoi(...)`, discarding the error; a malformed dimension string like \"abc\" silently becomes Dimensions: 0 rather than an error. frame.go is untouched by this PR's diff (confirmed via git diff main...HEAD --stat).",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "frame.go is not part of this PR's diff; this is pre-existing behavior the PR neither touches nor makes newly reachable.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+        "fable-5-1-2026-09-29/tidepool/tob-diff-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "PR description references nonexistent companion PRs/issues for dim<1 validation",
+        "tob-diff-review": "PR description cites nonexistent issue numbers and a false fix claim for #1093"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "frame.go:861 still does dim, _ := strconv.Atoi(...), so a wire type of VectorType(Int32Type, abc) becomes Dimensions: 0 and an empty payload decodes to []int32{} with a nil error.",
+        "fable-5-1-2026-09-29/tidepool/tob-diff-review": "frame.go:862 still discards the Atoi error and never bounds dim, making this PR's negative-dimension check the only defense in this repo."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "PR description references nonexistent companion issues/PRs (#1085, #1086, #1091, #1093,…",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Fetched the actual PR #1 body via `gh pr view 1` and checked each referenced number with `gh issue view`/`gh pr view`; none of #1085, #1086, #1091, #1093, #1106 resolve in the repo. The claim that #1093 'rejects dim < 1 in the metadata parsers' is also false since frame.go:861 (untouched) still discards the parse error instead of validating dim.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR description itself is part of this PR's deliverable and is the artifact under review.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "tob-diff-review",
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+        "fable-5-1-2026-09-29/tidepool/tob-diff-review",
+        "fable-5-1-2026-09-29/tidepool/superpowers-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "PR description references nonexistent companion PRs/issues for dim<1 validation",
+        "tob-diff-review": "PR description cites nonexistent issue numbers and a false fix claim for #1093",
+        "superpowers-review": "Nested vector decoding into interface{} left out of scope (issue #1085), etc."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "The PR description says it 'lands with #1093, which rejects dim < 1 in the metadata parsers' and defers work to #1085, #1086, #1106, #1091, but none of those PRs/issues exist in the repo.",
+        "fable-5-1-2026-09-29/tidepool/tob-diff-review": "The PR description references issues #1085, #1086, #1091, #1093, #1106 which do not exist in dkropachev/tidepool and appear to be upstream numbers.",
+        "fable-5-1-2026-09-29/tidepool/superpowers-review": "Nested vector decoding into interface{} is deferred by the PR itself (#1085); surplus trailing bytes (#1086); vint length narrowing (#1106); dim < 1 handling (#1093) — none of these were investigated as none exist as real tickets."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "\"Every new test fails against pristine code\" claim in the PR description is overstated",
+      "file": "marshal_vector_test.go",
+      "line": 0,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Checked out main in a worktree, copied the new marshal_vector_test.go over: the package does not even compile (undefined: vectorElemMinSize). Stubbing that one function minimally, I ran each new test individually: TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType both pass; TestVectorElemMinSize, TestUnmarshalVectorRejectsNestedCountBeforeAllocating, TestUnmarshalVectorRejectsAnElementTypeWithNoGoType, and TestUnmarshalVectorRejectsUnfittableDimensions fail or panic. So the PR's claim that 'every new test fails against pristine marshal.go/helpers.go' is false in two ways: pristine code doesn't even compile the test file, and once patched minimally to compile, two of six new test functions pass unchanged.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a claim in the PR's own description, which is part of the PR artifact under review.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "superpowers-review",
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+        "fable-5-1-2026-09-29/tidepool/superpowers-review",
+        "fable-5-1-2026-09-29/tidepool/tob-diff-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "\"Every new test fails against pristine\" claim is overstated",
+        "mattpocock-review": "Spec claim \"every new test fails against pristine marshal.go/helpers.go\" is partly false",
+        "superpowers-review": "PR body's claim that every new test fails on pristine code is overstated",
+        "tob-diff-review": "PR description falsely claims all new tests fail against pristine marshal.go/helpers.go"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType pass on pristine code by design, and TestVectorElemMinSize cannot even compile there.",
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "The file doesn't even compile against pristine code (undefined: vectorElemMinSize), and with a stub in place, two of the new tests actually pass on main.",
+        "fable-5-1-2026-09-29/tidepool/superpowers-review": "TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType actually pass on the base commit; they're fine as guard tests but the PR body should say so.",
+        "fable-5-1-2026-09-29/tidepool/tob-diff-review": "The claim that 'every new test fails against pristine marshal.go/helpers.go' is inaccurate, since two tests pass on main and are regression guards rather than reproductions."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "math.MaxInt32 saturation branch in vectorElemMinSize has no test coverage",
+      "file": "marshal.go",
+      "line": 1136,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Checked TestVectorElemMinSize (marshal_vector_test.go:797-828): the only nested-vector case is vector<vector<float,3>,4> = 48, far from the math.MaxInt32 saturation path at marshal.go:1136-1138. No test drives vec.Dimensions large enough to hit the overflow guard.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize and its saturation branch are new code added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+        "fable-5-1-2026-09-29/tidepool/ce-code-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Saturation branch (return math.MaxInt32) is untested",
+        "ce-code-review": "Saturation branch of vectorElemMinSize (math.MaxInt32) has no test coverage"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "No row in TestVectorElemMinSize exercises the math.MaxInt32 saturation return at marshal.go:1136-1138, so a sign or off-by-one regression there would go unnoticed.",
+        "fable-5-1-2026-09-29/tidepool/ce-code-review": "The return math.MaxInt32 branch that prevents the accumulator from wrapping under deeply nested peer-controlled Dimensions is untested; replacing it with return 1<<20 in a worktree left all vector tests green."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "No test for the described empty-payload boundary: vector<int,3> over exactly []byte{}",
+      "file": "marshal_vector_test.go",
+      "line": 587,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Grepped marshal_vector_test.go for `[]byte{}`: the only exact-empty-payload case is the Dimensions==0 test at line 944. TestUnmarshalVectorRejectsUnfittableDimensions's closest case ('short payload into a slice', line ~638) uses 2 bytes for a dim=3 vector, not the exact empty payload the PR description calls out as the headline behaviour change.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a gap in the new test file added by this PR for the exact scenario the PR's own description highlights.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Announced empty-payload change has no direct test"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "The description's vector<int,3> over []byte{} case is the exact boundary between the data != nil skip and the bound, but the closest existing test uses 2 bytes instead of an exact empty payload."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "Stale fast-path comment: empty non-nil data with Dimensions>0 no longer falls through",
+      "file": "marshal.go",
+      "line": 1006,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The comment at marshal.go:1005-1006 says 'nil/empty and dim=0 fall through to the generic path', but the new bound-check block at lines 998-1003 now rejects an empty (non-nil) payload with Dimensions>0 before this comment's code is ever reached, so such inputs no longer 'fall through' to the generic path — they error earlier.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment sits directly beside code this PR added, and the PR's own change is what made the comment stale.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Stale fast-path comment about nil/empty and dim=0 falling through",
+        "mattpocock-review": "Stale comment no longer matches new bound at marshal.go:998-1002"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "The comment 'nil/empty and dim=0 fall through to the generic path' is no longer true for empty non-nil data with Dimensions > 0, which the new bound now rejects first.",
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "The comment still says 'nil/empty and dim=0 fall through to the generic path', but the new bound added now rejects the empty-but-non-nil case first, making the comment inaccurate."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "Overstated comment: not every path below allocates (array destination doesn't)",
+      "file": "marshal.go",
+      "line": 986,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Checked the reflect.Array branch (marshal.go ~1078-1081): it only validates rv.Len() against info.Dimensions and never calls reflect.MakeSlice or make, so it allocates nothing, contradicting the new comment's claim that 'every path below turns it into an allocation'.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new, added by this PR.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Overstated comment claiming every path below allocates"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "The comment 'every path below turns it into an allocation' is overstated because the array destination at marshal.go:1075 allocates nothing, as the test comment at marshal_vector_test.go:640 itself acknowledges."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "Misleading test comment: a zero-dimension inner vector does encode in zero bytes",
+      "file": "marshal_vector_test.go",
+      "line": 813,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Traced vectorElemMinSize(vector<float,0>): it returns 1 solely via the `if size < 1 { return 1 }` divide-by-zero guard, not because a 0-dimension vector 'can't be described in zero bytes' — a 0-dimension vector genuinely serializes to 0 bytes on the wire (marshalVector writes nothing for n==0). The comment at marshal_vector_test.go:813 misattributes the floor's reason.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new, added by this PR's test file.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Misleading test comment about zero-byte element description"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "The comment 'Neither can describe an element in zero bytes' is wrong for vector<float,0>, which does encode in zero bytes; the floor actually exists because the caller divides."
+      }
+    },
+    {
+      "id": "I12",
+      "title": "Undocumented behaviour change: NULL vector with negative dimensions now errors",
+      "file": "marshal.go",
+      "line": 992,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Confirmed via git show main:marshal.go that pre-PR, data == nil with Dimensions < 0 fell through to the reflect.Slice/Array branch's `if data == nil` case and returned nil with no error. The new negative-dimensions check at marshal.go:992-994 fires unconditionally (regardless of data), so this exact case now errors — a real, intentional (test-pinned) behaviour change the PR's own 'Behaviour change' section does not mention (it only calls out short/empty non-NULL payloads).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This behaviour change is a direct, deliberate result of code this PR added.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Undocumented behaviour change: NULL with negative dimensions now errors",
+        "mattpocock-review": "Negative dimensions with NULL payload now errors, undisclosed by spec"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "Previously data == nil with Dimensions < 0 returned nil; the test pins the new behaviour on purpose, but the PR description's 'Behaviour change' section only mentions short or empty payloads, not this case.",
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "Pristine code returned nil for dim=-3, data=nil, but the new code now errors in that case; the spec only discloses the short/zero-length payload change, not this one."
+      }
+    },
+    {
+      "id": "I13",
+      "title": "getCassandraLongType still returns a nameless custom() from two other error branches",
+      "file": "helpers.go",
+      "line": 222,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Read helpers.go:220-222 (MapType subelement-count error) and :264-267 (VectorType dimension Atoi error): both still `return NewNativeType(protoVer, TypeCustom)` with no name, producing 'custom()' in error messages, inconsistent with the new convention this same function adopts two lines later at :281-284 ('Keep the name so an error can say which type the server sent, not custom()').",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This PR changes this exact function's naming convention but leaves two of its own pre-existing branches inconsistent with the new convention it introduces.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Two error branches in the same function still return a nameless custom()"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "The vector branch's Atoi failure (also at helpers.go:264-267) logs through nopLogger from frame.go and returns NewNativeType(protoVer, TypeCustom), giving 'can not unmarshal custom() into *[]float32', which is inconsistent with the new comment at helpers.go:282."
+      }
+    },
+    {
+      "id": "I14",
+      "title": "getCassandraLongType change alters String()/equality for all unknown custom types, not…",
+      "file": "helpers.go",
+      "line": 280,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The new branch at helpers.go:279-284 applies to the shared 'basic type' fallback of getCassandraLongType, which is also reached for UDT fields, tuple elements, and collection elements with an unrecognized class name — not only vector elements — so their String() output changes from 'custom()' to 'custom(<name>)' and their NativeType equality changes too. Grepped the whole repo for `.Custom()` comparisons and found none against \"\", so no caller actually breaks, but the side effect beyond vectors is real and undisclosed in the PR description.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a direct, undisclosed side effect of code this PR added.",
+      "reportedBy": [
+        "mattpocock-review",
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+        "fable-5-1-2026-09-29/tidepool/tob-diff-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "getCassandraLongType rename changes String()/equality behavior beyond vectors, undisclosed",
+        "tob-diff-review": "helpers.go:280 change alters String() output for all unknown class names, not just vectors"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "The change also affects UDT fields, tuple and collection elements of unknown class, which now String() as custom(org...FooType) instead of custom(), and changes NativeType struct equality; this side effect is undisclosed.",
+        "fable-5-1-2026-09-29/tidepool/tob-diff-review": "The change at helpers.go:280 affects every unknown class name reaching getCassandraLongType (tuple, UDT, and collection element types too), altering String() text from custom() to custom(<name>)."
+      }
+    },
+    {
+      "id": "I15",
+      "title": "New unmarshalVector error for nested-vector element types drops inner type/dimensions",
+      "file": "marshal.go",
+      "line": 1048,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "VectorType has no String() of its own, so %v uses the embedded NativeType.String(), and for a nested vector SubType, NativeType.custom is only the bare 'org.apache.cassandra.db.marshal.VectorType' prefix (set at frame.go:862/helpers.go:271), not the full spec. Confirmed by tracing frame.go's vector construction: the new error 'unmarshal vector: no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)' can't show the inner element type or dimensions, weakening the PR's own stated goal that the error 'say which type the server sent'.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is the new error message added by this PR, and the gap directly undercuts the PR's own stated purpose for that message.",
+      "reportedBy": [
+        "superpowers-review",
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/superpowers-review",
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "Nested vector element type prints as bare prefix in new error message, dropping inner detail",
+        "mattpocock-review": "Error message loses inner-type detail for nested vector types"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/superpowers-review": "Because VectorType has no String(), the new error reads 'no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)' and drops the inner type and dimension; adding a VectorType.String() would fix this and the pre-existing 'can not unmarshal %s into %T' messages too.",
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "Formatting a nested SubType with %v prints only custom(...VectorType) without the inner element type or dimensions, weakening the stated goal of the error being able to say which type the server sent."
+      }
+    },
+    {
+      "id": "I16",
+      "title": "Bound-check error message omits the per-element minimum size for nested element types",
+      "file": "marshal.go",
+      "line": 1000,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The error at marshal.go:1000-1002 prints only Dimensions and len(data) (e.g. '3 dimensions do not fit in 24 bytes'), not elemMin; for a nested element type this can look wrong to a reader unaware the divisor is per-element size rather than 1. Confirmed by reading the format string directly.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is the new error message added by this PR.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "Bound-check error message omits the per-element minimum for nested element types"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/superpowers-review": "For a nested element type, the message '3 dimensions do not fit in 24 bytes' looks wrong to anyone unaware of the element minimum; the reviewer suggests printing elemMin alongside."
+      }
+    },
+    {
+      "id": "I17",
+      "title": "Allocation-ceiling test may flake from process-wide MemStats measurement",
+      "file": "marshal_vector_test.go",
+      "line": 836,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating measures runtime.MemStats.TotalAlloc (process-wide) against a 128 KB budget and is not t.Parallel; other goroutines allocating during the measurement window (e.g. from leaked goroutines in earlier tests) could in principle push it over budget. No failure was actually observed in any run.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a new test added by this PR.",
+      "reportedBy": [
+        "ce-code-review",
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/ce-code-review",
+        "fable-5-1-2026-09-29/tidepool/superpowers-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "Memory-measurement test could be flaky from leaked goroutines allocating during measurement",
+        "superpowers-review": "Allocation-ceiling test is environment-sensitive and may flake from leaked goroutine allocation"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/ce-code-review": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating measures process-wide runtime.MemStats.TotalAlloc with a 128 KB budget and is not t.Parallel, so goroutines leaked by earlier tests in the package could allocate inside the measurement window and cause flakiness; no failure was observed in this run.",
+        "fable-5-1-2026-09-29/tidepool/superpowers-review": "The 128 KB TotalAlloc delta check can absorb allocations from goroutines leaked by earlier tests; it passed under -race in this run but the flake surface is being flagged."
+      }
+    },
+    {
+      "id": "I18",
+      "title": "Allocation-reduction claim (\"3.5 KB flat\") is not pinned by a tight test assertion",
+      "file": "marshal_vector_test.go",
+      "line": 864,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The PR description claims allocations drop to about 3.5 KB flat for vector<vector<float,3>,N>; checked the test and it only asserts `allocated <= payload/8` (~128 KB for the test's payload size), roughly 37x looser than the claimed figure, so a regression well short of the old behaviour would still pass.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a gap in the new test added by this PR to cover its own headline performance claim.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Allocation reduction claim (\"3.5 KB flat\") not pinned by a tight test assertion"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "The spec claims allocations drop to about 3.5 KB flat, but the test only asserts allocated <= payload/8 (~128 KB), a bound roughly 37x looser than the claimed value."
+      }
+    },
+    {
+      "id": "I19",
+      "title": "New makeVectorType test helper duplicates existing vector-type test helpers",
+      "file": "marshal_vector_test.go",
+      "line": 557,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Confirmed makeVectorType (marshal_vector_test.go:557) generalizes makeDoubleVectorType (:36) and makeFloat32VectorType (:49), and vector_bench_test.go has its own makeFloatVectorType (:19) doing similar work; the older helpers could delegate to the new general one instead of duplicating construction logic.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new helper and the duplication are introduced by this PR's test file.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "New makeVectorType helper duplicates existing vector-type test helpers"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "makeVectorType generalises the existing makeDoubleVectorType/makeFloat32VectorType and a similar helper in vector_bench_test.go:19; the old helpers could delegate to the new one instead of duplicating logic."
+      }
+    },
+    {
+      "id": "I20",
+      "title": "Claude/Anthropic attribution in commit trailers and PR description",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Confirmed via `git log` that both commits 0276a66 and 78891dd carry a 'Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>' trailer, and `gh pr view 1` shows the PR body ends with '🤖 Generated with [Claude Code](https://claude.com/claude-code)'. The user's global CLAUDE.md explicitly forbids adding Claude/Anthropic attribution to commits or PR descriptions.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The attribution lines are part of the exact commits and PR description under review.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "superpowers-review",
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+        "fable-5-1-2026-09-29/tidepool/superpowers-review",
+        "fable-5-1-2026-09-29/tidepool/tob-diff-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "PR description carries a \"Generated with Claude Code\" attribution line",
+        "mattpocock-review": "Claude/Anthropic attribution trailers present in commits and PR body",
+        "superpowers-review": "Commits and PR body carry Claude/Anthropic attribution trailers, violating user's global instructions",
+        "tob-diff-review": "PR description includes 'Generated with Claude Code' attribution footer"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "The PR description contains an AI attribution line, which the user's global CLAUDE.md forbids in PR descriptions.",
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "Both commits carry Co-Authored-By: Claude Opus 5 ... trailers and the PR body ends with 'Generated with Claude Code', which the user's global CLAUDE.md forbids.",
+        "fable-5-1-2026-09-29/tidepool/superpowers-review": "Commits 0276a66 and 78891dd carry 'Co-Authored-By: Claude Opus 5 (1M context)' trailers, and the PR body ends with a 'Generated with Claude Code' line; both commits and the PR description must be edited before merge.",
+        "fable-5-1-2026-09-29/tidepool/tob-diff-review": "The PR description's 'Generated with Claude Code' line contradicts the user's global CLAUDE.md rule against adding Claude/Anthropic attribution."
+      }
+    },
+    {
+      "id": "I21",
+      "title": "Commits use lowercase conventional-commit subjects and lack the CONTRIBUTING.md \"Patch…",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "CONTRIBUTING.md:28-37 documents a capitalized-sentence subject plus a 'Patch by <authors>; reviewed by <Reviewers> for #####' trailer. Both PR commits use 'fix(marshal): ...' lowercase conventional-commit subjects with no such trailer. However, `git log --oneline -10` shows every recent commit on main (docs(conn):, refactor(host-source):, fix(session):, etc.) follows the same conventional-commit style with no CONTRIBUTING.md trailer, so this is the repo's actual established convention, not something unique to this PR.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Every recent commit on main uses this same format; CONTRIBUTING.md is stale relative to the repo's actual practice, and this PR simply follows existing convention.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Commits 0276a66 and 78891dd violate documented commit message format"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "Both commits use lowercase fix(marshal): prefixes instead of a capitalized short description and have no Patch by/reviewed by trailer, violating CONTRIBUTING.md's Commit Message section, though main already tolerates this style."
+      }
+    },
+    {
+      "id": "I22",
+      "title": "Commit 0276a66's body undersells the fix as a flat one-byte floor",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Read the commit body via `git log`: it says 'Every element takes at least one byte on the wire,' but the same commit introduces vectorElemMinSize, a type-aware floor (4 bytes for int/float, 16 for uuid, recursive for nested vectors), not a flat one-byte minimum. The PR description states this correctly; only the commit body undersells it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is the wording of a commit created by this PR.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "Commit 0276a66's message undersells the change it actually makes"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/superpowers-review": "The commit body says 'every element takes at least one byte on the wire', but the commit actually introduces the type-aware floor via vectorElemMinSize; the PR description is accurate but the commit body is not."
+      }
+    },
+    {
+      "id": "I23",
+      "title": "Behaviour change (short/empty non-NULL vector now errors) isn't documented in godoc",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "CONTRIBUTING.md:24 requires functional/behaviour changes be documented in godoc. Grepped the diff: no godoc comment on Unmarshal or VectorType documents that a short/empty non-NULL vector payload now errors instead of silently decoding to zeroes. (CONTRIBUTING.md's parallel CHANGELOG.md requirement is stale — the file was deliberately removed from this fork per `git log -- CHANGELOG.md` — so only the godoc half of the requirement is actionable.)",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is an undocumented behaviour change introduced by this PR's own code.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Behaviour change (errors on short/empty non-NULL vector) undocumented in godoc"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "CONTRIBUTING.md's Minimum Requirement Checklist asks for functional changes to be reflected in godoc (and CHANGELOG.md, which doesn't exist), but the change is not documented anywhere."
+      }
+    },
+    {
+      "id": "I24",
+      "title": "Pre-existing: negative vint element length decodes an element from nil data with a nil…",
+      "file": "marshal.go",
+      "line": 1097,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "readUnsignedVInt can return a value whose int() conversion is negative on 64-bit platforms (m >= 2^63); at marshal.go:1097 elemSize = int(m) then guards `if elemSize >= 0` before slicing, so a negative elemSize skips the slice-and-decode-from-payload step and leaves unmarshalData nil, decoding to a zero value with no error. This is unchanged pre-existing logic (not touched by this PR's diff) and is explicitly the #1106 case the PR's own description calls out as deferred, though that ticket number does not exist.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "This code path predates the PR and the PR's new Dimensions bound only limits element count, not per-element vint lengths; the PR explicitly (if inaccurately, re: I5) defers this.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+        "fable-5-1-2026-09-29/tidepool/ce-code-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Negative vint length decodes vector<text,1> to [\"\"] with a nil error",
+        "ce-code-review": "Negative vint element length can cause element decode from nil data with nil error"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "A negative vint length still decodes vector<text,1> over nine 0xff bytes to [\"\"] with a nil error; noted as pre-existing and out of scope, but the ticket meant to defer it does not exist.",
+        "fable-5-1-2026-09-29/tidepool/ce-code-review": "For a variable-length element, elemSize = int(m) from readUnsignedVInt can go negative on 64-bit, and the element then decodes from nil data with a nil error; the new bound limits element count, not per-element lengths."
+      }
+    },
+    {
+      "id": "I25",
+      "title": "Test suite has pre-existing, environment-caused failures unrelated to this PR",
+      "file": "",
+      "line": 0,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "These are self-rejected observations, not defects in the PR: TLS cert-parsing failures and missing testdata/pki/ca.crt are environment/fixture issues, and I independently confirmed the GOARCH=386 build failure is unrelated to this PR's files (it comes from serialization/cqlint and serialization/varint constant-overflow errors, not marshal.go/helpers.go).",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Confirmed these failures are pre-existing and unrelated to the files this PR touches.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+        "fable-5-1-2026-09-29/tidepool/ce-code-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Full unit test run fails on TLS cert-parsing errors / missing testdata/pki/ca.crt, but identically on main",
+        "ce-code-review": "32-bit wrap/saturation cases cannot be executed on GOARCH=386"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/anthropic-pr-review": "Running the full unit suite fails in TLS tests with 'Failed parsing or appending certs'; this failure occurs identically on main. The scyllacloud package fails due to a missing testdata/pki/ca.crt file, identically on main. The root package does not build for GOARCH=386 on main either.",
+        "fable-5-1-2026-09-29/tidepool/ce-code-review": "The 32-bit wrap cases in TestUnmarshalVectorRejectsUnfittableDimensions and the saturation arithmetic cannot be executed on GOARCH=386 because dependent packages don't compile on 32-bit; verified only by inspection."
+      }
+    },
+    {
+      "id": "I26",
+      "title": "Reviewer self-verifications that the new bound-check arithmetic and placement are sound",
+      "file": "marshal.go",
+      "line": 0,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "These are confirmations, not defects: reading marshal.go:985-1145, the bound sits ahead of every Dimensions consumer (float fast paths, reflect.MakeSlice, array-length check, elemSize derivation), negatives are rejected first via the >=0 check, elemMin is floored at 1 (avoiding div-by-zero) and saturates at MaxInt32 (avoiding overflow), and vectorFixedElemSize/isVectorVariableLengthType/vectorElemMinSize agree on classification for all listed element kinds without infinite recursion (each recursive step strictly requires vec.Dimensions > 0 on a distinct SubType).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is analysis of new code added by this PR; no defect found.",
+      "reportedBy": [
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+        "fable-5-1-2026-09-29/tidepool/superpowers-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Overflow/saturation math in vectorElemMinSize checked and confirmed sound",
+        "superpowers-review": "Bound check verified to precede every Dimensions consumer without overflow risk; vectorElemMinSize verified correct across all element type kinds with no infinite recursion"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "The report verifies that per >= 1, size <= 1, no division-by-zero, and elemMin >= 1 hold, making the len(data)/elemMin bound and later Dimensions*8 computation safe.",
+        "fable-5-1-2026-09-29/tidepool/superpowers-review": "The reviewer verified the bound sits ahead of every Dimensions consumer, cannot overflow, negatives are rejected first, and elemMin is floored at 1 and saturates at MaxInt32; vectorElemMinSize is right for all element type kinds and cannot recurse infinitely."
+      }
+    },
+    {
+      "id": "I27",
+      "title": "Reviewer self-verifications: nil-Go-type guard is the sole dereference site; marshal…",
+      "file": "marshal.go",
+      "line": 0,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Confirmed by reading marshalVector (marshal.go:868-933): it never calls Zero() and enforces n == info.Dimensions from the actual Go slice/array length (not a peer-controlled number) before any allocation, so it has no equivalent unbounded-allocation or nil-Go-type panic risk in the marshal direction. This is a correct confirmation, not a defect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Analysis of new code added by this PR; no defect found.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "Nil-Go-type guard verified as the only dereference site; marshal direction has no equivalent crash"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/superpowers-review": "The reviewer verified the nil-Go-type guard is at the only dereference site, and that marshalVector never calls Zero() and enforces dim == len(v) before allocating, so the marshal direction has no equivalent crash."
+      }
+    },
+    {
+      "id": "I28",
+      "title": "Reviewer self-verifications: getCassandraLongType change doesn't break any Custom()==\"\"…",
+      "file": "helpers.go",
+      "line": 0,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Grepped the whole repo for `.Custom()` usage: only two call sites exist (helpers.go:55,59), both checking a prefix, neither comparing to the empty string. Confirms no caller depends on the old empty-string custom value, consistent with I14 (a real but harmless side effect).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Analysis of new code added by this PR; no defect found here specifically (see I14 for the disclosed side-effect finding).",
+      "reportedBy": [
+        "mattpocock-review",
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+        "fable-5-1-2026-09-29/tidepool/tob-diff-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "getCassandraLongType change confirmed not to break any Custom() == \"\" comparison",
+        "tob-diff-review": "helpers.go:280 change alters String() output for all unknown class names... but nothing compares custom == \"\""
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "The report checked and found no caller compares Custom() to \"\", so the getCassandraLongType change does not break anything on that front.",
+        "fable-5-1-2026-09-29/tidepool/tob-diff-review": "The reviewer considers this consistent with frame.go:804 behavior and not a defect since nothing compares custom == \"\"."
+      }
+    },
+    {
+      "id": "I29",
+      "title": "Reviewer self-verifications: spec's behavioural claims (NULL nil/nil, empty errors,…",
+      "file": "",
+      "line": 0,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "These are confirmations rather than defects. I independently verified the same facts: main lacks any dim<1 guard in frame.go/helpers.go (I4/I5), the new Dimensions<0 check is live at marshal.go:992-994, and TestVectorElemMinSize pins vector<vector<float,3>,4> at 48 (marshal_vector_test.go:812), matching the claim.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Confirmations of new/changed behaviour introduced by this PR; no defect found.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Spec claims verified true: empty non-NULL vector errors, NULL still nil/nil, nested min=48, Dimensions<0 check live with no dim<1 guard yet"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "The report confirms unmarshalling an empty non-NULL vector<int,3> now errors, a NULL vector still returns nil/nil, vectorElemMinSize(vector<vector<float,3>,4>) equals 48, and the Dimensions < 0 check is live with no dim < 1 guard existing yet."
+      }
+    },
+    {
+      "id": "I30",
+      "title": "Pre-existing: dimension bound misclassifies a hypothetical zero-length fixed custom type",
+      "file": "marshal.go",
+      "line": 1130,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "isVectorVariableLengthType treats any unrecognized custom element type as variable-length with a 1-byte minimum; a hypothetical zero-length fixed custom type would be non-narrowing under this bound. No such type exists in this codebase (EmptyType isn't a real vector element type here), so this is a theoretical, not currently reachable, misclassification.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize and its classification of custom types is new code added by this PR, even though the underlying edge case is not currently exploitable.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "Dimension bound misclassifies zero-length fixed custom types as variable-length"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/ce-code-review": "The dimension bound treats every unknown custom element type as variable-length with a 1-byte minimum, which is non-narrowing for a zero-length fixed type; described as pre-existing and out of scope, and not a realistic vector element."
+      }
+    },
+    {
+      "id": "I31",
+      "title": "Recursion depth in new vector-type helpers bounded only by custom type-name string…",
+      "file": "marshal.go",
+      "line": 1134,
+      "kind": "security",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "This PR's vectorElemMinSize recurses at the same depth as the pre-existing vectorFixedElemSize/isVectorVariableLengthType/getCassandraLongType recursive walkers, all ultimately bounded by the wire-format string length limit; the finding itself states the PR 'does not change the exposure', so there is no new or worsened defect here.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The recursion-depth exposure is pre-existing and this PR's addition does not materially change it.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "Recursion depth in vector-type helpers bounded only by short-string type-name length"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/ce-code-review": "Nested-vector recursion depth across vectorElemMinSize, isVectorVariableLengthType, and getCassandraLongType is bounded by the short-string custom type name length (allowing depth ~1500); this diff adds one more recursive walker of the same depth but does not change the exposure."
+      }
+    },
+    {
+      "id": "I32",
+      "title": "math.MaxInt32 saturation guard is defensible engineering, not speculative generality",
+      "file": "marshal.go",
+      "line": 1137,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "unmarshalVector and vectorElemMinSize are reachable via the public Unmarshal API with caller-supplied VectorType values, not only via well-formed server wire data, so guarding against integer overflow from deeply nested Dimensions is reasonable defensive coding, not speculative generality for a case 'no server can produce'.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is new code added by this PR; judged as sound design, not a defect.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "math.MaxInt32 saturation in vectorElemMinSize guards a case no server can produce"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "The saturation guard for inner dimensions defends against input no server can actually produce, which is speculative generality, but the report considers it defensible since the recursion is justified in the comment."
+      }
+    },
+    {
+      "id": "I33",
+      "title": "~400 lines of new tests for two guard conditions is a reasonable judgement call, not…",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The added marshal_vector_test.go is 408 lines covering multiple distinct edge cases (negative dimensions, overflow-wrapping counts, nested variable-length vectors, interface destinations, allocation ceilings) for security-relevant parsing code that previously could crash the process; this volume is proportionate to the risk being closed, not excessive per CONTRIBUTING.md's 'don't go overboard' guidance.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is the new test file added by this PR; judged as reasonable, not a defect.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "400 lines of new tests for two guard conditions may be excessive"
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/tidepool/mattpocock-review": "The PR adds roughly 400 lines of tests for two guard conditions, which CONTRIBUTING.md warns against; the report labels this a judgement call only."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.9813966,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 102,
+      "outputTokens": 54796,
+      "cacheReadInputTokens": 4675943,
+      "cacheCreationInputTokens": 124511,
+      "webSearchRequests": 0,
+      "costUSD": 1.9813966,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 24152,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 46,
+    "sha256": "f829f7b890b331a976b6917149c2b1c08f818e9a155abc04fe03884a617ac3c9"
+  },
+  "workspace": "work/tidepool/runs/fable-5-1-2026-09-29/_judge/attempt-Yyy8Om/repo",
+  "judgedAt": "2026-09-30T04:16:53.874Z"
+}

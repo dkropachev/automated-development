@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/ironweave/superpowers-review",
+  "target": "ironweave",
+  "tool": "superpowers-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "29eee7804230ad066d75237c05c1eceb3bfc3b645dcbc779fb56138f671d545a",
+  "label": "Superpowers requesting-code-review",
+  "findings": [
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commits and PR body carry Claude/Anthropic attribution trailers, violating instructions",
+      "severity": "high",
+      "kind": "style",
+      "claim": "Commits f545c28a, 5e25ebdb, 69da8f5b each carry a Co-Authored-By: Claude trailer (one has two), and the PR body ends with a 'Generated with Claude Code' line, violating the global instruction forbidding this attribution; messages and PR body should be rewritten before merging.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1877,
+      "title": "test_data_sink_impl is abstract because it only overrides put(std::span<...>)",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Below SEASTAR_API_LEVEL 9, put(net::packet) is pure virtual, so test_data_sink_impl remains abstract and std::make_unique fails to compile; it should guard both put() variants like loopback_socket.hh does.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2015,
+      "title": "Non-closed_error exception from hook can cause use-after-free during test teardown",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "If the hook throws anything other than rpc::closed_error, the thread unwinds with write_buf.close() still parked on release_close, and sink/source are destroyed dropping the last connection refs while stream_close() and _stopped are still pending, which could surface as a use-after-free rather than a clean failure; suggests capturing outcome with then_wrapped into an exception_ptr, releasing, joining, then asserting.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1982,
+      "title": "Stream handler test is not shard-safe under --smp 2",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Under --smp 2 the loopback connect round-robins server shards, so the stream handler can run on shard 1 while writing server_done and pushing into server_factory.hooks, both shard-0 objects; noted as the same pattern as existing stream_test_func so not new, but still not shard-safe.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1962,
+      "title": "const_cast used to push into hooks instead of declaring the member mutable",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The code does const_cast<hook_capturing_compressor_factory*>(this)->hooks.push_back(...); hooks should be declared mutable instead.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2033,
+      "title": "Comment misstates where the test fails without the fix",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The closing comment says destruction is where ~output_stream() asserts, but after the ten yield()s the flush poller has normally already run, so without the fix the test actually fails on put_after_close at line 2032, not on the assert; the commit message states this correctly and the comment should be aligned with it.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "title": "then_wrapped lambda parameter f shadows the enclosing auto f",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The then_wrapped lambda parameter named f shadows the enclosing auto f variable and should be renamed.",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 307,
+      "title": "_stream_closing field is placed away from the related _sink_closed/_source_closed fields",
+      "severity": "low",
+      "kind": "style",
+      "claim": "_stream_closing would read better placed next to _sink_closed/_source_closed at lines 301-302, which it pairs with.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Parent client's compressor hook behavior during client::stop() left unexamined",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The parent client's compressor hook during client::stop() was set aside as out of scope, noted as already refused via _error.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Unclear whether external compressors handle closed_error from send_empty_frame",
+      "severity": "low",
+      "kind": "question",
+      "claim": "Whether external compressors cope with closed_error thrown from send_empty_frame was set aside as out of scope and not investigated.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Pre-existing abort()/stream_close()/shutdown_output() ordering race not investigated",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A pre-existing abort()-races-stream_close() shutdown_output() ordering issue was set aside as out of scope and not investigated.",
+      "selfRejected": true
+    },
+    {
+      "file": "doc/rpc-compression.md",
+      "line": 0,
+      "title": "Documentation does not mention the new failure mode",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "doc/rpc-compression.md does not mention the new failure mode introduced by this change; set aside as out of scope.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Layout change to rpc::connection in a public header",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The layout change to rpc::connection in a public header was set aside as out of scope since Seastar makes no ABI promise.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 3712,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 20267,
+      "webSearchRequests": 0,
+      "costUSD": 0.1223968,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1623,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 29,
+    "sha256": "e11796473dbee635dd2a3b75f426f298775b0be827aae96ab89cba6b311fd7f4"
+  },
+  "extractedAt": "2026-09-30T03:19:46.361Z"
+}

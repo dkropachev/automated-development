@@ -1,0 +1,1375 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "target": "ironweave",
+  "language": "C++",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "rawFindings": 66,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Docs claim throw during source read always closes it; unmarshall errors don't",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 387,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "source_impl::operator() in rpc_impl.hh:942-949 calls unmarshall() outside the stream_receive().then_wrapped() handler that calls close_source() (rpc_impl.hh:961-966); an exception from unmarshall propagates without close_source() ever running, so _source_closed stays false, contradicting both this doc and doc/rpc-streaming.md:110-111.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This documentation text is new in commit 69da8f5b, which is exactly what this PR added.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Docs claim any throw from source read releases it, but serializer errors don't; process_one_buffer calls unmarshall outside any handler that calls close_source(), so an application following the doc literally will leak the connection.",
+        "mattpocock-review": "Doc overstates that a throw always closes the source; only failures from stream_receive() call close_source(), an exception thrown by unmarshall inside process_one_buffer propagates without closing the source."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review": "Docs claim any throw from source read releases it, but serializer errors don't; process_one_buffer calls unmarshall outside any handler, so an exception there leaves _source_closed false and stream_close() never runs.",
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "doc/rpc-streaming.md:111-112 and rpc_types.hh:387 claim throwing is what closes the source, but only failures from stream_receive() call close_source(); an exception thrown by unmarshall inside process_one_buffer propagates without closing the source."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "Stale plain-// comments left directly under the new doxygen blocks",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 343,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Confirmed at lines 336-343 (sink) and 383-390 (source): the pre-existing '// send data Out...' / '// receive data In...' one-line comments now sit directly between the new '///' doxygen block and the class declaration, mixing two comment styles on one declaration.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new doxygen blocks were added by this PR's own commit 69da8f5b without removing the stale lines they were stacked on top of.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The old '// send data Out...' and '// receive data In...' lines now sit between the new doxygen block and the declaration and should be removed.",
+        "mattpocock-review": "A new '///' doxygen block is stacked on top of the pre-existing plain comment, leaving two comment styles; the old line should be folded in or dropped."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review": "Stale plain-// comment lines break the new doxygen blocks.",
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "New doxygen comment stacked on old comment leaves two comment styles on one declaration."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Doc overstates connection shuts down 'only' when both stream halves close",
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The same document says two paragraphs earlier (line 48) that 'closing the client aborts any stream still open on it', and connection::abort_all_streams() (rpc.cc:848, 1324) is called from client/server stop paths independent of both halves closing; 'only' is inconsistent with the doc's own preceding text.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This sentence is new text added by commit 69da8f5b.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The connection can also be shut down by a read-loop failure or by closing the parent client via abort_all_streams(), which the doc itself acknowledges earlier, so the word 'only' is too strong."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review": "Doc overstates that the stream connection is shut down 'only' when both halves close."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Non-empty-queue and failed-drain branches of stream_close() have no test",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "In the new test, sink(1).get() is awaited to completion before sink.close() runs stream_close(), so the outgoing queue is always empty by construction; the queue_drained.then_wrapped() branch that ignores an exceptional drain (rpc.cc:565-567) is never exercised by any test.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "queue_drained is new logic added by commit f545c28a and is the least-tested part of the fix.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+        "fable-5-1-2026-09-29/ironweave/ce-code-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The new test has the outgoing queue empty by construction when stream_close() runs, so deleting the queue_drained wait would not fail any existing test.",
+        "ce-code-review": "stream_close() now waits on the old _outgoing_queue_ready and closes the write buffer even when that future is exceptional, but the only new test empties the queue before stream_close() runs and never injects a failed entry."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review": "Queue-drain half of the fix has no test coverage.",
+        "fable-5-1-2026-09-29/ironweave/ce-code-review": "Queued-entries and failed-drain branches of stream_close() have no test."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Test's try/catch doesn't directly assert the send was refused",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "try { stream_send_empty_frame().get(); } catch (const rpc::closed_error&) {} swallows the expected outcome and would also pass if the call succeeded; the actual regression signal is the later BOOST_REQUIRE_MESSAGE(!st.put_after_close), which does work (confirmed empirically: 18/20 unfixed runs failed there), but the test would read clearer with BOOST_REQUIRE_THROW asserting closed_error directly.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is the new regression test added by commit 5e25ebdb.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+        "fable-5-1-2026-09-29/ironweave/ce-code-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The catch swallows the expected outcome, and a successful hook call would also pass the test; detection relies entirely on put_after_close. Should use BOOST_REQUIRE_THROW.",
+        "ce-code-review": "The try/catch silently accepts a successful send; without the fix the only failure signal is put_after_close, so the test could pass or hang rather than fail explicitly on a regression."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review": "Test never asserts that the frame send was actually refused.",
+        "fable-5-1-2026-09-29/ironweave/ce-code-review": "Regression test's try/catch can pass or hang instead of failing on a regression."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "yield()-loop timing to let the batch-flush poller run is not contractually guaranteed",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2022,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "output_stream::flush() with batch_flushes on just sets _flush=true and registers with the reactor's batch_flush_pollfn (reactor.cc:2909) rather than synchronously writing; nothing in the API guarantees a poller runs within N yield() calls. Empirically this proved robust (0/20 unfixed runs slipped through, 23/23 fixed runs passed across 43 total runs), so the gap is theoretical rather than observed, but check_for_io_immediately() would express the intent directly instead of relying on incidental scheduling.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is part of the new test added by commit 5e25ebdb.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "yield() only schedules an empty task; pollers run on their own schedule, so without the fix the test could fail either on put_after_close or on the destructor assert depending on timing."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review": "yield() loop does not guarantee the flush poller actually runs."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Comment misstates why _outgoing_queue_ready becomes exceptional",
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "send()'s send_entry().then_wrapped() (rpc.cc:328-334) calls abort() on failure but still unconditionally does p->done.set_value() -- a failed entry never makes the chain exceptional. The actual sources of an exceptional _outgoing_queue_ready are withdraw()'s exception path from stop_send_loop() and the direct _negotiated abort (rpc.cc:203-217), not a 'failed' send_entry.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This comment was added by commit f545c28a.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The comment says _outgoing_queue_ready is exceptional if an entry failed, but a failed send_entry still resolves done normally; the actual causes are stop_send_loop() withdrawing queued entries and the _negotiated abort."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review": "Comment misstates why _outgoing_queue_ready becomes exceptional."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "Comment claiming nothing else waits on _outgoing_queue_ready is imprecise",
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "stop_send_loop() (rpc.cc:225) still does when_all(std::move(_outgoing_queue_ready), ...); it just receives the ready placeholder stream_close() already swapped in, since single-threaded reactor semantics mean stop_send_loop() can only run after the synchronous exchange. The comment's practical point holds but its literal wording is inaccurate, and the retained comment near rpc.cc:563-564 now sits apart from the _sink_closed_future = p.get_future() line it originally explained.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This comment was added by commit f545c28a.",
+      "reportedBy": [
+        "anthropic-pr-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "stop_send_loop() still does when_all on _outgoing_queue_ready; also the retained comment now sits far from the line it explains and should be moved."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review": "Comment 'nothing else waits for _outgoing_queue_ready from here on' is inaccurate."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "const_cast on this used instead of a mutable hooks member",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "hook_capturing_compressor_factory::negotiate() is const and does const_cast<hook_capturing_compressor_factory*>(this)->hooks.push_back(...); declaring hooks mutable would express the same intent without the cast, matching the existing cfactory pattern elsewhere in the same file.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is new test helper code added by commit 5e25ebdb.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "superpowers-review",
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+        "fable-5-1-2026-09-29/ironweave/superpowers-review",
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "Declaring hooks as mutable would be cleaner than casting away const on this.",
+        "mattpocock-review": "The existing cfactory in the same file solves the same problem with a mutable member instead.",
+        "superpowers-review": "hooks should be declared mutable instead of using const_cast.",
+        "tob-diff-review": "A mutable member would express the same intent without the cast."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review": "const_cast used in hook-capturing factory instead of a mutable member.",
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "const_cast used to mutate from const negotiate() instead of a mutable member.",
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "const_cast used to push into hooks instead of declaring the member mutable.",
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review": "const_cast on this used to push hooks in hook_capturing_compressor_factory::negotiate."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "Commits and PR body carry Claude/Anthropic attribution, violating user's global rule",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "git log confirms all three commits carry 'Co-Authored-By: Claude ...' trailers (69da8f5b has two), directly violating the user's global CLAUDE.md instruction that overrides default behavior and forbids any Claude/Anthropic attribution in anything authored.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The trailers are part of this PR's own commits and PR body and must be stripped before it can be considered compliant.",
+      "reportedBy": [
+        "anthropic-pr-review",
+        "mattpocock-review",
+        "superpowers-review",
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+        "fable-5-1-2026-09-29/ironweave/superpowers-review",
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review"
+      ],
+      "reportedAs": {
+        "anthropic-pr-review": "The PR body ends with a 'Generated with Claude Code' line and all three commits carry Co-Authored-By: Claude trailers, violating the user's global instruction; they should be stripped before merge.",
+        "mattpocock-review": "All three commits carry Co-Authored-By: Claude trailers and the PR body has a Generated with Claude Code line, violating the user's global CLAUDE.md attribution rule.",
+        "superpowers-review": "Commits carry a Co-Authored-By: Claude trailer (one has two), and the PR body ends with a Generated with Claude Code line; messages and PR body should be rewritten before merging.",
+        "tob-diff-review": "The PR body ends with a 'Generated with Claude Code' line, which the user's global instructions say to never include."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/anthropic-pr-review": "PR body and commits carry Claude attribution trailers, violating user's global rule.",
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "Commits and PR body carry Claude attribution trailers/lines.",
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "Commits and PR body carry Claude/Anthropic attribution trailers, violating instructions.",
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review": "PR body includes a \"Generated with Claude Code\" attribution line."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "test_data_sink_impl is abstract and fails to compile below SEASTAR_API_LEVEL 9",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1878,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "Confirmed by building: iostream.hh makes put(net::packet) pure virtual when SEASTAR_API_LEVEL < 9 (line 116) and test_data_sink_impl only overrides put(std::span<...>) unguarded. Compiling with -DSEASTAR_API_LEVEL=7 produced the exact predicted error: 'invalid new-expression of abstract class type test_data_sink_impl' because put(net::packet) is pure within data_sink_impl. tls_test.cc:919 and httpd_test.cc:741 already guard the same helper pattern with #if SEASTAR_API_LEVEL >= 9.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "test_data_sink_impl is new code added by commit 5e25ebdb and CMakeLists.txt still advertises API levels 7 and 8 as supported build configurations.",
+      "reportedBy": [
+        "builtin-code-review",
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/builtin-code-review",
+        "fable-5-1-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "builtin-code-review": "test_data_sink_impl only overrides put(std::span<...>), which exists solely for SEASTAR_API_LEVEL >= 9; rpc_test fails to compile under level 7/8, unlike tls_test.cc and httpd_test.cc which guard the same helper pattern.",
+        "superpowers-review": "Below SEASTAR_API_LEVEL 9, put(net::packet) is pure virtual, so test_data_sink_impl remains abstract and std::make_unique fails to compile; it should guard both put() variants like loopback_socket.hh does."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/builtin-code-review": "test_data_sink_impl lacks API-level guard, fails to compile under --api-level=7/8.",
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "test_data_sink_impl is abstract because it only overrides put(std::span<...>)."
+      }
+    },
+    {
+      "id": "I12",
+      "title": "Server drain loop claimed to be able to observe stream_closed instead of eof",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1988,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "ce-code-review's own investigation traced the eof-marker send order, the sequential process() loop, and the queue's abort/consume ordering against head 69da8f5b and concluded the marker is always pushed and consumed before EOS can arrive; the identical while(source().get()) pattern has existed unflagged since 2018 in test_stream_simple. No independent evidence contradicts this.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The reviewed pattern is a pre-existing idiom used identically elsewhere in the test file, not something this PR changed.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "Adversarial-codex claimed the server handler's unguarded drain loop can observe stream_closed rather than eof, but tracing showed the marker is always pushed and consumed before EOS can arrive, and the identical pattern has existed unflagged since 2018."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/ce-code-review": "Server's unguarded while(source().get()) loop could see stream_closed instead of eof on…"
+      }
+    },
+    {
+      "id": "I13",
+      "title": "Hook index (hooks.back()) claimed to depend on negotiation order",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "The parent connection is always negotiated before make_stream_sink creates the stream connection, so hooks.back() deterministically refers to the stream connection's hook; both ce-code-review and mattpocock-review independently reached this conclusion.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The code in question is part of the new test, even though it is correct as written.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "A candidate finding argued hooks.size()==2u and hooks.back() are fragile relative to negotiation order, but this was discarded because the parent connection is always negotiated before the stream connection, making hooks.back() deterministic."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/ce-code-review": "Hook index in new test claimed to depend on negotiation order."
+      }
+    },
+    {
+      "id": "I14",
+      "title": "No test for peer disconnect racing the new drain wait in stream_close()",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "No test covers stop_send_loop() (triggered by a peer disconnect/read-loop error) running while stream_close()'s queue_drained future is still pending; the single-threaded reactor model rules out a corruption race here, but the interleaving itself remains unexercised by any test.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "queue_drained is new logic from commit f545c28a and this interleaving is specific to it.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "There is no test covering the peer dropping the connection while stream_close() is waiting on the old _outgoing_queue_ready, i.e. stop_send_loop() running concurrently with the new drain wait."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/ce-code-review": "No test for peer disconnect racing the new drain wait in stream_close()."
+      }
+    },
+    {
+      "id": "I15",
+      "title": "New test only covers the compressor's send_empty_frame hook, not other send() callers",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "connection::send() is changed for every caller, but the only new test drives it through the compressor's send_empty_frame hook; other call sites (e.g. ordinary RPC request paths) are not exercised against the new _stream_closing gate.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The gate itself is new in commit f545c28a, and its test coverage is scoped to only one caller.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "The regression test exercises only the compressor's send_empty_frame hook during the closing window and does not test other callers of send()."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/ce-code-review": "New test only covers the compressor's send_empty_frame hook, not other send() callers."
+      }
+    },
+    {
+      "id": "I16",
+      "title": "queue_drained wait in stream_close() has no timeout",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "The pre-change write_buf.close() call already blocked under the same stalled-peer condition, so no new wedge was introduced; the wait is unblocked by stop_send_loop()'s shutdown_output() on socket error or receive-loop exit, as ce-code-review itself confirmed.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The lack of a timeout on this code path is pre-existing behavior that this PR did not change.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "The new queue_drained wait has no timeout and could in principle hang on a stalled peer, but the pre-change write_buf.close() flush blocked on the same condition, so no new wedge was introduced."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/ce-code-review": "queue_drained wait in stream_close() has no timeout."
+      }
+    },
+    {
+      "id": "I17",
+      "title": "Out-of-tree compressors calling send_empty_frame during the closing window were not…",
+      "file": "",
+      "line": 0,
+      "kind": "question",
+      "severity": "low",
+      "verdict": "unproven",
+      "verdictReason": "Whether external, out-of-tree compressor implementations depend on send_empty_frame never throwing closed_error while error() is false cannot be determined from this repository; only in-tree lz4 and multi_algo factories were checked.",
+      "introducedByPr": true,
+      "scope": "out-of-scope",
+      "scopeReason": "Any impact would be on code outside this repository, which this PR cannot audit or fix.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "Out-of-tree compressors that call send_empty_frame and do not expect closed_error while connection::error() is still false were not audited; only the in-tree lz4 and multi_algo factories were checked."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/ce-code-review": "Out-of-tree compressors calling send_empty_frame during the new closing window were not…"
+      }
+    },
+    {
+      "id": "I18",
+      "title": "Unresolved _negotiated during stream_close() argued impossible but untested",
+      "file": "",
+      "line": 0,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Client/server negotiation ordering guarantees _negotiated resolves before stream_close() can run for a given connection; this invariant holds by construction, it is simply not independently covered by a dedicated test.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "This invariant is part of the pre-existing negotiation/streaming lifecycle, not something this PR altered.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "A stream connection whose _negotiated is still unresolved when stream_close() runs was argued to be impossible by reasoning about negotiation ordering, but this invariant is not covered by any test."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/ce-code-review": "Unresolved _negotiated during stream_close() argued impossible but not tested."
+      }
+    },
+    {
+      "id": "I19",
+      "title": "Behavior of output_stream::write on an already-closed stream",
+      "file": "",
+      "line": 0,
+      "kind": "question",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Traced directly: output_stream::put() (iostream-impl.hh:527-540) does not check any 'closed' state and calls _fd.put() unconditionally; output_stream::close() (iostream-impl.hh:569-585) only reaches _fd.close() after its own flush chain resolves. A racing put() during close() is simply forwarded to the still-open underlying sink, which is exactly what the test observes via put_after_close -- no hang or crash results from this path.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "output_stream's internals are pre-existing seastar core code, not part of this PR's diff.",
+      "reportedBy": [
+        "ce-code-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/ce-code-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "The behaviour of output_stream::write on an already-closed stream was not traced, which bears on how the new test actually fails without the fix."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/ce-code-review": "Behavior of output_stream::write on an already-closed stream was not traced."
+      }
+    },
+    {
+      "id": "I20",
+      "title": "Claim that the new test fails without the fix, and passes with it, was unverified",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2033,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Both reviews correctly noted they had no build directory to verify this. I built the project and confirmed it independently: cherry-picking only the test commit onto f545c28a~1 (fix absent) failed 20/20 runs (18 via the put_after_close assertion, 2 via an escaping stream_closed exception); the full PR branch passed 23/23 runs including 3 at --smp 2. The author's claim holds.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This concerns verifying the new test added by this PR.",
+      "reportedBy": [
+        "ce-code-review",
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/ce-code-review",
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "ce-code-review": "The author's verification that rpc_test passes in the debug build, and that the new test fails without commit f545c28a, could not be verified because no build directory exists in this checkout.",
+        "mattpocock-review": "The claim that the test fails without the fix is plausible from output_stream::close()/flush() behavior but was not verified, since there is no build/ directory in this checkout."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/ce-code-review": "Author's claim that the new test fails without the fix commit is unverified.",
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "Claim that the test fails without the fix commit could not be verified (no build)."
+      }
+    },
+    {
+      "id": "I21",
+      "title": "Commits lack the DCO Signed-off-by trailer required by contributing.md",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "doc/contributing.md:6,14 explicitly requires 'git commit -s' for a DCO sign-off; git log confirms none of f545c28a, 5e25ebdb, or 69da8f5b carry a Signed-off-by trailer.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a compliance gap in this PR's own commits against the project's stated contribution requirements.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "All three commits are missing a Signed-off-by trailer, violating doc/contributing.md's requirement to use git commit -s for DCO."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "Commits lack DCO Signed-off-by trailer required by contributing.md."
+      }
+    },
+    {
+      "id": "I22",
+      "title": "static inline const sstring name declaration differs from neighbouring patterns",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1940,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Confirmed at line 1940: 'static inline const sstring name = \"HOOK\";' is a valid but unusual pattern compared to neighbouring member/function-local static const declarations in the same file; purely cosmetic.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is part of the new test helper added by commit 5e25ebdb.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Uses 'static inline const sstring name' which differs from neighbouring patterns of a member 'name' or a function-local 'static const'; cosmetic."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "static inline const sstring name declaration differs from neighbouring patterns."
+      }
+    },
+    {
+      "id": "I23",
+      "title": "then_wrapped/ignore_ready_future shape confirmed consistent with existing patterns",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Confirmed: the std::exchange + then_wrapped + ignore_ready_future() shape at rpc.cc:562-570 matches the same idiom already used in stop_send_loop() (rpc.cc:225-228) and send() (rpc.cc:325); no defect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The code checked is new, even though it was found to be correct.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "The std::exchange + then_wrapped + ignore_ready_future() shape matches stop_send_loop() and send(); explicitly checked and found consistent, no finding."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "Exchange/then_wrapped/ignore_ready_future shape confirmed consistent with existing…"
+      }
+    },
+    {
+      "id": "I24",
+      "title": "_stream_closing field placement",
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 307,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "_stream_closing sits immediately after _sink_closed_future, which itself is two lines below _sink_closed/_source_closed -- it is already colocated with the fields it pairs with. Moving it one field earlier (as superpowers-review suggests) would be no clearer; mattpocock-review's conclusion that the current placement is fine is the more defensible read.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The field itself is new, added by commit f545c28a; only its exact position within the existing group is disputed.",
+      "reportedBy": [
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+        "fable-5-1-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "_stream_closing is placed and commented like _sink_closed_future above it; explicitly checked and found fine.",
+        "superpowers-review": "_stream_closing would read better placed next to _sink_closed/_source_closed, which it pairs with."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "_stream_closing placement/comment confirmed consistent with _sink_closed_future.",
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "_stream_closing field is placed away from the related _sink_closed/_source_closed fields."
+      }
+    },
+    {
+      "id": "I25",
+      "title": "test_socket_impl duplicates rpc_socket_impl's forwarding methods",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1922,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "test_socket_impl::set_reuseaddr/get_reuseaddr/shutdown (1922-1935) do repeat rpc_socket_impl's equivalents (157-175) nearly verbatim; genuine duplication, though there is no existing reusable base in tests/unit to factor it into.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "test_socket_impl is new code added by commit 5e25ebdb.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "test_socket_impl repeats rpc_socket_impl; noted as a possible duplication smell but deemed unavoidable since no reusable wrapper exists in tests/unit."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "Possible duplicated code between test_socket_impl and rpc_socket_impl."
+      }
+    },
+    {
+      "id": "I26",
+      "title": "test_connected_socket_impl is a large pure forwarder (Middle Man smell)",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1900,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "test_connected_socket_impl (1900-1919) forwards 16 methods to _inner with no added behavior beyond source()/sink(); a genuine Middle Man pattern, but connected_socket_impl is abstract so some forwarder is unavoidable.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This class is new code added by commit 5e25ebdb.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "test_connected_socket_impl is flagged as a possible Middle Man smell, but since connected_socket_impl is abstract and no reusable wrapper exists, this is deemed unavoidable."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "test_connected_socket_impl is a 16-method pure forwarder (possible Middle Man)."
+      }
+    },
+    {
+      "id": "I27",
+      "title": "No Mysterious Names, Speculative Generality or Shotgun Surgery smells found",
+      "file": "",
+      "line": 0,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "This is an explicit clean-check by the tool, not a defect claim; naming and the flag/check/drain/test grouping are minimal and co-located, consistent with no finding.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "The check covers this PR's new code, even though it found nothing wrong.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Checked for Mysterious Names, Speculative Generality and Shotgun Surgery smells; none found."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "No Mysterious Names, Speculative Generality or Shotgun Surgery smells found."
+      }
+    },
+    {
+      "id": "I28",
+      "title": "send() confirmed to correctly return closed_error once _stream_closing is set",
+      "file": "src/rpc/rpc.cc",
+      "line": 293,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Confirmed: send()'s guard is 'if (!_error && !_stream_closing)'; the expired-timeout early return is inside that guarded branch and cannot bypass the refusal. Correct as written.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is the core new gate from commit f545c28a, verified correct.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "send() returns closed_error once _stream_closing is set; the expired-timeout early return cannot bypass it. Checked and confirmed correct."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "send() confirmed to correctly return closed_error once _stream_closing is set."
+      }
+    },
+    {
+      "id": "I29",
+      "title": "_outgoing_queue_ready synchronization confirmed safe against races with stream_close()",
+      "file": "src/rpc/rpc.cc",
+      "line": 0,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Confirmed: because send() is refused once _stream_closing is set and the exchange in stream_close() runs synchronously with no intervening yield point, nothing accepted before the flag can be un-chained and nothing can be chained after; the exceptional case is absorbed by then_wrapped/ignore_ready_future().",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is core logic from commit f545c28a, verified correct.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "_outgoing_queue_ready is the last accepted entry's done future; nothing accepted before the flag can be un-chained, nothing can be chained after. Checked and confirmed correct."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "_outgoing_queue_ready synchronization confirmed safe against races with stream_close()."
+      }
+    },
+    {
+      "id": "I30",
+      "title": "write_buf.close() call sites and reachability confirmed safe",
+      "file": "src/rpc/rpc.cc",
+      "line": 231,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Confirmed: write_buf.close() has only the two call sites cited, and stream_close() is only reached via close_sink()/close_source(), so a non-stream connection never sets _stream_closing; server-side stream connections share the same connection class so both sides are covered.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This verifies the scope of new logic from commit f545c28a.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "write_buf.close() has only two call sites; stream_close() is reached only via close_sink()/close_source(), so the flag is never set on a non-stream connection. Checked and confirmed correct."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "write_buf.close() call sites and stream_close() reachability confirmed safe for…"
+      }
+    },
+    {
+      "id": "I31",
+      "title": "PR claim that setting _error instead is not an option confirmed to hold",
+      "file": "",
+      "line": 0,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Confirmed by reading connection::abort() and stop_send_loop(): abort() skips shutdown_input() once _error is set, and stop_send_loop() calls shutdown_output() immediately, matching the commit message's stated rationale for not reusing _error.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This verifies a design decision explained in commit f545c28a's own message.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "The PR's claim that 'setting _error instead is not an option' holds: abort() skips shutdown_input() if _error is set, and stop_send_loop() calls shutdown_output() immediately. Checked and confirmed correct."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "PR claim that setting _error instead is not an option confirmed to hold."
+      }
+    },
+    {
+      "id": "I32",
+      "title": "client_factory.hooks.back() confirmed to correctly capture the stream connection's hook",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Same conclusion as I13: the parent connection negotiates before make_stream_sink() returns, so hooks.back() deterministically is the stream connection's hook.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Verifies correctness of new test code from commit 5e25ebdb.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "client_factory.hooks.back() is indeed the stream connection's hook because the parent negotiates before make_stream_sink() returns. Checked and confirmed correct."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "client_factory.hooks.back() confirmed to correctly capture the stream connection's hook."
+      }
+    },
+    {
+      "id": "I33",
+      "title": "Docs on dropping an unclosed sink, and source lacking close(), confirmed accurate",
+      "file": "include/seastar/rpc/rpc_impl.hh",
+      "line": 935,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Confirmed: ~sink_impl asserts sink_closed() (rpc_impl.hh:935), matching the doc's claim that dropping an unclosed sink is an error, and rpc::source has no close() method.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Verifies the new documentation added by commit 69da8f5b.",
+      "reportedBy": [
+        "mattpocock-review",
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "~sink_impl asserts sink_closed(), so the doc claim 'dropping an unclosed sink is an error' is true; rpc::source has no close(). Checked and confirmed correct.",
+        "tob-diff-review": "The docs match the code: ~sink_impl asserts on an unclosed sink, and source has no close() method."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "Docs claim that dropping an unclosed sink is an error confirmed accurate.",
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review": "Documentation matches code: ~sink_impl assertion and source's lack of close()."
+      }
+    },
+    {
+      "id": "I34",
+      "title": "'Refs #3653' reference could not be independently verified",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "unproven",
+      "verdictReason": "Verifying this requires access to the upstream issue tracker, which is not available in this environment; the tool's own claim that it resolves to a related-but-distinct bug cannot be checked from the repo alone.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The reference is part of this PR's own commit message (f545c28a).",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "The 'Refs #3653' reference resolves upstream to a related but distinct bug, and is appropriate. Checked and confirmed correct."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "'Refs #3653' confirmed to correctly point to a related but distinct bug."
+      }
+    },
+    {
+      "id": "I35",
+      "title": "Server-side stream_close() send-refusal window is untested",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1966,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "server_factory is set as the server's compressor_factory and its hooks vector is populated during negotiation, but the test never calls into server_factory.hooks; only the client-side stream's stream_close() is exercised, even though connection::stream_close()/send() apply identically to server::connection.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a coverage gap in the new regression test added by commit 5e25ebdb for logic added by f545c28a.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "server_factory.hooks is captured but never used; only the client's stream stream_close() is exercised, even though the spec states the same code serves server::connection so the server side is exposed too."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "Server-side window fix is untested."
+      }
+    },
+    {
+      "id": "I36",
+      "title": "Test claimed to hang or UAF if the hook throws a non-closed_error exception",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2015,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Traced connection::send(): with no timeout/cancel supplied, its only two possible outcomes are an immediate make_exception_future<>(closed_error()) when refused, or a future that always resolves successfully when accepted (send_entry()'s then_wrapped absorbs any internal failure via abort()+p->done.set_value(), never propagating an exception to the caller). There is no code path by which stream_send_empty_frame().get() can throw anything other than rpc::closed_error, so the hypothesized hang/use-after-free from an uncaught non-closed_error exception is not reachable.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The reasoning concerns the new test added by commit 5e25ebdb.",
+      "reportedBy": [
+        "mattpocock-review",
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+        "fable-5-1-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "If the hook throws anything other than closed_error, the exception propagates before release_close is set, so the parked data_sink::close() never resolves and the failure shows as a hang or ~sink_impl assert.",
+        "superpowers-review": "If the hook throws anything other than rpc::closed_error, sink/source are destroyed while stream_close() and _stopped are still pending, which could surface as a use-after-free rather than a clean failure."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "Test hangs instead of failing cleanly on an unexpected exception.",
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "Non-closed_error exception from hook can cause use-after-free during test teardown."
+      }
+    },
+    {
+      "id": "I37",
+      "title": "Doc section is a scope expansion beyond the referenced issue",
+      "file": "",
+      "line": 0,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The PR description itself declares commit 69da8f5b's documentation work as an explicit, disclosed addition beyond the tracked issue, so this is not an undisclosed or problematic expansion.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The commit is part of this PR and is explicitly justified in its own description.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Commit 69da8f5b (doc section + doxygen) is a scope expansion not requested by upstream issue #3663, but the PR description declares it and marks it as non-backport."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "Disclosed scope expansion beyond the referenced issue."
+      }
+    },
+    {
+      "id": "I38",
+      "title": "Commit subject prefixes confirmed to comply with repo convention",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The rpc:/rpc_test: subject prefixes match the repository's existing commit convention; no defect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Verifies this PR's own commits.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Subject prefixes comply with repository convention. Checked and confirmed correct."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "Commit subject prefixes confirmed to comply with repo convention."
+      }
+    },
+    {
+      "id": "I39",
+      "title": "Code confirmed to comply with coding-style.md",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "No tabs, no lines over 160 characters, and no generic lambdas were found in the diff; consistent with a clean check.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Verifies this PR's own new code.",
+      "reportedBy": [
+        "mattpocock-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review"
+      ],
+      "reportedAs": {
+        "mattpocock-review": "Checked against coding-style.md: no tabs, no C++ lines over 160 chars, no generic lambdas found; clean."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/mattpocock-review": "Code confirmed to comply with coding-style.md (tabs, line length, generic lambdas)."
+      }
+    },
+    {
+      "id": "I40",
+      "title": "New test is not shard-safe under --smp 2 (cross-shard write to server_factory.hooks)",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Traced loopback_socket.hh: connect() round-robins the SERVER-side acceptance via smp::submit_to(next_shard(), ...), while the CLIENT-side connected_socket always resolves back to the calling shard. With two make_socket() calls (parent client, then the stream socket) under --smp 2, the stream connection's server side is accepted and negotiated entirely on shard 1, so hook_capturing_compressor_factory::negotiate() mutates server_factory.hooks (a shard-0 stack object) from shard 1 -- a genuine unsynchronized cross-shard access. This is inert in practice because the test never reads server_factory.hooks back (matching I35), and 3 empirical --smp 2 runs showed no observable failure, but the underlying hazard is real. Note: server_done, which superpowers-review also attributes to 'the stream handler' on shard 1, is actually written by the type-1 RPC handler which runs on the parent connection's shard (shard 0, the first round-robin pick) -- that part of the claim does not hold.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is new test code added by commit 5e25ebdb, following an existing but still-hazardous pattern from stream_test_func.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "Under --smp 2 the loopback connect round-robins server shards, so the stream handler can run on shard 1 while writing server_done and pushing into server_factory.hooks, both shard-0 objects; noted as the same pattern as existing stream_test_func so not new."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "Stream handler test is not shard-safe under --smp 2."
+      }
+    },
+    {
+      "id": "I41",
+      "title": "then_wrapped lambda parameter f shadows the enclosing auto f",
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Confirmed: stream_close() declares 'auto f = make_ready_future<>();' at line 549, then reassigns it via 'f = queue_drained.then_wrapped([this] (future<> f) {...})' at line 565, where the lambda parameter f shadows the outer f. Legal C++ and -Wshadow is not enabled in this project, but it is a readability nit.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is new code added by commit f545c28a.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "The then_wrapped lambda parameter named f shadows the enclosing auto f variable and should be renamed."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "then_wrapped lambda parameter f shadows the enclosing auto f."
+      }
+    },
+    {
+      "id": "I42",
+      "title": "Parent client's compressor hook behavior during client::stop() left unexamined",
+      "file": "",
+      "line": 0,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "unproven",
+      "verdictReason": "The tool set this aside as out of scope, noting it is already refused via _error; no further evidence was gathered here to confirm or refute that in every case.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "This concerns the pre-existing parent-client compression path, not the stream-connection fix this PR makes.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "The parent client's compressor hook during client::stop() was set aside as out of scope, noted as already refused via _error."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "Parent client's compressor hook behavior during client::stop() left unexamined."
+      }
+    },
+    {
+      "id": "I43",
+      "title": "Unclear whether external compressors handle closed_error from send_empty_frame",
+      "file": "",
+      "line": 0,
+      "kind": "question",
+      "severity": "low",
+      "verdict": "unproven",
+      "verdictReason": "This is the same open question as I17 from a different tool; it cannot be settled without access to out-of-tree compressor implementations.",
+      "introducedByPr": true,
+      "scope": "out-of-scope",
+      "scopeReason": "Any impact would be on external code not present in this repository.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "Whether external compressors cope with closed_error thrown from send_empty_frame was set aside as out of scope and not investigated."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "Unclear whether external compressors handle closed_error from send_empty_frame."
+      }
+    },
+    {
+      "id": "I44",
+      "title": "Pre-existing abort()/stream_close()/shutdown_output() ordering race not investigated",
+      "file": "",
+      "line": 0,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "unproven",
+      "verdictReason": "Set aside by the tool as a pre-existing concern outside this PR's diff; not independently investigated here either given it is explicitly out of scope.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Explicitly noted as pre-existing and unrelated to this PR's changes.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "A pre-existing abort()-races-stream_close()-shutdown_output() ordering issue was set aside as out of scope and not investigated."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "Pre-existing abort()/stream_close()/shutdown_output() ordering race not investigated."
+      }
+    },
+    {
+      "id": "I45",
+      "title": "doc/rpc-compression.md does not mention the new send_empty_frame failure mode",
+      "file": "doc/rpc-compression.md",
+      "line": 0,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The PR introduces a new closed_error outcome for send_empty_frame during the stream-closing window, and doc/rpc-compression.md is not updated to mention it, even though this PR's other commit is specifically about documenting stream shutdown contracts.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR's own third commit is dedicated to documenting exactly this kind of contract change, making this a reasonable extension of its own scope rather than unrelated cleanup.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "doc/rpc-compression.md does not mention the new failure mode introduced by this change; set aside as out of scope."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "Documentation does not mention the new failure mode."
+      }
+    },
+    {
+      "id": "I46",
+      "title": "Layout change to rpc::connection in a public header",
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 307,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Seastar makes no ABI stability promise for this header, so adding a new bool member is not itself a defect.",
+      "introducedByPr": true,
+      "scope": "out-of-scope",
+      "scopeReason": "ABI stability is an explicit non-goal for this project, so this is not actionable within this PR.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "The layout change to rpc::connection in a public header was set aside as out of scope since Seastar makes no ABI promise."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "Layout change to rpc::connection in a public header."
+      }
+    },
+    {
+      "id": "I47",
+      "title": "send() gate verified to cover all callers including compressor hooks",
+      "file": "src/rpc/rpc.cc",
+      "line": 293,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Confirmed: sink sends are guarded by sink_closed(), the eof marker precedes close_sink(), ordinary client/server requests use non-stream connections where stream_close() never runs, and the compressor's send_empty_frame hooks (rpc.cc:696, 1103) were the unguarded callers this PR closes.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Verifies the completeness of the fix in commit f545c28a.",
+      "reportedBy": [
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review"
+      ],
+      "reportedAs": {
+        "tob-diff-review": "Every caller of send() is accounted for: sink path guarded by sink_closed(), eof marker sent before close_sink(), non-stream connections never run stream_close(), and the compressor send_empty_frame hooks were the only unguarded callers, now closed."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review": "send() gate verified to cover all callers, including compressor send_empty_frame hooks."
+      }
+    },
+    {
+      "id": "I48",
+      "title": "Queue drain via swapping _outgoing_queue_ready confirmed safe",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Same conclusion as I29: swapping in a ready future is safe because send() refuses new entries from that point on, and stop_send_loop() still transitively awaits the whole queue via _sink_closed_future.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Verifies core new logic from commit f545c28a.",
+      "reportedBy": [
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review"
+      ],
+      "reportedAs": {
+        "tob-diff-review": "Swapping _outgoing_queue_ready for a ready future is safe because no new entries can be enqueued afterward, the withdraw() chain invariant holds, and stop_send_loop() still awaits the whole queue transitively."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review": "Queue drain via swapping _outgoing_queue_ready is safe and preserves…"
+      }
+    },
+    {
+      "id": "I49",
+      "title": "Race between stop_send_loop() and stream_close() produces the same outcome as before",
+      "file": "",
+      "line": 0,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Consistent with my own tracing of connection::stop()/stop_send_loop()/stream_close() ordering: whichever runs first, the outcome is unchanged from pre-PR behavior because error()/_sink_closed_future already serialized this before the fix.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "This ordering guarantee predates the PR and is unaffected by it.",
+      "reportedBy": [
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review"
+      ],
+      "reportedAs": {
+        "tob-diff-review": "Whichever of stop_send_loop() or stream_close() runs first, the outcome is unchanged from pre-change behavior, so no new race is introduced."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review": "Race between stop_send_loop() and stream_close() produces the same outcome as before the…"
+      }
+    },
+    {
+      "id": "I50",
+      "title": "Test's lifetime safety for the wrapped data sink relies on sequencing, not ownership",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1849,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "test_data_sink_impl holds test_sink_state& st, a reference to a stack-local in the enclosing do_with_thread lambda; its safety depends entirely on the test releasing and awaiting close (release_close.set_value(); sink_closed.get();) before st goes out of scope, rather than on any ownership guarantee.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a structural property of the new test helper added by commit 5e25ebdb.",
+      "reportedBy": [
+        "tob-diff-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review"
+      ],
+      "reportedAs": {
+        "tob-diff-review": "The wrapped data sink holds a reference to the stack-local test_sink_state; it is safe only because close is released and awaited before scope exit, meaning the lifetime guarantee comes from sequencing rather than ownership."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/tob-diff-review": "test_stream_send_after_stream_close relies on sequencing rather than ownership for…"
+      }
+    },
+    {
+      "id": "I51",
+      "title": "Comment claims the destructor assert is where the test fails without the fix; it…",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2033,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Empirically confirmed: running the test without the fix 20 times, it failed 18/20 times on the BOOST_REQUIRE_MESSAGE(!put_after_close) at line 2032 and 2/20 times via an escaping stream_closed exception -- 0/20 failed via the ~output_stream() destructor assertion the trailing comment describes. The commit message (5e25ebdb) already states this correctly; the in-code comment should match it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This comment is part of the new test added by commit 5e25ebdb.",
+      "reportedBy": [
+        "superpowers-review"
+      ],
+      "reportedByRuns": [
+        "fable-5-1-2026-09-29/ironweave/superpowers-review"
+      ],
+      "reportedAs": {
+        "superpowers-review": "The closing comment says destruction is where ~output_stream() asserts, but after the ten yield()s the flush poller has normally already run, so without the fix the test actually fails on put_after_close, not on the assert; the commit message states this correctly and the comment should be aligned with it."
+      },
+      "reportedAsByRun": {
+        "fable-5-1-2026-09-29/ironweave/superpowers-review": "Comment misstates where the test fails without the fix."
+      }
+    }
+  ],
+  "judgeCostUsd": 4.232655900000002,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 214,
+      "outputTokens": 124617,
+      "cacheReadInputTokens": 8969912,
+      "cacheCreationInputTokens": 373881,
+      "webSearchRequests": 0,
+      "costUSD": 4.232655900000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 69751,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 44,
+    "sha256": "f97f3453f0549829277672aceb73b65f0eeecc71827faa275e8a6564dee762a2"
+  },
+  "workspace": "work/ironweave/runs/fable-5-1-2026-09-29/_judge/attempt-phofWA/repo",
+  "judgedAt": "2026-09-30T03:56:32.855Z"
+}

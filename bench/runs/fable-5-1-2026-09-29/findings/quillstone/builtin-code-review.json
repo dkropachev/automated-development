@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/quillstone/builtin-code-review",
+  "target": "quillstone",
+  "tool": "builtin-code-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "fc30ec03dd4ca969104437531dc08ebb4db24ea90961b51537238a8cb4822867",
+  "label": "Claude Code /code-review",
+  "findings": [],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 4,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19654,
+      "webSearchRequests": 0,
+      "costUSD": 0.0828648,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 32,
+    "sha256": "943434180f3b29045df1dbf9b6204f03828ede3f31e72fab49c94a820e46b668"
+  },
+  "extractedAt": "2026-09-30T03:21:11.630Z"
+}

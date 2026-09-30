@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/quillstone/ce-code-review",
+  "target": "quillstone",
+  "tool": "ce-code-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "21c6f19e37d4de5bf268c8cab1200d629e8cd20a0b7dc0c97c4de5afa0f85087",
+  "label": "Compound Engineering ce-code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1006,
+      "title": "Excess shard-aware connection dropped without decrementing total_connections",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "In the requested_shard branch of handle_ready_connection, the connection is dropped after start_opening_connection(None) but total_connections was already incremented by count_in_metrics and nothing decrements it, causing the gauge to drift upward on every excess shard-aware event (e.g. NAT/shard-mismatch).",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 862,
+      "title": "Connections held in conns/excess_connections at run() exit dropped without…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "When PoolRefiller::run returns (keyspace channel dropped, node removed), connections still held in conns/excess_connections are dropped and the total_connections gauge is not decremented.",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Keyspace check now precedes sharder/shard-aware-port update, blocking them on persistent…",
+      "severity": "low",
+      "kind": "question",
+      "claim": "With the keyspace check ahead of maybe_reshard and the shard-aware-port update, a node whose USE keeps failing never updates the pool's sharder or shard-aware port, and the pool does not refill until the keyspace exists again; this is a behavior change from silently accepting the connection and should be confirmed as intended.",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1336,
+      "title": "use_keyspace on a new connection has no timeout",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "start_setting_keyspace_for_connection still carries a TODO that there should be a timeout; a hung USE keeps is_filling() true and stalls refills for that pool.",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1528,
+      "title": "Test re-implements simulated-node proxy setup instead of reusing a shared helper",
+      "severity": "medium",
+      "kind": "style",
+      "claim": "keyspace_setup_failure_preserves_pool_state hand-builds the OPTIONS/STARTUP forged-response rules and proxy in a ~60-line make_rules closure, duplicating start_simulated_node and inline rule blocks in the resharding test, making any handshake change require edits in multiple places.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1636,
+      "title": "Non-empty-pool keyspace-failure test omits refill-flag and requested_shard assertions",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "keyspace_setup_failure_preserves_pool_state never asserts had_error_since_last_refill or need_filling(), and no non-empty-pool test feeds requested_shard: Some(..) into that arm to confirm no immediate non-shard-aware retry is scheduled, unlike the Connection error arm.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "title": "Keyspace failure arm never driven through run() loop to observe backoff-delayed refill",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The Keyspace failure arm is exercised only with a forged server error and a synthetic RequestTimeout event; no test drives a failing USE through the run() loop to confirm the backoff-delayed refill actually occurs end to end.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "decrement_total_connections loops N atomic decrements",
+      "severity": "nit",
+      "kind": "perf",
+      "claim": "A maintainability note observed that decrement_total_connections loops N atomic decrements, self-described as low impact with no worthwhile benefit to changing it.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 3341,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 23979,
+      "webSearchRequests": 0,
+      "costUSD": 0.1335348,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1835,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 33,
+    "sha256": "12cb0195418db68b32d0569f573791ad28e2023c119b7a94353232cf201e11c7"
+  },
+  "extractedAt": "2026-09-30T03:21:46.353Z"
+}
