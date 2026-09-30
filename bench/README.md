@@ -23,7 +23,9 @@ make bench-probe     # quota-gate and record exact-model Fable evidence
 make bench-run       # run the default claude-opus-5-5 cohort
 make bench-extract   # seal the complete result matrix, then extract comparable JSON findings
 make bench-judge     # merge, verify, classify, and mark the full cohort complete
-make bench-report    # verify the completed snapshot and render its cohort-specific report
+make bench-report RUN=<completed-run> # verify one snapshot and render its cohort report
+make bench-publish   # regenerate every completed cohort report and both Pages exports
+make bench-publish-check # fail if a generated publication file is missing or stale
 make bench-reconcile # propose, review, seal, or validate the canonical model-comparison gold
 make bench-dashboard # render every cohort into docs/index.html and docs/run-explorer.html
 ```
@@ -63,8 +65,10 @@ A repeated run command resumes cells in that cohort's original expected matrix. 
 `seal.json` only after every expected result exists; from that point no result can be added or
 changed. Use a new `RUN` to extend the matrix, rerun a cell, or make any fresh measurement. Judging
 creates `complete.json` only after every sealed finding and target judgement exists. Reports and the
-dashboard accept new cohorts only through that hash-verified complete snapshot. New cohort reports
-have cohort-specific filenames, so they cannot replace the legacy `docs/review-bakeoff.md`. `ARGS`
+dashboard accept new cohorts only through that hash-verified complete snapshot. `make bench-publish`
+discovers every such modern cohort without an allow-list, renders its cohort-specific report and
+both dashboards, and leaves the hand-written legacy report untouched. `make bench-publish-check`
+fails on a missing or stale generated file. `ARGS`
 passes other flags through, for example `make bench-run ARGS="--only ironweave --concurrency 2"`.
 
 ## Why each PR is republished
@@ -223,6 +227,7 @@ not all recorded; the dashboard links its warning to the controlled-rerun issue 
 gold manifest.
 
 `docs/index.html` and `docs/run-explorer.html` are committed so the dashboard works from a checkout
-or static docs host. After any benchmark artifact changes, run `make bench-dashboard`; the test
-suite fails if either tracked export has drifted. A GitHub Actions workflow regenerates, verifies,
-and publishes `docs/` to GitHub Pages on pushes to `main`.
+or static docs host. After any completed-cohort or dashboard change, run `make bench-publish`; the
+test suite fails if any modern cohort report or either tracked dashboard export has drifted. A
+GitHub Actions workflow runs the same publisher, verifies it, and deploys `docs/` on pushes to
+`main`.
