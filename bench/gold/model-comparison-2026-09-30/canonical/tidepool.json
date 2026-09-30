@@ -1,0 +1,1276 @@
+{
+  "schemaVersion": 1,
+  "target": "tidepool",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceManifestSha256": "3a17070a554f1fc0ca777549c0046b1ffff21d50e135c723749f73d308d05fcb",
+  "reviewed": true,
+  "reconciler": {
+    "requestedModel": "claude-opus-5-5",
+    "effort": "high",
+    "costUsd": 1.9424682000000002,
+    "modelUsage": {
+      "claude-opus-5-5": {
+        "inputTokens": 36,
+        "outputTokens": 39612,
+        "cacheReadInputTokens": 1447101,
+        "cacheCreationInputTokens": 107583,
+        "webSearchRequests": 0,
+        "costUSD": 1.9424682000000002,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 21854,
+        "canonicalModel": "claude-opus-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "workspace": "work/tidepool/runs/model-comparison-2026-09-30/_gold-reconcile/attempt-OLfNoi/repo",
+    "reconciledAt": "2026-09-30T11:56:26.245Z"
+  },
+  "issues": [
+    {
+      "id": "tidepool-I001",
+      "title": "vectorElemMinSize floors a zero/negative-dimension inner vector at 1 byte, reopening the nested-vector allocation amplification",
+      "file": "marshal.go",
+      "line": 1141,
+      "kind": "security",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "For an inner VectorType with Dimensions <= 0, isVectorVariableLengthType recurses to the fixed leaf (false) and the vec.Dimensions > 0 branch is skipped, so size stays 0 and is floored to 1. vector<vector<float,0>,1048576> (or inner -1) parsed through readTypeInfo passes the bound on a 1 MiB payload and reflect.MakeSlice allocates ~25.2 MB before the inner decode fails -- the exact 24x amplification the PR's own allocation test describes as the bug.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "The PR's stated goal is bounding peer-controlled vector allocation; the gap is in the new vectorElemMinSize, and the promised dim<1 rejection (#1093) does not exist in this repo."
+    },
+    {
+      "id": "tidepool-I002",
+      "title": "getCassandraLongType indexes names[1] on a truncated VectorType spec and panics",
+      "file": "helpers.go",
+      "line": 264,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "splitJavaCompositeTypes returns one element for a spec like VectorType(FloatType) and names[1] panics with index out of range; reproduced both directly and via readTypeInfo on a nested truncated vector. parseFrame's recover re-panics runtime.Error, so a peer-sent type string can crash the process.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Pre-existing parser defect in a branch the PR did not modify; the PR only changed the basic-type branch of the same function."
+    },
+    {
+      "id": "tidepool-I003",
+      "title": "A zero VectorType into an *any destination still panics in VectorType.Zero(), contrary to the new comment and test",
+      "file": "marshal.go",
+      "line": 1044,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Unmarshal(VectorType{}, []byte{}, &a) and with nil data (a any) both panic with a nil-pointer dereference: the interface branch calls info.Zero(), which calls v.SubType.NewWithError() on a nil SubType before the new t == nil guard can run. TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType only uses *[]float64, so it passes while the property it names does not hold.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "The panic predates the PR, but the PR adds a comment and test claiming a caller-built zero VectorType cannot panic on the Scan goroutine."
+    },
+    {
+      "id": "tidepool-I004",
+      "title": "PR description cites issues/PRs #1085, #1086, #1091, #1093, #1106 that do not exist in this repository",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "gh reports 'Could not resolve' for all five numbers in dkropachev/tidepool. The claimed companion '#1093, which rejects dim < 1 in the metadata parsers' is absent: frame.go still does dim, _ := strconv.Atoi(...). The deferred Out items are therefore untracked.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR description is part of the change under review and its scope argument depends on these references."
+    },
+    {
+      "id": "tidepool-I005",
+      "title": "frame.go discards the strconv.Atoi error on a vector dimension",
+      "file": "frame.go",
+      "line": 861,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "dim, _ := strconv.Atoi(...) turns a non-numeric dimension into 0 (vector<int,abc> over an empty payload decodes to []int32{} with nil error) and an overflowing one into MaxInt64 with ErrRange dropped, so the server-sent string is never reported. The new bound does reject the MaxInt64 case at unmarshal time.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Pre-existing frame.go code the PR does not touch; the PR attributes dim validation to a separate (nonexistent) change."
+    },
+    {
+      "id": "tidepool-I006",
+      "title": "A caller-built VectorType with a nil SubType and Dimensions > 0 still panics in vectorElemMinSize",
+      "file": "marshal.go",
+      "line": 999,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "unmarshalVector(VectorType{Dimensions: 3}, ...) panics because vectorElemMinSize(nil) calls elemType.Type(). The base panicked on the same caller-constructed input later in the fast path, so this is pre-existing and is not reachable from the wire.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The direct nil-SubType panic is pre-existing and the PR does not make the caller-constructed input newly reachable."
+    },
+    {
+      "id": "tidepool-I007",
+      "title": "vectorElemMinSize's math.MaxInt32 saturation branch has no test coverage",
+      "file": "marshal.go",
+      "line": 1137,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "TestVectorElemMinSize has no row large enough to reach the saturation return; the only overflow guard in the new peer-driven arithmetic is unexercised, so a regression in its comparison or return value would go unnoticed (the function itself returns MaxInt32 correctly for vector<vector<float,1<<30>,1<<30>).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New code added by the PR."
+    },
+    {
+      "id": "tidepool-I008",
+      "title": "New 'no Go type for element type' error prints a nested vector as bare custom(...VectorType) with no element type or dimension",
+      "file": "marshal.go",
+      "line": 1048,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "For VectorType(VectorType(FloatType, 3), 2) into *any the error reads 'no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)': VectorType has no String(), and the inner type's NativeType carries only the prefix set at helpers.go:271. The test checks only the message prefix, so it does not catch this.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The message is new in this PR and its stated purpose is naming the type the server sent."
+    },
+    {
+      "id": "tidepool-I009",
+      "title": "Inner VectorType is built with the bare prefix name, so a nested vector cannot decode into interface{}",
+      "file": "helpers.go",
+      "line": 271,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "getCassandraLongType's VectorType branch stores prefix+\"VectorType\" instead of name, so asVectorType cannot parse the inner type, goType/NewWithError fail, Zero() returns nil, and Scan(&any)/MapScan of a nested-vector column errors. Storing name would let asVectorType resolve it.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Pre-existing; the PR explicitly defers making a nested vector decode into interface{} (to #1085) and only turns the crash into an error."
+    },
+    {
+      "id": "tidepool-I010",
+      "title": "Map-arity and vector-dimension parse failures in getCassandraLongType still return a nameless custom() type",
+      "file": "helpers.go",
+      "line": 267,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "helpers.go:222 and helpers.go:267 still return NewNativeType(protoVer, TypeCustom) with no name, so errors on those types render as custom() -- inconsistent with the new basic-type branch that keeps the server's name.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "Same function and same stated goal as the PR's naming change, though the branches themselves are unchanged."
+    },
+    {
+      "id": "tidepool-I011",
+      "title": "Keeping the unknown type name changes String()/equality of UDT, tuple and collection element types",
+      "file": "helpers.go",
+      "line": 280,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The shared fallback now fills NativeType.custom for unknown classes in UDT fields, tuples, and collection elements, changing both String() output and structural equality outside the vector error path. The diagnostic improvement is intentional and no breakage is known, but this collateral behavior is not disclosed.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Direct effect of the PR's helpers.go change."
+    },
+    {
+      "id": "tidepool-I012",
+      "title": "PR description's claim that every new test fails against pristine code is overstated",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType (and the concrete/resolvable subtests of the no-Go-type test) exercise inputs the base already handles, so they pass there as regression guards; TestVectorElemMinSize does not compile against the base because vectorElemMinSize is undefined.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Accuracy of the PR's own verification statement."
+    },
+    {
+      "id": "tidepool-I013",
+      "title": "Negative dimensions with a NULL payload now error instead of returning nil, and the behaviour change is not disclosed",
+      "file": "marshal.go",
+      "line": 992,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The Dimensions < 0 check now runs before the data == nil branch, so dim=-3 with nil data errors where the base returned nil. The test pins this deliberately, but the PR's 'Behaviour change' paragraph only mentions short or zero-length non-NULL payloads.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Behaviour introduced by the PR's new check."
+    },
+    {
+      "id": "tidepool-I014",
+      "title": "A zero-dimension inner vector's 1-byte floor rejects an empty payload the base decoded",
+      "file": "marshal.go",
+      "line": 1142,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "vector<vector<int,0>,3> over []byte{} decoded to [[] [] []] on the base but now errors '3 dimensions do not fit in 0 bytes', because the floor is 1 byte while the true wire size is 0. Pathological (Cassandra rejects dim < 1) and a third unlisted behaviour change.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Caused by the PR's new floor in vectorElemMinSize."
+    },
+    {
+      "id": "tidepool-I015",
+      "title": "Fast-path comment still says nil/empty payloads fall through to the generic path",
+      "file": "marshal.go",
+      "line": 1006,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The new bound above now rejects an empty non-nil payload with Dimensions > 0 before this point; only nil data and dim=0 still fall through.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR's change made the adjacent comment stale."
+    },
+    {
+      "id": "tidepool-I016",
+      "title": "Comment claims every path below turns Dimensions into an allocation, but the array path allocates nothing",
+      "file": "marshal.go",
+      "line": 986,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The *[N]T destination only compares rv.Len() against Dimensions and allocates nothing, as the PR's own 'short payload into an array' test comment acknowledges; there the bound fixes silent zero-decoding, not an allocation.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Comment added by the PR."
+    },
+    {
+      "id": "tidepool-I017",
+      "title": "Test comments claim no vector element encodes in zero bytes, but vector<float,0> does",
+      "file": "marshal_vector_test.go",
+      "line": 813,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "'Neither can describe an element in zero bytes' (line 813) and 'a vector of N elements is never encoded in fewer than N bytes' (line 693) are both false for a zero-dimension inner vector, which encodes to zero bytes; the 1-byte floor exists because the caller divides.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test comments added by the PR."
+    },
+    {
+      "id": "tidepool-I018",
+      "title": "Test comment reads as each inner vector being eight bytes when each is four",
+      "file": "marshal_vector_test.go",
+      "line": 773,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Each inner vector<text,3> is a 1-byte length plus three zero vints (4 bytes); eight is the total for the two inner vectors the subtest marshals, and TestVectorElemMinSize costs the same shape at 4.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test comment added by the PR."
+    },
+    {
+      "id": "tidepool-I019",
+      "title": "Bound-check error omits the per-element minimum, so short-payload messages are hard to interpret",
+      "file": "marshal.go",
+      "line": 1001,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The message '%d dimensions do not fit in %d bytes' omits elemMin; for nested types (e.g. '3 dimensions do not fit in 24 bytes') it looks wrong, and it replaces the fast paths' exact 'expected N bytes, got M' arithmetic.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Error message added by the PR."
+    },
+    {
+      "id": "tidepool-I020",
+      "title": "Variable-length element floor of one byte means empty date/time/smallint elements still decode to zero values with a nil error",
+      "file": "marshal.go",
+      "line": 1131,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "vector<smallint,4> over four zero bytes decodes to [0 0 0 0] and vector<date,2> over two zero bytes to two minDate values, both with nil error: each is a vint-0 empty element that passes the 1-byte floor. The PR's 'short payload now errors' claim therefore holds only for fixed-size elements. Allocation stays one value per payload byte, and empty-value decoding matches the scalar codecs (an empty date column also decodes to minDate).",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "Concerns the reach of the PR's bound and its behaviour-change claim; per-element empty-value decoding itself is pre-existing."
+    },
+    {
+      "id": "tidepool-I021",
+      "title": "Dimension bound counts wire bytes while MakeSlice allocates Go-sized elements",
+      "file": "marshal.go",
+      "line": 1000,
+      "kind": "security",
+      "severity": "medium",
+      "verdict": "false-positive",
+      "verdictReason": "A vector<text,N> over N zero bytes is a valid encoding of N empty strings, so its 16N-byte allocation cannot be rejected; amplification is a constant factor bounded by the frame-size-limited payload, the same property unmarshalList has. The bound's job is to stop counts the payload cannot encode, which it does.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns the PR's new bound."
+    },
+    {
+      "id": "tidepool-I022",
+      "title": "No test pins an empty non-NULL payload with Dimensions > 0",
+      "file": "marshal_vector_test.go",
+      "line": 642,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The announced vector<int,3> over []byte{} case is the boundary between the data != nil skip and the bound, but the table only uses a 2-byte payload; relaxing the guard to len(data) > 0 would reinstate [0 0 0], nil without failing a test.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Behaviour change announced by the PR."
+    },
+    {
+      "id": "tidepool-I023",
+      "title": "Dimension-bound tests bypass readTypeInfo-parsed types",
+      "file": "marshal_vector_test.go",
+      "line": 587,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "TestUnmarshalVectorRejectsUnfittableDimensions calls unmarshalVector with hand-built VectorTypes; none of its rows uses wireVectorType/Unmarshal, although the threat model is a server-sent type.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Tests added by the PR."
+    },
+    {
+      "id": "tidepool-I024",
+      "title": "Allocation test measures process-wide TotalAlloc and could flake from background goroutines",
+      "file": "marshal_vector_test.go",
+      "line": 836,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "runtime.MemStats.TotalAlloc is process-wide, so goroutines left by earlier tests can allocate between the two samples even though this test itself is not parallel. The generous budget makes a failure unlikely but does not isolate the measurement.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test added by the PR."
+    },
+    {
+      "id": "tidepool-I025",
+      "title": "'Not parallel' comment on the allocation test misnames the mechanism",
+      "file": "marshal_vector_test.go",
+      "line": 835,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The comment correctly states why the test is not t.Parallel(): if it were, parallel siblings would run concurrently and pollute TotalAlloc. Leaked goroutines are a separate exposure, not a contradiction of the comment.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test comment added by the PR."
+    },
+    {
+      "id": "tidepool-I026",
+      "title": "Allocation test's payload/8 budget is loose and coupled to the payload constant",
+      "file": "marshal_vector_test.go",
+      "line": 852,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "payload is a fixed 1 MiB constant, so the 128 KB budget separates the ~25 MB regression from the ~3.5 KB fixed path by orders of magnitude; the test pins where the rejection happens, not an exact byte count.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test added by the PR."
+    },
+    {
+      "id": "tidepool-I027",
+      "title": "Identical 'info.Dimensions > 0 && data != nil' guard opens two adjacent blocks",
+      "file": "marshal.go",
+      "line": 998,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The bound block and the fast-path block both open with the same condition back to back; they could be one block running the bound check and then the fast paths.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Duplication introduced by the PR."
+    },
+    {
+      "id": "tidepool-I028",
+      "title": "vectorElemMinSize adds a third place that classifies vector element types",
+      "file": "marshal.go",
+      "line": 1125,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "vectorElemMinSize derives its answer from vectorFixedElemSize and isVectorVariableLengthType and only adds the nested-vector recursion; a new element type still needs to be classified only in those two existing functions.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New function added by the PR."
+    },
+    {
+      "id": "tidepool-I029",
+      "title": "math.MaxInt32 saturation sentinel returned as a plain int",
+      "file": "marshal.go",
+      "line": 1137,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "MaxInt32 is a valid lower bound on element size, not a sentinel the caller must distinguish: dividing any frame-size-limited payload by it yields 0, so every positive count is correctly rejected.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New code added by the PR."
+    },
+    {
+      "id": "tidepool-I030",
+      "title": "makeVectorType duplicates the existing vector-type test helpers",
+      "file": "marshal_vector_test.go",
+      "line": 557,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "makeVectorType repeats the struct literal of makeDoubleVectorType/makeFloat32VectorType (lines 36/49) and vector_bench_test.go's makeFloatVectorType; the older helpers could delegate to it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Helper added by the PR."
+    },
+    {
+      "id": "tidepool-I031",
+      "title": "Roughly 400 lines of tests for two guard conditions",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The tests cover distinct wire-reachable inputs (wrap, nested, interface, zero-dimension, allocation placement); volume alone is not a defect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Tests added by the PR."
+    },
+    {
+      "id": "tidepool-I032",
+      "title": "Test comment claims 32-bit coverage the package cannot currently build for",
+      "file": "marshal_vector_test.go",
+      "line": 586,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "GOARCH=386 does fail to build (serialization/cqlint and varint constants overflow int), but the comment only explains why the rows use bits.UintSize, which is correct regardless.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Test comment added by the PR."
+    },
+    {
+      "id": "tidepool-I033",
+      "title": "Commits and PR body carry Claude attribution",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Both commits end with 'Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>' and the PR body ends with '🤖 Generated with Claude Code', which the author's global instructions forbid.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Commit messages and PR body are part of the change."
+    },
+    {
+      "id": "tidepool-I034",
+      "title": "Commit messages do not follow CONTRIBUTING.md's subject/trailer format",
+      "file": "CONTRIBUTING.md",
+      "line": 30,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The checked-in CONTRIBUTING.md requires a capitalized subject and Patch-by/Reviewed-by trailers, while these commits use lowercase conventional-commit subjects without the trailers. Recent main commits show that repository practice has drifted, which lowers actionability but does not make the documented-policy violation false.",
+      "introducedByPr": true,
+      "scope": "out-of-scope",
+      "scopeReason": "Repository-wide convention drift, not specific to this PR."
+    },
+    {
+      "id": "tidepool-I035",
+      "title": "Behaviour change not recorded in CHANGELOG.md",
+      "file": "CONTRIBUTING.md",
+      "line": 24,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "No CHANGELOG.md exists in the repository, CONTRIBUTING.md allows stating an unmet requirement on the PR, and the PR body documents the behaviour change.",
+      "introducedByPr": true,
+      "scope": "out-of-scope",
+      "scopeReason": "Process requirement the repository no longer supports."
+    },
+    {
+      "id": "tidepool-I036",
+      "title": "Short or empty non-NULL payload with Dimensions > 0 now errors instead of decoding to zero values",
+      "file": "",
+      "line": 0,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Intended and documented: decoding vector<int,3> over an empty payload to [0 0 0] was silent corruption, and the PR's 'Behaviour change' section states the new error.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Behaviour change introduced by the PR."
+    },
+    {
+      "id": "tidepool-I037",
+      "title": "Commit 0276a66's message describes a one-byte floor while the code uses the type-aware vectorElemMinSize",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The commit body says 'Every element takes at least one byte on the wire', but the same commit introduces the recursive vectorElemMinSize floor; the PR description is accurate, the commit body is not.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Commit message of the PR."
+    },
+    {
+      "id": "tidepool-I038",
+      "title": "Negative vint length decodes a variable-length vector element to empty with a nil error",
+      "file": "marshal.go",
+      "line": 1097,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "vector<text,1> over nine 0xff bytes decodes to [\"\"] with nil error: elemSize = int(m) narrows to negative and the elemSize >= 0 branch is skipped, leaving nil data.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Pre-existing and explicitly listed as Out in the PR (#1106, which does not exist)."
+    },
+    {
+      "id": "tidepool-I039",
+      "title": "Scan(&any) on a vector yields []*T while goType/MapScan yields []T, and the new test pins []*T",
+      "file": "marshal.go",
+      "line": 1044,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "reflect.TypeOf(info.Zero()) gives []*float32 for vector<float,3> (verified), whereas goType dereferences the pointer and returns []float32; the new 'resolvable element type' subtest asserts []*float32.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Pre-existing inconsistency in Zero(); the PR only adds a nil check and a test that observes it."
+    },
+    {
+      "id": "tidepool-I040",
+      "title": "vectorElemMinSize is recomputed per value at O(depth^2)",
+      "file": "marshal.go",
+      "line": 1125,
+      "kind": "perf",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Each level calls isVectorVariableLengthType, which itself recurses to the leaf, and the result is not cached; only very deep nesting makes it measurable, and parsing such a type name is already far costlier.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New function added by the PR."
+    },
+    {
+      "id": "tidepool-I041",
+      "title": "VectorType.Zero() discards the NewWithError error, so the new message cannot state the cause",
+      "file": "marshal.go",
+      "line": 2047,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The discarded error is 'cannot create Go type for unknown CQL type <type>', which carries the same information as the new 'no Go type for element type <type>' message; no cause is misreported.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "Concerns the message the PR adds."
+    },
+    {
+      "id": "tidepool-I042",
+      "title": "Negative-dimension check is undeclared scope creep",
+      "file": "marshal.go",
+      "line": 992,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The PR's first Scope-In bullet covers Dimensions reaching make/reflect.MakeSlice unbounded, and its verification cites 'reflect.MakeSlice: negative len'; the check is in scope.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Check added by the PR."
+    },
+    {
+      "id": "tidepool-I043",
+      "title": "Public Unmarshal behaviour change is not documented in godoc",
+      "file": "marshal.go",
+      "line": 992,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Unmarshal now returns errors for negative dimensions and payloads too short for Dimensions, but its public documentation does not describe these new validation failures even though CONTRIBUTING.md requires API changes to be documented in godoc.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Public behavior changed by this PR."
+    },
+    {
+      "id": "tidepool-I044",
+      "title": "Nested VectorType with a nil inner SubType still panics in the new vectorElemMinSize recursion",
+      "file": "marshal.go",
+      "line": 1126,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "VectorType{SubType: VectorType{Dimensions: 3}, Dimensions: 2} reaches the new recursive vectorElemMinSize path and panics when the inner nil SubType is classified. The exact caller-built shape also panicked later on base, so the PR does not introduce the observable panic, but its new recursion leaves the intended mitigation incomplete.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "The incomplete guard is in the PR's new recursive size helper."
+    }
+  ],
+  "mappings": [
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I004",
+        "tidepool-I005"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "tidepool-I003"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "tidepool-I044"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "tidepool-I010"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "tidepool-I013"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "tidepool-I007"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "tidepool-I022"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "tidepool-I015"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "tidepool-I016"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "tidepool-I017"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "tidepool-I033"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "tidepool-I038"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/ce-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I003",
+        "tidepool-I006"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/ce-code-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "tidepool-I007"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/ce-code-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "tidepool-I024"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I034"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "tidepool-I033"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "tidepool-I043"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "tidepool-I015"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "tidepool-I030"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "tidepool-I031"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 13,
+      "issueIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 14,
+      "issueIds": [
+        "tidepool-I026"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 15,
+      "issueIds": [
+        "tidepool-I010",
+        "tidepool-I011"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 16,
+      "issueIds": [
+        "tidepool-I013"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 17,
+      "issueIds": [
+        "tidepool-I006"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 18,
+      "issueIds": [
+        "tidepool-I008"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/superpowers-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I033"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/superpowers-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "tidepool-I008"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/superpowers-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "tidepool-I019"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/superpowers-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/superpowers-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "tidepool-I037"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/superpowers-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "tidepool-I024"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/tob-diff-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I004",
+        "tidepool-I005"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/tob-diff-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/tidepool/tob-diff-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "tidepool-I033"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I001"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "tidepool-I003"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "tidepool-I008",
+        "tidepool-I009"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "tidepool-I020"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "tidepool-I016"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "tidepool-I041"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "tidepool-I007"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "tidepool-I019"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "tidepool-I018"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "tidepool-I025"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "tidepool-I026"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "tidepool-I017"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "tidepool-I027"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 13,
+      "issueIds": [
+        "tidepool-I023"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 14,
+      "issueIds": [
+        "tidepool-I033"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 15,
+      "issueIds": [
+        "tidepool-I002"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/anthropic-pr-review",
+      "findingIndex": 16,
+      "issueIds": [
+        "tidepool-I005",
+        "tidepool-I010"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/builtin-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I003"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/builtin-code-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "tidepool-I008",
+        "tidepool-I009"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/builtin-code-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "tidepool-I041"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/builtin-code-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "tidepool-I036"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/ce-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I020"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/ce-code-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "tidepool-I021"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/ce-code-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "tidepool-I007"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/ce-code-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/mattpocock-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I035"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/mattpocock-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "tidepool-I033"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/mattpocock-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "tidepool-I027"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/mattpocock-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "tidepool-I028"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/mattpocock-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "tidepool-I029"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/mattpocock-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "tidepool-I001"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/mattpocock-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "tidepool-I008"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/mattpocock-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/mattpocock-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "tidepool-I042"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/superpowers-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "tidepool-I007"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/superpowers-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "tidepool-I008"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/superpowers-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "tidepool-I013"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/superpowers-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "tidepool-I014"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/superpowers-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "tidepool-I024"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/tob-diff-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I039"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/tob-diff-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "tidepool-I007"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/tob-diff-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "tidepool-I008"
+      ]
+    },
+    {
+      "cellId": "legacy/tidepool/tob-diff-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "tidepool-I040"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I004"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "tidepool-I015"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "tidepool-I032"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/anthropic-pr-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "tidepool-I033"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/ce-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I010"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/ce-code-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "tidepool-I010"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I035"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "tidepool-I034"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "tidepool-I027"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "tidepool-I028"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "tidepool-I030"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/mattpocock-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/superpowers-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/tidepool/superpowers-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "tidepool-I024"
+      ]
+    }
+  ],
+  "review": {
+    "reviewer": "codex",
+    "reviewedAt": "2026-09-30T12:25:14.982Z"
+  }
+}

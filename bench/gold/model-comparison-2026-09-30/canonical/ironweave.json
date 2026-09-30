@@ -1,0 +1,1910 @@
+{
+  "schemaVersion": 1,
+  "target": "ironweave",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceManifestSha256": "3a17070a554f1fc0ca777549c0046b1ffff21d50e135c723749f73d308d05fcb",
+  "reviewed": true,
+  "reconciler": {
+    "requestedModel": "claude-opus-5-5",
+    "effort": "high",
+    "costUsd": 2.4583297999999996,
+    "modelUsage": {
+      "claude-opus-5-5": {
+        "inputTokens": 52,
+        "outputTokens": 43320,
+        "cacheReadInputTokens": 2622249,
+        "cacheCreationInputTokens": 133409,
+        "webSearchRequests": 0,
+        "costUSD": 2.4583297999999996,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 24410,
+        "canonicalModel": "claude-opus-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "workspace": "work/ironweave/runs/model-comparison-2026-09-30/_gold-reconcile/attempt-kCKkgX/repo",
+    "reconciledAt": "2026-09-30T11:39:50.878Z"
+  },
+  "issues": [
+    {
+      "id": "ironweave-I001",
+      "title": "Source contract claims any throw releases the source, but unmarshall() failures leave it open",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 386,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "source_impl::operator() calls close_source() only when stream_receive() fails or yields eof (rpc_impl.hh:961-972); an exception from unmarshall() inside process_one_buffer propagates with _source_closed still false, so an application that stops at that throw, as the new rpc::source doc and doc/rpc-streaming.md:110-112 say it may, never lets stream_close() run and leaks the stream connection.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's documentation commit."
+    },
+    {
+      "id": "ironweave-I002",
+      "title": "Queue-drain half of the fix (waiting on _outgoing_queue_ready before closing) is not covered by any test",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "In the new test sink_impl::close() awaits the eof-marker send() before close_sink() runs stream_close(), and the hook is only fired after _stream_closing is set, so _outgoing_queue is empty and queue_drained is already ready; reverting the std::exchange/then_wrapped hunk while keeping _stream_closing leaves the suite green.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I003",
+      "title": "stream_close() now gates write_buf.close() and stop() behind an unbounded outgoing-queue drain",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "If an entry accepted just before _stream_closing is stuck in send_entry() on peer backpressure, queue_drained never resolves, so neither output_stream::close() (whose data_sink close does shutdown(SHUT_WR) and would break the stuck send) nor stop()/abort()/shutdown_input() runs; sink.close() hangs until something outside aborts the connection. Previously close() ran immediately. The trigger is narrow (the eof marker itself must have gotten through first) and nothing in the PR or comment mentions it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I004",
+      "title": "test_data_sink_impl overrides only put(std::span), so rpc_test fails to compile below SEASTAR_API_LEVEL 9",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "data_sink_impl declares put(std::span<temporary_buffer<char>>) only under SEASTAR_API_LEVEL >= 9 (iostream.hh:110-116); below that put(net::packet) is pure virtual, so the override matches nothing and the class is abstract. CMake still accepts lower levels and tls_test.cc/httpd_test.cc/loopback_socket.hh guard the same pattern; the default build is unaffected.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I005",
+      "title": "Regression test swallows the hook's result and never asserts that send() was refused with closed_error",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The try { stream_send_empty_frame().get(); } catch (const rpc::closed_error&) {} block passes whether the frame is refused or accepted; the regression is only caught indirectly via put_after_close. BOOST_REQUIRE_THROW(..., rpc::closed_error) would pin the contract directly.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I006",
+      "title": "Test cannot tell a refusal caused by _stream_closing from one caused by _error",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2013,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "send() returns closed_error for both _stream_closing and _error. While the client's close is parked, the server can receive the eof marker, close its own stream and shut its socket, after which the client read loop sets _error; the hook would then be refused without exercising the fix, and nothing in the test checks that _error is still false.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I007",
+      "title": "Peer disconnect while stream_close() is parked on the outgoing-queue drain is untested",
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "No test has the peer disconnect so stop_send_loop() withdraws an entry and makes the old queue future exceptional while stream_close() is parked on that drain. A regression that propagated the exception, skipped write_buf.close(), or mishandled the ready placeholder would not be caught.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I008",
+      "title": "Closing one sink satisfies the connection-wide closed flag for every sink on that stream connection",
+      "file": "include/seastar/rpc/rpc_impl.hh",
+      "line": 935,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "~sink_impl asserts the connection-level sink_closed() flag rather than per-sink state. When multiple sinks share one stream connection, closing either sets that flag, so another sink can be dropped without its own close() call despite the new documentation saying every sink must be closed.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR adds the every-sink close contract without documenting this connection-wide enforcement limitation."
+    },
+    {
+      "id": "ironweave-I009",
+      "title": "Server-side stream connection is not exercised; server_factory.hooks is filled but never used",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1966,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Only the client stream's hook is fired. server::connection goes through the same connection::send()/stream_close(), so risk is small, but server teardown (abort_all_streams) differs and the symmetric case is untested.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I010",
+      "title": "Failure paths skip release_close/sink_closed, so an unexpected error hangs or aborts the test instead of failing it",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2026,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Once sink.close() is parked, _stream_closing is true, so the hook's send() can only return the expected immediate closed_error; accepted send_entry failures are consumed by abort() and done.set_value(). The cited BOOST_REQUIRE_EQUAL occurs before close is parked, so it cannot strand release_close.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I011",
+      "title": "server_factory (a shard-0 object) is mutated from another shard during server stream negotiation",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The loopback factory round-robins accepted connections, so at the default --smp 2 the server stream connection lands on shard 1 and its negotiate() push_back()s into server_factory.hooks owned by shard 0, violating the shard-per-core model. It is practically benign (no concurrent access, cross-shard free is supported) and existing tests share factories the same way. The stream handler itself runs on the parent connection's shard, so server_done is not cross-shard.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I012",
+      "title": "Comment says nothing else waits for _outgoing_queue_ready, but stop_send_loop() still does",
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "stop_send_loop() still does when_all(std::move(_outgoing_queue_ready), ...) at rpc.cc:225; after the exchange it merely receives the ready placeholder, and the real drain guarantee flows through _sink_closed_future. The comment misstates the invariant it relies on; the retained serialization comment is also now separated from the _sink_closed_future line it explains.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I013",
+      "title": "Doc says the stream connection is shut down 'only' once both halves are closed",
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The connection is also shut down by read/IO errors and by abort_all_streams() when the parent client or server connection closes, which line 49-50 of the same doc states; the sink doxygen (rpc_types.hh:339-342) has the same overstatement.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's documentation commit."
+    },
+    {
+      "id": "ironweave-I014",
+      "title": "'Both halves must be closed' is wrong for one-directional streams",
+      "file": "doc/rpc-streaming.md",
+      "line": 106,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "_sink_closed and _source_closed default to true (rpc.hh:300-301) and are cleared only by the sink_impl/source_impl constructors, so a connection with only a sink runs stream_close() as soon as the sink is closed; the sink doxygen's 'once the source on this connection has been read' is likewise not always applicable.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's documentation commit."
+    },
+    {
+      "id": "ironweave-I015",
+      "title": "send_empty_frame's contract is not updated for its earlier closed_error failure",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 318,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The PR makes the hook fail with closed_error once stream_close() starts, a window where it used to succeed; the factory comment still describes only what the hook does, not that it may fail and that callers should treat that as benign. The docs commit documents sink/source but not this API.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I016",
+      "title": "Commits and PR body carry Claude attribution trailers/lines",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "All three commits carry Co-Authored-By: Claude trailers (69da8f5b has two) and the PR body ends with '🤖 Generated with Claude Code', which the reviewing user's global instructions forbid.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Commit metadata and PR description of this PR."
+    },
+    {
+      "id": "ironweave-I017",
+      "title": "Commits lack the DCO Signed-off-by trailer required by doc/contributing.md",
+      "file": "doc/contributing.md",
+      "line": 6,
+      "kind": "style",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "None of f545c28a, 5e25ebdb, 69da8f5b has Signed-off-by, while doc/contributing.md asks for git commit -s. Enforcement in the repo's history is inconsistent, so impact is limited to upstream submission.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Commit metadata of this PR."
+    },
+    {
+      "id": "ironweave-I018",
+      "title": "'Fixes #3663' / 'Refs #3653' resolve against the fork, not upstream seastar",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The commit message and PR body use bare #N references, which in dkropachev/ironweave point at this repo's issues (and 'Fixes' would auto-close #3663 here); scylladb/seastar#3663 is what is meant.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Commit message and PR description of this PR."
+    },
+    {
+      "id": "ironweave-I019",
+      "title": "Comment misstates why _outgoing_queue_ready can be exceptional",
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "A failed send_entry() calls abort() and still sets p->done, so an entry failure never makes the chain exceptional; the actual causes are withdraw(it, ex) and the _negotiated front-entry set_exception() in stop_send_loop(), as the comment at rpc.cc:226 says.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I020",
+      "title": "then_wrapped lambda parameter f shadows the enclosing f it is assigned to",
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "f = queue_drained.then_wrapped([this] (future<> f) {...}) reuses the name of the outer auto f in the statement that assigns it; renaming (e.g. drained) avoids confusion.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I021",
+      "title": "New doxygen blocks are stacked on the old '// send data Out...' / '// receive data In...' lines",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 343,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The legacy one-line comments now sit between the new /// blocks and the class declarations (rpc_types.hh:343, :390), leaving two descriptions per class; doxygen still associates correctly.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's documentation commit."
+    },
+    {
+      "id": "ironweave-I022",
+      "title": "Test factory records hooks via const_cast instead of a mutable member",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "negotiate() is const and pushes into hooks via const_cast<hook_capturing_compressor_factory*>(this); cfactory in the same file uses a mutable member (rpc_test.cc:330).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I023",
+      "title": "The 10x yield() loop does not guarantee the batch-flush poller runs, and its count is arbitrary",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2022,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "yield() only reschedules the thread; within one task quota the reactor may not poll, so the comment 'Let the batch flush poller run' is not guaranteed. Detection actually relies on sink_closed.get() blocking afterwards, which lets the poller run.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I024",
+      "title": "Closing comment misstates where the test fails without the fix",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2031,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The comment explicitly conditions the destructor assertion on the write remaining in flight. It does not claim the assertion is the normal failure point after the wrapper forwards put(); the later put_after_close assertion covers that completed-write case.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I025",
+      "title": "Test hardcodes hooks.size()==2 and picks the stream hook positionally",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "BOOST_REQUIRE_EQUAL(hooks.size(), 2u) plus hooks.back() encodes the fixture's connection count and order; a change to rpc_test_env setup would fail or silently retarget the test.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I026",
+      "title": "Reference taken into client_factory.hooks, which a later push_back could reallocate",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2001,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "auto& stream_send_empty_frame = client_factory.hooks.back() would dangle if another negotiation pushed into the vector before use; none does today, so it is latent. Copying the std::function avoids it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I027",
+      "title": "close_entered_cv.wait() has no timeout",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "If a regression keeps sink.close() from reaching the wrapped data_sink::close(), the test blocks until the harness timeout instead of failing with a message.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I028",
+      "title": "test_sink_state lives in the test body while connection-owned wrappers hold references to it",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1977,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "test_data_sink_impl/test_connected_socket_impl hold test_sink_state& but are owned by the stream connection, whose lifetime follows rpc refcounting and teardown after the body returns. Nothing touches _st after close completes today, so it is latent; declaring st next to the factories would remove the dependency.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I029",
+      "title": "'Dropping an unclosed sink is an error' understates that it aborts the process",
+      "file": "doc/rpc-streaming.md",
+      "line": 109,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "~sink_impl enforces it with SEASTAR_ASSERT(sink_closed()) (rpc_impl.hh:935), which is active in all build modes, so dropping an unclosed sink crashes.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's documentation commit."
+    },
+    {
+      "id": "ironweave-I030",
+      "title": "#closing-a-stream anchor does not resolve in the doxygen build",
+      "file": "doc/rpc-streaming.md",
+      "line": 51,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "doc/rpc-streaming.md is a doxygen INPUT (Doxyfile.in:764) and MARKDOWN_ID_STYLE is unset, so headings get autotoc_md IDs rather than GitHub slugs; the link works on GitHub but not in the generated API docs.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's documentation commit."
+    },
+    {
+      "id": "ironweave-I031",
+      "title": "Close contract is on the rpc::sink class but not on sink::close() itself",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 371,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "sink::close() keeps its one-line comment; a reader looking at the method rather than the class banner does not see that the future must be awaited even on failure.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's documentation commit."
+    },
+    {
+      "id": "ironweave-I032",
+      "title": "_stream_closing comment omits that it is stream-only, terminal, and why _sink_closed could not be reused",
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 305,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The flag lives on the base connection, is never cleared, and exists because _sink_closed is true on every non-stream connection; the comment says none of this.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I033",
+      "title": "Test block comment describes the fixed bug in the present tense",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1852,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "'Until then connection::send() still accepts frames' is false at rpc.cc:293 after the fix, so a reader cannot tell which is stale.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I034",
+      "title": "'Pass-through compressor' is inaccurate and the empty-buffer substitution is uncommented",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1937,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The compressor delegates to lz4_fragmented_compressor rather than passing data through, and the non-obvious data.size ? ... : snd_buf(temporary_buffer<char>()) substitution is not explained here or at line 1766.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I035",
+      "title": "_outgoing_queue_ready handoff invariant is enforced only by a comment; enqueue_zero_frame() is not guarded by _stream_closing",
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "client::enqueue_zero_frame() (rpc.cc:866-883) also exchanges _outgoing_queue_ready and checks only _error. It runs only at connect time so it cannot race stream_close() today, but nothing but the comment prevents a future writer from doing so.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I036",
+      "title": "stream_close()/stop_send_loop() interleaving relies on stop_send_loop() setting _error synchronously",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "stream_close()'s if (!error()) guard protects the exchange from a moved-from _outgoing_queue_ready only because stop_send_loop() sets _error before its when_all with no suspension point in between; this dependency is not recorded.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I037",
+      "title": "test_sink_state / test_data_sink_impl names don't convey what they do",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1870,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "In a file where 'sink' means rpc::sink, test_sink_state holds data_sink state, and neither name says it parks close() and records late put()s.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I038",
+      "title": "shared_promise used without including seastar/core/shared_future.hh",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1874,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "rpc_test.cc did not use shared_promise before this PR and does not include its header; it compiles only through a transitive include.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I039",
+      "title": "Rewrapped doc paragraph leaves an overlong line",
+      "file": "doc/rpc-streaming.md",
+      "line": 51,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The PR rewrapped the start of the paragraph but appended to the pre-existing overlong line, which the rest of the file wraps near 80 columns.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's documentation commit."
+    },
+    {
+      "id": "ironweave-I040",
+      "title": "New comments use two spaces after a full stop",
+      "file": "src/rpc/rpc.cc",
+      "line": 553,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The added comments in rpc.cc, rpc.hh, rpc_types.hh and rpc_test.cc use two spaces after periods, while those files overwhelmingly use one.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Comments added by the PR."
+    },
+    {
+      "id": "ironweave-I041",
+      "title": "\\ref source in the sink doxygen may be ambiguous",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 341,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "unproven",
+      "verdictReason": "Doxygen resolves \\ref relative to the enclosing seastar::rpc scope, so it most likely binds to rpc::source; ambiguity with connected_socket_impl::source() was not demonstrated.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's documentation commit."
+    },
+    {
+      "id": "ironweave-I042",
+      "title": "Deferring write_buf.close() behind the drain widens the window in which sink.close() can fail",
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "unproven",
+      "verdictReason": "output_stream::close() could already rethrow a stored batch-flush error before the PR, and the new doc says close failures are expected; the drain only lengthens the window by the time queued entries take, and no scenario producing a new user-visible failure was shown.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I043",
+      "title": "stream_close() re-entry is guarded only by error(), not _stream_closing",
+      "file": "src/rpc/rpc.cc",
+      "line": 550,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "unproven",
+      "verdictReason": "Re-entry would need close_sink()/close_source() to run twice, which sink_closed()/_source_closed checks prevent; only API misuse such as making a new sink from a closed source could reach it, and that is pre-existing.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Pre-existing guard in stream_close(); the PR does not change who can call it."
+    },
+    {
+      "id": "ironweave-I044",
+      "title": "PR does not explain the unflushed compressor frame reported on the parent client",
+      "file": "",
+      "line": 0,
+      "kind": "question",
+      "severity": "low",
+      "verdict": "unproven",
+      "verdictReason": "The PR body notes the same frame pending on the parent client, but only the stream connection was destroyed; a normal client's pending batch flush on a live connection is closed by stop_send_loop(), so it is likely harmless, but the PR does not say so.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "About the PR description's own analysis."
+    },
+    {
+      "id": "ironweave-I045",
+      "title": "_connected dereferenced unguarded in the deferred continuation",
+      "file": "src/rpc/rpc.cc",
+      "line": 569,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "_connected is only ever emplaced (set_socket) and never reset, and stream_close() dereferenced it unguarded before the PR as well; deferring the call does not create a disengaged window.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "Line touched by the PR."
+    },
+    {
+      "id": "ironweave-I046",
+      "title": "hooks.size()==2 assumes stream negotiation completes before the call reply",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "make_stream_sink() awaits the stream client's await_connection() (rpc.hh:633) before returning, and call() is issued only afterwards, so both client negotiations are done by the assertion.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I047",
+      "title": "server_done starts as a ready future, so the check can pass vacuously",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1978,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "call(c, 1, sink).get() only returns a source if the handler ran and returned its sink, and the handler assigns server_done before returning, so server_done.get() always waits on the real server loop.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I048",
+      "title": "Test only exercises the send_empty_frame hook, not other send() callers",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2017,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "On a stream connection the other send() callers are sink_impl::send_buffer() and the eof send in sink_impl::close(), both guarded by sink_closed(); the compressor hook is the only caller that can reach the window.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I049",
+      "title": "test_data_sink_impl::buffer_size() hardcodes 8192 instead of forwarding",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1895,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "connected_socket::output() defaults to 8192 and passes it explicitly, so the sink's buffer_size() is never consulted; forwarding could even hit data_sink_impl's asserting default. No behavioural effect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I050",
+      "title": "test_socket_impl drops set_reuseaddr/get_reuseaddr",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1932,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Nothing in the test calls these on the client socket, and the stub matches local precedent at rpc_test.cc:169-170.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I051",
+      "title": "Two-argument negotiate() calls abort() instead of BOOST_FAIL",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1960,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The three-argument overload is overridden, so rpc never calls the two-argument one; abort() is unreachable and copies the precedent at rpc_test.cc:1817.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I052",
+      "title": "data.size ? ... : snd_buf(temporary_buffer<char>()) ternary is a no-op",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1946,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "A default snd_buf holds an empty std::vector alternative; the ternary replaces it with a temporary_buffer alternative so the delegate compressor can handle send({}), so it is not a no-op.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I053",
+      "title": "static inline const sstring name differs from neighbouring patterns",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1940,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "An inline static data member is idiomatic C++17/20 and lets supported() return a reference; no convention in the file is violated.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I054",
+      "title": "Pass-through socket wrappers are a Middle Man duplicating loopback_socket.hh",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1900,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "loopback_socket.hh contains transport implementations, not delegating wrappers, so nothing is duplicated; delegation is inherent to wrapping a socket to intercept data_sink::close().",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's new regression test."
+    },
+    {
+      "id": "ironweave-I055",
+      "title": "_stream_closing is placed away from _sink_closed/_source_closed",
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 307,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "It sits in the same stream-state block, directly after _sink_closed_future which it pairs with; placement is reasonable.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I056",
+      "title": "_stream_closing adds a third lifecycle flag send() must check",
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 305,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "send() is the only consumer of the flag, so there is a single check site; a state enum would be a larger refactor without fixing any defect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I057",
+      "title": "stream_close() drain logic should be rewritten as a coroutine",
+      "file": "src/rpc/rpc.cc",
+      "line": 548,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "stream_close() was continuation-based before the PR and the minimal fix follows the function's existing style; a rewrite is a preference, not a defect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send()."
+    },
+    {
+      "id": "ironweave-I058",
+      "title": "Drain wait removes a pre-existing race where close() ran while a queued send_entry() was mid-write",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "This describes old behaviour that the PR's drain wait eliminates; there is no defect at the head commit to act on.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Pre-existing behaviour, already fixed by this PR."
+    },
+    {
+      "id": "ironweave-I059",
+      "title": "Documentation commit is scope creep beyond #3663",
+      "file": "doc/rpc-streaming.md",
+      "line": 0,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The docs commit is a separate, clearly labelled commit in the series, and the PR explicitly says only the first two commits are needed for backport.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Introduced by the PR's documentation commit."
+    },
+    {
+      "id": "ironweave-I060",
+      "title": "PR description links internal Jira tickets",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Referencing scylladb.atlassian.net tickets is normal practice for Scylla-driven seastar changes; the links are access-controlled and expose only ticket numbers.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "PR description."
+    }
+  ],
+  "mappings": [
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I001"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I002"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "ironweave-I023"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I019"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "ironweave-I012"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "ironweave-I021"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/builtin-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I004"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/ce-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I002",
+        "ironweave-I007"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/ce-code-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/ce-code-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I007"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/ce-code-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "ironweave-I048"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I017"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "ironweave-I021"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I053"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 17,
+      "issueIds": [
+        "ironweave-I009"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 18,
+      "issueIds": [
+        "ironweave-I010"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 19,
+      "issueIds": [
+        "ironweave-I001"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I004"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "ironweave-I010"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "ironweave-I011"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "ironweave-I024"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "ironweave-I020"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "ironweave-I055"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/tob-diff-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/tob-diff-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "ironweave-I028"
+      ]
+    },
+    {
+      "cellId": "fable-5-1-2026-09-29/ironweave/tob-diff-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I004"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "ironweave-I002"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "ironweave-I012"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I015"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "ironweave-I042"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "ironweave-I014"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "ironweave-I030"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "ironweave-I010"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "ironweave-I006"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "ironweave-I019"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "ironweave-I020"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "ironweave-I057"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 13,
+      "issueIds": [
+        "ironweave-I032"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 14,
+      "issueIds": [
+        "ironweave-I021",
+        "ironweave-I041"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 15,
+      "issueIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 16,
+      "issueIds": [
+        "ironweave-I008",
+        "ironweave-I029"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 17,
+      "issueIds": [
+        "ironweave-I025",
+        "ironweave-I026"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 18,
+      "issueIds": [
+        "ironweave-I023"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 19,
+      "issueIds": [
+        "ironweave-I051"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 20,
+      "issueIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 21,
+      "issueIds": [
+        "ironweave-I028"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 22,
+      "issueIds": [
+        "ironweave-I047"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 23,
+      "issueIds": [
+        "ironweave-I009"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 24,
+      "issueIds": [
+        "ironweave-I049"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 25,
+      "issueIds": [
+        "ironweave-I050"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 26,
+      "issueIds": [
+        "ironweave-I033"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 27,
+      "issueIds": [
+        "ironweave-I024"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 28,
+      "issueIds": [
+        "ironweave-I034"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 29,
+      "issueIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/anthropic-pr-review",
+      "findingIndex": 30,
+      "issueIds": [
+        "ironweave-I018"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/builtin-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I004"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/builtin-code-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I003"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I003"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I007"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "ironweave-I021"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "ironweave-I004"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "ironweave-I010"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "ironweave-I036"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "ironweave-I045"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "ironweave-I028"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "ironweave-I027"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "ironweave-I031"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 14,
+      "issueIds": [
+        "ironweave-I002"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/ce-code-review",
+      "findingIndex": 15,
+      "issueIds": [
+        "ironweave-I007"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I017"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "ironweave-I012"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "ironweave-I020"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I021"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "ironweave-I054"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "ironweave-I049"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "ironweave-I037"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "ironweave-I038"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "ironweave-I023"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "ironweave-I039"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "ironweave-I009"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 13,
+      "issueIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 14,
+      "issueIds": [
+        "ironweave-I059"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 15,
+      "issueIds": [
+        "ironweave-I003"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 16,
+      "issueIds": [
+        "ironweave-I035"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 17,
+      "issueIds": [
+        "ironweave-I045"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/mattpocock-review",
+      "findingIndex": 18,
+      "issueIds": [
+        "ironweave-I032"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I011"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I025",
+        "ironweave-I026"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "ironweave-I004"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "ironweave-I015"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "ironweave-I043"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "ironweave-I003"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "ironweave-I020"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "ironweave-I014"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "ironweave-I049"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "ironweave-I052"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "ironweave-I023"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 13,
+      "issueIds": [
+        "ironweave-I040"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/superpowers-review",
+      "findingIndex": 14,
+      "issueIds": [
+        "ironweave-I058"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/tob-diff-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I004"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/tob-diff-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I002"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/tob-diff-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/tob-diff-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "ironweave-I012"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/tob-diff-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I049"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/tob-diff-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "cellId": "legacy/ironweave/tob-diff-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "ironweave-I025"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I009"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "ironweave-I004"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I012"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "ironweave-I018"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/anthropic-pr-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "ironweave-I060"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/ce-code-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I027"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/ce-code-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "ironweave-I046"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I044"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "ironweave-I056"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "ironweave-I054"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I035"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "ironweave-I003"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "ironweave-I010",
+        "ironweave-I027"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 7,
+      "issueIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 8,
+      "issueIds": [
+        "ironweave-I021"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 9,
+      "issueIds": [
+        "ironweave-I029"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 10,
+      "issueIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 11,
+      "issueIds": [
+        "ironweave-I026"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 12,
+      "issueIds": [
+        "ironweave-I018"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 13,
+      "issueIds": [
+        "ironweave-I039"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/mattpocock-review",
+      "findingIndex": 14,
+      "issueIds": [
+        "ironweave-I037"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I010"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 2,
+      "issueIds": [
+        "ironweave-I001"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 3,
+      "issueIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 4,
+      "issueIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 5,
+      "issueIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/superpowers-review",
+      "findingIndex": 6,
+      "issueIds": [
+        "ironweave-I018"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/tob-diff-review",
+      "findingIndex": 0,
+      "issueIds": [
+        "ironweave-I001"
+      ]
+    },
+    {
+      "cellId": "opus-5-5-2026-09-29/ironweave/tob-diff-review",
+      "findingIndex": 1,
+      "issueIds": [
+        "ironweave-I002"
+      ]
+    }
+  ],
+  "review": {
+    "reviewer": "codex",
+    "reviewedAt": "2026-09-30T12:25:14.982Z"
+  }
+}

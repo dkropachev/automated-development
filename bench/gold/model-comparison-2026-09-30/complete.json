@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "model-comparison-2026-09-30",
+  "sealedAt": "2026-09-30T12:58:50.203Z",
+  "sourceManifest": {
+    "file": "source-manifest.json",
+    "sha256": "3a17070a554f1fc0ca777549c0046b1ffff21d50e135c723749f73d308d05fcb"
+  },
+  "proposals": [
+    {
+      "target": "ironweave",
+      "file": "proposal/ironweave.json",
+      "sha256": "9515a3434290b29cbfb8d7f87d0d56a1960cae69ff44670735e5d7b484fbeae0"
+    },
+    {
+      "target": "quillstone",
+      "file": "proposal/quillstone.json",
+      "sha256": "793cc7d30ea253e850727721554e04daf01fae45a694bcf8d5f6566dca7eb50d"
+    },
+    {
+      "target": "tidepool",
+      "file": "proposal/tidepool.json",
+      "sha256": "e3373aea8ede4e5e4e3b80ad1a2b427335728eaa293f05d51a7897690155d102"
+    }
+  ],
+  "targets": [
+    {
+      "target": "ironweave",
+      "file": "canonical/ironweave.json",
+      "sha256": "fdd475f7a74e254fcce1074c4d988f041a7cddda584f6d124bc7cadb814ed32e"
+    },
+    {
+      "target": "quillstone",
+      "file": "canonical/quillstone.json",
+      "sha256": "2a6c643656b9977b46ea11275b8e6c922291ac06993e96a0068c27e49ce56632"
+    },
+    {
+      "target": "tidepool",
+      "file": "canonical/tidepool.json",
+      "sha256": "e04f11407edbb07c7cc741362ed59e44a7cee153c062ce59ee7c29a51231399e"
+    }
+  ],
+  "counts": {
+    "canonicalIssues": 153,
+    "sourceMappings": 403,
+    "eligibleClaims": 403
+  }
+}

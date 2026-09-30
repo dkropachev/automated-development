@@ -12,6 +12,7 @@ const ROOT = __dirname
 const ASSET_DIR = path.join(ROOT, 'dashboard')
 const USAGE_FIELDS = ['input', 'output', 'thinking', 'cacheRead', 'cacheCreation', 'costUsd', 'sessions']
 const DEFAULT_TOKEN_LIMIT = 25000000
+const LEGACY_RERUN_ISSUE_URL = 'https://github.com/dkropachev/automated-development/issues/42'
 
 const finite = (value) => typeof value === 'number' && Number.isFinite(value) ? value : null
 const sum = (values) => values.some((value) => value != null)
@@ -95,6 +96,116 @@ function isRecommendedRun(run, tokenLimit = DEFAULT_TOKEN_LIMIT) {
 
 function ratio(numerator, denominator) {
   return denominator > 0 && numerator != null ? numerator / denominator : null
+}
+
+function median(values) {
+  const sorted = values.filter((value) => finite(value) != null).sort((left, right) => left - right)
+  if (!sorted.length) return null
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
+}
+
+function issueIdsForMapping(mapping) {
+  const ids = Array.isArray(mapping.issueIds) ? [...mapping.issueIds] : []
+  if (mapping.canonicalIssueId != null) ids.push(mapping.canonicalIssueId)
+  return [...new Set(ids.filter((id) => typeof id === 'string' && id.length))]
+}
+
+function logicalCell(cell) {
+  const targetId = cell && (cell.targetId || cell.target)
+  const toolId = cell && (cell.toolId || cell.tool)
+  return targetId && toolId ? `${targetId}/${toolId}` : null
+}
+
+function deriveModelMetrics(comparison, options = {}) {
+  if (!comparison) return { scope: null, denominator: 0, matchedCells: [], models: [] }
+  const scopes = comparison.scopes || []
+  const scope = scopes.find((candidate) => candidate.id === options.scopeId) ||
+    (!options.scopeId && scopes[0])
+  if (!scope) throw new Error(`Unknown model comparison scope: ${options.scopeId}`)
+
+  const modelIds = options.modelIds || scope.modelIds || []
+  const targetFilter = options.targetIds ? new Set(options.targetIds) : null
+  const toolFilter = options.toolIds ? new Set(options.toolIds) : null
+  const cellFilter = options.cellIds ? new Set(options.cellIds) : null
+  const scopeCells = (scope.matchedCells || []).map((cell) => ({
+    ...cell,
+    id: cell.id || logicalCell(cell),
+    targetId: cell.targetId || cell.target,
+    toolId: cell.toolId || cell.tool,
+  }))
+  const denominatorTargets = new Set(scopeCells
+    .filter((cell) => !targetFilter || targetFilter.has(cell.targetId))
+    .map((cell) => cell.targetId))
+  const matchedCells = scopeCells.filter((cell) =>
+    (!targetFilter || targetFilter.has(cell.targetId)) &&
+    (!toolFilter || toolFilter.has(cell.toolId)) &&
+    (!cellFilter || cellFilter.has(cell.id)))
+  const matchedKeys = new Set(matchedCells.map(logicalCell))
+  const matchedSourceCellIds = new Set(matchedCells.flatMap((cell) => cell.sourceCellIds || []))
+  const matchedRunIds = new Set(scope.runIds || [])
+
+  const canonicalById = new Map((comparison.canonicalIssues || []).map((issue) => [issue.id, issue]))
+  const denominator = new Set((comparison.canonicalIssues || [])
+    .filter((issue) => issue.verdict === 'real' && denominatorTargets.has(issue.targetId || issue.target))
+    .map((issue) => issue.id)).size
+  const mappingsByCell = new Map()
+  for (const mapping of comparison.sourceMappings || comparison.mappings || []) {
+    if (!mappingsByCell.has(mapping.cellId)) mappingsByCell.set(mapping.cellId, [])
+    mappingsByCell.get(mapping.cellId).push(mapping)
+  }
+
+  const allEvidence = comparison.sourceEvidence || []
+  const models = modelIds.map((modelId) => {
+    const evidence = allEvidence.filter((entry) => {
+      const cohortId = entry.cohortId || String(entry.cellId || '').split('/')[0]
+      const cellMatches = matchedSourceCellIds.size
+        ? matchedSourceCellIds.has(entry.cellId)
+        : matchedKeys.has(logicalCell(entry))
+      return entry.modelId === modelId && cellMatches && (!matchedRunIds.size || matchedRunIds.has(cohortId))
+    })
+    const creditedIds = new Set()
+    for (const entry of evidence) {
+      if (entry.status !== 'complete' || entry.salvaged || entry.creditEligible === false) continue
+      for (const mapping of mappingsByCell.get(entry.cellId) || []) {
+        if (mapping.creditEligible === false) continue
+        for (const issueId of issueIdsForMapping(mapping)) {
+          if (canonicalById.has(issueId)) creditedIds.add(issueId)
+        }
+      }
+    }
+    const credited = [...creditedIds].map((id) => canonicalById.get(id))
+    const real = credited.filter((issue) => issue.verdict === 'real')
+    const falsePositive = credited.filter((issue) => issue.verdict === 'false-positive')
+    const unproven = credited.filter((issue) => issue.verdict === 'unproven')
+    const recordedCosts = evidence.map((entry) => finite(entry.costUsd)).filter((value) => value != null)
+    const recordedWallTimes = evidence.map((entry) => finite(entry.wallMs)).filter((value) => value != null)
+    const totalCost = recordedCosts.length ? recordedCosts.reduce((total, cost) => total + cost, 0) : null
+    const model = (comparison.cohorts || []).find((cohort) => cohort.modelId === modelId) || {}
+    return {
+      modelId,
+      label: model.label || model.modelLabel || modelId,
+      provenance: model.provenance || null,
+      recordedTotalCostUsd: totalCost,
+      medianRecordedCostUsd: median(recordedCosts),
+      medianWallMs: median(recordedWallTimes),
+      canonicalReal: real.length,
+      canonicalHighMedium: real.filter((issue) => ['blocker', 'high', 'medium'].includes(issue.severity)).length,
+      canonicalFalsePositive: falsePositive.length,
+      canonicalUnproven: unproven.length,
+      precision: ratio(real.length, real.length + falsePositive.length),
+      completeness: ratio(real.length, denominator),
+      realPerDollar: ratio(real.length, totalCost),
+      costPerReal: ratio(totalCost, real.length),
+      successRate: ratio(evidence.filter((entry) => entry.status === 'complete').length, evidence.length),
+      evidenceCount: evidence.length,
+      expectedEvidenceCount: matchedCells.length,
+      completeEvidenceCount: evidence.filter((entry) => entry.status === 'complete').length,
+      issueIds: [...creditedIds].sort(),
+      runIds: evidence.map((entry) => entry.cellId || entry.runId).filter(Boolean),
+    }
+  })
+  return { scope, denominator, matchedCells, models }
 }
 
 function metricsFor(issues, claims, usage, wallMs) {
@@ -256,6 +367,138 @@ function modelIdentity(cohort, record, configById, usage) {
     label,
     provenance: requestedModel ? 'requested' : observedModel ? (cohort.observedModel ? 'observed' : 'inferred') : 'unavailable',
   }
+}
+
+function normalizeComparisonScope(scope, cohortsById = new Map()) {
+  const matchedCells = (scope.matchedCells || scope.coordinates || scope.cells || []).map((cell) => ({
+    ...cell,
+    id: cell.id || logicalCell(cell),
+    targetId: cell.targetId || cell.target,
+    toolId: cell.toolId || cell.tool,
+    sourceCellIds: cell.sourceCellIds || cell.cellIds || [],
+  }))
+  const labels = {
+    'all-models': 'All models',
+    'controlled-pair': 'Current controlled pair',
+  }
+  return {
+    ...scope,
+    id: scope.id === 'current-pair' ? 'controlled-pair' : scope.id,
+    label: scope.label || labels[scope.id] || scope.id,
+    modelIds: [...(scope.modelIds || (scope.runIds || []).map((runId) => cohortsById.get(runId) && cohortsById.get(runId).modelId).filter(Boolean))],
+    matchedCells,
+    count: matchedCells.length,
+  }
+}
+
+function normalizeComparisonCohort(cohort) {
+  const id = cohort.id || cohort.runId
+  const modelId = cohort.modelId || cohort.requestedModel || cohort.observedModel
+  return {
+    ...cohort,
+    id,
+    runId: cohort.runId || id,
+    modelId,
+    label: cohort.label || cohort.modelLabel || modelId,
+    provenance: cohort.provenance || (cohort.controlled === false ? 'historical/inferred' : 'controlled'),
+  }
+}
+
+function normalizeComparisonEvidence(entry, cohortsById, runsById) {
+  const cellId = entry.cellId || entry.id || null
+  const suppliedRunId = entry.runId || null
+  const cohortId = entry.cohortId || (cohortsById.has(suppliedRunId) ? suppliedRunId : String(cellId || '').split('/')[0]) || null
+  const cohort = cohortsById.get(cohortId) || {}
+  const run = runsById.get(cellId)
+  const targetId = entry.targetId || entry.target || (run && run.targetId)
+  const toolId = entry.toolId || entry.tool || (run && run.toolId)
+  const reportedStatus = String(entry.status || '').toLowerCase()
+  const status = (run && run.status) ||
+    (['complete', 'completed', 'success', 'succeeded', 'passed'].includes(reportedStatus) || entry.success === true ? 'complete' : 'failed')
+  const salvaged = Boolean(entry.salvaged || entry.discoveryOnly)
+  return {
+    ...entry,
+    cellId: cellId || (cohortId && targetId && toolId ? `${cohortId}/${targetId}/${toolId}` : null),
+    runId: cellId || suppliedRunId,
+    cohortId,
+    targetId,
+    toolId,
+    modelId: entry.modelId || cohort.modelId || (run && run.modelId),
+    salvaged,
+    status,
+    creditEligible: entry.creditEligible == null ? status === 'complete' && !salvaged : Boolean(entry.creditEligible),
+    costUsd: run ? run.usage.costUsd : finite(entry.costUsd),
+    wallMs: run ? run.wallMs : finite(entry.wallMs),
+  }
+}
+
+function recordedComparisonEvidence(root, entry) {
+  const file = entry.result && entry.result.file
+  if (!root || typeof file !== 'string') return entry
+  const absolute = path.resolve(root, file)
+  const prefix = `${path.resolve(root)}${path.sep}`
+  if (!absolute.startsWith(prefix) || !fs.existsSync(absolute)) throw new Error(`Published gold result is unavailable: ${file}`)
+  const record = readJson(absolute)
+  return {
+    ...entry,
+    status: deriveStatus(record),
+    costUsd: normalizeUsage(record).costUsd,
+    wallMs: finite(record.wallMs),
+  }
+}
+
+function normalizePublishedComparison(published, runs = [], root = null) {
+  if (!published || typeof published !== 'object') throw new Error('Published model comparison is invalid')
+  const cohorts = (published.cohorts || []).map(normalizeComparisonCohort)
+  const cohortsById = new Map(cohorts.map((cohort) => [cohort.runId, cohort]))
+  const runsById = new Map(runs.map((run) => [run.id, run]))
+  const canonicalIssues = (published.canonicalIssues || []).map((issue) => ({
+    ...issue,
+    targetId: issue.targetId || issue.target,
+  }))
+  const rawEvidence = ((published.sourceManifest && published.sourceManifest.sources) || published.sourceEvidence || [])
+    .map((entry) => recordedComparisonEvidence(root, entry))
+  const rawEvidenceById = new Map(rawEvidence.map((entry) => [entry.cellId || entry.id, entry]))
+  const sourceMappings = (published.sourceMappings || published.mappings || []).map((mapping) => {
+    const issueIds = issueIdsForMapping(mapping)
+    const source = rawEvidenceById.get(mapping.cellId) || {}
+    const parts = String(mapping.cellId || '').split('/')
+    const cohort = cohortsById.get(source.runId || parts[0]) || {}
+    return {
+      ...mapping,
+      issueIds,
+      canonicalIssueId: mapping.canonicalIssueId || (issueIds.length === 1 ? issueIds[0] : null),
+      targetId: mapping.targetId || mapping.target || source.targetId || source.target || parts[1] || null,
+      modelId: mapping.modelId || source.modelId || cohort.modelId || null,
+      creditEligible: mapping.creditEligible == null ? source.creditEligible !== false : Boolean(mapping.creditEligible),
+    }
+  })
+  const sourceEvidence = rawEvidence.map((entry) =>
+    normalizeComparisonEvidence(entry, cohortsById, runsById))
+  return {
+    id: published.id,
+    issueUrl: published.issueUrl || LEGACY_RERUN_ISSUE_URL,
+    scopes: (published.scopes || []).map((scope) => normalizeComparisonScope(scope, cohortsById)),
+    cohorts,
+    canonicalIssues,
+    sourceMappings,
+    sourceEvidence,
+    provenance: published.provenance || null,
+    manifest: published.manifest || null,
+    sourceManifest: published.sourceManifest || null,
+    complete: published.complete || null,
+  }
+}
+
+function loadPublishedModelComparison(root, runs = []) {
+  const indexFile = path.join(root, 'gold', 'index.json')
+  if (!fs.existsSync(indexFile)) return null
+  // Keep reconciliation validation at the publication boundary. The validator rehashes the
+  // selected completion marker, source files, target pins, canonical issues, and mappings.
+  const reconcile = require('./reconcile')
+  const validate = reconcile.validatePublished || reconcile.loadPublishedComparison
+  if (typeof validate !== 'function') throw new Error('Published gold validator is unavailable')
+  return normalizePublishedComparison(validate(root), runs, root)
 }
 
 function reporterReferences(issue) {
@@ -470,8 +713,9 @@ function loadArtifacts(root = ROOT) {
     const modelId = cohort.requestedModel || cohort.observedModel
     if (modelId && !models.some((model) => model.id === modelId)) models.push({ id: modelId, label: cohort.modelLabel || modelId, cliModel: null })
   }
+  const modelComparison = loadPublishedModelComparison(root, runs)
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     defaultTokenLimit: DEFAULT_TOKEN_LIMIT,
     defaultModel: modelConfig.defaultModel || (models[0] && models[0].id) || null,
     models,
@@ -492,6 +736,7 @@ function loadArtifacts(root = ROOT) {
     tools,
     issues,
     runs,
+    modelComparison,
   }
 }
 
@@ -526,7 +771,8 @@ function main() {
 }
 
 module.exports = {
-  comparisonFor, deriveStatus, escapeScriptJson, isRecommendedRun, loadArtifacts, metricsFor, normalizeUsage, render,
+  comparisonFor, deriveModelMetrics, deriveStatus, escapeScriptJson, isRecommendedRun, loadArtifacts,
+  loadPublishedModelComparison, metricsFor, normalizePublishedComparison, normalizeUsage, render,
 }
 
 if (require.main === module) main()
