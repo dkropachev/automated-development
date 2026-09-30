@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/tidepool/superpowers-review",
+  "target": "tidepool",
+  "tool": "superpowers-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "436793939def031b36814e193b03ae617430e82ede4dfecfe91034b1a53c81ad",
+  "label": "Superpowers requesting-code-review",
+  "findings": [
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commits and PR body carry Claude/Anthropic attribution trailers, violating user's global…",
+      "severity": "high",
+      "kind": "docs",
+      "claim": "Commits 0276a66 and 78891dd carry 'Co-Authored-By: Claude Opus 5 (1M context)' trailers, and the PR body ends with a 'Generated with Claude Code' line; the reviewer says the user's global instructions forbid both and both commits and the PR description must be edited before merge."
+    },
+    {
+      "file": "marshal.go",
+      "line": 1048,
+      "title": "Nested vector element type prints as bare prefix in new error message, dropping inner…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Because VectorType has no String(), the new error reads 'no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)' and drops the inner type and dimension; adding a VectorType.String() would fix this and the pre-existing 'can not unmarshal %s into %T' messages too."
+    },
+    {
+      "file": "marshal.go",
+      "line": 1000,
+      "title": "Bound-check error message omits the per-element minimum for nested element types",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "For a nested element type, the message '3 dimensions do not fit in 24 bytes' looks wrong to anyone unaware of the element minimum; the reviewer suggests printing elemMin alongside."
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body's claim that every new test fails on pristine code is overstated",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType actually pass on the base commit; they're fine as guard tests but the PR body should say so rather than claiming every new test fails."
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit 0276a66's message undersells the change it actually makes",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The commit body says 'every element takes at least one byte on the wire', but the commit actually introduces the type-aware floor via vectorElemMinSize; the PR description is accurate but the commit body is not."
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 836,
+      "title": "Allocation-ceiling test is environment-sensitive and may flake from leaked goroutine…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The 128 KB TotalAlloc delta check can absorb allocations from goroutines leaked by earlier tests; it passed under -race in this run but the flake surface is being flagged."
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Bound check verified to precede every Dimensions consumer without overflow risk",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reviewer verified the bound sits ahead of every Dimensions consumer (both float fast paths, reflect.MakeSlice, the array-length check, and the len(data)/Dimensions derivation), that Dimensions > len(data)/elemMin cannot overflow, negatives are rejected first, and elemMin is floored at 1 and saturates at MaxInt32.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "vectorElemMinSize verified correct across all element type kinds with no infinite…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reviewer verified vectorElemMinSize is right for fixed, variable-length, tuple, UDT, collection, unknown custom, and nested vector element types, and cannot recurse infinitely.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Nil-Go-type guard verified as the only dereference site; marshal direction has no…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reviewer verified the nil-Go-type guard is at the only dereference site, and that marshalVector never calls Zero() and enforces dim == len(v) before allocating, so the marshal direction has no equivalent crash.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "getCassandraLongType change verified to not affect callers relying on old empty…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The reviewer verified the getCassandraLongType change only alters the custom string of types that were already TypeCustom, and no caller depends on the old empty value.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Nested vector decoding into interface{} left out of scope (issue #1085)",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Nested vector decoding into interface{} is deferred by the PR itself and was not investigated as part of this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Surplus trailing bytes handling left out of scope (issue #1086)",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Surplus trailing bytes handling is deferred/pre-existing and was not investigated as part of this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Vint length narrowing left out of scope (issue #1106)",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Vint length narrowing is deferred/pre-existing and was not investigated as part of this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "dim < 1 handling in metadata parsers left out of scope (issue #1093)",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "dim < 1 in metadata parsers is deferred/pre-existing and was not investigated as part of this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "*any destination yielding []*float32 left out of scope",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The behavior of a *any destination yielding []*float32 is deferred/pre-existing and was not investigated as part of this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Caller-built VectorType with nil SubType left out of scope",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Handling of a caller-built VectorType with a nil SubType is deferred/pre-existing and was not investigated as part of this review.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Seven unrelated TLS test failures from missing testdata/pki certs set aside as out of…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Seven unrelated TLS test failures occur from missing testdata/pki certs when running the whole package without make test-unit; these are pre-existing and were not investigated as part of this review.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 4,
+      "outputTokens": 7246,
+      "cacheReadInputTokens": 62219,
+      "cacheCreationInputTokens": 26044,
+      "webSearchRequests": 0,
+      "costUSD": 0.1890878,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2573,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 42,
+    "sha256": "af576e10af7bfd5e076a657416059df0edd97e7523f0e931a43aec51d4a0b7a3"
+  },
+  "extractedAt": "2026-09-30T03:28:38.896Z"
+}

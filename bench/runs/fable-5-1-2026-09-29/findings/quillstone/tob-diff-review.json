@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/quillstone/tob-diff-review",
+  "target": "quillstone",
+  "tool": "tob-diff-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "bfa9c0290fd3a123c8f75cb713979cf51aa732e1ffb97a932e7384585f5f58de",
+  "label": "Trail of Bits differential-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Pool becomes permanently unrefillable after any failed USE keyspace",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The refiller stores current_keyspace before the USE result is known (root at connection_pool.rs:1287, also session.rs:2008) and never reverts it on failure; a connection whose USE fails is now discarded instead of admitted with a warning as before, and repeated failures can leave the pool permanently Broken(UseKeyspaceError).",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/errors.rs",
+      "line": 600,
+      "title": "New error variant misapplied to non-connection-breaking keyspace failures",
+      "severity": "low",
+      "kind": "design",
+      "claim": "ConnectionError is documented as meaning the connection can no longer be used and should be dropped, but a nonexistent keyspace doesn't actually break the connection, yet it is now surfaced as the pool's broken reason through this variant.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1336,
+      "title": "No timeout on the keyspace-setting future blocks refill scheduling",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A hung USE future keeps is_filling() true and blocks all refill scheduling; this is a pre-existing TODO, but the PR makes this future the sole gate for admitting a connection, giving the issue more weight.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Metrics rebalancing and decrement counts verified balanced, no double decrement",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The metrics rebalancing in maybe_reshard, both excess-connection clears, and the keyspace-failure decrement are balanced, with no double decrement since remove_connection only decrements when it actually finds the Arc in conns or excess_connections.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Keyspace check ordered before resharding avoids mutating sharder state for discarded…",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Moving the keyspace check ahead of resharding correctly avoids mutating sharder state for a connection that is later discarded, as demonstrated by the second test.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 2839,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19845,
+      "webSearchRequests": 0,
+      "costUSD": 0.1119788,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1952,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 36,
+    "sha256": "9c324ba3863156aa8367aee4ff04147adcbe86463d7d2a2bed983934a5845cfa"
+  },
+  "extractedAt": "2026-09-30T03:24:00.226Z"
+}

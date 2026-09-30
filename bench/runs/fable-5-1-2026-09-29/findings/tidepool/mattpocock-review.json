@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+  "target": "tidepool",
+  "tool": "mattpocock-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "14677d029c12b62899d2ce0bcf6ebbb0863ba5a5033a81e52eca96de90638d76",
+  "label": "Matt Pocock code-review",
+  "findings": [
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commits 0276a66 and 78891dd violate documented commit message format",
+      "severity": "medium",
+      "kind": "style",
+      "claim": "Both commits use lowercase `fix(marshal):` prefixes instead of a capitalized short description and have no `Patch by <authors>; reviewed by <Reviewers> for #####` trailer, violating CONTRIBUTING.md's Commit Message section, though main already tolerates this style.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Claude/Anthropic attribution trailers present in commits and PR body",
+      "severity": "medium",
+      "kind": "style",
+      "claim": "Both commits carry `Co-Authored-By: Claude Opus 5 ...` trailers and the PR body ends with \"Generated with Claude Code\", which the user's global CLAUDE.md forbids.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Behaviour change (errors on short/empty non-NULL vector) undocumented in godoc",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "CONTRIBUTING.md's Minimum Requirement Checklist asks for functional changes to be reflected in godoc (and CHANGELOG.md, which doesn't exist), but the change making Unmarshal of a short/empty non-NULL vector payload now error is not documented anywhere.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1006,
+      "title": "Stale comment no longer matches new bound at marshal.go:998-1002",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment still says \"nil/empty and dim=0 fall through to the generic path\", but the new bound added at marshal.go:998-1002 now rejects the empty-but-non-nil case first, making the comment inaccurate.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 557,
+      "title": "New makeVectorType helper duplicates existing vector-type test helpers",
+      "severity": "low",
+      "kind": "design",
+      "claim": "`makeVectorType` generalises the existing `makeDoubleVectorType`/`makeFloat32VectorType` (lines 36/49) and a similar helper in `vector_bench_test.go:19`; the old helpers could delegate to the new one instead of duplicating logic.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1137,
+      "title": "math.MaxInt32 saturation in vectorElemMinSize guards a case no server can produce",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The saturation guard for inner dimensions defends against input no server can actually produce, which is speculative generality, but the report considers it defensible since the recursion is justified in the comment.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "400 lines of new tests for two guard conditions may be excessive",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The PR adds roughly 400 lines of tests (including a runtime.MemStats-based test) for two guard conditions, which CONTRIBUTING.md warns against (\"don't go overboard\"); the report labels this a judgement call only.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 0,
+      "title": "Overflow/saturation math in vectorElemMinSize checked and confirmed sound",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The report verifies that `per >= 1`, `size <= 1`, no division-by-zero, and `elemMin >= 1` hold, making the `len(data)/elemMin` bound and later `Dimensions*8` computation safe.",
+      "selfRejected": true
+    },
+    {
+      "file": "helpers.go",
+      "line": 0,
+      "title": "getCassandraLongType change confirmed not to break any Custom() == \"\" comparison",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The report checked and found no caller compares `Custom()` to `\"\"`, so the getCassandraLongType change does not break anything on that front.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Spec claim verified true: empty non-NULL vector<int,3> now errors",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The report confirms that unmarshalling an empty, non-NULL `vector<int,3>` payload now errors as the spec claims.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Spec claim verified true: NULL vector still returns nil/nil",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The report confirms that a NULL vector payload still returns nil/nil as claimed.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Spec claim verified true: vectorElemMinSize(vector<vector<float,3>,4>) equals 48",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The report confirms the computed minimum size for a nested vector type matches the claimed value of 48.",
+      "selfRejected": true
+    },
+    {
+      "file": "helpers.go",
+      "line": 0,
+      "title": "Spec claim verified true: Dimensions < 0 check is live, no dim < 1 guard exists yet",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The report confirms the `Dimensions < 0` check is live and that no `dim < 1` guard exists yet in helpers.go/frame.go, matching the spec's claim.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Spec claim \"every new test fails against pristine marshal.go/helpers.go\" is partly false",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The file doesn't even compile against pristine code (`undefined: vectorElemMinSize`), and with a stub in place, two of the new tests (TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType) actually pass on main, so only four of the tests fail as described rather than all of them.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 864,
+      "title": "Allocation reduction claim (\"3.5 KB flat\") not pinned by a tight test assertion",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The spec claims allocations drop to about 3.5 KB flat, but the test only asserts `allocated <= payload/8` (~128 KB), a bound roughly 37x looser than the claimed value.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 280,
+      "title": "getCassandraLongType rename changes String()/equality behavior beyond vectors, undisclosed",
+      "severity": "medium",
+      "kind": "design",
+      "claim": "The spec says the function keeps its name so errors can say which type the server sent, but the change also affects UDT fields, tuple and collection elements of unknown class, which now String() as `custom(org...FooType)` instead of `custom()`, and changes NativeType struct equality; this side effect is undisclosed. The Atoi-failure path at helpers.go:266 still returns an unnamed custom, leaving two conventions.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 992,
+      "title": "Negative dimensions with NULL payload now errors, undisclosed by spec",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Pristine code returned nil for `dim=-3, data=nil`, but the new code now errors in that case; the spec only discloses the short/zero-length payload change, not this one.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 996,
+      "title": "Comment about SubType == nil overstates the guard it describes",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "With `Dimensions > 0` and a nil `SubType`, `vectorElemMinSize(nil)` still panics on `elemType.Type()`, so the comment overstates the protection given, though this is pre-existing (the fast path at :1008 panics too) and not a regression.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1049,
+      "title": "Error message loses inner-type detail for nested vector types",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Formatting a nested `SubType` with `%v` prints only `custom(...VectorType)` without the inner element type or dimensions, weakening the stated goal of the error being able to say which type the server sent.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 6867,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 20924,
+      "webSearchRequests": 0,
+      "costUSD": 0.15657480000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3671,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 41,
+    "sha256": "710d70b3355cd356435e11baed2be9b0b48b1e711b8b858a03d0ed70837b0e56"
+  },
+  "extractedAt": "2026-09-30T03:27:32.796Z"
+}

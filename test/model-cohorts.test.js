@@ -778,6 +778,13 @@ test('every Fable paid stage authorizes immediately and uses the authorized exec
     assert.equal(completion.complete.quota.finalLine, 8)
     assert.equal(completion.complete.quota.records, 8)
     assert.equal(completion.complete.probe.file, 'probe.json')
+    const fableReport = runReport(root, '--run', manifest.runId)
+    assert.equal(fableReport.status, 0, fableReport.stderr)
+    assert.match(fableReport.stdout, /## Cohort accounting/)
+    assert.match(fableReport.stdout, /Exact-model probe: \$0\.25/)
+    assert.match(fableReport.stdout, /Extraction: 1 calls, 1 raw claims, \$0\.05/)
+    assert.match(fableReport.stdout, /Judging: 1 calls, 1 merged issues \(1 real, 0 false-positive, 0 unproven\), \$0\.25/)
+    assert.match(fableReport.stdout, /Final quota: current session 1%, all-model week 2%, Fable week 3%/)
 
     assert.deepEqual(events.map((event) => event.slice(0, 3)), [
       ['authorize', 'review', 'sample'],
@@ -1217,6 +1224,11 @@ test('report requires a complete hash snapshot and uses only its frozen target/t
     assert.match(report.stdout, /1 review configurations, 1 real PR/)
     assert.match(report.stdout, /\| `sample` \| JS \| 42 B/)
     assert.match(report.stdout, /\| Reviewer \| 1 \|/)
+    assert.match(report.stdout, /## Cohort accounting/)
+    assert.match(report.stdout, /Reviews: 1 calls, 3 tokens, \$0\.25/)
+    assert.match(report.stdout, /Extraction: 1 calls, 1 raw claims, \$0\.05/)
+    assert.match(report.stdout, /Judging: 1 calls, 1 merged issues \(1 real, 0 false-positive, 0 unproven\), \$0\.25/)
+    assert.match(report.stdout, /Total known canonical spend: \$0\.55/)
     assert.match(report.stdout, /Frozen review comment/)
     assert.doesNotMatch(report.stdout, /CHANGED-LIVE-STATE|Changed Live Reviewer|Changed live comment|changed\.invalid|unused/)
 

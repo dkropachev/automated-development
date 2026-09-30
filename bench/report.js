@@ -78,11 +78,14 @@ const SHORT = {
 }
 const snapshotHashes = new Map()
 if (!cohort.legacy) {
-  for (const entry of [...cohort.seal.cells, ...cohort.complete.findings, ...cohort.complete.judgements]) {
+  const frozen = [...cohort.seal.cells, ...cohort.complete.findings, ...cohort.complete.judgements]
+  if (cohort.complete.quota) frozen.push(cohort.complete.quota)
+  if (cohort.complete.probe) frozen.push(cohort.complete.probe)
+  for (const entry of frozen) {
     snapshotHashes.set(path.join(cohort.paths.root, ...entry.file.split('/')), entry.sha256)
   }
 }
-const read = (file) => {
+const readBytes = (file) => {
   const bytes = fs.readFileSync(file)
   if (!cohort.legacy && file.startsWith(cohort.paths.root + path.sep)) {
     const expected = snapshotHashes.get(file)
@@ -90,8 +93,9 @@ const read = (file) => {
     const actual = crypto.createHash('sha256').update(bytes).digest('hex')
     if (actual !== expected) throw new Error(`artifact changed after complete snapshot validation: ${file}`)
   }
-  return JSON.parse(bytes.toString('utf8'))
+  return bytes
 }
+const read = (file) => JSON.parse(readBytes(file).toString('utf8'))
 const exists = (p) => fs.existsSync(p)
 const fmt = (n) => (n == null ? '-' : Number(n).toLocaleString('en-US'))
 const money = (n) => (n == null ? '-' : '$' + Number(n).toFixed(2))
@@ -202,6 +206,9 @@ for (const t of targets) {
   }
 }
 const findings = {}
+let rawClaims = 0
+let extractionCalls = 0
+let extractionCost = 0
 for (const t of targets) {
   findings[t.id] = {}
   const dir = path.join(cohort.paths.findings, t.id)
@@ -220,9 +227,19 @@ for (const t of targets) {
       throw new Error(`${file}: finding identity does not match its path`)
     }
     findings[t.id][rec.tool] = rec.findings || []
+    rawClaims += (rec.findings || []).length
+    if (rec.extractorRequestedModel) {
+      extractionCalls += 1
+      extractionCost += Object.values(rec.extractorModelUsage || {})
+        .reduce((sum, usage) => sum + (finite(usage && usage.costUSD) || 0), 0)
+    }
   }
 }
 const judged = {}
+let judgeCalls = 0
+let judgeCost = 0
+let mergedIssues = 0
+const verdicts = { real: 0, 'false-positive': 0, unproven: 0 }
 for (const t of targets) {
   const p = path.join(cohort.paths.judgement, `${t.id}.json`)
   if (exists(p)) {
@@ -230,6 +247,10 @@ for (const t of targets) {
     assertSelectedCohort(rec, p)
     if (!cohort.legacy && rec.target !== t.id) throw new Error(`${p}: judgement identity does not match its path`)
     judged[t.id] = rec.issues || []
+    judgeCalls += 1
+    judgeCost += finite(rec.judgeCostUsd) || 0
+    mergedIssues += (rec.issues || []).length
+    for (const issue of rec.issues || []) if (Object.hasOwn(verdicts, issue.verdict)) verdicts[issue.verdict] += 1
   } else if (!cohort.legacy) {
     throw new Error(`complete cohort judgement disappeared: ${p}`)
   }
@@ -260,6 +281,20 @@ for (const t of targets) for (const rec of Object.values(results[t.id] || {})) {
 // Thinking is a subset of output, so it is left out of the denominator.
 const mixTotal = tokenMix.input + tokenMix.output + tokenMix.cacheRead + tokenMix.cacheCreation
 const pctOfTotal = (k) => (mixTotal ? (100 * tokenMix[k] / mixTotal).toFixed(1) : '0') + '%'
+const reviewCalls = targets.reduce((count, target) => count + Object.keys(results[target.id] || {}).length, 0)
+const reviewCost = targets.reduce((total, target) => total + Object.values(results[target.id] || {})
+  .reduce((sum, record) => sum + (record.usage.costUsd || 0), 0), 0)
+const reviewWall = targets.reduce((total, target) => total + Object.values(results[target.id] || {})
+  .reduce((sum, record) => sum + (record.wallMs || 0), 0), 0)
+let probeCost = 0
+let finalQuota = null
+if (!cohort.legacy && cohort.complete.probe) {
+  probeCost = finite(read(path.join(cohort.paths.root, cohort.complete.probe.file)).reportedCostUsd) || 0
+}
+if (!cohort.legacy && cohort.complete.quota) {
+  const lines = readBytes(path.join(cohort.paths.root, cohort.complete.quota.file)).toString('utf8').trim().split('\n')
+  finalQuota = JSON.parse(lines.at(-1))
+}
 
 const used = tools.filter(tl => targets.some(t => results[t.id] && results[t.id][tl.id]))
 const storedFallbacks = targets.reduce((count, target) => count + Object.values(results[target.id] || {}).filter(rec => rec.storedUsageFallback).length, 0)
@@ -282,7 +317,7 @@ P('Every run used its own headless `claude -p` process and')
 P('working directory so its token spend is attributable.\n')
 
 P('## What was reviewed\n')
-P('| Target | Language | Diff | Files | PR under review | Upstream original |')
+P('| Target | Language | Diff | Commits | PR under review | Upstream original |')
 P('|---|---|---:|---:|---|---|')
 for (const t of targets) {
   P(`| \`${t.id}\` | ${t.language} | ${fmt(t.localDiffBytes)} B | ${t.commits} commits | ${t.forkPrUrl} | ${t.upstreamPrUrl} |`)
@@ -292,6 +327,20 @@ P('Each PR was republished into a private repository of its own: full upstream h
 P('commits replayed under a neutral author, every `owner/repo` link repointed at the copy, and')
 P('`WebSearch`/`WebFetch` denied to every run. A reviewer that could reach the original PR could read')
 P('the maintainers\' review instead of doing its own.\n')
+
+if (!cohort.legacy) {
+  const knownSpend = probeCost + reviewCost + extractionCost + judgeCost
+  P('## Cohort accounting\n')
+  if (cohort.complete.probe) P(`- Exact-model probe: ${money(probeCost)}.`)
+  P(`- Reviews: ${reviewCalls} calls, ${fmt(mixTotal)} tokens, ${money(reviewCost)}, ${mins(reviewWall)} minutes wall time.`)
+  P(`- Extraction: ${extractionCalls} calls, ${fmt(rawClaims)} raw claims, ${money(extractionCost)}.`)
+  P(`- Judging: ${judgeCalls} calls, ${fmt(mergedIssues)} merged issues (${fmt(verdicts.real)} real, ${fmt(verdicts['false-positive'])} false-positive, ${fmt(verdicts.unproven)} unproven), ${money(judgeCost)}.`)
+  P(`- Total known canonical spend: ${money(knownSpend)}. Discarded attempts are not included in immutable stage artifacts.`)
+  if (finalQuota) {
+    P(`- Final quota: current session ${finalQuota.usage['Current session']}%, all-model week ${finalQuota.usage['Current week (all models)']}%, Fable week ${finalQuota.usage['Current week (Fable)']}% (recorded ceilings: ${finalQuota.thresholds['Current session']}% / ${finalQuota.thresholds['Current week (all models)']}% / ${finalQuota.thresholds['Current week (Fable)']}%).`)
+  }
+  P('')
+}
 
 P('## Findings, by issue\n')
 P('One row per distinct defect the tools found between them, merged across tools by a judge that had')

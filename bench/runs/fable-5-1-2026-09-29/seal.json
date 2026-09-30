@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "createdAt": "2026-09-30T03:15:23.965Z",
+  "cells": [
+    {
+      "id": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+      "target": "ironweave",
+      "tool": "anthropic-pr-review",
+      "file": "results/ironweave/anthropic-pr-review.json",
+      "sha256": "c9cf1b1b288a124619aefd47fb147a45a079233de2f0351a8121bbe4fac0a94a"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/ironweave/builtin-code-review",
+      "target": "ironweave",
+      "tool": "builtin-code-review",
+      "file": "results/ironweave/builtin-code-review.json",
+      "sha256": "4d8fe197f9757cd1da2f627bd509aeb117ec751ea90efef0d3360fc8370b9abb"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/ironweave/ce-code-review",
+      "target": "ironweave",
+      "tool": "ce-code-review",
+      "file": "results/ironweave/ce-code-review.json",
+      "sha256": "9ceff7f285f0c1c3a1fa864ff2ea583ca7187748284a2f15e585b24e53b81e93"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+      "target": "ironweave",
+      "tool": "mattpocock-review",
+      "file": "results/ironweave/mattpocock-review.json",
+      "sha256": "1150da7743ae4714006ff72721ad9c7e0a06ca88daf452aa61520e30c31434dd"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/ironweave/superpowers-review",
+      "target": "ironweave",
+      "tool": "superpowers-review",
+      "file": "results/ironweave/superpowers-review.json",
+      "sha256": "29eee7804230ad066d75237c05c1eceb3bfc3b645dcbc779fb56138f671d545a"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/ironweave/tob-diff-review",
+      "target": "ironweave",
+      "tool": "tob-diff-review",
+      "file": "results/ironweave/tob-diff-review.json",
+      "sha256": "e64f4117679f0184f82a41514b8964686abcbebe22fe39e4a30558487d83b97f"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+      "target": "quillstone",
+      "tool": "anthropic-pr-review",
+      "file": "results/quillstone/anthropic-pr-review.json",
+      "sha256": "58fac971733c50c21406cafca82c7b749347f2db9870a9ed4c499525d4ba2c42"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/quillstone/builtin-code-review",
+      "target": "quillstone",
+      "tool": "builtin-code-review",
+      "file": "results/quillstone/builtin-code-review.json",
+      "sha256": "fc30ec03dd4ca969104437531dc08ebb4db24ea90961b51537238a8cb4822867"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/quillstone/ce-code-review",
+      "target": "quillstone",
+      "tool": "ce-code-review",
+      "file": "results/quillstone/ce-code-review.json",
+      "sha256": "21c6f19e37d4de5bf268c8cab1200d629e8cd20a0b7dc0c97c4de5afa0f85087"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/quillstone/mattpocock-review",
+      "target": "quillstone",
+      "tool": "mattpocock-review",
+      "file": "results/quillstone/mattpocock-review.json",
+      "sha256": "4647d0d48e64885c741848390cd5fa68da084229c21849fcf6b655e8966d7d48"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/quillstone/superpowers-review",
+      "target": "quillstone",
+      "tool": "superpowers-review",
+      "file": "results/quillstone/superpowers-review.json",
+      "sha256": "bbd3585a96d0c59fbe4424f1a80c53c5add4f5f653f0299209c73f2d4d9e4474"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/quillstone/tob-diff-review",
+      "target": "quillstone",
+      "tool": "tob-diff-review",
+      "file": "results/quillstone/tob-diff-review.json",
+      "sha256": "bfa9c0290fd3a123c8f75cb713979cf51aa732e1ffb97a932e7384585f5f58de"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/quillstone/tob-rust-review",
+      "target": "quillstone",
+      "tool": "tob-rust-review",
+      "file": "results/quillstone/tob-rust-review.json",
+      "sha256": "a9478f8fddbe590be1a2d4d7e1561a0376d11388aa4b3262b4d47098bfb4e32d"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+      "target": "tidepool",
+      "tool": "anthropic-pr-review",
+      "file": "results/tidepool/anthropic-pr-review.json",
+      "sha256": "c796df82e92a8d684911b21ae4502e3c364187d5b833bfb09dd5544054f3086d"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/tidepool/builtin-code-review",
+      "target": "tidepool",
+      "tool": "builtin-code-review",
+      "file": "results/tidepool/builtin-code-review.json",
+      "sha256": "1aaefa523f24f430fd805d7415cd224bf028b6cf2254cb6631112d725f38a749"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/tidepool/ce-code-review",
+      "target": "tidepool",
+      "tool": "ce-code-review",
+      "file": "results/tidepool/ce-code-review.json",
+      "sha256": "ef3dd0d76749d6c2f73081ca09f40b2c53613c5a1817a2f64bf25ef725edc8d8"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/tidepool/mattpocock-review",
+      "target": "tidepool",
+      "tool": "mattpocock-review",
+      "file": "results/tidepool/mattpocock-review.json",
+      "sha256": "14677d029c12b62899d2ce0bcf6ebbb0863ba5a5033a81e52eca96de90638d76"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/tidepool/superpowers-review",
+      "target": "tidepool",
+      "tool": "superpowers-review",
+      "file": "results/tidepool/superpowers-review.json",
+      "sha256": "436793939def031b36814e193b03ae617430e82ede4dfecfe91034b1a53c81ad"
+    },
+    {
+      "id": "fable-5-1-2026-09-29/tidepool/tob-diff-review",
+      "target": "tidepool",
+      "tool": "tob-diff-review",
+      "file": "results/tidepool/tob-diff-review.json",
+      "sha256": "5d8e88b23a74c5c23a6ddf38dab31a3bbfbd4c9afdfab705f924e237866d27a2"
+    }
+  ]
+}

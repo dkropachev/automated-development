@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/ironweave/tob-diff-review",
+  "target": "ironweave",
+  "tool": "tob-diff-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "e64f4117679f0184f82a41514b8964686abcbebe22fe39e4a30558487d83b97f",
+  "label": "Trail of Bits differential-review",
+  "findings": [
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 293,
+      "title": "send() gate verified to cover all callers, including compressor send_empty_frame hooks",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The report states every caller of send() is accounted for: the sink path is guarded by sink_closed(), the eof marker is sent before close_sink() runs, client/server requests use non-stream connections where stream_close() never runs, and the compressor send_empty_frame hooks (rpc.cc:696, rpc.cc:1103) were the only unguarded callers, now closed by the new flag.",
+      "selfRejected": true
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "Queue drain via swapping _outgoing_queue_ready is safe and preserves…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The report states that swapping _outgoing_queue_ready for a ready future is safe because no new entries can be enqueued afterward, the withdraw() chain invariant holds, and stop_send_loop() still awaits the whole queue transitively through _sink_closed_future.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Race between stop_send_loop() and stream_close() produces the same outcome as before the…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The report states that whichever of stop_send_loop() or stream_close() runs first, the outcome (skip via error(), or exceptional drained future being ignored while the buffer still closes) is unchanged from pre-change behavior, so no new race is introduced.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Documentation matches code: ~sink_impl assertion and source's lack of close()",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The report states the docs match the code: ~sink_impl asserts on an unclosed sink, and source has no close() method.",
+      "selfRejected": true
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "const_cast on this used to push hooks in hook_capturing_compressor_factory::negotiate",
+      "severity": "low",
+      "kind": "style",
+      "claim": "In hook_capturing_compressor_factory::negotiate, a const_cast on this is used to push hooks; a mutable member would express the same intent without the cast.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "test_stream_send_after_stream_close relies on sequencing rather than ownership for…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The wrapped data sink in test_stream_send_after_stream_close holds a reference to the stack-local test_sink_state; it is safe only because close is released and awaited before scope exit, meaning the lifetime guarantee comes from sequencing rather than ownership.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body includes a \"Generated with Claude Code\" attribution line",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The report notes as an aside that the PR body ends with a \"Generated with Claude Code\" line, which the user's global instructions say to never include.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 2587,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19689,
+      "webSearchRequests": 0,
+      "costUSD": 0.10883480000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1345,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 30,
+    "sha256": "7c4fb18692e95b89d0a8e05fa7c41b9061a9c855c041e2ba54e2fbd5e81409eb"
+  },
+  "extractedAt": "2026-09-30T03:20:16.029Z"
+}

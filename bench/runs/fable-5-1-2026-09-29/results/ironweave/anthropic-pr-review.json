@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/ironweave/anthropic-pr-review",
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "tool": "anthropic-pr-review",
+  "label": "Anthropic pr-review-toolkit",
+  "source": "pr-review-toolkit@claude-plugins-official",
+  "prompt": "/pr-review-toolkit:review-pr all\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 590114,
+  "reportedCostUsd": 12.957414799999997,
+  "reportedUsage": {
+    "input_tokens": 3082,
+    "cache_creation_input_tokens": 114423,
+    "cache_read_input_tokens": 10246114,
+    "output_tokens": 38219,
+    "output_tokens_details": {
+      "thinking_tokens": 12741
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 114423,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 2858,
+        "cache_read_input_tokens": 124024,
+        "cache_creation_input_tokens": 987,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 987
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-fable-5-1": {
+      "inputTokens": 3920,
+      "outputTokens": 91174,
+      "cacheReadInputTokens": 11375770,
+      "cacheCreationInputTokens": 312660,
+      "webSearchRequests": 0,
+      "costUSD": 12.208264999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 51196,
+      "canonicalModel": "claude-fable-5-1",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5-5": {
+      "inputTokens": 24,
+      "outputTokens": 13657,
+      "cacheReadInputTokens": 598294,
+      "cacheCreationInputTokens": 71251,
+      "webSearchRequests": 0,
+      "costUSD": 0.7491498,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 9661,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 105,
+  "subagentStats": {
+    "spawned": 4,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 4
+    },
+    "started_in_background": 4,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 4,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "pr-review-toolkit:code-reviewer": 1,
+      "pr-review-toolkit:pr-test-analyzer": 1,
+      "pr-review-toolkit:comment-analyzer": 1,
+      "pr-review-toolkit:silent-failure-hunter": 1
+    }
+  },
+  "sessionId": "1fbd417c-0f4a-43be-81e4-30a47e5d4815",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 3944,
+    "output": 104831,
+    "thinking": 60857,
+    "cacheRead": 11974064,
+    "cacheCreation": 383911,
+    "costUsd": 12.957414799999997,
+    "sessions": 1,
+    "models": {
+      "claude-fable-5-1": 12.208264999999999,
+      "claude-opus-5-5": 0.7491498
+    },
+    "bySession": {
+      "1fbd417c-0f4a-43be-81e4-30a47e5d4815": {
+        "costUsd": 12.957414799999997,
+        "startTime": 1790687887236,
+        "tokens": 12466750
+      }
+    },
+    "rawMessages": 303,
+    "rawOutput": 186714,
+    "rawCacheRead": 26689978,
+    "since": 0,
+    "subagentTranscripts": 4,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-ironweave-runs-fable-5-1-2026-09-29-anthropic-pr-review-attempt-mmzF1r-repo",
+    "total": 12466750
+  },
+  "result": "Confirmed: `yield()` does not run pollers. I have everything needed for the final report.\n\n# PR Review Summary — PR #1 `rpc: refuse to send on a stream connection once stream_close() has begun`\n\nThe fix itself is sound. I traced every interaction between `_stream_closing`, `_error`, `_outgoing_queue_ready`, `_sink_closed_future`, `stop_send_loop()`, `withdraw()`, `abort()` and `stop()`, and found no correctness bug in the change to `src/rpc/rpc.cc`. Nothing was built or run: the repo has no build directory and building Seastar for one test was out of scope for a read-only review. All findings below are verified against the code at 69da8f5b.\n\n## Critical Issues (0 found)\n\nNone.\n\n## Important Issues (3 found)\n\n- **[code-reviewer] Docs claim any throw from a source read releases it, but serializer errors do not.** `include/seastar/rpc/rpc_types.hh:386-388`, `include/seastar/rpc/rpc_types.hh:340-342`, `doc/rpc-streaming.md:109-112`. In `include/seastar/rpc/rpc_impl.hh:942-949` the `process_one_buffer` path calls `unmarshall` outside any handler, so an exception there leaves `_source_closed` false and `stream_close()` never runs. Only failures of `stream_receive()` and eof reach `close_source()` (`rpc_impl.hh:963`, `:969`). An application that follows the new contract literally, stopping at the first throw, will leak the connection. Either document that only eof or a stream failure releases the source and deserialization errors must still be drained, or make `process_one_buffer` failures call `close_source()` too.\n\n- **[pr-test-analyzer, code-reviewer] The queue-drain half of the fix has no test.** `src/rpc/rpc.cc:562-570`. In the new test the outgoing queue is empty by construction when `stream_close()` runs: `close_sink()` is the `.finally` of the already-resolved eof `send()` (`rpc_impl.hh:924`) and the hook fires only after `close_entered`. Deleting the `std::exchange(_outgoing_queue_ready, ...)` wait would fail no test. It is coverable with existing helpers: `c.get_stream(sink.get_id())->get()` gives the stream connection, `suspend_for_testing()` (`include/seastar/rpc/rpc.hh:395`, already used at `tests/unit/rpc_test.cc:455`) parks the queue, then fire the hook, then let the source reach eof so `close_source()` runs `stream_close()`, and assert `close_entered` stays false until the dummy is released. That also covers the untested \"sink closed first, source eof last\" ordering, which is the common one in practice.\n\n- **[silent-failure-hunter, pr-test-analyzer] The test never asserts that the frame was refused.** `tests/unit/rpc_test.cc:2016-2020`. The `catch (const rpc::closed_error&)` swallows the expected outcome, and a *successful* hook call also passes. Detection then relies entirely on `put_after_close`, which needs the batch flush poller to run before line 2030. Use `BOOST_REQUIRE_THROW(stream_send_empty_frame().get(), rpc::closed_error)` and keep the `put_after_close` check as the symptom-level assertion.\n\n## Suggestions (7 found)\n\n- **[pr-test-analyzer] The `yield()` loop does not guarantee the flush poller runs.** `tests/unit/rpc_test.cc:2022-2024`. `yield()` only schedules an empty task (`src/core/reactor.cc:5009-5014`); pollers run when the queue drains or the quota expires. Without the fix the test still fails, but whether it fails on `put_after_close` or on the `~output_stream` assert is timing dependent, and the comment is inaccurate. `check_for_io_immediately()` forces a poll; the loop becomes unnecessary if the refusal is asserted directly.\n\n- **[comment-analyzer] \"_outgoing_queue_ready is exceptional if an entry failed\" states the wrong cause.** `src/rpc/rpc.cc:566-567`. A failed `send_entry` calls `abort()` and still runs `p->done.set_value()` (`rpc.cc:333-338`), so a failed entry never makes the chain exceptional. The only sources are `stop_send_loop()` withdrawing queued entries and the `_negotiated` abort (`rpc.cc:206-224`). Say \"exceptional if the connection was stopped while entries were still queued\", matching the existing comment at `rpc.cc:226-227`.\n\n- **[comment-analyzer] \"Nothing else waits for _outgoing_queue_ready from here on\" is not quite right.** `src/rpc/rpc.cc:559-561`. `stop_send_loop()` still does `when_all` on it (`rpc.cc:225`); it just receives the ready placeholder. Also the retained comment at `rpc.cc:563-564` now sits eight lines away from the `_sink_closed_future = p.get_future()` it explains; move it above line 555.\n\n- **[comment-analyzer] Stale `// send data Out...` and `// receive data In...` lines break the new doxygen blocks.** `include/seastar/rpc/rpc_types.hh:343` and `:390`. A plain `//` line now sits between the `///` block and the declaration, and the rest of the file uses a plain first line rather than `\\brief` (e.g. `:418`). Remove the old lines and drop `\\brief` for consistency.\n\n- **[comment-analyzer] \"The stream's connection is shut down only once both halves are closed\" is too strong.** `doc/rpc-streaming.md:114`. The connection is also shut down by a read-loop failure or by closing the parent client via `abort_all_streams()` (`src/rpc/rpc.cc:848-855`), which the doc itself says a few paragraphs earlier. Drop \"only\" or say \"orderly shutdown\".\n\n- **[pr-test-analyzer] `const_cast` in the hook-capturing factory.** `tests/unit/rpc_test.cc:1957`. Declaring `hooks` as `mutable` is cleaner than casting away const on `this`.\n\n- **[code-reviewer] Attribution trailers violate your global CLAUDE.md rule.** The PR body ends with a \"Generated with Claude Code\" line and all three commits carry `Co-Authored-By: Claude ...` trailers. Your instructions say never to add these; strip them before merge.\n\n## Strengths\n\n- **The core race analysis is correct and the fix is minimal.** Exchanging `_outgoing_queue_ready` is safe: `stop_send_loop()` still serializes on `_sink_closed_future`, which resolves only after the drain and `write_buf.close()`, and `withdraw()`'s promise swap keeps the drained chain resolving. No hang on `_negotiated` is possible, because `stream_close()` with `!_error` requires an eof frame that can only arrive after negotiation.\n- **Every `send()` caller on a stream was checked and behaves correctly.** The eof marker is sent before `close_sink()`, `send_buffer()` is drained by `_send_queue.stop()` first, and both hook sites (`rpc.cc:696`, `:1103`) route through `send()`. The only direct `write_buf` write is the negotiation frame.\n- **Error propagation slightly improves.** A synchronous throw from `write_buf.close()` previously escaped `stream_close()` with `p` unset, leaving a broken `_sink_closed_future` that `stop_send_loop()` would `.get()`. Inside `then_wrapped` it now becomes a failed future and `p` is always set.\n- **Test object lifetimes are right.** `st` is declared before `sink`/`source`, the connection is deregistered from the parent before `sink.close()` returns, and `hooks.back()` is deterministic because `make_stream_sink` awaits the parent's negotiation.\n\n## Recommended Action\n\n1. Fix the source-release doc claim (or make deserialization failures close the source).\n2. Add a queue-drain test using `suspend_for_testing()` and assert the `closed_error` refusal directly.\n3. Apply the comment and doxygen corrections, and strip the attribution trailers.\n4. Re-run `rpc_test` in the debug (sanitizer) build on 1 and 2 shards after the changes.",
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 2,
+    "sha256": "6b77ef0b2975e2aa5e7f77adce0affb309dc7e88be2be62f095d25649619b605"
+  },
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/ironweave/runs/fable-5-1-2026-09-29/anthropic-pr-review/attempt-mmzF1r/repo",
+  "finishedAt": "2026-09-29T13:27:57.366Z"
+}

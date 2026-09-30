@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+  "target": "quillstone",
+  "tool": "anthropic-pr-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "58fac971733c50c21406cafca82c7b749347f2db9870a9ed4c499525d4ba2c42",
+  "label": "Anthropic pr-review-toolkit",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Persistent USE failure now drops every connection, taking a node's whole pool down",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "Previously a failed USE was logged but the connection still joined the pool; now every such connection is dropped and refilled with growing backoff and no exit, so a persistent USE failure (e.g. DROP KEYSPACE while use_keyspace is set) empties the pool, publishes Broken(UseKeyspaceError), and fires ConnectivityChangeEvent::Lost even for fully-qualified queries.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "title": "Keyspace-failure logging dropped to debug and error only surfaces when pool is empty",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "The log level for the USE failure dropped from warn! to debug!, and the error is only published to shared_conns when the pool is empty and idle, so with one live connection a node that persistently rejects USE stays permanently under target with nothing visible at default log level, unlike the sibling use_keyspace path (line 1322) which still warns.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 994,
+      "title": "Shard-aware connection rejection leaks +1 total_connections metric",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "When a shard-aware connection cannot be accepted, the Connection is dropped and replaced but the inc_total_connections counted at line 1051 is never reverted, leaking +1 per mismatched connection behind a port-rewriting NAT; pre-existing but contrary to the PR's stated goal of balancing metrics.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "title": "PR's stated validation command never actually exercised the metrics test assertions",
+      "severity": "high",
+      "kind": "docs",
+      "claim": "Since metrics is not a default feature, the validation command in the PR description compiled out every get_total_connections() assert and skipped the three #[cfg(feature = \"metrics\")] tests entirely; they do pass with --features metrics but the description should say so.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description and commit messages omit most of the diff's substantive changes",
+      "severity": "high",
+      "kind": "docs",
+      "claim": "Three of four commits (the metrics-balancing change) are not mentioned, and the reorder of keyspace setup ahead of maybe_reshard, the new public ConnectionError::UseKeyspaceError variant, and the warn-to-debug change are all absent, with all four commit bodies empty despite the checklist claiming they explain the why.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 912,
+      "title": "Moved keyspace-setup block lacks comment explaining why it must precede resharding",
+      "severity": "high",
+      "kind": "docs",
+      "claim": "The comment is unchanged from main, so nothing stops a future refactor from moving the block back below the sharder update and reintroducing the bug that keyspace_setup_failure_preserves_pool_state guards against.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1418,
+      "title": "ConnectionSetupError lacks #[derive(Debug)] and documentation of its invariant",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Both payloads are Debug, so deriving it would let the test at 1668-1672 use .expect(); a doc line should state that Keyspace errors carry an already-counted connection and must never trigger the shard-aware port fallback.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1412,
+      "title": "keyspace_name and result coupling in ConnectionSetupError is unenforced by the type",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Err(Keyspace) with keyspace_name: None is impossible in production yet constructible, and the test at 1502-1506 builds exactly that; moving keyspace_name into the Ok payload would make it unrepresentable.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/errors.rs",
+      "line": 600,
+      "title": "#[from] publishes an unwanted impl From<UseKeyspaceError> for ConnectionError",
+      "severity": "low",
+      "kind": "design",
+      "claim": "UseKeyspaceError is also Session::use_keyspace's return type where it does not mean \"connection unusable\"; only one in-crate use exists (line 908), so the variant should be constructed explicitly instead of via #[from].",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1360,
+      "title": "Decrement loop should be a single atomic subtraction instead of looping",
+      "severity": "low",
+      "kind": "style",
+      "claim": "A dec_total_connections_by(n) should be added to both metrics backends and the loop dropped.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 674,
+      "title": "Three duplicated \"decrement + clear\" sites for excess_connections should be one method",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The decrement-and-clear logic is repeated at lines 674, 1031, and 1114 and should be folded into one clear_excess_connections() method.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 674,
+      "title": "Decrement sites at each clear point lack comments explaining why they're safe",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "A maintainer needs to know these connections never reach remove_connection, otherwise the decrement at lines 674, 901, 1031, and 1114 looks like a double count.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1511,
+      "title": "Two new test assertions are trivially true and don't prove a refill is scheduled",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "is_empty() and need_filling() hold on a fresh refiller before the event is handled, so they don't demonstrate a refill was actually scheduled; the meaningful assert at 1510 deserves a comment instead.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1474,
+      "title": "No test drives the keyspace-failure backoff path through the actual run() loop",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The backoff branch at 725-729 is only covered transitively; the full_pool_... test shows the spawn pattern that could be reused to cover it directly.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1868,
+      "title": "Reshard-with-excess-connections term is never exercised by a test",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "excess_connections is empty at reshard time in the existing tests, so the + excess_connections.len() term at lines 1113-1115 never executes.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1939,
+      "title": "New tests swallow proxy errors via let _ = proxy.finish().await",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "At lines 1939, 1967, and 2012 the tests discard the result of proxy.finish().await, hiding rule or frame failures, even though the same PR already uses the correct error-checking shape at line 1690.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 4960,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 21779,
+      "webSearchRequests": 0,
+      "costUSD": 0.1409248,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2144,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 31,
+    "sha256": "65c7e6725d39571d979da6f439d28e842ba3fc0b24e72c54fbafe9b23dafeb94"
+  },
+  "extractedAt": "2026-09-30T03:21:03.779Z"
+}

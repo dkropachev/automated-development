@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/quillstone/tob-diff-review",
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "tool": "tob-diff-review",
+  "label": "Trail of Bits differential-review",
+  "source": "differential-review@trailofbits",
+  "prompt": "/differential-review:diff-review https://github.com/dkropachev/quillstone/pull/1\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 248430,
+  "reportedCostUsd": 2.1673367499999996,
+  "reportedUsage": {
+    "input_tokens": 550,
+    "cache_creation_input_tokens": 63749,
+    "cache_read_input_tokens": 1115627,
+    "output_tokens": 12159,
+    "output_tokens_details": {
+      "thinking_tokens": 5758
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 63749,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 942,
+        "cache_read_input_tokens": 72882,
+        "cache_creation_input_tokens": 1455,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1455
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-fable-5-1": {
+      "inputTokens": 550,
+      "outputTokens": 12159,
+      "cacheReadInputTokens": 1115627,
+      "cacheCreationInputTokens": 63749,
+      "webSearchRequests": 0,
+      "costUSD": 2.1673367499999996,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 5758,
+      "canonicalModel": "claude-fable-5-1",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 21,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "83511a43-5f9c-4c09-a21b-172e1e852ba2",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 550,
+    "output": 12159,
+    "thinking": 5758,
+    "cacheRead": 1115627,
+    "cacheCreation": 63749,
+    "costUsd": 2.1673367499999996,
+    "sessions": 1,
+    "models": {
+      "claude-fable-5-1": 2.1673367499999996
+    },
+    "bySession": {
+      "83511a43-5f9c-4c09-a21b-172e1e852ba2": {
+        "costUsd": 2.1673367499999996,
+        "startTime": 1790721301379,
+        "tokens": 1192085
+      }
+    },
+    "rawMessages": 31,
+    "rawOutput": 21340,
+    "rawCacheRead": 1669391,
+    "since": 0,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-quillstone-runs-fable-5-1-2026-09-29-tob-diff-review-attempt-L8WJPx-repo",
+    "total": 1192085
+  },
+  "result": "Review of PR #1 (discard connections after keyspace setup failure). Clippy is clean, the two new keyspace tests and the three metrics tests pass with `--features metrics`. The pre-existing `many_connections` test fails with ConnectTimeout here, but it fails identically on `main`, so that is environmental. Report written to `/tmp/DIFFERENTIAL_REVIEW_PR1.md` (kept out of the repo since the review is read-only).\n\n**1. MEDIUM — pool becomes permanently unrefillable after any failed USE** (`scylla/src/network/connection_pool.rs:900-911`, root at `:1287`)\nThe refiller stores `current_keyspace` before the USE result is known (`connection_pool.rs:1287`, likewise `session.rs:2008`) and never reverts it on failure. Before this PR a new connection whose USE failed was still admitted with a warning, so the pool kept working. After this PR it is discarded and `had_error_since_last_refill` inflates the backoff. Concrete scenario: `session.use_keyspace(\"typo\")` returns an error, the application keeps using fully qualified table names, a node restarts, every refill opens a connection, USE fails, the connection is dropped, and the pool ends as `Broken(UseKeyspaceError)` indefinitely. A keyspace being dropped while the session lives produces the same outcome across all nodes. The fix direction from issue #1682 is reasonable, but it needs either a revert of `current_keyspace` when the keyspace change fails, or a way to distinguish \"keyspace does not exist\" from transient USE failures.\n\n**2. LOW — semantic mismatch in the new error variant** (`scylla/src/errors.rs:600-602`)\n`ConnectionError` is documented as meaning the connection \"can no longer be used and should be dropped\". A nonexistent keyspace does not break the connection, yet it is now surfaced to users as the pool's broken reason through this variant. Acceptable if intended, but worth stating in the variant doc.\n\n**3. INFO — no timeout on the keyspace future** (`scylla/src/network/connection_pool.rs:1336`, pre-existing TODO)\nA hung USE keeps `is_filling()` true and blocks all refill scheduling. Not introduced here, but the PR makes this future the sole gate for admitting a connection, so the TODO gained weight.\n\nVerified as correct: the metrics rebalancing in `maybe_reshard`, both excess-connection clears, and the keyspace-failure decrement are balanced, and there is no double decrement because `remove_connection` only decrements when it actually finds the `Arc` in `conns` or `excess_connections`. Moving the keyspace check ahead of resharding correctly avoids mutating sharder state for a connection that is later discarded, as the second test demonstrates.",
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 16,
+    "sha256": "cd1e7af46f1cd118511828195b943c97695a2d240a5fe76334e4d2e059c00bda"
+  },
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/quillstone/runs/fable-5-1-2026-09-29/tob-diff-review/attempt-L8WJPx/repo",
+  "finishedAt": "2026-09-29T22:39:09.792Z"
+}

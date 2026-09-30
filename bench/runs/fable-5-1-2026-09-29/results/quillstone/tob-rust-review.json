@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/quillstone/tob-rust-review",
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "tool": "tob-rust-review",
+  "label": "Trail of Bits rust-review",
+  "source": "rust-review@trailofbits",
+  "prompt": "/rust-review:rust-review\n\nScope the audit strictly to the files this pull request changes; the rest of the crate is out of scope.\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 719088,
+  "reportedCostUsd": 9.056174350000001,
+  "reportedUsage": {
+    "input_tokens": 742,
+    "cache_creation_input_tokens": 171539,
+    "cache_read_input_tokens": 2935554,
+    "output_tokens": 64377,
+    "output_tokens_details": {
+      "thinking_tokens": 11531
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 171539,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 813,
+        "cache_read_input_tokens": 180363,
+        "cache_creation_input_tokens": 1764,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1764
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-fable-5-1": {
+      "inputTokens": 938,
+      "outputTokens": 67430,
+      "cacheReadInputTokens": 3018295,
+      "cacheCreationInputTokens": 203611,
+      "webSearchRequests": 0,
+      "costUSD": 7.967133749999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 11652,
+      "canonicalModel": "claude-fable-5-1",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-sonnet-5-5": {
+      "inputTokens": 156,
+      "outputTokens": 20427,
+      "cacheReadInputTokens": 1668493,
+      "cacheCreationInputTokens": 220304,
+      "webSearchRequests": 0,
+      "costUSD": 1.0890405999999997,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 2432,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 41,
+  "subagentStats": {
+    "spawned": 20,
+    "requested": {
+      "background": 0,
+      "foreground": 4,
+      "unset": 16
+    },
+    "started_in_background": 16,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 20,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "rust-review:rust-review-worker": 18,
+      "rust-review:rust-review-dedup-judge": 1,
+      "rust-review:rust-review-fp-judge": 1
+    }
+  },
+  "sessionId": "13c2653a-2f41-40c6-ac77-6a68f7bc39a0",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 1094,
+    "output": 87857,
+    "thinking": 14084,
+    "cacheRead": 4686788,
+    "cacheCreation": 423915,
+    "costUsd": 9.056174350000001,
+    "sessions": 1,
+    "models": {
+      "claude-fable-5-1": 7.967133749999999,
+      "claude-sonnet-5-5": 1.0890405999999997
+    },
+    "bySession": {
+      "13c2653a-2f41-40c6-ac77-6a68f7bc39a0": {
+        "costUsd": 9.056174350000001,
+        "startTime": 1790721572872,
+        "tokens": 5199654
+      }
+    },
+    "rawMessages": 192,
+    "rawOutput": 701510,
+    "rawCacheRead": 9322882,
+    "since": 0,
+    "subagentTranscripts": 20,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-quillstone-runs-fable-5-1-2026-09-29-tob-rust-review-attempt-SQPg1e-repo",
+    "total": 5199654
+  },
+  "result": "The review is complete. All artifacts are on disk and nothing further is pending.\n\n**Pipeline result: 0 findings.** The trailofbits rust-review pipeline ran 16 workers (one retried after a malformed coverage table), then the dedup and false-positive judges. Every pass cleared: the PR hunks contain no `unsafe`, FFI, locking, panics, recursion, or resource-handling defects. Parameters were chosen by me because the session is non-interactive: threat model BOTH, worker model sonnet, severity filter all, scope narrowed to the two changed files.\n\n**One finding from my own read of the diff**, outside the pipeline's bug classes:\n\n- **`scylla/src/network/connection_pool.rs:897-909` – Medium – A failed or stale keyspace switch now permanently starves the pool.** Both `Session::use_keyspace` (session.rs:2008) and `PoolRefiller::use_keyspace` (connection_pool.rs:1290) record the new keyspace before the `USE` succeeds. Before this PR a connection whose `USE` failed was still admitted with a warning, so fully qualified queries kept working. After this PR every newly opened connection is dropped in the new `Keyspace` error branch, the backoff grows, and once existing connections die the pool ends in `Broken(UseKeyspaceError)` with no way to recover except another successful `use_keyspace` call. Triggers: a `use_keyspace` call for a nonexistent keyspace that the caller handles and moves on from, or a `DROP KEYSPACE` by any client while the session still has it selected. The same path also lowers the log level from `warn!` to `debug!`, so the churn is invisible until the node goes down.\n\nEverything else in the diff checked out: metric increments and decrements balance on every path I traced (open, keyspace failure, excess clearing, reshard, and later error removal of already-cleared connections), the reorder of keyspace setup before resharding is correct, and the new `ConnectionError` variant is on a `#[non_exhaustive]` enum.\n\nArtifacts under `.rust-review-results/20260929T224019Z/`: `REPORT.md`, `REPORT.sarif`, `run-summary.md`, `dedup-summary.md`, `fp-summary.md`, `findings/` (empty), `findings-index.txt`, `coverage/`. The manual finding is recorded in `run-summary.md` only, not in the judge-written report.",
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 17,
+    "sha256": "ad867882da9da91f3aa63dbd9b6610e65f48db270aa44951bf31b256ef12792d"
+  },
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/quillstone/runs/fable-5-1-2026-09-29/tob-rust-review/attempt-SQPg1e/repo",
+  "finishedAt": "2026-09-29T22:51:31.968Z"
+}

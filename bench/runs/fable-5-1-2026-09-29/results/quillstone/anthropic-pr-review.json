@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/quillstone/anthropic-pr-review",
+  "target": "quillstone",
+  "language": "Rust",
+  "fork": "dkropachev/quillstone",
+  "pr": 1,
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "tool": "anthropic-pr-review",
+  "label": "Anthropic pr-review-toolkit",
+  "source": "pr-review-toolkit@claude-plugins-official",
+  "prompt": "/pr-review-toolkit:review-pr all\n\nYou are reviewing pull request #1 of this repository (dkropachev/quillstone) - a Rust project. The PR branch `fix/keyspace-setup-failure` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 469604,
+  "reportedCostUsd": 11.333053900000001,
+  "reportedUsage": {
+    "input_tokens": 2254,
+    "cache_creation_input_tokens": 109247,
+    "cache_read_input_tokens": 7513089,
+    "output_tokens": 31239,
+    "output_tokens_details": {
+      "thinking_tokens": 11661
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 109247,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 3432,
+        "cache_read_input_tokens": 117169,
+        "cache_creation_input_tokens": 2666,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 2666
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-fable-5-1": {
+      "inputTokens": 3254,
+      "outputTokens": 69777,
+      "cacheReadInputTokens": 8836908,
+      "cacheCreationInputTokens": 316574,
+      "webSearchRequests": 0,
+      "costUSD": 10.507144499999995,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 32235,
+      "canonicalModel": "claude-fable-5-1",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5-5": {
+      "inputTokens": 28,
+      "outputTokens": 13229,
+      "cacheReadInputTokens": 469087,
+      "cacheCreationInputTokens": 93480,
+      "webSearchRequests": 0,
+      "costUSD": 0.8259093999999998,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 6828,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 83,
+  "subagentStats": {
+    "spawned": 6,
+    "requested": {
+      "background": 6,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 6,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 6,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "pr-review-toolkit:code-reviewer": 1,
+      "pr-review-toolkit:pr-test-analyzer": 1,
+      "pr-review-toolkit:silent-failure-hunter": 1,
+      "pr-review-toolkit:comment-analyzer": 1,
+      "pr-review-toolkit:type-design-analyzer": 1,
+      "pr-review-toolkit:code-simplifier": 1
+    }
+  },
+  "sessionId": "789a8a54-4c32-4828-b104-42f33dd498f2",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 3282,
+    "output": 83006,
+    "thinking": 39063,
+    "cacheRead": 9305995,
+    "cacheCreation": 410054,
+    "costUsd": 11.333053900000001,
+    "sessions": 1,
+    "models": {
+      "claude-fable-5-1": 10.507144499999995,
+      "claude-opus-5-5": 0.8259093999999998
+    },
+    "bySession": {
+      "789a8a54-4c32-4828-b104-42f33dd498f2": {
+        "costUsd": 11.333053900000001,
+        "startTime": 1790717454139,
+        "tokens": 9802337
+      }
+    },
+    "rawMessages": 241,
+    "rawOutput": 149925,
+    "rawCacheRead": 18166514,
+    "since": 0,
+    "subagentTranscripts": 6,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-quillstone-runs-fable-5-1-2026-09-29-anthropic-pr-review-attempt-CU4kfZ-repo",
+    "total": 9802337
+  },
+  "result": "# PR Review Summary: #1 `connection: discard connections after keyspace setup failure`\n\nVerification I ran myself: `cargo check --all-targets`, `cargo clippy` (default toolchain), and `cargo fmt --check` are clean. All 5 new tests pass with `--features metrics` and the 2 keyspace tests pass without it. The only failure is `many_connections`, which needs a live ScyllaDB at `SCYLLA_URI` and is unrelated to this PR.\n\n## Critical Issues (0 found)\n\n## Important Issues (6 found)\n\n- **[code-reviewer] Persistent `USE` failure now takes a node's whole pool down** `scylla/src/network/connection_pool.rs:900-910`. Before, a failed `USE` logged and the connection still joined the pool. Now every such connection is dropped and refilled with growing backoff, with no exit. Scenario: `session.use_keyspace(\"ks\")` then someone runs `DROP KEYSPACE ks`; every new connection on every node fails `USE`, the pool empties as old connections die, `Broken(UseKeyspaceError)` is published and `ConnectivityChangeEvent::Lost` fires, so even fully-qualified queries stop working. This may be the intended trade-off for the linked issue, but neither the description nor the code acknowledges it.\n- **[silent-failure-hunter] Keyspace failure is invisible while the pool is non-empty** `scylla/src/network/connection_pool.rs:903-906`. The log level dropped from `warn!` to `debug!`, and the error is only published to `shared_conns` when the pool is empty and idle. With one live connection, a node that persistently rejects `USE` leaves the pool permanently under target with nothing at default log level and no surfaced error. The sibling path in `use_keyspace` (line 1322) still warns for the same failure.\n- **[code-reviewer] One metrics path is still unbalanced** `scylla/src/network/connection_pool.rs:994-1005`. When a shard-aware connection cannot be accepted, the `Connection` is dropped and a replacement opened, but the `inc_total_connections` from `count_in_metrics` (line 1051) is never reverted. Behind a port-rewriting NAT this leaks +1 per mismatched connection. Pre-existing, but it is exactly the class of leak the \"balance metrics\" commits set out to fix.\n- **[pr-test-analyzer] Stated validation never ran the metrics assertions** `scylla/src/network/connection_pool.rs:1474`. `metrics` is not a default feature (`scylla/Cargo.toml:35`), so the validation command in the description compiled out every `get_total_connections()` assert and skipped the three `#[cfg(feature = \"metrics\")]` tests entirely. They do pass with `--features metrics`, but the description should say so.\n- **[comment-analyzer] PR description and commit messages omit most of the diff** (`git log main..HEAD`). Three of four commits are the separate metrics-balancing change and are not mentioned. The reorder of keyspace setup ahead of `maybe_reshard` (the substantive behaviour change), the new public `ConnectionError::UseKeyspaceError` variant, and the warn-to-debug change are absent too. All four commit bodies are empty despite the checklist claiming they explain the why.\n- **[comment-analyzer] Moved keyspace block does not say why it must precede resharding** `scylla/src/network/connection_pool.rs:912-920`. The comment is unchanged from main, so nothing stops a future refactor from moving it back below the sharder update and reintroducing the \"failed USE already cleared the pool\" bug that `keyspace_setup_failure_preserves_pool_state` guards against.\n\n## Suggestions (10 found)\n\n- **[type-design-analyzer] `ConnectionSetupError` lacks `#[derive(Debug)]` and docs** `connection_pool.rs:1418`. Both payloads are `Debug`; deriving it lets the test at 1668-1672 use `.expect()`. A doc line should state the invariant that `Keyspace` errors carry an already-counted connection and must never trigger the shard-aware port fallback.\n- **[type-design-analyzer] `keyspace_name` and `result` coupling is unenforced** `connection_pool.rs:1412-1416`. `Err(Keyspace)` with `keyspace_name: None` is impossible in production yet constructible, and the test at 1502-1506 builds exactly that. Moving `keyspace_name` into the `Ok` payload makes it unrepresentable.\n- **[type-design-analyzer] `#[from]` publishes `impl From<UseKeyspaceError> for ConnectionError`** `scylla/src/errors.rs:600-602`. `UseKeyspaceError` is also `Session::use_keyspace`'s return type where it does not mean \"connection unusable\". Only one in-crate use exists (line 908); construct the variant explicitly instead.\n- **[code-simplifier] Decrement loop should be one atomic subtraction** `connection_pool.rs:1360`. Add `dec_total_connections_by(n)` to both metrics backends and drop the loop.\n- **[code-simplifier] Three \"decrement + clear\" sites for `excess_connections`** `connection_pool.rs:674`, `:1031`, `:1114`. Fold into one `clear_excess_connections()` method.\n- **[comment-analyzer] Explain the decrements at each clear site** `connection_pool.rs:674`, `:901`, `:1031`, `:1114`. A maintainer needs to know these connections never reach `remove_connection`, otherwise the decrement looks like a double count.\n- **[pr-test-analyzer] Two assertions are trivially true** `connection_pool.rs:1511-1512`. `is_empty()` and `need_filling()` hold on a fresh refiller before the event is handled; they do not show a refill is scheduled. The meaningful assert at 1510 (no shard-aware fallback pushed) deserves a comment.\n- **[pr-test-analyzer] No test drives the keyspace-failure path through `run()`** `connection_pool.rs:1474-1523`. The backoff branch at 725-729 is only covered transitively; the `full_pool_...` test shows the spawn pattern to reuse.\n- **[pr-test-analyzer] Reshard-with-excess term is untested** `connection_pool.rs:1868-1940`. `excess_connections` is empty at reshard time, so the `+ excess_connections.len()` term at 1113-1115 never executes.\n- **[silent-failure-hunter] New tests swallow proxy errors** `connection_pool.rs:1939`, `:1967`, `:2012`. `let _ = proxy.finish().await` hides rule or frame failures. The same PR already uses the correct shape at 1690.\n\n## Strengths\n\n- Metrics accounting is correct on every path the PR touches. No double decrement: connections cleared by `maybe_reshard` or excess clearing either fail `Weak::upgrade` or are not found by `remove_connection`, and both skip the decrement.\n- The private `ConnectionSetupError` is the right shape. It keeps `USE` failures from triggering the shard-aware port fallback and from being conflated with a public `ConnectionError` variant.\n- Adding `UseKeyspaceError` to the `#[non_exhaustive]` `ConnectionError` is backward compatible, and the prefixed `#[error]` message is warranted since `RequestTimeout` displays without context.\n- `keyspace_setup_failure_preserves_pool_state` genuinely exercises the reorder: the sharder stays `None` after a failed `USE` against a 2-shard node and only updates after a successful one.\n- The shard-aware asymmetry (connection errors skip `had_error_since_last_refill`, keyspace errors set it) is correct: a `USE` rejection is node-level, not port-level.\n\n## Recommended Action\n\n1. Decide and document the behaviour on persistent `USE` failure, and restore `warn!` so the pool-under-target case is observable.\n2. Balance the metric in the shard-aware excess branch at 994-1005.\n3. Rewrite the PR description and commit bodies to cover the metrics commits, the reorder rationale, and the new public variant; add a `--features metrics` run to Validation.\n4. Add the \"must precede `maybe_reshard`\" comment and derive `Debug` on `ConnectionSetupError`.\n5. Apply the remaining suggestions as time allows and re-run the review.",
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 10,
+    "sha256": "8b982182b1d84a6edd8584890c98b652ffe4b59f051bb9c1916a50acfe740bd2"
+  },
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/quillstone/runs/fable-5-1-2026-09-29/anthropic-pr-review/attempt-CU4kfZ/repo",
+  "finishedAt": "2026-09-29T21:38:43.767Z"
+}

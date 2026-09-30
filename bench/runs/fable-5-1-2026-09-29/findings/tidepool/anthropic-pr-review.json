@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/tidepool/anthropic-pr-review",
+  "target": "tidepool",
+  "tool": "anthropic-pr-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "c796df82e92a8d684911b21ae4502e3c364187d5b833bfb09dd5544054f3086d",
+  "label": "Anthropic pr-review-toolkit",
+  "findings": [
+    {
+      "file": "frame.go",
+      "line": 861,
+      "title": "PR description references nonexistent companion PRs/issues for dim<1 validation",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "The PR description says it 'lands with #1093, which rejects dim < 1 in the metadata parsers' and defers work to #1085, #1086, #1106, #1091, but none of those PRs/issues exist in the repo. frame.go:861 still does dim, _ := strconv.Atoi(...), so a wire type of VectorType(Int32Type, abc) becomes Dimensions: 0 and an empty payload decodes to []int32{} with a nil error.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 995,
+      "title": "\"Zero dimensions never touches SubType\" guarantee is false for an *any destination",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "unmarshalVector(VectorType{}, data, new(any)) reaches the interface branch at marshal.go:1044, calls info.Zero(), which calls v.SubType.NewWithError() on a nil interface and panics; the new comment and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType claim a property the code does not have, since the test only covers *[]float64.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1126,
+      "title": "vectorElemMinSize dereferences a nil inner SubType",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "VectorType{SubType: VectorType{Dimensions: 3}, Dimensions: 2} panics in vectorFixedElemSize(nil) because the recursion recreates one level down the deref the outer guard was written to avoid; noted as caller-constructed only.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 222,
+      "title": "Two error branches in the same function still return a nameless custom()",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The vector branch's Atoi failure (also at helpers.go:264-267) logs through nopLogger from frame.go and returns NewNativeType(protoVer, TypeCustom), giving 'can not unmarshal custom() into *[]float32', which is inconsistent with the new comment at helpers.go:282.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 992,
+      "title": "Undocumented behaviour change: NULL with negative dimensions now errors",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "Previously data == nil with Dimensions < 0 returned nil; the test pins the new behaviour on purpose, but the PR description's 'Behaviour change' section only mentions short or empty payloads, not this case.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "\"Every new test fails against pristine\" claim is overstated",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType pass on pristine code by design, and TestVectorElemMinSize cannot even compile there, contradicting the PR description's claim.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1136,
+      "title": "Saturation branch (return math.MaxInt32) is untested",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "No row in TestVectorElemMinSize exercises the math.MaxInt32 saturation return at marshal.go:1136-1138, so a sign or off-by-one regression there would go unnoticed.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 587,
+      "title": "Announced empty-payload change has no direct test",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The description's vector<int,3> over []byte{} case is the exact boundary between the data != nil skip and the bound, but the closest existing test uses 2 bytes instead of an exact empty payload.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1005,
+      "title": "Stale fast-path comment about nil/empty and dim=0 falling through",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The comment 'nil/empty and dim=0 fall through to the generic path' is no longer true for empty non-nil data with Dimensions > 0, which the new bound now rejects first.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 986,
+      "title": "Overstated comment claiming every path below allocates",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The comment 'every path below turns it into an allocation' is overstated because the array destination at marshal.go:1075 allocates nothing, as the test comment at marshal_vector_test.go:640 itself acknowledges.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 772,
+      "title": "Misleading test comment about zero-byte element description",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The comment 'Neither can describe an element in zero bytes' is wrong for vector<float,0>, which does encode in zero bytes; the floor actually exists because the caller divides.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description carries a \"Generated with Claude Code\" attribution line",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The PR description contains an AI attribution line, which the user's global CLAUDE.md forbids in PR descriptions.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1097,
+      "title": "Negative vint length decodes vector<text,1> to [\"\"] with a nil error",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A negative vint length still decodes vector<text,1> over nine 0xff bytes to [\"\"] with a nil error; noted as pre-existing and out of scope, but the ticket meant to defer it does not exist.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Full unit test run fails on TLS cert-parsing errors, but identically on main",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Running the full unit suite fails in TLS tests with 'Failed parsing or appending certs'; this failure occurs identically on main, so it is environmental rather than caused by this PR.",
+      "selfRejected": true
+    },
+    {
+      "file": "testdata/pki/ca.crt",
+      "line": 0,
+      "title": "scyllacloud tests fail due to missing testdata/pki/ca.crt, but identically on main",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The scyllacloud package fails due to a missing testdata/pki/ca.crt file; this failure occurs identically on main, so it is environmental rather than caused by this PR.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Root package fails to build for GOARCH=386 on main, so 32-bit tests never run",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The root package does not build for GOARCH=386 on main either, meaning the 32-bit test cases never run, independent of this PR.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 6973,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 21330,
+      "webSearchRequests": 0,
+      "costUSD": 0.15925879999999998,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 4243,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 38,
+    "sha256": "ccb9b01a653717bb0b99f54d4d096de009cbdfd3a36895324836810c6d2a3ba6"
+  },
+  "extractedAt": "2026-09-30T03:25:24.267Z"
+}

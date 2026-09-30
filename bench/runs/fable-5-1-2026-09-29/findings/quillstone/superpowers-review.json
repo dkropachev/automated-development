@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/quillstone/superpowers-review",
+  "target": "quillstone",
+  "tool": "superpowers-review",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "bbd3585a96d0c59fbe4424f1a80c53c5add4f5f653f0299209c73f2d4d9e4474",
+  "label": "Superpowers requesting-code-review",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "title": "Keyspace-failure log level regressed from warn to debug",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "The removed code logged keyspace failures at warn!, but the new code logs at debug; since Broken is only published when the pool is empty, a partially filled pool with a dropped keyspace or permission problem silently stops growing with no operator signal.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description omits the metrics-balance commits",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "Commits de164845 and 0d91aa54 change counter accounting in maybe_reshard and both excess-connection clears, and add three tests gated on --features metrics, but the PR description doesn't mention them and the listed validation command doesn't compile them.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Fixes: #1682 annotation does not resolve",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "gh issue view 1682 fails in this repository, so the closing annotation is dead; it likely refers to upstream scylla-rust-driver.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 2005,
+      "title": "Timing-dependent test polls counter with sleeps instead of being deterministic",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "full_pool_clears_excess_connections_and_balances_metrics polls the counter with 1 ms sleeps under a 5 s timeout; awaiting pool_updated_notify or using start_paused = true like neighbouring tests would make it deterministic.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "title": "decrement_total_connections loops fetch_sub(1) instead of a single atomic op",
+      "severity": "low",
+      "kind": "style",
+      "claim": "A single fetch_sub(n) helper would be simpler and atomic as a unit, instead of looping fetch_sub(1).",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 4,
+      "outputTokens": 1739,
+      "cacheReadInputTokens": 61927,
+      "cacheCreationInputTokens": 21088,
+      "webSearchRequests": 0,
+      "costUSD": 0.11413540000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 190,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 35,
+    "sha256": "580ffe5387d64372cd5e8a07071c5c743efa9aff5f635e61f567e622392bfe7f"
+  },
+  "extractedAt": "2026-09-30T03:23:28.280Z"
+}

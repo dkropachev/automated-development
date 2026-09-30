@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/tidepool/tob-diff-review",
+  "target": "tidepool",
+  "tool": "tob-diff-review",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "5d8e88b23a74c5c23a6ddf38dab31a3bbfbd4c9afdfab705f924e237866d27a2",
+  "label": "Trail of Bits differential-review",
+  "findings": [
+    {
+      "file": "frame.go",
+      "line": 862,
+      "title": "PR description cites nonexistent issue numbers and a false fix claim for #1093",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The PR description references issues #1085, #1086, #1091, #1093, #1106 which do not exist in dkropachev/tidepool and appear to be upstream numbers; specifically the claim that #1093 'rejects dim < 1 in the metadata parsers' does not hold, since frame.go:862 still discards the Atoi error and never bounds dim, making this PR's negative-dimension check the only defense in this repo.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description falsely claims all new tests fail against pristine marshal.go/helpers.go",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The claim that 'every new test fails against pristine marshal.go/helpers.go' is inaccurate, since TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType pass on main and are regression guards rather than reproductions.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description includes 'Generated with Claude Code' attribution footer",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The PR description's 'Generated with Claude Code' line contradicts the user's global CLAUDE.md rule against adding Claude/Anthropic attribution.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 280,
+      "title": "helpers.go:280 change alters String() output for all unknown class names, not just…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The change at helpers.go:280 affects every unknown class name reaching getCassandraLongType (tuple, UDT, and collection element types too), altering String() text from custom() to custom(<name>), but the reviewer considers this consistent with frame.go:804 behavior and not a defect since nothing compares custom == \"\".",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 2120,
+      "cacheReadInputTokens": 21024,
+      "cacheCreationInputTokens": 19640,
+      "webSearchRequests": 0,
+      "costUSD": 0.1039688,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1333,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 43,
+    "sha256": "62e3d93e6d101119befcdef998e7053bc59feb219c4f7c175b35da4be877af04"
+  },
+  "extractedAt": "2026-09-30T03:29:03.673Z"
+}

@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/ironweave/mattpocock-review",
+  "target": "ironweave",
+  "tool": "mattpocock-review",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "1150da7743ae4714006ff72721ad9c7e0a06ca88daf452aa61520e30c31434dd",
+  "label": "Matt Pocock code-review",
+  "findings": [
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commits lack DCO Signed-off-by trailer required by contributing.md",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "All three commits (f545c28a, 5e25ebdb, 69da8f5b) are missing a Signed-off-by trailer, violating doc/contributing.md's requirement to use git commit -s for DCO.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commits and PR body carry Claude attribution trailers/lines",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "All three commits carry 'Co-Authored-By: Claude ...' trailers and the PR body has a 'Generated with Claude Code' line, violating the user's global CLAUDE.md attribution rule.",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 343,
+      "title": "New doxygen comment stacked on old comment leaves two comment styles on one declaration",
+      "severity": "low",
+      "kind": "style",
+      "claim": "At rpc_types.hh:343 and :390, a new '///' doxygen block is stacked on top of the pre-existing '// send data Out...' / '// receive data In...' comment, leaving two comment styles; the old line should be folded in or dropped.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "title": "const_cast used to mutate from const negotiate() instead of a mutable member",
+      "severity": "low",
+      "kind": "style",
+      "claim": "rpc_test.cc:1957 uses const_cast<hook_capturing_compressor_factory*>(this)->hooks.push_back(...); the existing cfactory in the same file solves the same problem with a mutable member instead.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1940,
+      "title": "static inline const sstring name declaration differs from neighbouring patterns",
+      "severity": "low",
+      "kind": "style",
+      "claim": "rpc_test.cc:1940 uses 'static inline const sstring name' which differs from neighbouring patterns of a member 'name' or a function-local 'static const'; cosmetic.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "Exchange/then_wrapped/ignore_ready_future shape confirmed consistent with existing…",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The std::exchange + then_wrapped + ignore_ready_future() shape at rpc.cc:562-570 matches stop_send_loop() (rpc.cc:225-228) and send() (rpc.cc:325); explicitly checked and found consistent, no finding.",
+      "selfRejected": true
+    },
+    {
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 307,
+      "title": "_stream_closing placement/comment confirmed consistent with _sink_closed_future",
+      "severity": "low",
+      "kind": "style",
+      "claim": "_stream_closing at rpc.hh:307 is placed and commented like _sink_closed_future above it; explicitly checked and found fine.",
+      "selfRejected": true
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1922,
+      "title": "Possible duplicated code between test_socket_impl and rpc_socket_impl",
+      "severity": "low",
+      "kind": "design",
+      "claim": "test_socket_impl::set_reuseaddr/get_reuseaddr/shutdown (1922-1935) repeat rpc_socket_impl (lines 157-175); noted as a possible duplication smell but deemed unavoidable since no reusable wrapper exists in tests/unit.",
+      "selfRejected": true
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1900,
+      "title": "test_connected_socket_impl is a 16-method pure forwarder (possible Middle Man)",
+      "severity": "low",
+      "kind": "design",
+      "claim": "test_connected_socket_impl (1900-1919) is flagged as a possible Middle Man smell, but since connected_socket_impl is abstract and no reusable wrapper exists, this is deemed unavoidable.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "No Mysterious Names, Speculative Generality or Shotgun Surgery smells found",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Checked for Mysterious Names, Speculative Generality and Shotgun Surgery smells; flag, check, drain and test are minimal and co-located, so none found.",
+      "selfRejected": true
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 293,
+      "title": "send() confirmed to correctly return closed_error once _stream_closing is set",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "send() (rpc.cc:293) returns closed_error once _stream_closing is set; the expired-timeout early return is inside the guarded branch and cannot bypass it. Checked and confirmed correct.",
+      "selfRejected": true
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 0,
+      "title": "_outgoing_queue_ready synchronization confirmed safe against races with stream_close()",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "_outgoing_queue_ready is the last accepted entry's done future, set only after send_entry() writes and flushes; nothing accepted before the flag can be un-chained when stream_close() exchanges it, and nothing can exchange it afterwards since send() is refused; exceptional case handled by then_wrapped/ignore_ready_future. Checked and confirmed correct.",
+      "selfRejected": true
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 231,
+      "title": "write_buf.close() call sites and stream_close() reachability confirmed safe for…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "write_buf.close() has only two call sites (rpc.cc:231, :569); stream_close() is reached only via close_sink()/close_source() (rpc.hh:346-361), so the flag is never set on a non-stream connection, and server stream connections share the same code so the server side is covered. Checked and confirmed correct.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR claim that setting _error instead is not an option confirmed to hold",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The PR's claim that 'setting _error instead is not an option' holds: abort() skips shutdown_input() if _error is set, and stop_send_loop() calls shutdown_output() immediately. Checked and confirmed correct.",
+      "selfRejected": true
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "client_factory.hooks.back() confirmed to correctly capture the stream connection's hook",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "client_factory.hooks.back() is indeed the stream connection's hook because the parent negotiates before make_stream_sink() returns, and the catch swallows only closed_error. Checked and confirmed correct.",
+      "selfRejected": true
+    },
+    {
+      "file": "include/seastar/rpc/rpc_impl.hh",
+      "line": 935,
+      "title": "Docs claim that dropping an unclosed sink is an error confirmed accurate",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "~sink_impl asserts sink_closed() (rpc_impl.hh:935), so the doc claim 'dropping an unclosed sink is an error' is true; rpc::source has no close(). Checked and confirmed correct.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "'Refs #3653' confirmed to correctly point to a related but distinct bug",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The 'Refs #3653' reference resolves upstream to a related but distinct bug, and is appropriate. Checked and confirmed correct.",
+      "selfRejected": true
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1966,
+      "title": "Server-side window fix is untested",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "server_factory.hooks is captured but never used at rpc_test.cc:1966-1970; only the client's stream stream_close() is exercised, even though the spec states the same code serves server::connection so the server side is exposed too.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2017,
+      "title": "Test hangs instead of failing cleanly on an unexpected exception",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "If the hook throws anything other than closed_error, the exception propagates before st.release_close.set_value() (line 2017 vs :2026), so the parked data_sink::close() never resolves and the failure shows as a hang or ~sink_impl assert; a scope guard releasing the close would fix this.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 111,
+      "title": "Doc overstates that a throw always closes the source",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "doc/rpc-streaming.md:111-112 and rpc_types.hh:387 claim throwing is what closes the source, but only failures from stream_receive() call close_source() (rpc_impl.hh:961-966); an exception thrown by unmarshall inside process_one_buffer (rpc_impl.hh:942-949) propagates without closing the source, so the claim is not strictly accurate.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Disclosed scope expansion beyond the referenced issue",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Commit 69da8f5b (doc section + doxygen) is a scope expansion not requested by upstream issue #3663, but the PR description declares it and marks it as non-backport.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Claim that the test fails without the fix could not be verified (no build)",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The claim that the test fails without the fix is plausible from output_stream::close()/flush() behavior but was not verified, since there is no build/ directory in this checkout so the test could not be run.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit subject prefixes confirmed to comply with repo convention",
+      "severity": "low",
+      "kind": "style",
+      "claim": "Subject prefixes (rpc:, rpc_test:) comply with repository convention. Checked and confirmed correct.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Code confirmed to comply with coding-style.md (tabs, line length, generic lambdas)",
+      "severity": "low",
+      "kind": "style",
+      "claim": "Checked against coding-style.md (which the sub-agent didn't see): no tabs, no C++ lines over 160 chars, no generic lambdas found; clean.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 6,
+      "outputTokens": 12998,
+      "cacheReadInputTokens": 116265,
+      "cacheCreationInputTokens": 33385,
+      "webSearchRequests": 0,
+      "costUSD": 0.286785,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 5652,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 28,
+    "sha256": "f748354af9901f97fddd5d7f6890ab1f6fe6579985390921071ceb3f3963416a"
+  },
+  "extractedAt": "2026-09-30T03:19:08.675Z"
+}

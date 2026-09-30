@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "createdAt": "2026-09-30T04:17:09.240Z",
+  "manifestSha256": "42677cc95dd3c77d7b727c4c066dbfd4f817c13742ceff7affdb25c3c41929a6",
+  "sealSha256": "e8cd94a6cf8e19ecf9ed4bfabe624be4bd8ae2857a535986da9b9ded2c6ec1eb",
+  "findings": [
+    {
+      "file": "findings/ironweave/anthropic-pr-review.json",
+      "sha256": "f87886533e41150f8ed1d653d9b6869660ab13ba90b11751bd0d5a5934a8333a"
+    },
+    {
+      "file": "findings/ironweave/builtin-code-review.json",
+      "sha256": "6d083009ebb1735fd45c7049fe24e2bf2eca7a2dfd65d5f74050da410c78b871"
+    },
+    {
+      "file": "findings/ironweave/ce-code-review.json",
+      "sha256": "d735572bee45e05bd7b196f189539fc60e0ad664ee82508d3f26d8c7b5f7932e"
+    },
+    {
+      "file": "findings/ironweave/mattpocock-review.json",
+      "sha256": "46a6c91f8a208abeb984522d792036a9b677e0544e35f360b951abeffa58478a"
+    },
+    {
+      "file": "findings/ironweave/superpowers-review.json",
+      "sha256": "05df5150840271a2c848284dc27f421fff0907c18b04f35aa6423e8825abc0bf"
+    },
+    {
+      "file": "findings/ironweave/tob-diff-review.json",
+      "sha256": "9e1cb8b228020df0991661c22afb011647f6937bc5035ecc11d9f03965068395"
+    },
+    {
+      "file": "findings/quillstone/anthropic-pr-review.json",
+      "sha256": "333e1be9d771e94d8cb89b9dfadac5cc02285e772b498b4fad7e5273381c9a21"
+    },
+    {
+      "file": "findings/quillstone/builtin-code-review.json",
+      "sha256": "f07d72f3a43c20776175adee24b27369b96aabcafae8a2abc1641b5071c0615f"
+    },
+    {
+      "file": "findings/quillstone/ce-code-review.json",
+      "sha256": "b0ba393d1361411ce03b4478f0ef685fdc3b1590245461c2f926679bad65bf90"
+    },
+    {
+      "file": "findings/quillstone/mattpocock-review.json",
+      "sha256": "c4c92a8ebfb9d4a23c9e39fc77167473e2a5c5f1315bafa8039998c774cab393"
+    },
+    {
+      "file": "findings/quillstone/superpowers-review.json",
+      "sha256": "fa1672562b1f72a0545f42a994d20f6b366e4e8c2f7d0a9a60a02be8be91238a"
+    },
+    {
+      "file": "findings/quillstone/tob-diff-review.json",
+      "sha256": "9f2887370f4d7102c448dbe2d639d4ef6b7bad388e8e85ccb1649dc0baaa8b55"
+    },
+    {
+      "file": "findings/quillstone/tob-rust-review.json",
+      "sha256": "21705c02bd3708480f7560f99ede3703c716ab953627542abf5ccdee9859853a"
+    },
+    {
+      "file": "findings/tidepool/anthropic-pr-review.json",
+      "sha256": "60012162158f17fed8d6c5b35a6356364a277e6aa0c122fcbc69aafc7e132c15"
+    },
+    {
+      "file": "findings/tidepool/builtin-code-review.json",
+      "sha256": "66e4da45c84a50e5b27d1231fa145b6fb48bdefa7cd85944201f6bb62ae4b10a"
+    },
+    {
+      "file": "findings/tidepool/ce-code-review.json",
+      "sha256": "b5cdd6630819e2a8c37ff9bb89544f44e1fa280bfaad695bb8383f01ea44e1e0"
+    },
+    {
+      "file": "findings/tidepool/mattpocock-review.json",
+      "sha256": "e786f693a4a7a400418b65ef036b6c861c2cfa448add556470225dcf320c66d9"
+    },
+    {
+      "file": "findings/tidepool/superpowers-review.json",
+      "sha256": "d88edf44628eee7ed9773161b3441a07f49259826a7e59088cf7da9b35a53521"
+    },
+    {
+      "file": "findings/tidepool/tob-diff-review.json",
+      "sha256": "06ad47e8504f590015af7fdaa507c24c594db31d059d7800abe3c6361b99e0d8"
+    }
+  ],
+  "judgements": [
+    {
+      "file": "judgement/ironweave.json",
+      "sha256": "7107212374142f72a6eb6678a341e57c6f16a2bda78e9057eae76aa2d4e520c5"
+    },
+    {
+      "file": "judgement/quillstone.json",
+      "sha256": "1fac0421bfa864d52db12794f94fa627c9d3470dfb227587c56bb819cd818d25"
+    },
+    {
+      "file": "judgement/tidepool.json",
+      "sha256": "d54fcb8e8acdfdec95ea05d15757f25b5ed7581623c3bf10a2ad8e07d31843a0"
+    }
+  ],
+  "quota": {
+    "file": "quota.jsonl",
+    "sha256": "ea0c913d7fbca3d3acfdd79648b41458b383bfd3a61c2bad73ef3bed5ad90513",
+    "records": 47,
+    "finalLine": 47
+  },
+  "probe": {
+    "file": "probe.json",
+    "sha256": "4bb24ab15e892c41389a1b2bb22ddafd18dd5468d6fe90f3714fc0a972137e30"
+  }
+}

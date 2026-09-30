@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "canonicalModel": "claude-fable-5-1",
+  "reply": "OK",
+  "reportedCostUsd": 0.59612,
+  "reportedUsage": {
+    "input_tokens": 2,
+    "cache_creation_input_tokens": 29795,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 4,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 29795,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 4,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 29795,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 29795
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-fable-5-1": {
+      "inputTokens": 2,
+      "outputTokens": 4,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 29795,
+      "webSearchRequests": 0,
+      "costUSD": 0.59612,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-fable-5-1",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 1,
+    "sha256": "e5437cabc0e627496a4e59ec4336bc4b07f6dcc14a695bfa35d66c561e468f11"
+  },
+  "probedAt": "2026-09-29T13:15:51.679Z"
+}

@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 2,
+  "runId": "fable-5-1-2026-09-29",
+  "requestedModel": "claude-fable-5-1",
+  "modelLabel": "Claude Fable 5.1",
+  "claudeVersion": "2.1.284 (Claude Code)",
+  "configSha256": "2eb4f7044fc4886a2f402ff30c73650731b0a2378b0ec3cad43024ab04e43c2a",
+  "cellId": "fable-5-1-2026-09-29/ironweave/tob-diff-review",
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "tool": "tob-diff-review",
+  "label": "Trail of Bits differential-review",
+  "source": "differential-review@trailofbits",
+  "prompt": "/differential-review:diff-review https://github.com/dkropachev/ironweave/pull/1\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 210001,
+  "reportedCostUsd": 2.1715910000000003,
+  "reportedUsage": {
+    "input_tokens": 548,
+    "cache_creation_input_tokens": 61281,
+    "cache_read_input_tokens": 912564,
+    "output_tokens": 14247,
+    "output_tokens_details": {
+      "thinking_tokens": 7809
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 61281,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 786,
+        "cache_read_input_tokens": 70290,
+        "cache_creation_input_tokens": 1579,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1579
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-fable-5-1": {
+      "inputTokens": 548,
+      "outputTokens": 14247,
+      "cacheReadInputTokens": 912564,
+      "cacheCreationInputTokens": 61281,
+      "webSearchRequests": 0,
+      "costUSD": 2.1715910000000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 7809,
+      "canonicalModel": "claude-fable-5-1",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 20,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "e1d7ae25-3dde-4fa2-9732-26f676789cc1",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 548,
+    "output": 14247,
+    "thinking": 7809,
+    "cacheRead": 912564,
+    "cacheCreation": 61281,
+    "costUsd": 2.1715910000000003,
+    "sessions": 1,
+    "models": {
+      "claude-fable-5-1": 2.1715910000000003
+    },
+    "bySession": {
+      "e1d7ae25-3dde-4fa2-9732-26f676789cc1": {
+        "costUsd": 2.1715910000000003,
+        "startTime": 1790702300826,
+        "tokens": 988640
+      }
+    },
+    "rawMessages": 35,
+    "rawOutput": 32474,
+    "rawCacheRead": 1660684,
+    "since": 0,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-2-bench-work-ironweave-runs-fable-5-1-2026-09-29-tob-diff-review-attempt-szIu1E-repo",
+    "total": 988640
+  },
+  "result": "The fix is sound. I found no correctness or security defects in the code change.\n\nWhat I verified:\n\n- **`send()` gate** (`src/rpc/rpc.cc:293`): every caller is accounted for. The sink data path is already guarded by `sink_closed()`. The eof marker is sent before `close_sink()` runs, so it is never refused. Client requests and server replies run on non-stream connections, where `stream_close()` never executes. The compressor `send_empty_frame` hooks at `src/rpc/rpc.cc:696` and `src/rpc/rpc.cc:1103` are the only unguarded callers, and the flag now closes that window.\n- **Queue drain** (`src/rpc/rpc.cc:562`): swapping `_outgoing_queue_ready` for a ready future is safe. No new entries can be enqueued afterwards, so the `withdraw()` chain invariant holds, and `stop_send_loop()` still awaits the whole queue transitively through `_sink_closed_future`.\n- **Race with a concurrent loop error**: if `stop_send_loop()` runs first, `stream_close()` sees `error()` and skips. If `stream_close()` runs first, withdrawn entries make the drained future exceptional, which is ignored, and the buffer still gets closed. Same outcome as before the change.\n- **Docs** match the code: `~sink_impl` asserts on an unclosed sink, and `source` has no `close()`.\n\nLow-severity, test-only notes:\n\n1. `tests/unit/rpc_test.cc` `hook_capturing_compressor_factory::negotiate`: `const_cast` on `this` to push hooks. A `mutable` member says the same thing without the cast.\n2. `tests/unit/rpc_test.cc` `test_stream_send_after_stream_close`: the wrapped data sink holds a reference to the stack-local `test_sink_state`. It is safe because close is released and awaited before scope exit, but the lifetime is guaranteed by sequencing rather than ownership.\n\nAside: the PR body ends with a \"Generated with Claude Code\" line, which your global instructions say to never include.\n\nReport written to `/tmp/DIFFERENTIAL_REVIEW_REPORT_ironweave_pr1.md`. Coverage limit: static review only, the new test was not run here, and Scylla's compressor is outside this repo.",
+  "quotaEvidence": {
+    "file": "quota.jsonl",
+    "line": 8,
+    "sha256": "a12343a6ebc885f539b4caad27774f7da81b9f02b11729368004a24ec04a2422"
+  },
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/ironweave/runs/fable-5-1-2026-09-29/tob-diff-review/attempt-szIu1E/repo",
+  "finishedAt": "2026-09-29T17:21:50.792Z"
+}
