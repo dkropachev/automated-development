@@ -2,6 +2,7 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
+const { spawnSync } = require('node:child_process')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
@@ -201,6 +202,7 @@ test('Insights economics count only distinct cohort-adjudicated real issues', ()
       status: 'complete', cohortId: 'cohort', targetId: 'target-a', toolId: 'tool', toolLabel: 'Tool', toolSource: 'source',
       modelId: 'model', usage: { costUsd: 1, models: { model: 1 } },
       issues: [
+        { id: 'cohort/target-a/I0', verdict: 'real', scope: 'in-scope', severity: 'blocker' },
         realHigh,
         { id: 'cohort/target-a/I2', verdict: 'real', scope: 'in-scope', severity: 'medium' },
         { id: 'cohort/target-a/I3', verdict: 'real', scope: 'in-scope', severity: 'nit' },
@@ -219,28 +221,36 @@ test('Insights economics count only distinct cohort-adjudicated real issues', ()
   ]
   const groups = dashboardApp.calculateSkillModelGroups(runs, {}, {
     eligibleTargets: () => ['target-a'],
-    issueUniverse: (_targetIds, scope) => new Set(scope === 'in' ? ['I1', 'I2', 'I3', 'other'] : ['I1', 'I2', 'I3', 'I6', 'other']),
+    issueUniverse: (_targetIds, scope) => new Set(scope === 'in' ? ['I0', 'I1', 'I2', 'I3', 'other'] : ['I0', 'I1', 'I2', 'I3', 'I6', 'other']),
     issueKey: (targetId, issue) => issue.id || `${targetId}/${issue.issueId}`,
     testedModel: () => 'Model (requested)',
     total: (rows, getter) => rows.reduce((sum, row) => sum + getter(row), 0),
   })
 
   assert.equal(groups.length, 1)
-  assert.equal(groups[0].issues.size, 6, 'duplicate stable issue IDs must count once')
+  assert.equal(groups[0].issues.size, 7, 'duplicate stable issue IDs must count once')
   assert.equal(groups[0].cost, 2)
-  assert.equal(groups[0].allReal, 4)
-  assert.equal(groups[0].inReal, 3)
-  assert.equal(groups[0].efficiencyAll, 2)
-  assert.equal(groups[0].efficiencyIn, 1.5)
-  assert.equal(groups[0].severityHigh, 0.5, 'blocker false-positive and unproven issues must not enter severity yield')
-  assert.equal(groups[0].severityMedium, 1)
-  assert.equal(groups[0].severityLow, 1.5, 'real nits remain excluded from the low-or-higher threshold')
+  assert.equal(groups[0].allReal, 5)
+  assert.equal(groups[0].inReal, 4)
+  assert.equal(groups[0].efficiencyAll, 2.5)
+  assert.equal(groups[0].efficiencyIn, 2)
+  assert.equal(groups[0].severityHigh, 1, 'blocker false-positive and unproven issues must not enter severity yield')
+  assert.equal(groups[0].severityMedium, 1.5)
+  assert.equal(groups[0].severityLow, 2, 'real nits remain excluded from the low-or-higher threshold')
   assert.equal(groups[0].falsePositive, 1)
-  assert.equal(groups[0].decided, 5, 'unproven issues must not enter the false-positive-rate denominator')
-  assert.equal(groups[0].falsePositiveRate, 0.2)
-  assert.equal(groups[0].completenessAll, 0.8)
-  assert.equal(groups[0].completenessIn, 0.75)
-  assert.deepEqual(groups[0].perTarget, [{ targetId: 'target-a', completeness: 0.8, efficiency: 2 }])
+  assert.equal(groups[0].decided, 6, 'unproven issues must not enter the false-positive-rate denominator')
+  assert.equal(groups[0].falsePositiveRate, 1 / 6)
+  assert.equal(groups[0].completenessAll, 5 / 6)
+  assert.equal(groups[0].completenessIn, 0.8)
+  assert.deepEqual(groups[0].perTarget, [{ targetId: 'target-a', completeness: 5 / 6, efficiency: 2.5 }])
+})
+
+test('dashboard metric import stays side-effect free when CommonJS has a DOM global', () => {
+  const imported = spawnSync(process.execPath, ['-e', "global.document={getElementById(){throw new Error('dashboard booted')}}; require('./bench/dashboard/app')"], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  })
+  assert.equal(imported.status, 0, imported.stderr)
 })
 
 test('comparison overlap uses stable IDs only for the same target', () => {

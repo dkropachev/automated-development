@@ -114,6 +114,8 @@ try {
   // completed cohort lands, while this slice remains stable before and after that event.
   const home = render('home?model=claude-opus-5')
   assert.match(home.app, /Find the code-review skill worth its price\./)
+  assert.match(home.app, /cohort-adjudicated real findings/)
+  assert.doesNotMatch(home.app, /verified findings|verified issues|verified real/)
   assert.match(home.app, /<h2 id="leaders-title">Leaders<\/h2>/)
   assert.doesNotMatch(home.app, /Completeness leaders/)
   assert.match(home.app, /Best return for the money · All issues/)
@@ -293,6 +295,12 @@ try {
   assert.match(insights.app, /non-dominated frontier<span class="hint-mark"/)
   assert.match(insights.app, /Bubble size: <span class="hinted-label">False-positive rate/)
   assert.match(insights.app, /class="chart-link"[^>]*role="link"/)
+  assert.match(insights.app, /false-positive and unproven verdicts are excluded/)
+  assert.match(insights.app, /automated cohort-local judgements are not the manually reviewed canonical gold comparison/)
+
+  const findings = render('findings?model=claude-opus-5-5')
+  assert.match(findings.app, /Cohort-adjudicated real/)
+  assert.doesNotMatch(findings.app, /Verified real|verified real/)
 
   const skills = render('skills?model=claude-opus-5')
   assert.equal(count(skills.app, /class="skill-card"/g), 8)

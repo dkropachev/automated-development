@@ -458,9 +458,9 @@ function calculateSkillModelGroups(items, params, dependencies) {
   return groups
 }
 
-if (typeof module !== 'undefined') module.exports = { calculateSkillModelGroups }
-
-if (typeof document !== 'undefined') {
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { calculateSkillModelGroups }
+} else {
 (() => {
   const DATA = JSON.parse(document.getElementById('dashboard-data').textContent)
   const app = document.getElementById('app')
@@ -1041,13 +1041,13 @@ if (typeof document !== 'undefined') {
       skill.parked ? badge('did not finish', 'dnf') : null,
       el('h3', {}, hashLink(skill.label, `#skills/${encodeURIComponent(skill.id)}`)),
       el('p', {}, skill.description || 'No description is recorded for this skill.'),
-      el('span', { class: 'skill-facts' }, `${skill.rows.length} run${skill.rows.length === 1 ? '' : 's'} · ${stats.real} verified finding${stats.real === 1 ? '' : 's'} · ${fmt(stats.cost, 'money')} attempted cost`),
+      el('span', { class: 'skill-facts' }, `${skill.rows.length} run${skill.rows.length === 1 ? '' : 's'} · ${stats.real} cohort-adjudicated real finding${stats.real === 1 ? '' : 's'} · ${fmt(stats.cost, 'money')} attempted cost`),
     )
   }
 
   function completenessRankCard(group, rank, scope) {
     const score = group.completenessBreakdown[scope]
-    return landingRankCard(group, `#${rank}`, fmt(score.value, 'percent'), `${score.found} of ${score.possible} verified issues · ${group.coverage} target${group.coverage === 1 ? '' : 's'}`)
+    return landingRankCard(group, `#${rank}`, fmt(score.value, 'percent'), `${score.found} of ${score.possible} cohort-adjudicated real issues · ${group.coverage} target${group.coverage === 1 ? '' : 's'}`)
   }
 
   function renderLanding(params) {
@@ -1103,7 +1103,7 @@ if (typeof document !== 'undefined') {
         el('div', { class: 'landing-proof', 'aria-label': 'Benchmark size' },
           el('div', {}, el('strong', {}, fmt(catalogue.length)), el('span', {}, 'skills tested')),
           el('div', {}, el('strong', {}, fmt(leaderRuns.length)), el('span', {}, 'review runs')),
-          el('div', {}, el('strong', {}, fmt(verifiedReal.size)), el('span', {}, 'verified findings')),
+          el('div', {}, el('strong', {}, fmt(verifiedReal.size)), el('span', {}, 'cohort-adjudicated real findings')),
         ),
       ),
       leaderRuns.length ? null : el('div', { class: 'notice info evidence-note' }, `No benchmark runs recorded for ${modelLabel(selectedModel(params))} yet. Choose “All models / history” to inspect preserved earlier runs.`),
@@ -1115,47 +1115,47 @@ if (typeof document !== 'undefined') {
         el('div', { class: 'leader-section', 'aria-labelledby': 'value-leaders-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'value-leaders-title' }, `Best return for the money · ${sectionScope}`),
-            el('p', {}, 'Ranked by verified findings per attempted dollar. Failed and interrupted attempts are included in the cost.'),
+            el('p', {}, 'Ranked by cohort-adjudicated real findings per attempted dollar. Failed and interrupted attempts are included in the cost.'),
           ),
           el('div', { class: 'landing-rank-grid leader-grid' }, valueGroups.map((group, index) => landingRankCard(
             group,
             `#${index + 1}`,
             `${group.scopedFindingsPerDollar.toFixed(2)} findings / $`,
-            `${group.completenessBreakdown[completenessScope].found} verified findings · ${fmt(group.completenessBreakdown[completenessScope].value, 'percent')} coverage · ${fmt(group.cost, 'money')} attempted cost`,
+            `${group.completenessBreakdown[completenessScope].found} cohort-adjudicated real findings · ${fmt(group.completenessBreakdown[completenessScope].value, 'percent')} coverage · ${fmt(group.cost, 'money')} attempted cost`,
           ))),
         ),
         el('div', { class: 'leader-section', 'aria-labelledby': 'completeness-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'completeness-title' }, `Best coverage · ${sectionScope}`),
-            el('p', {}, 'Ranked by the share of distinct verified issues found. Major includes blocker and high severity; major + minor also includes medium.'),
+            el('p', {}, 'Ranked by the share of distinct cohort-adjudicated real issues found. Major includes blocker and high severity; major + minor also includes medium.'),
           ),
           el('div', { class: 'landing-rank-grid completeness-grid' }, completenessGroups.map((group, index) => completenessRankCard(group, index + 1, completenessScope))),
         ),
         el('div', { class: 'leader-section', 'aria-labelledby': 'fastest-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'fastest-title' }, `Fastest useful review · ${sectionScope}`),
-            el('p', {}, 'Ranked by elapsed minutes per verified finding. Lower is better; failed and interrupted attempts remain in the elapsed time.'),
+            el('p', {}, 'Ranked by elapsed minutes per cohort-adjudicated real finding. Lower is better; failed and interrupted attempts remain in the elapsed time.'),
           ),
           el('div', { class: 'landing-rank-grid fastest-grid' }, fastestGroups.map((group, index) => landingRankCard(
             group,
             `#${index + 1}`,
             `${group.scopedMinutesPerFinding.toFixed(2)} min / finding`,
-            `${group.completenessBreakdown[completenessScope].found} verified findings · ${group.attempts} attempt${group.attempts === 1 ? '' : 's'}`,
+            `${group.completenessBreakdown[completenessScope].found} cohort-adjudicated real findings · ${group.attempts} attempt${group.attempts === 1 ? '' : 's'}`,
           ))),
         ),
         el('div', { class: 'leader-section', 'aria-labelledby': 'unique-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'unique-title' }, `Most unique discoveries · ${sectionScope}`),
-            el('p', {}, 'Ranked by verified issues found by only one skill. Ties are broken by total verified findings.'),
+            el('p', {}, 'Ranked by cohort-adjudicated real issues found by only one skill. Ties are broken by total cohort-adjudicated real findings.'),
           ),
           el('div', { class: 'landing-rank-grid unique-grid' }, uniqueGroups.map((group, index) => landingRankCard(
             group,
             `#${index + 1}`,
             `${group.scopedUnique} unique finding${group.scopedUnique === 1 ? '' : 's'}`,
-            `${group.completenessBreakdown[completenessScope].found} verified findings in the selected count`,
+            `${group.completenessBreakdown[completenessScope].found} cohort-adjudicated real findings in the selected count`,
           ))),
         ),
-        el('p', { class: 'method-note' }, 'Model, count, and language apply to every leader calculation. Completeness means the share of distinct verified findings found on the selected targets a skill reviewed. This is a small benchmark: three pull requests, one per language.'),
+        el('p', { class: 'method-note' }, 'Model, count, and language apply to every leader calculation. Completeness means the share of distinct cohort-adjudicated real findings found on the selected targets a skill reviewed. Cohort-local judgements are not canonical gold. This is a small benchmark: three pull requests, one per language.'),
       ),
       el('section', { class: 'landing-section', 'aria-labelledby': 'skills-title' },
         el('div', { class: 'landing-section-head' },
@@ -1783,13 +1783,13 @@ if (typeof document !== 'undefined') {
       ], sort, (event) => viewParams(params, { decision: event.target.value === 'value' ? '' : event.target.value, decisionDir: '' }))),
     )
     frame(el('div', {},
-      compactHero('Choose a reviewer', 'Find the right skill for your constraints.', 'Rank skills, models under test, and languages using verified quality, cost, and reliability. Every result retains its evidence count.'),
+      compactHero('Choose a reviewer', 'Find the right skill for your constraints.', 'Rank skills, models under test, and languages using cohort-adjudicated quality, cost, and reliability. Every result retains its evidence count.'),
       chooseTabs(params, 'skills'),
       filterBar(params),
       el('section', { class: 'kpis decision-kpis' },
         kpi('Candidates', fmt(groups.length), groupBy.replace('skillModel', 'skill + model')),
         kpi('Evidence', runCountLink(base, fmt(base.length)), 'runs in current slice'),
-        kpi('Distinct real', fmt(distinctReal.size), 'verified issue IDs'),
+        kpi('Distinct real', fmt(distinctReal.size), 'cohort-adjudicated issue IDs'),
         kpi('Languages', fmt(new Set(base.map((run) => targetForRun(run)?.language)).size), 'in current slice'),
       ),
       el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Decision leaderboard'), el('p', {}, 'Successful zero-yield runs remain in the denominator. “Best value” weights high ×8, medium ×4, low ×1, false positive −3, then divides by attempted cost.')), controls), leaderboard(groups, params, groupBy)),
@@ -1849,7 +1849,7 @@ if (typeof document !== 'undefined') {
           kpi('Combined coverage', fmt(unionReal.size), 'distinct real issues'),
         ),
         el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Head-to-head evidence'), el('p', {}, 'Unique contribution shows what each skill adds beyond the other selected skills.'))), comparisonMatrix(groups)),
-        el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Cost / completeness'), el('p', {}, 'Upper-left candidates provide more verified coverage for less total spend.'))), el('div', { class: 'panel-body' }, paretoChart(groups))),
+        el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Cost / completeness'), el('p', {}, 'Upper-left candidates provide more cohort-adjudicated coverage for less total spend.'))), el('div', { class: 'panel-body' }, paretoChart(groups))),
       ),
     ))
   }
@@ -1945,8 +1945,8 @@ if (typeof document !== 'undefined') {
       filterBar(params),
       el('section', { class: 'kpis decision-kpis' },
         kpi('Distinct issues', fmt(rows.length), 'in current slice'),
-        kpi('Verified real', fmt(rows.filter((issue) => issue.verdict === 'real').length), 'unique target issue IDs'),
-        kpi('High + medium', fmt(rows.filter((issue) => issue.verdict === 'real' && ['blocker', 'high', 'medium'].includes(issue.severity)).length), 'verified real'),
+        kpi('Cohort-adjudicated real', fmt(rows.filter((issue) => issue.verdict === 'real').length), 'unique target issue IDs'),
+        kpi('High + medium', fmt(rows.filter((issue) => issue.verdict === 'real' && ['blocker', 'high', 'medium'].includes(issue.severity)).length), 'cohort-adjudicated real'),
         kpi('Single reporter', fmt(rows.filter((issue) => reporterCount(issue) === 1).length), 'all verdicts'),
       ),
       el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Judged issue catalogue'), el('p', {}, `${shown.length} issues match the local verdict and severity controls.`)), findingControls), el('div', { class: 'panel-body' }, shown.length ? list : el('div', { class: 'empty' }, 'No findings match these filters.'))),
@@ -1960,7 +1960,7 @@ if (typeof document !== 'undefined') {
     const distinctReal = new Set(visible.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
 
     const content = el('div', {},
-      compactHero('Run evidence', 'Audit every benchmark run.', 'Inspect cost, time, token composition, extracted claims, and verified outcomes. Select two rows for a raw run-to-run comparison.'),
+      compactHero('Run evidence', 'Audit every benchmark run.', 'Inspect cost, time, token composition, extracted claims, and cohort-adjudicated outcomes. Select two rows for a raw run-to-run comparison.'),
       filterBar(params, { search: true, status: true }),
       el('section', { class: 'kpis', 'aria-label': 'Filtered run totals' },
         kpi('Runs', fmt(visible.length), hashLink(`${DATA.runs.length} stored`, '#runs', 'runs-link')),
