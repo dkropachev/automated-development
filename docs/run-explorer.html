@@ -396,6 +396,71 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
 <script>
 'use strict';
 
+function calculateSkillModelGroups(items, params, dependencies) {
+  const { eligibleTargets, issueUniverse, issueKey, testedModel, total } = dependencies
+  const grouped = new Map()
+  const usable = items.filter((run) => run.status === 'complete' && run.usage.costUsd > 0)
+  for (const run of usable) {
+    const modelNames = Object.keys(run.usage.models || {}).sort()
+    const modelMix = modelNames.length ? modelNames.join(' + ') : 'model unavailable'
+    const modelUnderTest = testedModel(run)
+    const key = `${run.toolId}::${run.modelId || 'unavailable'}::${modelMix}`
+    if (!grouped.has(key)) grouped.set(key, { key, toolId: run.toolId, label: run.toolLabel, source: run.toolSource, modelUnderTest, modelMix, runs: [], cost: 0, issues: new Map() })
+    const group = grouped.get(key)
+    group.runs.push(run)
+    group.cost += run.usage.costUsd
+    for (const issue of run.issues) group.issues.set(issueKey(run.targetId, issue), { issue, targetId: run.targetId })
+  }
+  const groups = []
+  for (const group of grouped.values()) {
+    const targetIds = eligibleTargets(group.toolId, params)
+    const cohortTargets = new Set(group.runs.map((run) => `${run.cohortId}/${run.targetId}`))
+    const rows = [...group.issues.values()].filter((row) => targetIds.includes(row.targetId))
+    const real = rows.filter((row) => row.issue.verdict === 'real')
+    const inScope = real.filter((row) => row.issue.scope === 'in-scope')
+    const falsePositive = rows.filter((row) => row.issue.verdict === 'false-positive').length
+    const decided = real.length + falsePositive
+    const universeAll = issueUniverse(targetIds, 'all', params, cohortTargets).size
+    const universeIn = issueUniverse(targetIds, 'in', params, cohortTargets).size
+    const severity = (allowed) => real.filter((row) => allowed.includes(row.issue.severity)).length
+    const perTarget = targetIds.map((targetId) => {
+      const targetRuns = group.runs.filter((run) => run.targetId === targetId)
+      if (!targetRuns.length) return { targetId, completeness: null, efficiency: null }
+      const targetCost = total(targetRuns, (run) => run.usage.costUsd)
+      const targetReal = new Set()
+      for (const run of targetRuns) for (const issue of run.issues) if (issue.verdict === 'real') targetReal.add(issueKey(targetId, issue))
+      const denominator = issueUniverse([targetId], 'all', params, cohortTargets).size
+      return {
+        targetId,
+        completeness: denominator ? targetReal.size / denominator : null,
+        efficiency: targetCost > 0 ? targetReal.size / targetCost : null,
+      }
+    })
+    groups.push({
+      ...group,
+      targetIds,
+      coverage: new Set(group.runs.map((run) => run.targetId).filter((id) => targetIds.includes(id))).size,
+      allReal: real.length,
+      inReal: inScope.length,
+      efficiencyAll: group.cost > 0 ? real.length / group.cost : null,
+      efficiencyIn: group.cost > 0 ? inScope.length / group.cost : null,
+      severityHigh: group.cost > 0 ? severity(['blocker', 'high']) / group.cost : null,
+      severityMedium: group.cost > 0 ? severity(['blocker', 'high', 'medium']) / group.cost : null,
+      severityLow: group.cost > 0 ? severity(['blocker', 'high', 'medium', 'low']) / group.cost : null,
+      completenessAll: universeAll ? real.length / universeAll : null,
+      completenessIn: universeIn ? inScope.length / universeIn : null,
+      falsePositiveRate: decided ? falsePositive / decided : null,
+      falsePositive,
+      decided,
+      perTarget,
+    })
+  }
+  return groups
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { calculateSkillModelGroups }
+} else {
 (() => {
   const DATA = JSON.parse(document.getElementById('dashboard-data').textContent)
   const app = document.getElementById('app')
@@ -461,27 +526,27 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
     'Candidate': 'The skill, model under test, or language currently being ranked.',
     'Cache read': 'Previously cached prompt tokens reused by the model.',
     'Claims': 'Raw findings extracted from a run before duplicate merging and verification.',
-    'Completeness': 'Distinct real issues found divided by all real issues found by eligible complete runs.',
+    'Completeness': 'Distinct cohort-adjudicated real issues found divided by all cohort-adjudicated real issues found by eligible complete runs.',
     'Completeness / dollar': 'Completeness percentage points divided by total recorded cost for every attempted run.',
     'Cost': 'Recorded API usage cost in U.S. dollars.',
-    'Cost / real': 'Total recorded cost for attempted runs divided by distinct verified real issues.',
-    'Cohort-local real': 'Distinct verified real issues in this completed cohort after applying the current filters. Cohort-local judgements are not a shared cross-model gold standard.',
+    'Cost / real': 'Total recorded cost for attempted runs divided by distinct cohort-adjudicated real issues.',
+    'Cohort-local real': 'Distinct issues adjudicated real in this completed cohort after applying the current filters. Cohort-local judgements are not a shared cross-model gold standard.',
     'Local real / review $': 'Cohort-local real issues per recorded reviewer-call dollar. Extraction and judgement spend are excluded.',
     'Median review cost': 'Median recorded reviewer-call cost in the completed cohort after applying the current filters.',
     'Review spend': 'Total recorded reviewer-call spend in the completed cohort after applying the current filters. Extraction and judgement spend are excluded.',
     'Δ': 'Right value minus left value.',
-    'Distinct real': 'Verified real issues in the cohort, counted once per target.',
+    'Distinct real': 'Cohort-adjudicated real issues, counted once per target.',
     'Extracted claims': 'Raw findings extracted from a run before duplicate merging and verification.',
     'False positives': 'Judged issues determined not to be real problems.',
     'False-positive rate': 'False positives divided by real issues plus false positives; unproven issues are excluded.',
-    'Findings / dollar': 'Distinct verified real issues found per U.S. dollar of recorded cost.',
-    'High + med': 'Distinct verified real issues rated blocker, high, or medium severity.',
-    'In scope': 'Only verified real issues within the benchmark’s review scope.',
-    'In-scope real': 'Verified real issues within the benchmark’s review scope.',
-    'In-scope real findings': 'Verified real issues within the benchmark’s review scope.',
+    'Findings / dollar': 'Distinct cohort-adjudicated real issues found per U.S. dollar of recorded cost; false-positive and unproven verdicts are excluded.',
+    'High + med': 'Distinct cohort-adjudicated real issues rated blocker, high, or medium severity.',
+    'In scope': 'Only cohort-adjudicated real issues within the benchmark’s review scope.',
+    'In-scope real': 'Cohort-adjudicated real issues within the benchmark’s review scope.',
+    'In-scope real findings': 'Cohort-adjudicated real issues within the benchmark’s review scope.',
     'Input': 'Tokens supplied to the model, excluding prompt-cache reads.',
-    'Minutes / real': 'Elapsed wall-clock minutes divided by verified real issues.',
-    'Only this skill': 'Verified real issues found by this skill and no other selected skill.',
+    'Minutes / real': 'Elapsed wall-clock minutes divided by cohort-adjudicated real issues.',
+    'Only this skill': 'Cohort-adjudicated real issues found by this skill and no other selected skill.',
     'Output': 'Tokens generated by the model, including thinking tokens when reported.',
     'Precision': 'Real issues divided by real issues plus false positives; unproven issues are excluded.',
     'Canonical real': 'Distinct canonical issues with a real verdict found by eligible complete, non-salvaged cells.',
@@ -489,21 +554,21 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
     'Median cost': 'Median recorded benchmark cost across matched attempts with recorded cost.',
     'Median runtime': 'Median recorded wall-clock time across matched attempts with recorded runtime.',
     'Recorded total': 'Total recorded benchmark spend across every matched attempt; no vendor list prices are used.',
-    'PR-introduced real': 'Verified real issues introduced by the pull request under review.',
+    'PR-introduced real': 'Cohort-adjudicated real issues introduced by the pull request under review.',
     'Ratio': 'Right value divided by left value.',
-    'Real': 'Distinct judged issues attributed to the run and verified as real problems.',
-    'Real / $': 'Verified real issues found per U.S. dollar of recorded cost.',
-    'Real / dollar': 'Verified real issues found per U.S. dollar of recorded cost.',
-    'Real / run': 'Distinct verified real issues divided by complete runs.',
-    'Real findings': 'Distinct judged issues attributed to the run and verified as real problems.',
+    'Real': 'Distinct judged issues attributed to the run and adjudicated real within its cohort.',
+    'Real / $': 'Cohort-adjudicated real issues found per U.S. dollar of recorded cost.',
+    'Real / dollar': 'Cohort-adjudicated real issues found per U.S. dollar of recorded cost.',
+    'Real / run': 'Distinct cohort-adjudicated real issues divided by complete runs.',
+    'Real findings': 'Distinct judged issues attributed to the run and adjudicated real within its cohort.',
     'Recorded cost (USD)': 'Recorded API usage cost in U.S. dollars.',
-    'Shared': 'Verified real issues also found by at least one other selected skill.',
+    'Shared': 'Cohort-adjudicated real issues also found by at least one other selected skill.',
     'Success': 'Complete runs divided by all attempted runs.',
     'Status': 'Run outcome: complete, failed, or did not finish (DNF).',
     'Thinking': 'Reasoning tokens reported within the model’s output-token count.',
     'Thinking (within output)': 'Reasoning tokens shown separately for visibility but already included in output tokens.',
     'Tokens': 'Input, output, cache-read, and cache-creation tokens combined; thinking is already included in output.',
-    'Unique real': 'Verified real issues reported by this run and no other run on the same target.',
+    'Unique real': 'Cohort-adjudicated real issues reported by this run and no other run on the same target.',
     'Unproven': 'Judged issues without enough evidence for a real or false-positive verdict; excluded from precision.',
     'Wall': 'Elapsed wall-clock time from the start to the end of the run.',
     'Wall time': 'Elapsed wall-clock time from the start to the end of the run.',
@@ -976,13 +1041,13 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
       skill.parked ? badge('did not finish', 'dnf') : null,
       el('h3', {}, hashLink(skill.label, `#skills/${encodeURIComponent(skill.id)}`)),
       el('p', {}, skill.description || 'No description is recorded for this skill.'),
-      el('span', { class: 'skill-facts' }, `${skill.rows.length} run${skill.rows.length === 1 ? '' : 's'} · ${stats.real} verified finding${stats.real === 1 ? '' : 's'} · ${fmt(stats.cost, 'money')} attempted cost`),
+      el('span', { class: 'skill-facts' }, `${skill.rows.length} run${skill.rows.length === 1 ? '' : 's'} · ${stats.real} cohort-adjudicated real finding${stats.real === 1 ? '' : 's'} · ${fmt(stats.cost, 'money')} attempted cost`),
     )
   }
 
   function completenessRankCard(group, rank, scope) {
     const score = group.completenessBreakdown[scope]
-    return landingRankCard(group, `#${rank}`, fmt(score.value, 'percent'), `${score.found} of ${score.possible} verified issues · ${group.coverage} target${group.coverage === 1 ? '' : 's'}`)
+    return landingRankCard(group, `#${rank}`, fmt(score.value, 'percent'), `${score.found} of ${score.possible} cohort-adjudicated real issues · ${group.coverage} target${group.coverage === 1 ? '' : 's'}`)
   }
 
   function renderLanding(params) {
@@ -1038,7 +1103,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
         el('div', { class: 'landing-proof', 'aria-label': 'Benchmark size' },
           el('div', {}, el('strong', {}, fmt(catalogue.length)), el('span', {}, 'skills tested')),
           el('div', {}, el('strong', {}, fmt(leaderRuns.length)), el('span', {}, 'review runs')),
-          el('div', {}, el('strong', {}, fmt(verifiedReal.size)), el('span', {}, 'verified findings')),
+          el('div', {}, el('strong', {}, fmt(verifiedReal.size)), el('span', {}, 'cohort-adjudicated real findings')),
         ),
       ),
       leaderRuns.length ? null : el('div', { class: 'notice info evidence-note' }, `No benchmark runs recorded for ${modelLabel(selectedModel(params))} yet. Choose “All models / history” to inspect preserved earlier runs.`),
@@ -1050,47 +1115,47 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
         el('div', { class: 'leader-section', 'aria-labelledby': 'value-leaders-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'value-leaders-title' }, `Best return for the money · ${sectionScope}`),
-            el('p', {}, 'Ranked by verified findings per attempted dollar. Failed and interrupted attempts are included in the cost.'),
+            el('p', {}, 'Ranked by cohort-adjudicated real findings per attempted dollar. Failed and interrupted attempts are included in the cost.'),
           ),
           el('div', { class: 'landing-rank-grid leader-grid' }, valueGroups.map((group, index) => landingRankCard(
             group,
             `#${index + 1}`,
             `${group.scopedFindingsPerDollar.toFixed(2)} findings / $`,
-            `${group.completenessBreakdown[completenessScope].found} verified findings · ${fmt(group.completenessBreakdown[completenessScope].value, 'percent')} coverage · ${fmt(group.cost, 'money')} attempted cost`,
+            `${group.completenessBreakdown[completenessScope].found} cohort-adjudicated real findings · ${fmt(group.completenessBreakdown[completenessScope].value, 'percent')} coverage · ${fmt(group.cost, 'money')} attempted cost`,
           ))),
         ),
         el('div', { class: 'leader-section', 'aria-labelledby': 'completeness-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'completeness-title' }, `Best coverage · ${sectionScope}`),
-            el('p', {}, 'Ranked by the share of distinct verified issues found. Major includes blocker and high severity; major + minor also includes medium.'),
+            el('p', {}, 'Ranked by the share of distinct cohort-adjudicated real issues found. Major includes blocker and high severity; major + minor also includes medium.'),
           ),
           el('div', { class: 'landing-rank-grid completeness-grid' }, completenessGroups.map((group, index) => completenessRankCard(group, index + 1, completenessScope))),
         ),
         el('div', { class: 'leader-section', 'aria-labelledby': 'fastest-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'fastest-title' }, `Fastest useful review · ${sectionScope}`),
-            el('p', {}, 'Ranked by elapsed minutes per verified finding. Lower is better; failed and interrupted attempts remain in the elapsed time.'),
+            el('p', {}, 'Ranked by elapsed minutes per cohort-adjudicated real finding. Lower is better; failed and interrupted attempts remain in the elapsed time.'),
           ),
           el('div', { class: 'landing-rank-grid fastest-grid' }, fastestGroups.map((group, index) => landingRankCard(
             group,
             `#${index + 1}`,
             `${group.scopedMinutesPerFinding.toFixed(2)} min / finding`,
-            `${group.completenessBreakdown[completenessScope].found} verified findings · ${group.attempts} attempt${group.attempts === 1 ? '' : 's'}`,
+            `${group.completenessBreakdown[completenessScope].found} cohort-adjudicated real findings · ${group.attempts} attempt${group.attempts === 1 ? '' : 's'}`,
           ))),
         ),
         el('div', { class: 'leader-section', 'aria-labelledby': 'unique-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'unique-title' }, `Most unique discoveries · ${sectionScope}`),
-            el('p', {}, 'Ranked by verified issues found by only one skill. Ties are broken by total verified findings.'),
+            el('p', {}, 'Ranked by cohort-adjudicated real issues found by only one skill. Ties are broken by total cohort-adjudicated real findings.'),
           ),
           el('div', { class: 'landing-rank-grid unique-grid' }, uniqueGroups.map((group, index) => landingRankCard(
             group,
             `#${index + 1}`,
             `${group.scopedUnique} unique finding${group.scopedUnique === 1 ? '' : 's'}`,
-            `${group.completenessBreakdown[completenessScope].found} verified findings in the selected count`,
+            `${group.completenessBreakdown[completenessScope].found} cohort-adjudicated real findings in the selected count`,
           ))),
         ),
-        el('p', { class: 'method-note' }, 'Model, count, and language apply to every leader calculation. Completeness means the share of distinct verified findings found on the selected targets a skill reviewed. This is a small benchmark: three pull requests, one per language.'),
+        el('p', { class: 'method-note' }, 'Model, count, and language apply to every leader calculation. Completeness means the share of distinct cohort-adjudicated real findings found on the selected targets a skill reviewed. Cohort-local judgements are not canonical gold. This is a small benchmark: three pull requests, one per language.'),
       ),
       el('section', { class: 'landing-section', 'aria-labelledby': 'skills-title' },
         el('div', { class: 'landing-section-head' },
@@ -1718,13 +1783,13 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
       ], sort, (event) => viewParams(params, { decision: event.target.value === 'value' ? '' : event.target.value, decisionDir: '' }))),
     )
     frame(el('div', {},
-      compactHero('Choose a reviewer', 'Find the right skill for your constraints.', 'Rank skills, models under test, and languages using verified quality, cost, and reliability. Every result retains its evidence count.'),
+      compactHero('Choose a reviewer', 'Find the right skill for your constraints.', 'Rank skills, models under test, and languages using cohort-adjudicated quality, cost, and reliability. Every result retains its evidence count.'),
       chooseTabs(params, 'skills'),
       filterBar(params),
       el('section', { class: 'kpis decision-kpis' },
         kpi('Candidates', fmt(groups.length), groupBy.replace('skillModel', 'skill + model')),
         kpi('Evidence', runCountLink(base, fmt(base.length)), 'runs in current slice'),
-        kpi('Distinct real', fmt(distinctReal.size), 'verified issue IDs'),
+        kpi('Distinct real', fmt(distinctReal.size), 'cohort-adjudicated issue IDs'),
         kpi('Languages', fmt(new Set(base.map((run) => targetForRun(run)?.language)).size), 'in current slice'),
       ),
       el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Decision leaderboard'), el('p', {}, 'Successful zero-yield runs remain in the denominator. “Best value” weights high ×8, medium ×4, low ×1, false positive −3, then divides by attempted cost.')), controls), leaderboard(groups, params, groupBy)),
@@ -1784,7 +1849,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
           kpi('Combined coverage', fmt(unionReal.size), 'distinct real issues'),
         ),
         el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Head-to-head evidence'), el('p', {}, 'Unique contribution shows what each skill adds beyond the other selected skills.'))), comparisonMatrix(groups)),
-        el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Cost / completeness'), el('p', {}, 'Upper-left candidates provide more verified coverage for less total spend.'))), el('div', { class: 'panel-body' }, paretoChart(groups))),
+        el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Cost / completeness'), el('p', {}, 'Upper-left candidates provide more cohort-adjudicated coverage for less total spend.'))), el('div', { class: 'panel-body' }, paretoChart(groups))),
       ),
     ))
   }
@@ -1880,8 +1945,8 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
       filterBar(params),
       el('section', { class: 'kpis decision-kpis' },
         kpi('Distinct issues', fmt(rows.length), 'in current slice'),
-        kpi('Verified real', fmt(rows.filter((issue) => issue.verdict === 'real').length), 'unique target issue IDs'),
-        kpi('High + medium', fmt(rows.filter((issue) => issue.verdict === 'real' && ['blocker', 'high', 'medium'].includes(issue.severity)).length), 'verified real'),
+        kpi('Cohort-adjudicated real', fmt(rows.filter((issue) => issue.verdict === 'real').length), 'unique target issue IDs'),
+        kpi('High + medium', fmt(rows.filter((issue) => issue.verdict === 'real' && ['blocker', 'high', 'medium'].includes(issue.severity)).length), 'cohort-adjudicated real'),
         kpi('Single reporter', fmt(rows.filter((issue) => reporterCount(issue) === 1).length), 'all verdicts'),
       ),
       el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Judged issue catalogue'), el('p', {}, `${shown.length} issues match the local verdict and severity controls.`)), findingControls), el('div', { class: 'panel-body' }, shown.length ? list : el('div', { class: 'empty' }, 'No findings match these filters.'))),
@@ -1895,7 +1960,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
     const distinctReal = new Set(visible.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
 
     const content = el('div', {},
-      compactHero('Run evidence', 'Audit every benchmark run.', 'Inspect cost, time, token composition, extracted claims, and verified outcomes. Select two rows for a raw run-to-run comparison.'),
+      compactHero('Run evidence', 'Audit every benchmark run.', 'Inspect cost, time, token composition, extracted claims, and cohort-adjudicated outcomes. Select two rows for a raw run-to-run comparison.'),
       filterBar(params, { search: true, status: true }),
       el('section', { class: 'kpis', 'aria-label': 'Filtered run totals' },
         kpi('Runs', fmt(visible.length), hashLink(`${DATA.runs.length} stored`, '#runs', 'runs-link')),
@@ -2127,64 +2192,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   }
 
   function skillModelGroups(items, params) {
-    const grouped = new Map()
-    const usable = items.filter((run) => run.status === 'complete' && run.usage.costUsd > 0)
-    for (const run of usable) {
-      const modelNames = Object.keys(run.usage.models || {}).sort()
-      const modelMix = modelNames.length ? modelNames.join(' + ') : 'model unavailable'
-      const modelUnderTest = testedModel(run)
-      const key = `${run.toolId}::${run.modelId || 'unavailable'}::${modelMix}`
-      if (!grouped.has(key)) grouped.set(key, { key, toolId: run.toolId, label: run.toolLabel, source: run.toolSource, modelUnderTest, modelMix, runs: [], cost: 0, issues: new Map() })
-      const group = grouped.get(key)
-      group.runs.push(run)
-      group.cost += run.usage.costUsd
-      for (const issue of run.issues) group.issues.set(issueKey(run.targetId, issue), { issue, targetId: run.targetId })
-    }
-    const groups = []
-    for (const group of grouped.values()) {
-      const targetIds = eligibleTargets(group.toolId, params)
-      const cohortTargets = new Set(group.runs.map((run) => `${run.cohortId}/${run.targetId}`))
-      const rows = [...group.issues.values()].filter((row) => targetIds.includes(row.targetId))
-      const real = rows.filter((row) => row.issue.verdict === 'real')
-      const inScope = real.filter((row) => row.issue.scope === 'in-scope')
-      const falsePositive = rows.filter((row) => row.issue.verdict === 'false-positive').length
-      const decided = real.length + falsePositive
-      const universeAll = issueUniverse(targetIds, 'all', params, cohortTargets).size
-      const universeIn = issueUniverse(targetIds, 'in', params, cohortTargets).size
-      const severity = (allowed) => real.filter((row) => allowed.includes(row.issue.severity)).length
-      const perTarget = targetIds.map((targetId) => {
-        const targetRuns = group.runs.filter((run) => run.targetId === targetId)
-        if (!targetRuns.length) return { targetId, completeness: null, efficiency: null }
-        const targetCost = total(targetRuns, (run) => run.usage.costUsd)
-        const targetReal = new Set()
-        for (const run of targetRuns) for (const issue of run.issues) if (issue.verdict === 'real') targetReal.add(issueKey(targetId, issue))
-        const denominator = issueUniverse([targetId], 'all', params, cohortTargets).size
-        return {
-          targetId,
-          completeness: denominator ? targetReal.size / denominator : null,
-          efficiency: targetCost > 0 ? targetReal.size / targetCost : null,
-        }
-      })
-      groups.push({
-        ...group,
-        targetIds,
-        coverage: new Set(group.runs.map((run) => run.targetId).filter((id) => targetIds.includes(id))).size,
-        allReal: real.length,
-        inReal: inScope.length,
-        efficiencyAll: group.cost > 0 ? real.length / group.cost : null,
-        efficiencyIn: group.cost > 0 ? inScope.length / group.cost : null,
-        severityHigh: group.cost > 0 ? severity(['blocker', 'high']) / group.cost : null,
-        severityMedium: group.cost > 0 ? severity(['blocker', 'high', 'medium']) / group.cost : null,
-        severityLow: group.cost > 0 ? severity(['blocker', 'high', 'medium', 'low']) / group.cost : null,
-        completenessAll: universeAll ? real.length / universeAll : null,
-        completenessIn: universeIn ? inScope.length / universeIn : null,
-        falsePositiveRate: decided ? falsePositive / decided : null,
-        falsePositive,
-        decided,
-        perTarget,
-      })
-    }
-    return groups
+    return calculateSkillModelGroups(items, params, { eligibleTargets, issueUniverse, issueKey, testedModel, total })
   }
 
   const analysisColors = ['#67e8c1', '#77a7ff', '#f4bf62']
@@ -2304,12 +2312,12 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
     const robustControl = field(hintedLabel('Metric', metricHints[robustLabel]), select('robustness-metric', [['completeness', 'Completeness'], ['efficiency', 'Findings / dollar']], robustKey, (event) => overviewParams(params, { robust: event.target.value === 'completeness' ? '' : event.target.value })))
     return el('section', { class: 'analysis-section' },
       el('div', { class: 'analysis-intro' },
-        el('div', {}, el('div', { class: 'eyebrow' }, 'Skill + model analysis'), el('h2', {}, 'Quality-adjusted economics'), el('p', {}, 'Charts include every complete run with recorded cost, including zero-yield and token-heavy runs. Each row groups one skill by requested model under test and observed runtime stack. Findings stay attached to the whole run. Completeness uses unique real judgement IDs found by complete runs in the selected model cohort.')),
+        el('div', {}, el('div', { class: 'eyebrow' }, 'Skill + model analysis'), el('h2', {}, 'Quality-adjusted economics'), el('p', {}, 'Charts include every complete run with recorded cost, including zero-yield and token-heavy runs. Each row groups one skill by requested model under test and observed runtime stack. Yield and completeness count distinct issues adjudicated real within the selected cohort; false-positive and unproven verdicts are excluded. These automated cohort-local judgements are not the manually reviewed canonical gold comparison.')),
       ),
       el('div', { class: 'analysis-grid' },
-        analysisPanel('Finding / price efficiency', 'Sorted best-first by all-scope unique real findings per dollar.', seriesChart(groups, [{ label: 'In scope', hint: 'Distinct in-scope real issues found per U.S. dollar of recorded cost.', get: (group) => group.efficiencyIn }, { label: 'All scopes', hint: 'Distinct real issues in any scope found per U.S. dollar of recorded cost.', get: (group) => group.efficiencyAll }])),
-        analysisPanel('Severity yield / price', 'Sorted best-first by ≥low yield; cumulative thresholds exclude nits.', seriesChart(groups, [{ label: '≥ high', hint: 'Blocker- or high-severity real issues found per U.S. dollar of recorded cost.', get: (group) => group.severityHigh }, { label: '≥ medium', hint: 'Blocker-, high-, or medium-severity real issues found per U.S. dollar of recorded cost.', get: (group) => group.severityMedium }, { label: '≥ low', hint: 'Blocker-, high-, medium-, or low-severity real issues found per U.S. dollar of recorded cost; nits excluded.', get: (group) => group.severityLow }])),
-        analysisPanel('Completeness', 'Sorted best-first by all-scope unique-issue completeness.', seriesChart(groups, [{ label: 'In scope', hint: 'In-scope real issues found divided by all in-scope real issues in eligible targets.', get: (group) => group.completenessIn }, { label: 'All scopes', hint: 'Real issues in any scope found divided by all real issues in eligible targets.', get: (group) => group.completenessAll }], 'percent', 1)),
+        analysisPanel('Finding / price efficiency', 'Sorted best-first by all-scope cohort-adjudicated real findings per dollar; false-positive and unproven verdicts excluded.', seriesChart(groups, [{ label: 'In scope', hint: 'Distinct in-scope issues adjudicated real within the cohort per U.S. dollar of recorded cost.', get: (group) => group.efficiencyIn }, { label: 'All scopes', hint: 'Distinct issues in any scope adjudicated real within the cohort per U.S. dollar of recorded cost.', get: (group) => group.efficiencyAll }])),
+        analysisPanel('Severity yield / price', 'Sorted best-first by cohort-adjudicated ≥low yield; false-positive and unproven issues, plus real nits, excluded.', seriesChart(groups, [{ label: '≥ high', hint: 'Blocker- or high-severity issues adjudicated real within the cohort per U.S. dollar of recorded cost.', get: (group) => group.severityHigh }, { label: '≥ medium', hint: 'Blocker-, high-, or medium-severity issues adjudicated real within the cohort per U.S. dollar of recorded cost.', get: (group) => group.severityMedium }, { label: '≥ low', hint: 'Blocker-, high-, medium-, or low-severity issues adjudicated real within the cohort per U.S. dollar of recorded cost; nits excluded.', get: (group) => group.severityLow }])),
+        analysisPanel('Completeness', 'Sorted best-first by all-scope unique-issue completeness.', seriesChart(groups, [{ label: 'In scope', hint: 'In-scope cohort-adjudicated real issues found divided by all in-scope cohort-adjudicated real issues in eligible targets.', get: (group) => group.completenessIn }, { label: 'All scopes', hint: 'Cohort-adjudicated real issues in any scope found divided by all cohort-adjudicated real issues in eligible targets.', get: (group) => group.completenessAll }], 'percent', 1)),
         analysisPanel('False-positive rate', 'Sorted best-first: lowest false ÷ (real + false); unproven excluded.', seriesChart(groups, [{ label: 'False-positive rate', get: (group) => group.falsePositiveRate }], 'percent', 1, 0, true)),
         analysisPanel('Cost / completeness frontier', 'Upper-left points dominate: lower cost and higher completeness.', paretoChart(groups)),
         el('section', { class: 'panel chart-panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, hintedLabel('Target robustness', 'Variation in the selected metric across benchmark targets for each skill, model under test, and observed runtime stack.')), el('p', {}, 'Sorted best-first by median; bars show min / median / max across targets.')), robustControl), el('div', { class: 'panel-body' }, rangeChart(groups, robustKey, robustKey === 'completeness' ? 'percent' : 'number'))),
@@ -2598,6 +2606,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   window.addEventListener('hashchange', route)
   route()
 })()
+}
 </script>
 </body>
 </html>

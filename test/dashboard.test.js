@@ -2,10 +2,12 @@
 
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
+const { spawnSync } = require('node:child_process')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const dashboard = require('../bench/dashboard')
+const dashboardApp = require('../bench/dashboard/app')
 const artifacts = require('../bench/lib/artifacts')
 
 const ROOT = path.join(__dirname, '..')
@@ -191,6 +193,64 @@ test('metrics use transparent verdict rules and make zero denominators unavailab
   assert.equal(empty.realPerDollar, null)
   assert.equal(empty.minutesPerReal, null)
   assert.equal(empty.costPerReal, null)
+})
+
+test('Insights economics count only distinct cohort-adjudicated real issues', () => {
+  const realHigh = { id: 'cohort/target-a/I1', verdict: 'real', scope: 'in-scope', severity: 'high' }
+  const runs = [
+    {
+      status: 'complete', cohortId: 'cohort', targetId: 'target-a', toolId: 'tool', toolLabel: 'Tool', toolSource: 'source',
+      modelId: 'model', usage: { costUsd: 1, models: { model: 1 } },
+      issues: [
+        { id: 'cohort/target-a/I0', verdict: 'real', scope: 'in-scope', severity: 'blocker' },
+        realHigh,
+        { id: 'cohort/target-a/I2', verdict: 'real', scope: 'in-scope', severity: 'medium' },
+        { id: 'cohort/target-a/I3', verdict: 'real', scope: 'in-scope', severity: 'nit' },
+        { id: 'cohort/target-a/I4', verdict: 'false-positive', scope: 'in-scope', severity: 'blocker' },
+        { id: 'cohort/target-a/I5', verdict: 'unproven', scope: 'in-scope', severity: 'blocker' },
+      ],
+    },
+    {
+      status: 'complete', cohortId: 'cohort', targetId: 'target-a', toolId: 'tool', toolLabel: 'Tool', toolSource: 'source',
+      modelId: 'model', usage: { costUsd: 1, models: { model: 1 } },
+      issues: [
+        { ...realHigh },
+        { id: 'cohort/target-a/I6', verdict: 'real', scope: 'out-of-scope', severity: 'low' },
+      ],
+    },
+  ]
+  const groups = dashboardApp.calculateSkillModelGroups(runs, {}, {
+    eligibleTargets: () => ['target-a'],
+    issueUniverse: (_targetIds, scope) => new Set(scope === 'in' ? ['I0', 'I1', 'I2', 'I3', 'other'] : ['I0', 'I1', 'I2', 'I3', 'I6', 'other']),
+    issueKey: (targetId, issue) => issue.id || `${targetId}/${issue.issueId}`,
+    testedModel: () => 'Model (requested)',
+    total: (rows, getter) => rows.reduce((sum, row) => sum + getter(row), 0),
+  })
+
+  assert.equal(groups.length, 1)
+  assert.equal(groups[0].issues.size, 7, 'duplicate stable issue IDs must count once')
+  assert.equal(groups[0].cost, 2)
+  assert.equal(groups[0].allReal, 5)
+  assert.equal(groups[0].inReal, 4)
+  assert.equal(groups[0].efficiencyAll, 2.5)
+  assert.equal(groups[0].efficiencyIn, 2)
+  assert.equal(groups[0].severityHigh, 1, 'blocker false-positive and unproven issues must not enter severity yield')
+  assert.equal(groups[0].severityMedium, 1.5)
+  assert.equal(groups[0].severityLow, 2, 'real nits remain excluded from the low-or-higher threshold')
+  assert.equal(groups[0].falsePositive, 1)
+  assert.equal(groups[0].decided, 6, 'unproven issues must not enter the false-positive-rate denominator')
+  assert.equal(groups[0].falsePositiveRate, 1 / 6)
+  assert.equal(groups[0].completenessAll, 5 / 6)
+  assert.equal(groups[0].completenessIn, 0.8)
+  assert.deepEqual(groups[0].perTarget, [{ targetId: 'target-a', completeness: 5 / 6, efficiency: 2.5 }])
+})
+
+test('dashboard metric import stays side-effect free when CommonJS has a DOM global', () => {
+  const imported = spawnSync(process.execPath, ['-e', "global.document={getElementById(){throw new Error('dashboard booted')}}; require('./bench/dashboard/app')"], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  })
+  assert.equal(imported.status, 0, imported.stderr)
 })
 
 test('comparison overlap uses stable IDs only for the same target', () => {
@@ -411,9 +471,11 @@ test('HTML export is deterministic, self-contained, and script-data safe', () =>
 
 test('dashboard metric hints are visible, concise, and keyboard reachable', () => {
   const html = dashboard.render(dashboard.loadArtifacts())
-  assert.match(html, /'Real \/ run': 'Distinct verified real issues divided by complete runs\.'/)
+  assert.match(html, /'Real \/ run': 'Distinct cohort-adjudicated real issues divided by complete runs\.'/)
   assert.match(html, /Salvaged discovery-only records are excluded/)
   assert.match(html, /'Precision': 'Real issues divided by real issues plus false positives; unproven issues are excluded\.'/)
+  assert.match(html, /false-positive and unproven verdicts are excluded/)
+  assert.match(html, /automated cohort-local judgements are not the manually reviewed canonical gold comparison/)
   assert.match(html, /class: 'hint-mark', tabindex: 0, title: hint, 'data-hint': hint/)
   assert.match(html, /class: 'hint-tooltip', role: 'tooltip'/)
   assert.match(html, /document\.addEventListener\('focusin'/)
