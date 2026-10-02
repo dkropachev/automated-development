@@ -1,7 +1,8 @@
 # bench - the review-tool bake-off
 
-Eight configured review tools and three real pull requests in three languages, published as a
-report and an offline dashboard. The active matrix has 19 cells; parked
+Nine configured review tools and three real pull requests in three languages, published as a
+report and an offline dashboard. The default active matrix remains 19 cells; experimental
+`review-and-fix-pr` is cohort-only, and parked
 `ironweave/tob-c-review` is excluded:
 
 - [`docs/review-bakeoff.md`](../docs/review-bakeoff.md) is the narrative report.
@@ -71,6 +72,106 @@ both dashboards, and leaves the hand-written legacy report untouched. `make benc
 fails on a missing or stale generated file. `ARGS`
 passes other flags through, for example `make bench-run ARGS="--only ironweave --concurrency 2"`.
 
+## Scoped cohorts and local plugins
+
+With no cohort-scope flags, `bench-run` retains the default 19-cell matrix. Cohort-only experimental
+tools do not enter it merely because they are registered. On the first invocation
+for a new `RUN`, `--cohort-tool <tool>` deliberately narrows the manifest to that tool and all of its
+eligible targets; optional `--cohort-target <target>` narrows it to one target as well. These flags
+define the immutable expected-cell set. Resuming the same `RUN` with a different scope is rejected,
+and sealing still requires every cell in that frozen scope.
+
+`--tool` and `--only` have a different job: they are invocation filters over the already-frozen
+manifest. They choose which missing tool or target cells this process attempts without changing the
+cohort's expected cells. This makes it safe to run a scoped three-target cohort serially. Supplying
+only `--tool` or `--only` when creating an ordinary cohort does not shrink its manifest.
+
+`review-and-fix-pr` must run from the plugin checkout being measured. Pass its root with
+`--plugin-dir <path>` (from this repository root, `--plugin-dir .`). The runner isolates the local
+plugin from any installed marketplace copy and launches Claude with the specified checkout. Its
+manifest records the plugin version, the checkout's Git commit, and a deterministic content hash.
+Every resume recomputes and compares that fingerprint, so a changed checkout, a different build, or
+an installed copy with the same plugin name cannot silently enter the cohort.
+
+Review, extraction, and judgement stages all accept `--max-budget-usd <amount>` and
+`--timeout <minutes>`. The budget is passed to each paid Claude process as that call's ceiling, and
+the timeout terminates that process if it does not finish in time. A timeout, budget stop, malformed
+response, or failed validation never becomes a successful artifact; it must be retried under a
+fresh attempt where the append-only rules permit one. These controls bound a call, not a whole
+multi-command cohort, so inspect and report recorded usage after each cell.
+
+### `review-and-fix-pr` publication contract
+
+`review-and-fix-pr` is registered as a review-only, experimental, self-authored tool. Its cohort
+cells are publishable only when the final response ends with the structured
+`REVIEW_AND_FIX_PR_RESULT_JSON` marker and that contract proves all of the following:
+
+- coverage and finding verification are complete, with no remaining coverage gaps;
+- every mandatory lens completed, with no skipped or failed lenses;
+- fixing was not requested and the fix status is `not-requested`;
+- no stop trigger fired and the workflow reports normal completion; and
+- finding counts are present and non-negative (provisional counts are clustered, while final
+  disposition counts retain raw-candidate audit coverage).
+
+The runner rejects the response before writing a result if any part of that contract is absent,
+partial, or inconsistent. The dashboard visibly labels this tool experimental and self-authored in
+cohort-local views; those labels and a completed cohort do not make it part of canonical gold.
+Review processes also set `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`; the runner's own `--timeout`
+remains the authoritative wall limit, so Claude print mode cannot kill a still-running Workflow at
+its shorter background-task default and return a publishable-looking stub.
+
+A token-capped or budget-capped pilot is audit-only and unpublishable by design. Run such a pilot in
+a disposable worktree, retain its transcript and usage only for the checkpoint report, and stop for
+approval. A partial pilot must never be copied into `runs/<runId>/results/`, resumed as a final
+measurement, or passed to `bench-extract` or `bench-judge`, even if it returned useful findings. Its
+final measurements require a new run ID and completion without a workflow `stopAt` cap.
+
+Run paid pilot attempts only through `bench-pilot`, reusing one pilot ID for every retry:
+
+```
+make bench-pilot ARGS="--id opus-5-5-review-and-fix-pr-ironweave-2026-10-02 --cwd /absolute/disposable/ironweave --plugin-dir . --prompt-file /absolute/pilot-prompt.txt --model claude-opus-5-5 --effort medium --timeout 30 --budget-usd 20"
+```
+
+Its ignored ledger under `work/pilots/<id>/` freezes the prompt bytes, target Git pins, plugin
+fingerprint, model, effort, timeout, and total budget. Before spawning, it durably reserves all
+remaining budget and passes only that remainder to `--max-budget-usd`; after the call it charges the
+larger of reported and transcript-derived cost. A concurrent call, crash, unknown cost, malformed
+ledger, or unresolved reservation fails closed instead of granting a fresh process another $20.
+Pilot output never enters `runs/`, `results/`, `findings/`, `judgement/`, or `gold/`.
+
+### Three-cell Opus 5.5 cohort
+
+The following commands, run from the repository root, create the final skill-only cohort and attempt
+one cell at a time. The omitted `--cohort-target` intentionally freezes all three eligible targets;
+`--only` limits just the current invocation. Stop after each command, confirm the cell was recorded,
+and report its usage before proceeding. A partial or rejected cell stops the sequence.
+
+```
+make bench-run MODEL=claude-opus-5-5 RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--cohort-tool review-and-fix-pr --tool review-and-fix-pr --only ironweave --plugin-dir . --concurrency 1 --limit-retries 0 --timeout 120 --max-budget-usd 50"
+make bench-run MODEL=claude-opus-5-5 RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--cohort-tool review-and-fix-pr --tool review-and-fix-pr --only quillstone --plugin-dir . --concurrency 1 --limit-retries 0 --timeout 120 --max-budget-usd 50"
+make bench-run MODEL=claude-opus-5-5 RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--cohort-tool review-and-fix-pr --tool review-and-fix-pr --only tidepool --plugin-dir . --concurrency 1 --limit-retries 0 --timeout 120 --max-budget-usd 50"
+```
+
+Only after all three complete results exist, extract and judge one target at a time with the pinned
+Sonnet evaluator. Each paid post-processing call has its own $5 ceiling. The first extraction seals
+the result matrix; each judgement command remains pending until the third target allows
+`complete.json` to be written.
+
+```
+make bench-extract RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--tool review-and-fix-pr --only ironweave --max-budget-usd 5 --timeout 120"
+make bench-judge RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--only ironweave --max-budget-usd 5 --timeout 120"
+make bench-extract RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--tool review-and-fix-pr --only quillstone --max-budget-usd 5 --timeout 120"
+make bench-judge RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--only quillstone --max-budget-usd 5 --timeout 120"
+make bench-extract RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--tool review-and-fix-pr --only tidepool --max-budget-usd 5 --timeout 120"
+make bench-judge RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--only tidepool --max-budget-usd 5 --timeout 120"
+```
+
+After `complete.json` validates, `make bench-publish` discovers this cohort from its verified
+snapshot without a model allow-list. `make bench-publish-check` must pass before the generated
+report or dashboard is committed. This publication is cohort-local only: leave `bench/gold/`
+unchanged, and do not claim canonical inclusion unless a separate manually reviewed gold snapshot
+is accepted and sealed.
+
 ## Why each PR is republished
 
 A reviewer that can reach the original pull request can read the maintainers' review instead of
@@ -92,7 +193,7 @@ under review. See the analysis in the report.
 | `state.json` | what `prepare.js` published, written once and read by every later stage |
 | `groundtruth/` | the upstream human review, for comparison after the fact |
 | `results/`, `findings/`, `judgement/` | original artifacts, exposed as the read-only `legacy` cohort |
-| `runs/<runId>/manifest.json` | requested model and Claude version; pinned base/head commits; frozen target metadata, upstream ground truth, tool prompts/context, and expected cell matrix |
+| `runs/<runId>/manifest.json` | requested model and Claude version; pinned base/head commits; frozen target metadata, upstream ground truth, tool prompts/context, expected cell matrix, optional cohort scope, and local-plugin fingerprint |
 | `runs/<runId>/seal.json` | hashes of every expected result; extraction creates it and permanently closes the result set |
 | `runs/<runId>/complete.json` | final seal, finding, and judgement hashes; required by reports and dashboard |
 | `runs/<runId>/probe.json` | sanitized exact-model probe evidence and its quota reference |

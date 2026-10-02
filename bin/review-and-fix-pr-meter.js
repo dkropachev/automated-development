@@ -4,6 +4,7 @@
 // token shape of each agent, so the orchestrator can calibrate its reset projection.
 //
 //   node review-and-fix-pr-meter.js --dir <.../subagents/workflows/<runId>> [--label-prefix chunk]
+//   node review-and-fix-pr-meter.js --cwd <unique-review-worktree> --summary-only
 //
 // CRITICAL: the transcript writes one record per assistant CONTENT BLOCK, so a message
 // carrying both `thinking` and `tool_use` appears twice with the same usage. Summing
@@ -20,8 +21,41 @@ function argv(name, dflt) {
   return (v === undefined || v.startsWith('--')) ? true : v
 }
 
-const DIR = argv('dir')
+function workflowDirForCwd(cwd, configDir = process.env.CLAUDE_CONFIG_DIR || path.join(process.env.HOME || '.', '.claude')) {
+  const root = fs.realpathSync(path.resolve(cwd))
+  const project = path.join(configDir, 'projects', root.replace(/[^a-zA-Z0-9]/g, '-'))
+  if (!fs.existsSync(project)) throw new Error('meter: no Claude project transcript directory for --cwd')
+  const candidates = []
+  for (const session of fs.readdirSync(project, { withFileTypes: true })) {
+    if (!session.isDirectory()) continue
+    const workflows = path.join(project, session.name, 'subagents', 'workflows')
+    if (!fs.existsSync(workflows)) continue
+    for (const entry of fs.readdirSync(workflows, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      const directory = path.join(workflows, entry.name)
+      const journal = path.join(directory, 'journal.jsonl')
+      if (!fs.existsSync(journal)) continue
+      candidates.push({ directory, modified: fs.statSync(journal).mtimeMs })
+    }
+  }
+  if (!candidates.length) throw new Error('meter: no workflow transcript found for --cwd')
+  candidates.sort((left, right) => right.modified - left.modified || right.directory.localeCompare(left.directory))
+  return candidates[0].directory
+}
+
+const explicitDir = argv('dir')
+const cwd = argv('cwd')
+if ((explicitDir && cwd) || (!explicitDir && !cwd)) {
+  console.error('meter: provide exactly one of --dir or --cwd')
+  process.exit(2)
+}
+let DIR
+try { DIR = explicitDir ? fs.realpathSync(path.resolve(explicitDir)) : workflowDirForCwd(cwd) } catch (error) {
+  console.error(error.message)
+  process.exit(2)
+}
 const PREFIX = argv('label-prefix', null)
+const SUMMARY_ONLY = argv('summary-only', false) === true
 if (!DIR || !fs.existsSync(DIR)) { console.error('meter: --dir must point at an existing run directory'); process.exit(2) }
 
 const agents = []
@@ -67,7 +101,8 @@ for (const f of fs.readdirSync(DIR).filter(x => /^agent-.*\.jsonl$/.test(x)).sor
   agents.push({
     label, phase: meta.workflowPhase || '',
     S, C, R: Math.max(0, C - S), N: order.length, O,
-    sumCtx,
+    input: fresh, cacheRead: cr, cacheCreation: cw, output: O,
+    tokens: fresh + cr + cw + O, sumCtx,
     ite: Math.round(cr * 0.1 + cw * 1.25 + fresh + O * 5),
   })
 }
@@ -95,12 +130,28 @@ const med = (k) => {
   return v[Math.floor(v.length / 2)]
 }
 
-process.stdout.write(JSON.stringify({
-  agents,
+const tokens = {
+  input: sum('input'), output: sum('output'), cacheRead: sum('cacheRead'),
+  cacheCreation: sum('cacheCreation'),
+}
+tokens.total = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheCreation
+// This script runs inside a helper agent. Its tool-use request is visible while the script reads
+// transcripts; the agent's final structured-output request is not written until after the script
+// returns. Reserve one more context plus bounded output for that in-flight tail so a near-limit
+// measurement cannot authorize another wave on a stale undercount.
+const meterAgents = agents.filter(agent => String(agent.label).startsWith('measure transcript tokens '))
+tokens.tailReserve = meterAgents.length ? Math.max(...meterAgents.map(agent => agent.C)) + 8192 : 0
+tokens.effectiveTotal = tokens.total + tokens.tailReserve
+const output = {
+  ok: true,
+  workflowDir: DIR,
+  tokens,
   totals: { agents: agents.length, requests: sum('N'), output: sum('O'), ite: sum('ite') },
   medians: { S: med('S'), R: med('R'), N: med('N'), O: med('O'), C: med('C') },
   chunkMedians: firsts.length
     ? { S: medianOf(firsts, 'S'), R: medianOf(firsts, 'R'), N: medianOf(firsts, 'N'), O: medianOf(firsts, 'O') }
     : null,
   rho: { observed: rhoObserved, firstPasses: firsts.length, repeatPasses: repeats.length, firstIte, repeatIte },
-}, null, 2))
+}
+if (!SUMMARY_ONLY) output.agents = agents
+process.stdout.write(JSON.stringify(output, null, 2))

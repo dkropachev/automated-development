@@ -42,7 +42,7 @@ type ReviewAndFixArgs = {
 | `stopAt.count` | disabled | Stop discovery after this many qualified unique provisional findings |
 | `stopAt.score.code` | disabled | Stop discovery when weighted code-finding score reaches this value |
 | `stopAt.score.other` | disabled | Stop discovery when weighted non-code score reaches this value |
-| `stopAt.tokens` | disabled | Stop after this run spends the given token delta |
+| `stopAt.tokens` | disabled | Stop when the run's deduplicated transcript total reaches the limit: fresh input + output + cache-read + cache-creation tokens |
 | `severityWeights.code` | `{critical:10, high:5, medium:2, low:1}` | Partial code-score weight override |
 | `severityWeights.other` | `{critical:10, high:5, medium:2, low:1}` | Partial non-code-score weight override |
 | `verification` | `double` | `none`, one blind verifier, or blind verifier plus independent challenges |
@@ -56,8 +56,10 @@ Omitted `stopAt` means run the coverage protocol to closure. A present `stopAt` 
 discovery wave drains, so reported count or score may exceed the requested limit. If that wave
 crosses several thresholds, the report retains every hit and uses deterministic primary order
 `count`, `code-score`, then `other-score`; parallel results cannot establish which crossed first.
-Count and score stops still verify collected findings. A token stop launches no new auditor,
-verifier, or fixer after the current wave. Because a stopped run must resume under the same model,
+Count and score stops still verify collected findings. The token total is read from the current
+Workflow's agent transcripts at wave boundaries; one in-flight wave can cross the limit before it
+drains, but the next wave is not launched. A missing or malformed meter fails closed as a token
+stop. A token stop launches no new auditor, verifier, or fixer after the current wave. Because a stopped run must resume under the same model,
 any `stopAt` configuration requires an explicit `model`; inherited-model runs are allowed only when
 no stop threshold is configured.
 
@@ -170,21 +172,28 @@ Unrelated commits, dirty edits, state hash mismatch, or changed identity inputs 
 ordered lenses) invalidate resume. Identical concurrent runs are locked; abandoned incomplete
 checkpoints expire after seven days. Completed checkpoints remain audit records. Cached lens and gap
 results skip repeated discovery, but their candidates are verified again unless a later complete
-disposition is safely reconstructed. Atomic commit receipts retain fixes, still-open findings, and
-follow-ups across a crash; large receipts are staged as hash-verified bounded parts before the
-lineage advance, so operating-system argument limits cannot truncate them. Before a fixer starts,
-the workflow records a write-ahead transaction and conservative fallback disposition. The driver
+disposition is safely reconstructed. Completed lens, gap, coverage-audit, verification, and semantic
+results are imported directly from the current Workflow journal by one short, exact helper command.
+The helper requires one matching completed source in the same Workflow as the active importer and
+state claim, validates its schema plus repository/HEAD binding, and atomically copies one immutable
+hash-bound artifact. It never sends large result bytes through checkpoint prompts or creates
+`checkpoint-parts`. If a crash leaves a valid orphan whose stored source result differs from a fresh
+retry's result, that retry indexes the old immutable artifact but stops fail-closed; the following
+invocation resumes from the now-indexed artifact instead of mixing the two results.
+
+Derived dispositions retain compact status/index/hash records and reconstruct candidate prose,
+receipts, completed lenses, coverage, and verification evidence from those immutable source
+artifacts on resume. Small control records have a strict command-size cap; an unexpectedly large
+derived record fails closed instead of falling back to model-mediated chunking. Resume exports the
+latest cycle plus the hash-verified source-artifact closure in bounded pages. Atomic commit receipts
+remain separate: compact v2 receipts carry source-backed candidate IDs, dispositions, allowed paths,
+and follow-ups inline in the prepare/advance commands. They retain fixes and still-open findings
+across a crash without receipt-part artifacts or per-part helper agents; legacy staged receipts remain
+readable for compatibility. Before a fixer starts, the workflow records a write-ahead transaction and
+conservative fallback disposition. The driver
 stamps its unpredictable transaction ID into the commit; if the workflow disappears after `git
 commit`, the next claim verifies that proof and recovers the lineage without trusting ancestry alone.
 Exact-key active markers prevent an unrelated corrupt historical run from poisoning new claims.
-
-Each checkpoint payload is capped below common operating-system argument limits. An oversized lens
-artifact fails checkpointing, blocks automatic fixes, and reports incomplete coverage instead of
-silently producing a non-resumable run. Resume exports only the frozen scope, latest cycle, latest
-disposition, and prior final-summary/index artifacts in bounded pages; lineage receipts are fetched
-one at a time, so a long valid run does not create one unbounded relay response. Restoring prior
-summary names also makes a crash immediately before terminal sealing retry with a new append-only
-attempt instead of colliding with its own files.
 
 Checkpoint hashes detect accidental corruption and ordinary partial writes; they are not a security
 boundary against repository code running as the same operating-system user. Run untrusted PR build

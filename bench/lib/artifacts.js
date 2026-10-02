@@ -17,6 +17,12 @@ const SCOPES = new Set(['in-scope', 'out-of-scope'])
 const EVALUATOR_MODEL = 'claude-sonnet-5'
 const FABLE_MODEL = 'claude-fable-5-1'
 const REPORTED_USAGE_NUMBER = /(?:^|_)(?:input_tokens|output_tokens|thinking_tokens|web_search_requests|web_fetch_requests)$/
+const REVIEW_AND_FIX_PR_CONTRACT = 'review-and-fix-pr-v1'
+const REVIEW_AND_FIX_PR_MARKER = 'REVIEW_AND_FIX_PR_RESULT_JSON='
+const REVIEW_AND_FIX_PR_MANDATORY_LENSES = Object.freeze([
+  'correctness', 'spec', 'standards', 'security', 'reliability', 'contracts',
+  'testing', 'performance', 'comments', 'maintainability',
+])
 const ownedLocks = new Map()
 const MALFORMED_LOCK_GRACE_MS = 5 * 60_000
 
@@ -134,12 +140,49 @@ function cellId(runId, targetId, toolId) {
 }
 
 function manifestMetadata(manifest) {
-  return {
+  const metadata = {
     runId: manifest.runId,
     requestedModel: manifest.requestedModel,
     modelLabel: manifest.modelLabel,
     claudeVersion: manifest.claudeVersion,
     configSha256: manifest.configSha256,
+  }
+  if (manifest.pluginFingerprint != null) metadata.pluginFingerprint = canonical(manifest.pluginFingerprint)
+  return metadata
+}
+
+function normalizedPluginFingerprint(fingerprint) {
+  if (!fingerprint || typeof fingerprint !== 'object' || Array.isArray(fingerprint)) {
+    throw new Error('manifest pluginFingerprint is invalid')
+  }
+  const expectedKeys = ['contentSha256', 'gitCommit', 'version']
+  if (JSON.stringify(Object.keys(fingerprint).sort()) !== JSON.stringify(expectedKeys)) {
+    throw new Error('manifest pluginFingerprint fields are invalid')
+  }
+  if (typeof fingerprint.version !== 'string' || !fingerprint.version.trim()) {
+    throw new Error('manifest pluginFingerprint version is required')
+  }
+  if (fingerprint.gitCommit !== null && !GIT_SHA.test(fingerprint.gitCommit || '')) {
+    throw new Error('manifest pluginFingerprint gitCommit must be 40-hex or null')
+  }
+  if (!FILE_HASH.test(fingerprint.contentSha256 || '')) {
+    throw new Error('manifest pluginFingerprint contentSha256 is required')
+  }
+  return {
+    version: fingerprint.version,
+    gitCommit: fingerprint.gitCommit === null ? null : fingerprint.gitCommit.toLowerCase(),
+    contentSha256: fingerprint.contentSha256.toLowerCase(),
+  }
+}
+
+function normalizedCohortScope(scope) {
+  if (!scope || typeof scope !== 'object' || Array.isArray(scope)) throw new Error('manifest cohortScope is invalid')
+  if (JSON.stringify(Object.keys(scope).sort()) !== JSON.stringify(['target', 'tool'])) {
+    throw new Error('manifest cohortScope fields are invalid')
+  }
+  return {
+    tool: assertSafeId(scope.tool, 'cohort scope tool'),
+    target: scope.target == null ? null : assertSafeId(scope.target, 'cohort scope target'),
   }
 }
 
@@ -258,6 +301,33 @@ function validateManifest(manifest, expected = {}, options = {}) {
     for (const cell of manifest.expectedCells) {
       if (!manifest.targets[cell.target]) throw new Error(`expected cell target is not pinned: ${cell.target}`)
     }
+    if (manifest.cohortScope != null) {
+      manifest.cohortScope = normalizedCohortScope(manifest.cohortScope)
+      const scopedTools = manifest.toolConfig.tools.map((tool) => tool.id)
+      if (scopedTools.length !== 1 || scopedTools[0] !== manifest.cohortScope.tool ||
+          !manifest.expectedCells.every((cell) => cell.tool === manifest.cohortScope.tool)) {
+        throw new Error('manifest scoped tool does not match toolConfig and expectedCells')
+      }
+      const scopedTargets = [...new Set(manifest.expectedCells.map((cell) => cell.target))].sort()
+      if (JSON.stringify(scopedTargets) !== JSON.stringify(Object.keys(manifest.targets).sort())) {
+        throw new Error('manifest scoped targets do not match targets and expectedCells')
+      }
+      if (manifest.cohortScope.target != null &&
+          (scopedTargets.length !== 1 || scopedTargets[0] !== manifest.cohortScope.target)) {
+        throw new Error('manifest scoped target does not match expectedCells')
+      }
+    }
+    const requiresPluginFingerprint = manifest.expectedCells.some((cell) => {
+      const tool = manifest.toolConfig.tools.find((entry) => entry.id === cell.tool)
+      if (!tool) throw new Error(`expected cell tool is missing from toolConfig: ${cell.tool}`)
+      return cell.tool === 'review-and-fix-pr' || tool.requiresPluginDir === true
+    })
+    if (requiresPluginFingerprint && manifest.pluginFingerprint == null) {
+      throw new Error('manifest local-plugin cells require pluginFingerprint')
+    }
+    if (manifest.pluginFingerprint != null) {
+      manifest.pluginFingerprint = normalizedPluginFingerprint(manifest.pluginFingerprint)
+    }
   }
   for (const key of ['runId', 'requestedModel', 'modelLabel', 'claudeVersion', 'configSha256']) {
     if (expected[key] != null && manifest[key] !== expected[key]) {
@@ -284,6 +354,16 @@ function validateManifest(manifest, expected = {}, options = {}) {
     const wanted = normalizedToolConfig(expected.toolConfig)
     if (JSON.stringify(manifest.toolConfig) !== JSON.stringify(wanted)) throw new Error(`cohort ${manifest.runId} tool config mismatch`)
   }
+  if (Object.hasOwn(expected, 'cohortScope')) {
+    const wanted = expected.cohortScope == null ? null : normalizedCohortScope(expected.cohortScope)
+    const actual = manifest.cohortScope == null ? null : manifest.cohortScope
+    if (JSON.stringify(actual) !== JSON.stringify(wanted)) throw new Error(`cohort ${manifest.runId} scope mismatch`)
+  }
+  if (Object.hasOwn(expected, 'pluginFingerprint')) {
+    const wanted = expected.pluginFingerprint == null ? null : normalizedPluginFingerprint(expected.pluginFingerprint)
+    const actual = manifest.pluginFingerprint == null ? null : manifest.pluginFingerprint
+    if (JSON.stringify(actual) !== JSON.stringify(wanted)) throw new Error(`cohort ${manifest.runId} plugin fingerprint mismatch`)
+  }
   if (expected.targetIds) assertManifestTargets(manifest, expected.targetIds)
   return manifest
 }
@@ -305,6 +385,8 @@ function ensureManifest(root, metadata) {
   const groundtruth = normalizedGroundtruth(metadata.groundtruth, Object.keys(targets))
   const expectedCells = normalizedExpectedCells(metadata.runId, metadata.expectedCells)
   const toolConfig = normalizedToolConfig(metadata.toolConfig)
+  const cohortScope = metadata.cohortScope == null ? null : normalizedCohortScope(metadata.cohortScope)
+  const pluginFingerprint = metadata.pluginFingerprint == null ? null : normalizedPluginFingerprint(metadata.pluginFingerprint)
   const paths = cohortPaths(root, metadata.runId)
   const manifest = {
     schemaVersion: 2,
@@ -318,8 +400,11 @@ function ensureManifest(root, metadata) {
     groundtruth,
     expectedCells,
     toolConfig,
+    ...(cohortScope == null ? {} : { cohortScope }),
+    ...(pluginFingerprint == null ? {} : { pluginFingerprint }),
     createdAt: metadata.createdAt || new Date().toISOString(),
   }
+  validateManifest(manifest)
   ensureDirectorySafe(paths.root)
   try {
     writeJsonExclusive(paths.manifest, manifest)
@@ -328,6 +413,7 @@ function ensureManifest(root, metadata) {
     if (error.code !== 'EEXIST') throw error
     return validateManifest(readJson(paths.manifest), {
       ...manifestMetadata(manifest), targets, targetMetadata, groundtruth, expectedCells, toolConfig,
+      cohortScope, pluginFingerprint,
     })
   }
 }
@@ -364,6 +450,8 @@ function discoverCohorts(root = ROOT) {
       groundtruth: manifest.groundtruth || null,
       expectedCells: manifest.expectedCells || null,
       toolConfig: manifest.toolConfig || null,
+      cohortScope: manifest.cohortScope || null,
+      pluginFingerprint: manifest.pluginFingerprint || null,
       sealed: fs.existsSync(path.join(runs, entry.name, 'seal.json')),
       paths: cohortPaths(root, manifest.runId),
     })
@@ -608,7 +696,9 @@ function sha256File(file) {
 
 function assertRecordMetadata(record, manifest, kind = 'record') {
   for (const [key, value] of Object.entries(manifestMetadata(manifest))) {
-    if (record[key] !== value) throw new Error(`${kind} ${key} does not match cohort manifest`)
+    if (JSON.stringify(canonical(record[key])) !== JSON.stringify(canonical(value))) {
+      throw new Error(`${kind} ${key} does not match cohort manifest`)
+    }
   }
   return record
 }
@@ -707,6 +797,83 @@ function validateClaudeResponse(response, parsed, requestedModel, options = {}) 
   return parsed
 }
 
+function toolRequiresReviewAndFixPrContract(manifest, toolId) {
+  if (toolId === 'review-and-fix-pr') return true
+  const tools = manifest && manifest.toolConfig && manifest.toolConfig.tools
+  const tool = Array.isArray(tools) ? tools.find((entry) => entry && entry.id === toolId) : null
+  return !!tool && tool.resultContract === REVIEW_AND_FIX_PR_CONTRACT
+}
+
+function validateReviewAndFixPrContract(contract) {
+  if (!contract || typeof contract !== 'object' || Array.isArray(contract)) {
+    throw new Error('review-and-fix-pr result contract must be an object')
+  }
+  const expectedFields = [
+    'completedLenses', 'coverage', 'coverageGapCount', 'failedLenses', 'findings', 'fix',
+    'fixRequested', 'schemaVersion', 'skippedLenses', 'stopReason', 'stopTrigger', 'verification',
+  ].sort()
+  if (JSON.stringify(Object.keys(contract).sort()) !== JSON.stringify(expectedFields)) {
+    throw new Error('review-and-fix-pr result contract fields are invalid')
+  }
+  const requiredValues = {
+    schemaVersion: 1,
+    coverage: 'complete',
+    verification: 'complete',
+    fix: 'not-requested',
+    stopTrigger: 'none',
+    stopReason: 'completed',
+    fixRequested: false,
+    coverageGapCount: 0,
+  }
+  for (const [field, value] of Object.entries(requiredValues)) {
+    if (contract[field] !== value) {
+      throw new Error(`review-and-fix-pr result contract ${field} must be ${JSON.stringify(value)}`)
+    }
+  }
+  for (const field of ['completedLenses', 'skippedLenses', 'failedLenses']) {
+    if (!Array.isArray(contract[field]) || !contract[field].every((lens) => typeof lens === 'string' && lens.length > 0)) {
+      throw new Error(`review-and-fix-pr result contract ${field} is invalid`)
+    }
+  }
+  if (contract.skippedLenses.length || contract.failedLenses.length) {
+    throw new Error('review-and-fix-pr result contract contains skipped or failed lenses')
+  }
+  if (new Set(contract.completedLenses).size !== contract.completedLenses.length) {
+    throw new Error('review-and-fix-pr result contract completedLenses must be unique')
+  }
+  const completed = new Set(contract.completedLenses)
+  const missing = REVIEW_AND_FIX_PR_MANDATORY_LENSES.filter((lens) => !completed.has(lens))
+  if (missing.length) throw new Error(`review-and-fix-pr result contract is missing mandatory lenses: ${missing.join(', ')}`)
+  const findings = contract.findings
+  const findingFields = ['confirmed', 'provisional', 'rejected', 'unresolved']
+  if (!findings || typeof findings !== 'object' || Array.isArray(findings) ||
+      JSON.stringify(Object.keys(findings).sort()) !== JSON.stringify(findingFields) ||
+      !Object.values(findings).every((value) => Number.isSafeInteger(value) && value >= 0)) {
+    throw new Error('review-and-fix-pr result contract findings are invalid')
+  }
+  return canonical(contract)
+}
+
+function parseReviewAndFixPrResultContract(result) {
+  if (typeof result !== 'string') throw new Error('review-and-fix-pr result is not a string')
+  const lines = result.replace(/\r\n/g, '\n').split('\n')
+  const markers = []
+  for (let index = 0; index < lines.length; index += 1) {
+    if (lines[index].startsWith(REVIEW_AND_FIX_PR_MARKER)) markers.push({ index, line: lines[index] })
+  }
+  if (markers.length !== 1) {
+    throw new Error(`review-and-fix-pr result requires exactly one ${REVIEW_AND_FIX_PR_MARKER} marker`)
+  }
+  const marker = markers[0]
+  const lastNonempty = lines.reduce((last, line, index) => line.trim() ? index : last, -1)
+  if (marker.index !== lastNonempty) throw new Error('review-and-fix-pr result contract marker must be the final nonempty line')
+  let parsed
+  try { parsed = JSON.parse(marker.line.slice(REVIEW_AND_FIX_PR_MARKER.length)) } catch {
+    throw new Error('review-and-fix-pr result contract JSON is invalid')
+  }
+  return validateReviewAndFixPrContract(parsed)
+}
+
 function validateResultIdentity(record, manifest, targetId, toolId) {
   if (!record || record.schemaVersion !== 2) throw new Error(`result schemaVersion is invalid: ${targetId}/${toolId}`)
   assertRecordMetadata(record, manifest, `result ${targetId}/${toolId}`)
@@ -730,6 +897,12 @@ function validateResultRecord(record, manifest, targetId, toolId) {
     modelUsage: record.modelUsage,
   }, manifest.requestedModel, { allowEmptyResult: true })
   validateTranscriptUsage(record.transcriptUsage, manifest.requestedModel)
+  if (toolRequiresReviewAndFixPrContract(manifest, toolId)) {
+    const parsedContract = parseReviewAndFixPrResultContract(record.result)
+    if (JSON.stringify(canonical(record.resultContract)) !== JSON.stringify(parsedContract)) {
+      throw new Error(`result ${targetId}/${toolId} structured contract does not match report marker`)
+    }
+  }
   if (manifest.requestedModel === FABLE_MODEL) validateQuotaEvidence(record.quotaEvidence, `result ${targetId}/${toolId}`)
   return record
 }
@@ -1093,14 +1266,13 @@ function claimQuotaEvidence(ledger, evidence, expected, manifest, claims, label)
 }
 
 function validateProbeRecord(record, manifest) {
-  if (!record || record.schemaVersion !== 1 || record.runId !== manifest.runId ||
-      record.requestedModel !== FABLE_MODEL || record.canonicalModel !== FABLE_MODEL ||
-      record.modelLabel !== manifest.modelLabel || record.claudeVersion !== manifest.claudeVersion ||
-      record.configSha256 !== manifest.configSha256 || record.reply !== 'OK' ||
+  if (!record || record.schemaVersion !== 1 || manifest.requestedModel !== FABLE_MODEL ||
+      record.canonicalModel !== FABLE_MODEL || record.reply !== 'OK' ||
       typeof record.probedAt !== 'string' || !record.probedAt || !Number.isFinite(record.reportedCostUsd) ||
       record.reportedCostUsd < 0) {
     throw new Error(`cohort ${manifest.runId} has invalid Fable probe evidence`)
   }
+  assertRecordMetadata(record, manifest, 'probe')
   validateReportedUsage(record.reportedUsage, 'probe reported usage')
   validateModelUsage(record.modelUsage, FABLE_MODEL, 'probe modelUsage')
   validateQuotaEvidence(record.quotaEvidence, 'probe')
@@ -1279,6 +1451,9 @@ module.exports = {
   loadModelConfig,
   manifestMetadata,
   modelById,
+  normalizedCohortScope,
+  normalizedPluginFingerprint,
+  parseReviewAndFixPrResultContract,
   readManifest,
   readProbeRecord,
   readResultRecord,
@@ -1301,9 +1476,12 @@ module.exports = {
   validateProbeRecord,
   validateQuotaEvidence,
   validateReportedUsage,
+  validateReviewAndFixPrContract,
   validateResultIdentity,
   validateResultRecord,
   validateSeal,
   validateTranscriptUsage,
   writeJsonExclusive,
+  REVIEW_AND_FIX_PR_CONTRACT,
+  REVIEW_AND_FIX_PR_MANDATORY_LENSES,
 }

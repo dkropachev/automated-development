@@ -8,7 +8,9 @@ const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
 const { totalsForCwd } = require('./lib/usage')
-const { assertSafeId, cohortPaths, loadModelConfig, readComplete } = require('./lib/artifacts')
+const {
+  assertRecordMetadata, assertSafeId, cohortPaths, loadModelConfig, readComplete,
+} = require('./lib/artifacts')
 
 const ROOT = __dirname
 const args = process.argv.slice(2)
@@ -131,9 +133,7 @@ function zeroUsage() {
 }
 function assertSelectedCohort(record, file) {
   if (cohort.legacy) return
-  for (const key of ['runId', 'requestedModel', 'modelLabel', 'claudeVersion', 'configSha256']) {
-    if (record[key] !== cohort[key]) throw new Error(`${file}: ${key} does not match cohort ${cohort.runId}`)
-  }
+  assertRecordMetadata(record, cohort, file)
   if (record.target && record.tool && record.cellId !== `${cohort.runId}/${record.target}/${record.tool}`) {
     throw new Error(`${file}: cellId does not match cohort, target, and tool`)
   }
@@ -309,6 +309,11 @@ if (cohort.legacy) {
   }
 } else {
   P(`**Cohort:** \`${cohort.runId}\`. **Requested model:** ${cohort.modelLabel} (\`${cohort.requestedModel}\`). Claude Code: \`${cohort.claudeVersion}\`.\n`)
+  const experimental = used.filter(tool => tool.experimental)
+  if (experimental.length) {
+    const authored = experimental.some(tool => tool.selfAuthored) ? ' and self-authored' : ''
+    P(`**Experimental cohort-local evidence:** ${experimental.map(tool => `\`${tool.id}\``).join(', ')} is experimental${authored}. These results are not canonical gold.\n`)
+  }
 }
 P('Every number below is produced by `bench/` in this repository and can be regenerated with')
 P(`\`make bench-report RUN=${cohort.runId}\`.`)
@@ -335,7 +340,7 @@ if (!cohort.legacy) {
   P(`- Reviews: ${reviewCalls} calls, ${fmt(mixTotal)} tokens, ${money(reviewCost)}, ${mins(reviewWall)} minutes wall time.`)
   P(`- Extraction: ${extractionCalls} calls, ${fmt(rawClaims)} raw claims, ${money(extractionCost)}.`)
   P(`- Judging: ${judgeCalls} calls, ${fmt(mergedIssues)} merged issues (${fmt(verdicts.real)} real, ${fmt(verdicts['false-positive'])} false-positive, ${fmt(verdicts.unproven)} unproven), ${money(judgeCost)}.`)
-  P(`- Total known canonical spend: ${money(knownSpend)}. Discarded attempts are not included in immutable stage artifacts.`)
+  P(`- Total known cohort spend: ${money(knownSpend)}. Discarded attempts are not included in immutable stage artifacts.`)
   if (finalQuota) {
     P(`- Final quota: current session ${finalQuota.usage['Current session']}%, all-model week ${finalQuota.usage['Current week (all models)']}%, Fable week ${finalQuota.usage['Current week (Fable)']}% (recorded ceilings: ${finalQuota.thresholds['Current session']}% / ${finalQuota.thresholds['Current week (all models)']}% / ${finalQuota.thresholds['Current week (Fable)']}%).`)
   }

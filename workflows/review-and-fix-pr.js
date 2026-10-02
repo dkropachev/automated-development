@@ -20,6 +20,7 @@ export const meta = {
 // ---------------------------------------------------------------- config ----
 
 const ARGS = (args && typeof args === 'object') ? args : (args === undefined || args === null ? {} : { pr: args })
+const WORKFLOW_STATE_VERSION = '0.5.0-completeness-contract-v1'
 const PR_ARG = (ARGS.pr === undefined || ARGS.pr === null) ? '' : String(ARGS.pr)
 const PR_URL_MATCH = /^https:\/\/github\.com\/([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)\/pull\/([1-9][0-9]*)\/?$/.exec(PR_ARG)
 const EXPLICIT_PR_NUMBER = typeof ARGS.pr === 'number' ? ARGS.pr :
@@ -229,6 +230,78 @@ function utf8Base64(value) {
   }
   return out
 }
+function canonicalJson(value) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return JSON.stringify(value)
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new Error('non-finite JSON number')
+    return JSON.stringify(value)
+  }
+  if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']'
+  if (!value || typeof value !== 'object') throw new Error('unsupported JSON value')
+  return '{' + Object.keys(value).sort()
+    .map(key => JSON.stringify(key) + ':' + canonicalJson(value[key])).join(',') + '}'
+}
+function sha256Utf8(value) {
+  const bytes = []
+  for (const char of String(value)) {
+    const cp = char.codePointAt(0)
+    if (cp <= 0x7f) bytes.push(cp)
+    else if (cp <= 0x7ff) bytes.push(0xc0 | (cp >> 6), 0x80 | (cp & 63))
+    else if (cp <= 0xffff) bytes.push(0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63))
+    else bytes.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63))
+  }
+  const byteLength = bytes.length
+  bytes.push(0x80)
+  while (bytes.length % 64 !== 56) bytes.push(0)
+  const highBits = Math.floor(byteLength / 0x20000000)
+  const lowBits = (byteLength << 3) >>> 0
+  for (let shift = 24; shift >= 0; shift -= 8) bytes.push((highBits >>> shift) & 255)
+  for (let shift = 24; shift >= 0; shift -= 8) bytes.push((lowBits >>> shift) & 255)
+  const constants = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+  ]
+  const hash = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]
+  const rotate = (word, count) => (word >>> count) | (word << (32 - count))
+  for (let offset = 0; offset < bytes.length; offset += 64) {
+    const words = new Array(64)
+    for (let index = 0; index < 16; index++) {
+      const at = offset + index * 4
+      words[index] = ((bytes[at] << 24) | (bytes[at + 1] << 16) |
+        (bytes[at + 2] << 8) | bytes[at + 3]) >>> 0
+    }
+    for (let index = 16; index < 64; index++) {
+      const x = words[index - 15], y = words[index - 2]
+      const s0 = rotate(x, 7) ^ rotate(x, 18) ^ (x >>> 3)
+      const s1 = rotate(y, 17) ^ rotate(y, 19) ^ (y >>> 10)
+      words[index] = (words[index - 16] + s0 + words[index - 7] + s1) >>> 0
+    }
+    let [a, b, c, d, e, f, g, h] = hash
+    for (let index = 0; index < 64; index++) {
+      const sum1 = rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25)
+      const choice = (e & f) ^ (~e & g)
+      const first = (h + sum1 + choice + constants[index] + words[index]) >>> 0
+      const sum0 = rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22)
+      const majority = (a & b) ^ (a & c) ^ (b & c)
+      const second = (sum0 + majority) >>> 0
+      h = g; g = f; f = e; e = (d + first) >>> 0
+      d = c; c = b; b = a; a = (first + second) >>> 0
+    }
+    hash[0] = (hash[0] + a) >>> 0; hash[1] = (hash[1] + b) >>> 0
+    hash[2] = (hash[2] + c) >>> 0; hash[3] = (hash[3] + d) >>> 0
+    hash[4] = (hash[4] + e) >>> 0; hash[5] = (hash[5] + f) >>> 0
+    hash[6] = (hash[6] + g) >>> 0; hash[7] = (hash[7] + h) >>> 0
+  }
+  return hash.map(word => word.toString(16).padStart(8, '0')).join('')
+}
+function canonicalJsonSha256(value) { return sha256Utf8(canonicalJson(value)) }
 const NATIVE_LENSES = ['correctness', 'spec', 'standards', 'security', 'reliability', 'contracts',
                        'testing', 'performance', 'comments', 'maintainability']
 
@@ -474,7 +547,8 @@ const SCOPE_PROOF_SCHEMA = {
     ok: { type: 'boolean' }, repo: { type: 'string' }, prNumber: { type: 'integer' },
     baseRef: { type: 'string' }, prHead: { type: 'string' }, mergeBase: { type: 'string' },
     scopeFingerprint: { type: 'string' }, issueCount: { type: 'integer' },
-    instructionCount: { type: 'integer' }, verifiedDeferrals: { type: 'array', items: { type: 'string' } },
+    unavailableIssueCount: { type: 'integer' }, instructionCount: { type: 'integer' },
+    verifiedDeferrals: { type: 'array', items: { type: 'string' } },
     sourceJson: { type: 'string' }, error: { type: 'string' },
   },
   required: ['ok'],
@@ -898,9 +972,15 @@ const STATE_CLAIM_SCHEMA = {
     ok: { type: 'boolean' }, run: { type: 'string' }, resumed: { type: 'boolean' },
     keyHash: { type: 'string' }, lockToken: { type: 'string' }, runDir: { type: 'string' },
     status: { type: 'string' }, notes: { type: 'string' }, error: { type: 'string' },
+    repository: {
+      type: 'object',
+      properties: { identity: { type: 'string' }, root: { type: 'string' }, head: { type: 'string' } },
+      required: ['identity', 'root', 'head'],
+    },
     state: {
       type: 'object',
       properties: {
+        keyHash: { type: 'string' },
         lineage: {
           type: 'object',
           properties: {
@@ -911,10 +991,10 @@ const STATE_CLAIM_SCHEMA = {
           required: ['initialHead', 'currentHead', 'total'],
         },
       },
-      required: ['lineage'],
+      required: ['keyHash', 'lineage'],
     },
   },
-  required: ['ok', 'run', 'resumed', 'keyHash', 'lockToken', 'runDir', 'status', 'state'],
+  required: ['ok', 'run', 'resumed', 'keyHash', 'lockToken', 'runDir', 'status', 'repository', 'state'],
 }
 const STATE_NONCE_SCHEMA = {
   type: 'object',
@@ -931,6 +1011,67 @@ const STATE_ACTION_SCHEMA = {
   },
   required: ['ok', 'responseId'],
 }
+const STATE_IMPORT_SCHEMA = {
+  type: 'object',
+  properties: {
+    ok: { type: 'boolean' }, run: { type: 'string' }, name: { type: 'string' },
+    sha256: { type: 'string' }, resultSha256: { type: 'string' },
+    bytes: { type: 'integer' }, idempotent: { type: 'boolean' },
+    recoveredOrphan: { type: 'boolean' }, sourceResultMatches: { type: 'boolean' },
+    error: { type: 'string' },
+    binding: {
+      type: 'object',
+      properties: {
+        run: { type: 'string' }, keyHash: { type: 'string' }, repositoryIdentity: { type: 'string' },
+        headSha: { type: 'string' }, kind: { type: 'string' }, resultId: { type: 'string' },
+        sourceLabel: { type: 'string' }, sourcePhase: { type: 'string' }, workflowId: { type: 'string' },
+        sourceKey: { type: 'string' }, agentId: { type: 'string' }, artifactName: { type: 'string' },
+        sessionId: { type: 'string' }, projectCwd: { type: 'string' },
+      },
+      required: ['run', 'keyHash', 'repositoryIdentity', 'headSha', 'kind', 'resultId',
+                 'sourceLabel', 'sourcePhase', 'workflowId', 'sourceKey', 'agentId',
+                 'artifactName', 'sessionId', 'projectCwd'],
+    },
+  },
+  required: ['ok'],
+}
+const STATE_CONTROL_SCHEMA = {
+  type: 'object',
+  properties: {
+    ok: { type: 'boolean' }, run: { type: 'string' }, name: { type: 'string' },
+    sha256: { type: 'string' }, valueSha256: { type: 'string' }, bytes: { type: 'integer' },
+    idempotent: { type: 'boolean' }, recoveredOrphan: { type: 'boolean' },
+    valueMatches: { type: 'boolean' }, error: { type: 'string' },
+    binding: {
+      type: 'object', properties: {
+        run: { type: 'string' }, keyHash: { type: 'string' }, repositoryIdentity: { type: 'string' },
+        headSha: { type: 'string' }, artifactName: { type: 'string' },
+      }, required: ['run', 'keyHash', 'repositoryIdentity', 'headSha', 'artifactName'],
+    },
+  },
+  required: ['ok'],
+}
+const TOKEN_METER_SCHEMA = {
+  type: 'object',
+  properties: {
+    ok: { type: 'boolean' }, workflowDir: { type: 'string' },
+    tokens: {
+      type: 'object',
+      properties: {
+        input: { type: 'integer' }, output: { type: 'integer' }, cacheRead: { type: 'integer' },
+        cacheCreation: { type: 'integer' }, total: { type: 'integer' },
+        tailReserve: { type: 'integer' }, effectiveTotal: { type: 'integer' },
+      },
+      required: ['input', 'output', 'cacheRead', 'cacheCreation', 'total', 'tailReserve', 'effectiveTotal'],
+    },
+    totals: {
+      type: 'object',
+      properties: { agents: { type: 'integer' }, requests: { type: 'integer' } },
+      required: ['agents', 'requests'],
+    },
+  },
+  required: ['ok', 'workflowDir', 'tokens', 'totals'],
+}
 const STATE_EXPORT_SCHEMA = {
   type: 'object',
   properties: {
@@ -939,7 +1080,10 @@ const STATE_EXPORT_SCHEMA = {
       type: 'array',
       items: {
         type: 'object',
-        properties: { name: { type: 'string' }, value: { type: 'object' } },
+        properties: {
+          name: { type: 'string' }, sha256: { type: 'string' }, bytes: { type: 'integer' },
+          value: { type: 'object' },
+        },
         required: ['name', 'value'],
       },
     },
@@ -952,23 +1096,28 @@ const STATE_LINEAGE_SCHEMA = {
   type: 'object',
   properties: {
     ok: { type: 'boolean' }, run: { type: 'string' }, initialHead: { type: 'string' },
-    currentHead: { type: 'string' }, total: { type: 'integer' }, after: { type: 'integer' },
+    currentHead: { type: 'string' }, initialKeyHash: {}, currentKeyHash: { type: 'string' },
+    total: { type: 'integer' }, after: { type: 'integer' },
     nextAfter: { type: 'integer' }, error: { type: 'string' },
     commits: {
       type: 'array',
       items: {
         type: 'object',
         properties: {
-          from: { type: 'string' }, to: { type: 'string' }, transactionId: { type: 'string' },
+          from: { type: 'string' }, to: { type: 'string' },
+          fromKeyHash: { type: 'string' }, toKeyHash: { type: 'string' }, transactionId: { type: 'string' },
           recovered: { type: 'boolean' },
           receipt: {
             type: 'object',
             properties: {
-              batchId: { type: 'string' }, fixed: FIX_SCHEMA.properties.fixed,
-              notABug: FIX_SCHEMA.properties.notABug, stillOpen: FIX_SCHEMA.properties.stillOpen,
+              receiptVersion: { type: 'integer', enum: [1, 2] }, batchId: { type: 'string' },
+              allowedPaths: { type: 'array', items: { type: 'string' } },
+              fixed: { type: 'array', items: { type: 'object' } },
+              notABug: { type: 'array', items: { type: 'object' } },
+              stillOpen: { type: 'array', items: { type: 'object' } },
               followUps: FIX_SCHEMA.properties.followUps,
             },
-            required: ['batchId', 'fixed', 'notABug', 'stillOpen', 'followUps'],
+            required: ['receiptVersion', 'batchId', 'fixed', 'notABug', 'stillOpen', 'followUps'],
           },
         },
         required: ['from', 'to', 'receipt'],
@@ -1012,14 +1161,53 @@ const DIFF_FILES_SCHEMA = {
 }
 // ---------------------------------------------------------------- budget ----
 
-// budget.total is null unless the run was given a ceiling, which makes budget.remaining() null too -
-// measured directly, so a guard written against remaining() never even evaluates. budget.spent() DOES
-// return a real number, but it is cumulative beyond this workflow, so only the delta is meaningful.
+// Workflow budget.spent() counts output tokens only. stopAt.tokens promises the recorded transcript
+// total, which also includes fresh input, cache reads, and cache creation. The trusted transcript
+// meter refreshes that total at agent-wave boundaries; budget.spent() is only a conservative
+// bootstrap before the first successful meter read.
 const SPENT_AT_START = (typeof budget === 'object' && budget && typeof budget.spent === 'function')
   ? (budget.spent() || 0) : 0
+let measuredTranscriptTokens = null
 function spentSoFar() {
+  if (measuredTranscriptTokens !== null) return measuredTranscriptTokens
   if (typeof budget !== 'object' || !budget || typeof budget.spent !== 'function') return 0
   return Math.max(0, (budget.spent() || 0) - SPENT_AT_START)
+}
+
+function shouldRefreshTerminalTokens(maxTokens, stopReason, existingCircuit) {
+  return maxTokens !== null && !['token-cap', 'agent-cap'].includes(stopReason) &&
+    !['token-cap', 'agent-cap'].includes(existingCircuit)
+}
+
+function terminalCircuitState(stopReason, coverageStatus, circuit) {
+  if (!circuit || stopReason !== 'completed') return { stopReason, coverageStatus }
+  return { stopReason: circuit, coverageStatus: 'partial-stop' }
+}
+
+async function refreshTranscriptTokens(scope, purpose) {
+  if (MAX_TOKENS === null) return true
+  const command = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-meter.js') +
+    ' --cwd ' + shq(scope.repoRoot) + ' --summary-only'
+  const result = await agentSafe(exactStatePrompt(command, 'measure transcript tokens ' + purpose), {
+    schema: TOKEN_METER_SCHEMA, phase: 'Setup', label: 'measure transcript tokens ' + purpose,
+    effort: 'low', disallowedTools: DENY_READONLY,
+    bashCommandClamp: ['Bash(' + command + ')'], requireToolScope: true,
+  })
+  const tokens = result && result.tokens
+  const valid = result && result.ok && tokens &&
+    ['input', 'output', 'cacheRead', 'cacheCreation', 'total', 'tailReserve', 'effectiveTotal']
+      .every(field => Number.isSafeInteger(tokens[field]) && tokens[field] >= 0) &&
+    tokens.total === tokens.input + tokens.output + tokens.cacheRead + tokens.cacheCreation &&
+    tokens.effectiveTotal === tokens.total + tokens.tailReserve
+  if (!valid) {
+    measuredTranscriptTokens = Math.max(measuredTranscriptTokens || 0, MAX_TOKENS)
+    log('transcript token meter failed closed before ' + purpose)
+    return false
+  }
+  measuredTranscriptTokens = Math.max(measuredTranscriptTokens || 0, tokens.effectiveTotal)
+  log('transcript tokens before ' + purpose + ': ' + tokens.total.toLocaleString() +
+    ' + ' + tokens.tailReserve.toLocaleString() + ' in-flight meter reserve')
+  return true
 }
 
 function exactStatePrompt(command, purpose) {
@@ -1030,6 +1218,19 @@ function exactStatePrompt(command, purpose) {
     'Parse its single JSON object and return every field from it exactly. Do not omit success fields',
     'or invent placeholders. When it returns an error, preserve error/details and ok false.',
   ].join('\n')
+}
+
+function stableTrustedSourcePayload(sourceJson) {
+  try {
+    const payload = JSON.parse(sourceJson)
+    delete payload.ghUser // authentication availability is transient; GitHub/commit sources are hash-bound separately
+    return JSON.stringify(payload)
+  } catch {
+    return null
+  }
+}
+function trustedSourceGhUser(sourceJson) {
+  try { return JSON.parse(sourceJson).ghUser || 'unknown' } catch { return 'unknown' }
 }
 
 // One place that answers "must we stop now?". Checked before every wave, not once per stage.
@@ -1213,9 +1414,10 @@ function appendFollowUp(followUp) {
   if (existing) {
     existing.doneNow = !!existing.doneNow || !!followUp.doneNow
     existing.releaseBlocker = !!existing.releaseBlocker || !!followUp.releaseBlocker
-    if ((!existing.blockerReason || existing.blockerReason === 'none') && followUp.blockerReason) {
-      existing.blockerReason = followUp.blockerReason
-    }
+    if (existing.size === 'small' || followUp.size === 'small') existing.size = 'small'
+    const blockerReasons = [...new Set([existing.blockerReason, followUp.blockerReason]
+      .filter(reason => reason && reason !== 'none'))].sort()
+    existing.blockerReason = blockerReasons.length ? blockerReasons.join('; ') : 'none'
     return
   }
   followUpsRaw.push(Object.assign({}, followUp, { _resumeKey: key }))
@@ -1287,6 +1489,22 @@ function stableRawCandidateId(cycle, head, source, index, finding) {
   // old disposition to a different candidate.
   return 'raw:c' + cycle + ':h' + head + ':s' + identityHex(source) + ':i' + index + ':f' +
     normalizedFingerprint(finding)
+}
+
+function stableFindingOccurrenceIndexes(findings) {
+  const keys = (findings || []).map(finding =>
+    canonicalJson([normalizedFingerprint(finding), finding]))
+  const ranks = new Map()
+  keys.slice().sort().forEach((key, index) => {
+    if (!ranks.has(key)) ranks.set(key, [])
+    ranks.get(key).push(index)
+  })
+  const used = new Map()
+  return keys.map(key => {
+    const offset = used.get(key) || 0
+    used.set(key, offset + 1)
+    return ranks.get(key)[offset]
+  })
 }
 
 function safeFindingPath(value) {
@@ -1407,6 +1625,10 @@ function formatThresholdTrigger(trigger) {
     trigger.primary || 'unknown'
 }
 
+function stableClusterCandidateId(key, rawIds) {
+  return 'cluster-' + canonicalJsonSha256({ key, rawIds: [...new Set((rawIds || []).filter(Boolean))].sort() })
+}
+
 function clusterCandidates(rawCandidates) {
   const byKey = new Map()
   for (const raw of rawCandidates || []) {
@@ -1422,18 +1644,18 @@ function clusterCandidates(rawCandidates) {
       candidate.supportingEvidence = [...new Set((candidate.supportingEvidence || [candidate.evidence]).filter(Boolean))]
       candidate.rawCandidateIds = [rawId]
       candidate.rawCandidateIdentities = [rawIdentity]
-      candidate.candidateId = 'cluster-' + (rawId || (byKey.size + 1))
+      candidate.candidateId = stableClusterCandidateId(key, candidate.rawCandidateIds)
       byKey.set(key, candidate)
       continue
     }
     const existing = byKey.get(key)
     const merged = mergeFinding(existing, candidate, null, candidate.reviewerRejected)
-    merged.candidateId = existing.candidateId
     merged.rawCandidateIds = [...new Set([...(existing.rawCandidateIds || []), rawId])]
     merged.rawCandidateIdentities = [...(existing.rawCandidateIdentities || []), rawIdentity]
       .filter((record, index, records) => records.findIndex(other =>
         other.rawCandidateId === record.rawCandidateId &&
         other.rawCandidateIdentity === record.rawCandidateIdentity) === index)
+    merged.candidateId = stableClusterCandidateId(key, merged.rawCandidateIds)
     byKey.set(key, merged)
   }
   return [...byKey.values()]
@@ -1644,23 +1866,27 @@ function dedupeFollowUps(raw) {
     // concrete detail so distinct behaviors in one file survive; exact semantic repeats still fold.
     const key = followUpIdentity(item.title) + ':' + followUpIdentity(item.area || 'none') + ':' +
       followUpIdentity(item.detail || 'none')
-    if (!byKey.has(key)) {
-      byKey.set(key, Object.assign({}, item, {
-        priority: item.releaseBlocker ? 'should-block-merge' : (item.size === 'small' ? 'before-merge' : 'nice-to-have'),
-        raisedInStages: item.stage || '', mergedFrom: 1,
-      }))
-      continue
-    }
-    const kept = byKey.get(key)
-    kept.mergedFrom++
-    kept.raisedInStages = [...new Set((kept.raisedInStages + ',' + (item.stage || '')).split(',').filter(Boolean))].join(', ')
-    kept.releaseBlocker = !!kept.releaseBlocker || !!item.releaseBlocker
-    if (kept.releaseBlocker) kept.priority = 'should-block-merge'
-    const blockerReasons = [kept.blockerReason, item.blockerReason]
-      .filter(reason => reason && reason !== 'none')
-    if (blockerReasons.length) kept.blockerReason = [...new Set(blockerReasons)].join('; ')
+    if (!byKey.has(key)) byKey.set(key, [])
+    byKey.get(key).push(item)
   }
-  return { followUps: [...byKey.values()], dropped: [],
+  const followUps = []
+  for (const [key, items] of [...byKey].sort(([left], [right]) => left.localeCompare(right))) {
+    const ordered = items.slice().sort((left, right) => canonicalJson(left).localeCompare(canonicalJson(right)))
+    const kept = Object.assign({}, ordered[0])
+    const releaseBlocker = ordered.some(item => !!item.releaseBlocker)
+    const anySmall = ordered.some(item => item.size === 'small')
+    const stages = [...new Set(ordered.map(item => item.stage).filter(Boolean))].sort()
+    const blockerReasons = [...new Set(ordered.map(item => item.blockerReason)
+      .filter(reason => reason && reason !== 'none'))].sort()
+    kept.releaseBlocker = releaseBlocker
+    kept.priority = releaseBlocker ? 'should-block-merge' : (anySmall ? 'before-merge' : 'nice-to-have')
+    kept.raisedInStages = stages.join(', ')
+    kept.mergedFrom = ordered.length
+    kept.doneNow = ordered.some(item => !!item.doneNow)
+    kept.blockerReason = blockerReasons.length ? blockerReasons.join('; ') : 'none'
+    followUps.push(kept)
+  }
+  return { followUps, dropped: [],
     notes: 'deduplicated conservatively by normalized title, area, and concrete obligation' }
 }
 
@@ -2123,6 +2349,10 @@ function scopePrompt(trustedRoot, trustedSourceJson, trustedProof) {
     'Set scopeFingerprint exactly ' + trustedProof.scopeFingerprint + '.',
     'Derive intent, inScope, acceptanceCriteria, bodyQuality and intentSource only from the trusted',
     'title/body/commits/issues. outOfScope contains only complete verbatim author quotes present there.',
+    'A linked issue with state "unavailable" is an explicit missing source, not an empty issue. Never',
+    'invent its contents or turn the reference itself into a requirement. If the PR body and commits',
+    'still state usable intent, proceed from those sources; otherwise set blocker to explain that the',
+    'authoritative scope is insufficient.',
     'Build semantic coverageUnits only: requirement, contract, test-obligation, documentation-claim,',
     'and repository-rule. Do not invent hunk/non-text units; trusted helpers add those later. IDs must',
     'be nonempty and unique. Include all ten native applicableLenses in required order.',
@@ -2710,6 +2940,68 @@ function reconcilePrompt(raw, scope) {
 
 // ---------------------------------------------------------------- report ----
 
+function buildReviewResultContract(state) {
+  state = state && typeof state === 'object' ? state : {}
+  const isCount = value => Number.isSafeInteger(value) && value >= 0
+  const count = value => isCount(value) ? value : 0
+  const lensNames = value => Array.isArray(value) ? value.filter(item => typeof item === 'string') : []
+  const validation = state.validationTotals && typeof state.validationTotals === 'object'
+    ? state.validationTotals : {}
+  const validStatus = value => typeof value === 'string' && value.length > 0
+  const validLensNames = value => Array.isArray(value) && value.every(item => typeof item === 'string')
+  const sourcesValid = typeof state.reviewOnly === 'boolean' &&
+    validStatus(state.coverageStatus) && validStatus(state.verificationStatus) &&
+    validStatus(state.fixStatus) && validStatus(state.stopTrigger) && validStatus(state.stopReason) &&
+    validLensNames(state.completedLenses) && validLensNames(state.skippedLenses) &&
+    validLensNames(state.failedLenses) && Array.isArray(state.coverageGaps) &&
+    !!state.provisionalScore && typeof state.provisionalScore === 'object' &&
+    isCount(state.provisionalScore.findingCount) && isCount(validation.confirmed) &&
+    isCount(validation.rejected) && isCount(validation.unresolved)
+  return {
+    schemaVersion: 1,
+    coverage: sourcesValid ? state.coverageStatus : 'incomplete-lens',
+    verification: sourcesValid ? state.verificationStatus : 'incomplete',
+    fix: typeof state.fixStatus === 'string' ? state.fixStatus : (state.reviewOnly ? 'not-requested' : 'failed'),
+    stopTrigger: typeof state.stopTrigger === 'string' ? state.stopTrigger : 'none',
+    stopReason: sourcesValid ? state.stopReason : 'result-contract-invalid',
+    fixRequested: state.reviewOnly === false,
+    completedLenses: lensNames(state.completedLenses),
+    skippedLenses: lensNames(state.skippedLenses),
+    failedLenses: lensNames(state.failedLenses),
+    coverageGapCount: Array.isArray(state.coverageGaps) ? state.coverageGaps.length : 0,
+    findings: {
+      provisional: count(state.provisionalScore && state.provisionalScore.findingCount),
+      confirmed: count(validation.confirmed),
+      rejected: count(validation.rejected),
+      unresolved: count(validation.unresolved),
+    },
+  }
+}
+
+function appendReviewResultMarker(report, state) {
+  const prefix = 'REVIEW_AND_FIX_PR_RESULT_JSON='
+  const safeReport = String(report).replace(new RegExp('(^|\\n)(?=' + prefix + ')', 'g'), '$1[human report] ')
+  return safeReport + '\n\n' + prefix +
+    JSON.stringify(buildReviewResultContract(state))
+}
+
+function terminalReviewResult(report, stopReason, state) {
+  return appendReviewResultMarker(report, Object.assign({
+    coverageStatus: 'incomplete-lens',
+    verificationStatus: 'incomplete',
+    fixStatus: FIX_ARG ? 'failed' : 'not-requested',
+    stopTrigger: 'none',
+    stopReason: stopReason || 'workflow-error',
+    reviewOnly: !FIX_ARG,
+    completedLenses: [],
+    skippedLenses: [],
+    failedLenses: [],
+    coverageGaps: [],
+    provisionalScore: { findingCount: 0 },
+    validationTotals: { confirmed: 0, rejected: 0, unresolved: 0 },
+  }, state || {}))
+}
+
 function renderReport(state) {
   const { scope, base, setup, stopReason } = state
   const openFollowUps = (state.followUps && state.followUps.followUps) || []
@@ -3137,7 +3429,7 @@ function renderReport(state) {
              '`workflow` scope. Those are listed above rather than applied.')
   }
 
-  return out.join('\n')
+  return appendReviewResultMarker(out.join('\n'), state)
 }
 
 // ------------------------------------------------------------------- run ----
@@ -3150,7 +3442,9 @@ const rootProof = await agentSafe(exactStatePrompt(rootProofCommand, 'resolve tr
   disallowedTools: DENY_READONLY, bashCommandClamp: ['Bash(' + rootProofCommand + ')'], requireToolScope: true,
 })
 if (!rootProof || !rootProof.ok || !/^\/[\s\S]+/.test(rootProof.repoRoot || '')) {
-  return 'review-and-fix-pr refused to start: trusted repository root could not be resolved.\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr refused to start: trusted repository root could not be resolved.\n\nNothing was changed.',
+    'scope-error')
 }
 const trustedRepoRoot = rootProof.repoRoot
 const initialScopeProofCommand = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-scope.js') +
@@ -3164,24 +3458,35 @@ const initialScopeProof = await agentSafe(exactStatePrompt(initialScopeProofComm
 })
 if (!initialScopeProof || !initialScopeProof.ok || !initialScopeProof.sourceJson ||
     !/^[a-f0-9]{64}$/.test(initialScopeProof.scopeFingerprint || '')) {
-  return 'review-and-fix-pr refused to start: trusted PR scope sources could not be captured.\n\n' +
-    ((initialScopeProof && initialScopeProof.error) || '') + '\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr refused to start: trusted PR scope sources could not be captured.\n\n' +
+      ((initialScopeProof && initialScopeProof.error) || '') + '\n\nNothing was changed.',
+    'scope-error')
 }
 const scope = await agentSafe(scopePrompt(trustedRepoRoot, initialScopeProof.sourceJson, initialScopeProof), {
   schema: SCOPE_SCHEMA, label: 'scope', effort: 'high',
   disallowedTools: DENY_READONLY.concat(['Bash']), requireToolScope: true,
 })
-if (!scope) return 'review-and-fix-pr: aborted before doing anything - the scope agent returned no result.\nNothing was changed.'
+if (!scope) {
+  return terminalReviewResult(
+    'review-and-fix-pr: aborted before doing anything - the scope agent returned no result.\nNothing was changed.',
+    'scope-error')
+}
 
 if (!/^\/[\s\S]+/.test(scope.repoRoot || '') || scope.repoRoot !== trustedRepoRoot ||
     !Number.isSafeInteger(scope.prNumber) || scope.prNumber < 1) {
-  return 'review-and-fix-pr refused unsafe scope identity before proof.\n\nNothing was changed.'
+  return terminalReviewResult('review-and-fix-pr refused unsafe scope identity before proof.\n\nNothing was changed.',
+    'scope-error')
 }
 if (EXPLICIT_PR_NUMBER !== null && scope.prNumber !== EXPLICIT_PR_NUMBER) {
-  return 'review-and-fix-pr refused scope output for the wrong explicit PR number.\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr refused scope output for the wrong explicit PR number.\n\nNothing was changed.',
+    'scope-error')
 }
 if (scope.prNumber !== initialScopeProof.prNumber) {
-  return 'review-and-fix-pr refused scope output for a different trusted PR.\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr refused scope output for a different trusted PR.\n\nNothing was changed.',
+    'scope-error')
 }
 const scopeProofCommand = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-scope.js') +
   ' --root ' + shq(trustedRepoRoot) + ' --pr ' + scope.prNumber +
@@ -3194,8 +3499,9 @@ const scopeProof = await agentSafe(exactStatePrompt(scopeProofCommand, 'prove PR
 if (!scopeProof || !scopeProof.ok || !/^[a-f0-9]{40}$/.test(scopeProof.prHead || '') ||
     !/^[a-f0-9]{40}$/.test(scopeProof.mergeBase || '') ||
     !/^[a-f0-9]{64}$/.test(scopeProof.scopeFingerprint || '')) {
-  return 'review-and-fix-pr refused to start: trusted PR scope proof failed.\n\n' +
-    ((scopeProof && scopeProof.error) || 'The scope proof helper returned no valid result.') + '\n\nNothing was changed.'
+  return terminalReviewResult('review-and-fix-pr refused to start: trusted PR scope proof failed.\n\n' +
+    ((scopeProof && scopeProof.error) || 'The scope proof helper returned no valid result.') + '\n\nNothing was changed.',
+    'scope-error')
 }
 const scopeProofMismatches = []
 if (scope.repo !== scopeProof.repo) scopeProofMismatches.push('repository')
@@ -3204,13 +3510,23 @@ if (scope.baseRef !== scopeProof.baseRef) scopeProofMismatches.push('base ref')
 if (String(scope.headSha).toLowerCase() !== scopeProof.prHead) scopeProofMismatches.push('PR head')
 if (String(scope.mergeBaseSha).toLowerCase() !== scopeProof.mergeBase) scopeProofMismatches.push('merge base')
 if (scopeProof.scopeFingerprint !== initialScopeProof.scopeFingerprint) scopeProofMismatches.push('scope sources changed during setup')
-if (scopeProof.sourceJson !== initialScopeProof.sourceJson) scopeProofMismatches.push('trusted source payload changed during setup')
+if (!stableTrustedSourcePayload(scopeProof.sourceJson) ||
+    stableTrustedSourcePayload(scopeProof.sourceJson) !== stableTrustedSourcePayload(initialScopeProof.sourceJson)) {
+  scopeProofMismatches.push('trusted source payload changed during setup')
+}
+const initialGhUser = trustedSourceGhUser(initialScopeProof.sourceJson)
+const proofGhUser = trustedSourceGhUser(scopeProof.sourceJson)
+if (initialGhUser !== 'unknown' && proofGhUser !== 'unknown' && initialGhUser !== proofGhUser) {
+  scopeProofMismatches.push('authenticated GitHub user changed during setup')
+}
 if (JSON.stringify(scope.outOfScope || []) !== JSON.stringify(scopeProof.verifiedDeferrals || [])) {
   scopeProofMismatches.push('author deferrals')
 }
 if (scopeProofMismatches.length) {
-  return 'review-and-fix-pr refused scope output that disagrees with trusted Git/GitHub proof: ' +
-    scopeProofMismatches.join(', ') + '.\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr refused scope output that disagrees with trusted Git/GitHub proof: ' +
+      scopeProofMismatches.join(', ') + '.\n\nNothing was changed.',
+    'scope-error')
 }
 scope.scopeFingerprint = scopeProof.scopeFingerprint
 
@@ -3231,32 +3547,38 @@ if (scope.ledgerPath && scope.ledgerPath !== 'none' &&
     !scope.ledgerPath.endsWith('/.claude/review-and-fix-pr/' + scope.slug + '/reviewed.json')) {
   unsafeScope.push('ledger path is outside the review cache')
 }
-if (unsafeScope.length) return 'review-and-fix-pr refused unsafe scope output:\n  - ' + unsafeScope.join('\n  - ') + '\n\nNothing was changed.'
+if (unsafeScope.length) {
+  return terminalReviewResult(
+    'review-and-fix-pr refused unsafe scope output:\n  - ' + unsafeScope.join('\n  - ') + '\n\nNothing was changed.',
+    'scope-error')
+}
 
 if (scope.blocker && scope.blocker !== 'none') {
-  return 'review-and-fix-pr refused to start.\n\n' + scope.blocker + '\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr refused to start.\n\n' + scope.blocker + '\n\nNothing was changed.',
+    'scope-blocked')
 }
 if (!scope.treeClean) {
-  return 'review-and-fix-pr refused to start: your working tree is dirty.\n\n' +
-         'This workflow commits to the current branch, and a batch whose build fails leaves its edits in\n' +
-         'the tree for you to look at. Both of those become unreadable mixed with uncommitted work of\n' +
-         'your own, and it has no way to tell which edits are yours.\n\n' +
-         'Commit or stash your changes, then run it again. Nothing was changed.'
+  return terminalReviewResult('review-and-fix-pr refused to start: your working tree is dirty.\n\n' +
+    'This workflow commits to the current branch, and a batch whose build fails leaves its edits in\n' +
+    'the tree for you to look at. Both of those become unreadable mixed with uncommitted work of\n' +
+    'your own, and it has no way to tell which edits are yours.\n\n' +
+    'Commit or stash your changes, then run it again. Nothing was changed.', 'dirty-tree')
 }
 phase('Setup')
 const setup = scope
 if (!setup.binOk) {
-  return 'review-and-fix-pr refused to start: the helper scripts are missing.\n\n' +
-         'Expected review-and-fix-pr-driver.js, review-and-fix-pr-reviewed.js, review-and-fix-pr-state.js, ' +
-         'review-and-fix-pr-chunker.js, review-and-fix-pr-diff.js, and review-and-fix-pr-scope.js under ' + HOME_BIN + '.\n' +
-         (setup.notes ? '\n' + setup.notes + '\n' : '') +
-         '\nNothing was changed.'
+  return terminalReviewResult('review-and-fix-pr refused to start: the helper scripts are missing.\n\n' +
+    'Expected review-and-fix-pr-driver.js, review-and-fix-pr-reviewed.js, review-and-fix-pr-state.js, ' +
+    'review-and-fix-pr-chunker.js, review-and-fix-pr-diff.js, and review-and-fix-pr-scope.js under ' + HOME_BIN + '.\n' +
+    (setup.notes ? '\n' + setup.notes + '\n' : '') +
+    '\nNothing was changed.', 'setup-error')
 }
 const stateKey = {
   repo: scope.repo, pr: scope.prNumber, base: scope.mergeBaseSha, prHead: scope.headSha,
   head: scope.startSha,
   scopeFingerprint: scope.scopeFingerprint,
-  workflowVersion: '0.5.0', model: MODEL || 'inherit', mandatoryLenses: NATIVE_LENSES,
+  workflowVersion: WORKFLOW_STATE_VERSION, model: MODEL || 'inherit', mandatoryLenses: NATIVE_LENSES,
   extraReviewSkills: EXTRA_REVIEW_SKILLS,
 }
 // State helper resolves this symbolic cache key itself; no model-produced filesystem prefix can
@@ -3271,7 +3593,9 @@ const stateNonce = await agentSafe(exactStatePrompt(nonceCommand, 'allocate stat
   disallowedTools: DENY_READONLY, bashCommandClamp: ['Bash(' + nonceCommand + ')'], requireToolScope: true,
 })
 if (!stateNonce || !stateNonce.ok || !/^[a-f0-9]{64}$/.test(stateNonce.nonce || '')) {
-  return 'review-and-fix-pr refused to start: state claim journal could not be allocated.\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr refused to start: state claim journal could not be allocated.\n\nNothing was changed.',
+    'state-checkpoint-failed')
 }
 const stateCommand = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-state.js') +
   ' ' + stateVerb + ' --store ' + shq(stateStore) + ' --key-base64 ' + shq(utf8Base64(JSON.stringify(stateKey))) +
@@ -3307,14 +3631,19 @@ async function unlockStateClaim(purpose) {
   return stateLifecycle(command, purpose || 'release review state')
 }
 const claimedLineage = stateClaim && stateClaim.state && stateClaim.state.lineage
+const claimedRepository = stateClaim && stateClaim.repository
 const completeClaimLineage = claimedLineage && /^[a-f0-9]{40}$/.test(claimedLineage.initialHead || '') &&
   /^[a-f0-9]{40}$/.test(claimedLineage.currentHead || '') && Number.isSafeInteger(claimedLineage.total) &&
   claimedLineage.total >= 0
 if (!stateClaim || !stateClaim.ok || !stateClaim.run || !stateClaim.lockToken || !stateClaim.runDir ||
-    typeof stateClaim.resumed !== 'boolean' || !completeClaimLineage) {
+    typeof stateClaim.resumed !== 'boolean' || !completeClaimLineage ||
+    !/^[a-f0-9]{64}$/.test(stateClaim.keyHash || '') || stateClaim.state.keyHash !== stateClaim.keyHash ||
+    !claimedRepository || !claimedRepository.identity || claimedRepository.root !== scope.repoRoot ||
+    claimedRepository.head !== claimedLineage.currentHead) {
   await unlockStateClaim('release malformed state claim')
-  return 'review-and-fix-pr refused to start: resumable state could not be claimed.\n\n' +
-         ((stateClaim && stateClaim.notes) || 'The state helper returned no valid claim.') + '\n\nNothing was changed.'
+  return terminalReviewResult('review-and-fix-pr refused to start: resumable state could not be claimed.\n\n' +
+    ((stateClaim && stateClaim.notes) || 'The state helper returned no valid claim.') + '\n\nNothing was changed.',
+    'state-checkpoint-failed')
 }
 setup.runDir = stateClaim.runDir
 const restoredOwnedCommits = []
@@ -3322,6 +3651,8 @@ let lineageRestoreFailed = false
 let canonicalLineageTotal = null
 let canonicalInitialHead = null
 let canonicalCurrentHead = null
+let canonicalInitialKeyHash = null
+let canonicalCurrentKeyHash = null
 for (let after = 0; after === 0 || after < canonicalLineageTotal; after++) {
   const lineageCommand = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-state.js') +
     ' export-lineage --store ' + shq(stateStore) + ' --run ' + shq(stateClaim.run) +
@@ -3334,7 +3665,9 @@ for (let after = 0; after === 0 || after < canonicalLineageTotal; after++) {
       page.total !== claimedLineage.total || page.after !== after || !Array.isArray(page.commits) ||
       page.commits.length !== (after < page.total ? 1 : 0) ||
       page.nextAfter !== after + page.commits.length || !/^[a-f0-9]{40}$/.test(page.initialHead || '') ||
-      !/^[a-f0-9]{40}$/.test(page.currentHead || '')) {
+      !/^[a-f0-9]{40}$/.test(page.currentHead || '') ||
+      !(page.initialKeyHash === null || /^[a-f0-9]{64}$/.test(page.initialKeyHash || '')) ||
+      !/^[a-f0-9]{64}$/.test(page.currentKeyHash || '')) {
     lineageRestoreFailed = true
     break
   }
@@ -3342,12 +3675,40 @@ for (let after = 0; after === 0 || after < canonicalLineageTotal; after++) {
     canonicalLineageTotal = page.total
     canonicalInitialHead = page.initialHead
     canonicalCurrentHead = page.currentHead
+    canonicalInitialKeyHash = page.initialKeyHash
+    canonicalCurrentKeyHash = page.currentKeyHash
   } else if (page.total !== canonicalLineageTotal || page.initialHead !== canonicalInitialHead ||
-      page.currentHead !== canonicalCurrentHead) {
+      page.currentHead !== canonicalCurrentHead || page.initialKeyHash !== canonicalInitialKeyHash ||
+      page.currentKeyHash !== canonicalCurrentKeyHash) {
     lineageRestoreFailed = true
     break
   }
-  if (page.commits.length) restoredOwnedCommits.push(page.commits[0])
+  if (page.commits.length) {
+    const commit = page.commits[0]
+    const previous = restoredOwnedCommits[restoredOwnedCommits.length - 1]
+    const expectedFromHead = previous ? previous.to : canonicalInitialHead
+    const expectedFromKeyHash = previous && previous.toKeyHash ? previous.toKeyHash : canonicalInitialKeyHash
+    const hasFromKeyHash = /^[a-f0-9]{64}$/.test(commit && commit.fromKeyHash || '')
+    const hasToKeyHash = /^[a-f0-9]{64}$/.test(commit && commit.toKeyHash || '')
+    if (!commit || commit.from !== expectedFromHead || !/^[a-f0-9]{40}$/.test(commit.to || '') ||
+        hasFromKeyHash !== hasToKeyHash ||
+        (hasFromKeyHash && expectedFromKeyHash !== null && commit.fromKeyHash !== expectedFromKeyHash) ||
+        (!hasFromKeyHash && expectedFromKeyHash !== null)) {
+      lineageRestoreFailed = true
+      break
+    }
+    restoredOwnedCommits.push(commit)
+  }
+}
+if (!lineageRestoreFailed && canonicalLineageTotal !== null) {
+  const lastCommit = restoredOwnedCommits[restoredOwnedCommits.length - 1]
+  const expectedCurrentHead = lastCommit ? lastCommit.to : canonicalInitialHead
+  const expectedCurrentKeyHash = lastCommit && lastCommit.toKeyHash
+    ? lastCommit.toKeyHash : (lastCommit ? null : canonicalInitialKeyHash)
+  if (expectedCurrentHead !== canonicalCurrentHead ||
+      (expectedCurrentKeyHash !== null && expectedCurrentKeyHash !== canonicalCurrentKeyHash)) {
+    lineageRestoreFailed = true
+  }
 }
 const restoredArtifactItems = []
 let artifactAfter = 'none'
@@ -3382,10 +3743,97 @@ if (expectedArtifactCount !== null &&
 }
 if (lineageRestoreFailed || !stateExportOk) {
   await unlockStateClaim('release unreadable resume state')
-  return 'review-and-fix-pr stopped: saved review state could not be hash-verified and restored.\n\n' +
-    'The state helper returned no valid bounded resume page.\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr stopped: saved review state could not be hash-verified and restored.\n\n' +
+      'The state helper returned no valid bounded resume page.\n\nNothing was changed.',
+    'state-checkpoint-failed')
 }
-const resumedArtifacts = new Map(restoredArtifactItems.map(item => [item.name, item.value]))
+if (canonicalCurrentKeyHash !== stateClaim.keyHash) {
+  await unlockStateClaim('release state with inconsistent lineage key')
+  return terminalReviewResult(
+    'review-and-fix-pr stopped: saved review lineage did not match the claimed state key.\n\nNothing was changed.',
+    'state-checkpoint-failed')
+}
+const resumeLineage = { initialHead: canonicalInitialHead, currentHead: canonicalCurrentHead,
+  initialKeyHash: canonicalInitialKeyHash, currentKeyHash: canonicalCurrentKeyHash,
+  ownedCommits: restoredOwnedCommits }
+const ownedCommits = resumeLineage.ownedCommits
+const lineageKeyHashByHead = trustedLineageKeyHashes(resumeLineage)
+if (!lineageKeyHashByHead) {
+  await unlockStateClaim('release state with malformed lineage key history')
+  return terminalReviewResult(
+    'review-and-fix-pr stopped: saved review lineage key history was malformed.\n\nNothing was changed.',
+    'state-checkpoint-failed')
+}
+function controlArtifactValue(name, stored) {
+  if (!(stored && stored.controlVersion === 1)) return stored
+  const binding = stored.binding
+  if (!binding || binding.run !== stateClaim.run || binding.repositoryIdentity !== stateClaim.repository.identity ||
+      binding.artifactName !== name || lineageKeyHashByHead.get(binding.headSha) !== binding.keyHash ||
+      !stored.value || typeof stored.value !== 'object' || Array.isArray(stored.value)) return null
+  return stored.value
+}
+const resumedArtifacts = new Map()
+for (const item of restoredArtifactItems) {
+  const value = controlArtifactValue(item.name, item.value)
+  if (!value) {
+    await unlockStateClaim('release state with invalid control binding')
+    return terminalReviewResult(
+      'review-and-fix-pr stopped: a saved control artifact had an invalid repository or lineage binding.\n\nNothing was changed.',
+      'state-checkpoint-failed')
+  }
+  resumedArtifacts.set(item.name, value)
+}
+const resumedArtifactRecords = new Map(restoredArtifactItems.map(item => [item.name, {
+  sha256: item.sha256 || null,
+  bytes: Number.isSafeInteger(item.bytes) ? item.bytes : null,
+}]))
+const MAX_CONTROL_BASE64_BYTES = 8192
+const reservedArtifactNames = new Set(resumedArtifacts.keys())
+let journalImportSequence = 0
+
+// Imported artifacts are raw agent results wrapped in a helper-authenticated binding. Keep this
+// adapter deliberately strict: an artifact copied from another run, HEAD, kind, or logical result
+// must never become review evidence merely because its JSON happens to satisfy a result schema.
+// Legacy wrapper checkpoints remain readable so existing v2 runs can finish after this upgrade.
+function importedArtifactResult(value, expected) {
+  if (!value || value.importVersion !== 1 || !value.binding || !value.result) return null
+  const binding = value.binding
+  const expectedKeyHash = lineageKeyHashByHead.get(expected.headSha)
+  if (binding.run !== stateClaim.run ||
+      !binding.repositoryIdentity || binding.headSha !== expected.headSha ||
+      binding.kind !== expected.kind || binding.resultId !== expected.resultId ||
+      !binding.sourceLabel || binding.sourcePhase !== expected.sourcePhase ||
+      !binding.workflowId || !binding.sourceKey || !binding.agentId ||
+      binding.keyHash !== expectedKeyHash) return null
+  return value.result
+}
+
+function semanticArtifactResult(value, headSha) {
+  if (value && value.importVersion === 1 && value.binding &&
+      value.binding.kind === 'semantic-manifest' && value.binding.headSha === headSha &&
+      ['recovery', 'refresh'].includes(value.binding.resultId)) {
+    return importedArtifactResult(value, { headSha, kind: 'semantic-manifest',
+      resultId: value.binding.resultId, sourcePhase: 'Coverage' })
+  }
+  return value && value.headSha === headSha && Array.isArray(value.coverageUnits)
+    ? { coverageUnits: value.coverageUnits } : null
+}
+
+function selectFrozenSemanticCoverage(savedScope, savedHeadUnits, freshUnits, headSha) {
+  const savedMatchesHead = !!savedScope && savedScope.headSha === headSha
+  const initialUnits = savedScope && Array.isArray(savedScope.coverageUnits)
+    ? savedScope.coverageUnits : null
+  if (savedMatchesHead && !initialUnits) return { error: 'saved initial semantic coverage was missing' }
+  const currentUnits = Array.isArray(savedHeadUnits) ? savedHeadUnits :
+    (savedMatchesHead ? initialUnits : freshUnits)
+  return {
+    savedMatchesHead, initialUnits,
+    currentUnits: (currentUnits || []).filter(unit => unit && !['hunk', 'non-text'].includes(unit.type)),
+    immutableUnits: (initialUnits || freshUnits || []).filter(unit =>
+      unit && ['requirement', 'repository-rule'].includes(unit.type)),
+  }
+}
 const savedScopeArtifact = [...resumedArtifacts].find(([name, value]) =>
   /^scope-[a-f0-9]{64}\.json$/.test(name) && value && value.scope && value.stateKey &&
   value.stateKey.scopeFingerprint === stateKey.scopeFingerprint &&
@@ -3397,9 +3845,6 @@ if (savedScopeArtifact) {
     if (frozenScope[field] !== undefined) scope[field] = frozenScope[field]
   }
 }
-const resumeLineage = { initialHead: canonicalInitialHead, currentHead: canonicalCurrentHead,
-  ownedCommits: restoredOwnedCommits }
-const ownedCommits = resumeLineage.ownedCommits
 // Lineage is the durable source of truth for commits from earlier invocations. Keep a separate
 // handoff list because stageLog describes only work performed by this invocation.
 const savedLocalCommits = ownedCommits.map(commit => ({
@@ -3413,10 +3858,12 @@ if (!scope.headMatchesPr && !(stateClaim.resumed && ownedResumeEvidence)) {
     shq(stateStore) + ' --run ' + shq(stateClaim.run) + ' --lock-token ' + shq(stateClaim.lockToken) +
     ' --root ' + shq(scope.repoRoot) + ' --status refused-head'
   await stateLifecycle(refuseCommand, 'seal refused non-PR head state')
-  return 'review-and-fix-pr refused to start: HEAD is neither the PR head nor a state-backed workflow-owned commit.\n\n' +
-         '  you are on: ' + scope.startBranch + ' @ ' + shortSha(scope.startSha) + '\n' +
-         '  PR #' + (scope.prNumber || '?') + ' head: ' + shortSha(scope.headSha) + '\n\n' +
-         'Check the PR out first: gh pr checkout ' + (scope.prNumber || '<number>') + '\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr refused to start: HEAD is neither the PR head nor a state-backed workflow-owned commit.\n\n' +
+      '  you are on: ' + scope.startBranch + ' @ ' + shortSha(scope.startSha) + '\n' +
+      '  PR #' + (scope.prNumber || '?') + ' head: ' + shortSha(scope.headSha) + '\n\n' +
+      'Check the PR out first: gh pr checkout ' + (scope.prNumber || '<number>') + '\n\nNothing was changed.',
+    'scope-error')
 }
 scope.prHeadSha = scope.headSha
 scope.headSha = scope.startSha
@@ -3428,7 +3875,9 @@ if (!String(setup.runDir || '').endsWith('/review-and-fix-pr/' + scope.slug + '/
 }
 if (setupProblems.length) {
   await unlockStateClaim('release unsafe setup state')
-  return 'review-and-fix-pr refused unsafe setup output:\n  - ' + setupProblems.join('\n  - ') + '\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr refused unsafe setup output:\n  - ' + setupProblems.join('\n  - ') + '\n\nNothing was changed.',
+    'setup-error')
 }
 log('whole-PR setup: no classifier or chunks')
 log('clean-file ledger disabled: completeness reviews the full current PR diff')
@@ -3449,29 +3898,39 @@ const initialManifestError = initialDiffInventory
 if (initialManifestError ||
     (deterministicManifest.stderr && deterministicManifest.stderr !== 'none')) {
   await unlockStateClaim('release failed manifest state')
-  return 'review-and-fix-pr stopped: deterministic coverage manifest generation failed.\n\n' +
-         (initialManifestError || (deterministicManifest && deterministicManifest.stderr) || 'The chunker returned no manifest.') +
-         '\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr stopped: deterministic coverage manifest generation failed.\n\n' +
+      (initialManifestError || (deterministicManifest && deterministicManifest.stderr) || 'The chunker returned no manifest.') +
+      '\n\nNothing was changed.',
+    'coverage-error')
 }
 const deterministicNonTextUnits = initialDiffInventory.structuralUnits
 const semanticUnits = (scope.coverageUnits || []).filter(unit => unit && !['hunk', 'non-text'].includes(unit.type))
-const savedScopeMatchesHead = savedScopeArtifact && savedScopeArtifact[1].scope.headSha === scope.headSha
 const savedHeadSemantic = [...resumedArtifacts].filter(([name, value]) =>
-  /^scope-semantic-[a-f0-9]{40}\.json$/.test(name) && value &&
-  value.headSha === scope.headSha && Array.isArray(value.coverageUnits)).sort(([left], [right]) =>
+  /^scope-semantic-[a-f0-9]{40}(?:-attempt-\d+)?\.json$/.test(name) &&
+  semanticArtifactResult(value, scope.headSha)).sort(([left], [right]) =>
   right.localeCompare(left))[0]
-const frozenHeadSemanticUnits = (savedHeadSemantic ? savedHeadSemantic[1].coverageUnits :
-  (savedScopeMatchesHead ? savedScopeArtifact[1].scope.coverageUnits : semanticUnits))
-  .filter(unit => unit && !['hunk', 'non-text'].includes(unit.type))
-let immutableSemanticUnits = (savedScopeArtifact
-  ? savedScopeArtifact[1].scope.coverageUnits : semanticUnits).filter(unit =>
-  unit && ['requirement', 'repository-rule'].includes(unit.type))
+const savedSemanticResult = savedHeadSemantic && semanticArtifactResult(savedHeadSemantic[1], scope.headSha)
+const frozenSemanticCoverage = selectFrozenSemanticCoverage(
+  savedScopeArtifact && savedScopeArtifact[1].scope,
+  savedSemanticResult && savedSemanticResult.coverageUnits,
+  semanticUnits, scope.headSha)
+if (frozenSemanticCoverage.error) {
+  await unlockStateClaim('release state missing frozen semantic coverage')
+  return terminalReviewResult(
+    'review-and-fix-pr stopped: ' + frozenSemanticCoverage.error + '.\n\nNothing was changed.',
+    'state-checkpoint-failed')
+}
+const frozenHeadSemanticUnits = frozenSemanticCoverage.currentUnits
+let immutableSemanticUnits = frozenSemanticCoverage.immutableUnits
 const reservedCoverageIds = new Set(deterministicManifest.coverageUnits.concat(deterministicNonTextUnits)
   .map(unit => unit.id))
 const initialSemanticError = coverageUnitSetError(frozenHeadSemanticUnits, reservedCoverageIds)
 if (initialSemanticError) {
   await unlockStateClaim('release invalid semantic coverage state')
-  return 'review-and-fix-pr stopped: ' + initialSemanticError + '.\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr stopped: ' + initialSemanticError + '.\n\nNothing was changed.',
+    'coverage-error')
 }
 const unitById = new Map()
 for (const unit of deterministicManifest.coverageUnits.concat(deterministicNonTextUnits,
@@ -3521,8 +3980,10 @@ if (REVIEW_ONLY) {
         ' --set fix-regression'
       await stateLifecycle(failedStatus, 'mark recovered fix regression')
       await unlockStateClaim('release state after recovered fix regression')
-      return 'review-and-fix-pr stopped: a workflow-owned fix made the original green baseline fail.\n\n' +
-        ((current && current.notes) || 'The post-fix baseline check failed.')
+      return terminalReviewResult(
+        'review-and-fix-pr stopped: a workflow-owned fix made the original green baseline fail.\n\n' +
+          ((current && current.notes) || 'The post-fix baseline check failed.'),
+        'build-failed')
     }
   }
 } else {
@@ -3536,8 +3997,10 @@ if (!base) {
     ' --set baseline-unavailable'
   await stateLifecycle(baselineStatus, 'record unavailable validation baseline')
   await unlockStateClaim('release state after unavailable validation baseline')
-  return 'review-and-fix-pr stopped: the validation baseline could not be measured.\n\n' +
-    'No fixer ran and nothing was committed. Retry when build/lint/test discovery can complete.'
+  return terminalReviewResult(
+    'review-and-fix-pr stopped: the validation baseline could not be measured.\n\n' +
+      'No fixer ran and nothing was committed. Retry when build/lint/test discovery can complete.',
+    'baseline-error')
 }
 // A green tree is what makes "did it pass?" a usable verdict. If the repo is already failing, test
 // results carry no signal about our changes, so say so and stop running them rather than pretending
@@ -3569,12 +4032,16 @@ else if (!base.baselineLintOk) log('lint is ALREADY failing on the untouched tre
 else if ((base.baselineFailures || []).length) log((base.baselineFailures || []).length + ' test(s) already failing before this run')
 if (!await trustedRepositoryStatus(scope.headSha, 'verify repository unchanged after baseline')) {
   await unlockStateClaim('release state after baseline changed repository')
-  return 'review-and-fix-pr stopped: baseline execution changed HEAD or left the working tree dirty.\n\n' +
-    'Inspect and clean those baseline artifacts before retrying. Nothing was committed by the workflow.'
+  return terminalReviewResult(
+    'review-and-fix-pr stopped: baseline execution changed HEAD or left the working tree dirty.\n\n' +
+      'Inspect and clean those baseline artifacts before retrying. Nothing was committed by the workflow.',
+    'baseline-error')
 }
 if (!REVIEW_ONLY && !savedBaseline && !await checkpointState('baseline.json', { headSha: scope.headSha, base })) {
   await unlockStateClaim('release state after baseline checkpoint failure')
-  return 'review-and-fix-pr stopped: original validation baseline could not be checkpointed.\n\nNothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr stopped: original validation baseline could not be checkpointed.\n\nNothing was changed.',
+    'state-checkpoint-failed')
 }
 
 // The run tag names this run's driver batches and scratch dirs, so it has to be unique per run and
@@ -3583,34 +4050,127 @@ if (!REVIEW_ONLY && !savedBaseline && !await checkpointState('baseline.json', { 
 // Math.random() are unavailable because they would break resume.
 const RUN_TAG = (String(setup.runDir).split('/').filter(Boolean).pop() || '').replace(/[^\w.-]/g, '') ||
                 shortSha(scope.startSha)
-async function checkpointState(name, value) {
-  if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(name) || name.split('/').includes('..')) {
-    statePersistenceFailed = true
-    return false
-  }
+
+function reserveArtifactName(name) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(name) || name.split('/').includes('..')) return null
   let artifactName = name
-  if (resumedArtifacts.has(artifactName)) {
+  if (reservedArtifactNames.has(artifactName)) {
     const suffix = artifactName.endsWith('.json') ? '.json' : ''
     const stem = suffix ? artifactName.slice(0, -suffix.length) : artifactName
     let attempt = 2
-    while (resumedArtifacts.has(stem + '-attempt-' + attempt + suffix)) attempt++
+    while (reservedArtifactNames.has(stem + '-attempt-' + attempt + suffix)) attempt++
     artifactName = stem + '-attempt-' + attempt + suffix
   }
-  const encodedValue = utf8Base64(JSON.stringify(value))
-  // Workflow JS cannot stream into a helper directly. Bound argv use below the smallest common
-  // ARG_MAX; an oversized checkpoint fails closed before any automatic fixing can continue.
-  if (encodedValue.length > 98304) {
+  reservedArtifactNames.add(artifactName)
+  return artifactName
+}
+
+function planJournalImport(name, kind, resultId, sourcePhase, cycle, pass) {
+  const artifactName = reserveArtifactName(name)
+  if (!artifactName) return null
+  const sequence = ++journalImportSequence
+  const boundedRun = norm(stateClaim.run).slice(0, 80)
+  const boundedKind = norm(kind).slice(0, 40)
+  const boundedArtifact = norm(artifactName).slice(-80)
+  const qualifier = stateNonce.nonce + ':run=' + boundedRun + ':head=' + scope.headSha +
+    ':cycle=' + cycle + ':pass=' + pass + ':seq=' + sequence + ':kind=' + boundedKind +
+    ':artifact=' + boundedArtifact
+  return {
+    name: artifactName, kind, resultId, sourcePhase,
+    sourceLabel: 'rafp-source:v1:' + qualifier,
+    callerLabel: 'rafp-import:v1:' + qualifier,
+  }
+}
+
+async function importJournalArtifact(plan, result, expectedSkillStatus) {
+  if (!plan || !result) {
     statePersistenceFailed = true
     return false
   }
-  const command = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-state.js') + ' put --store ' + shq(stateStore) +
-    ' --run ' + shq(stateClaim.run) +
-    ' --lock-token ' + shq(stateClaim.lockToken) + ' --name ' + shq(artifactName) +
+  const command = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-state.js') +
+    ' import-journal --store ' + shq(stateStore) + ' --run ' + shq(stateClaim.run) +
+    ' --lock-token ' + shq(stateClaim.lockToken) + ' --root ' + shq(scope.repoRoot) +
+    ' --name ' + shq(plan.name) + ' --source-label ' + shq(plan.sourceLabel) +
+    ' --caller-label ' + shq(plan.callerLabel) + ' --kind ' + shq(plan.kind) +
+    ' --expected-id ' + shq(plan.resultId) + ' --expected-head ' + shq(scope.headSha) +
+    ' --source-phase ' + shq(plan.sourcePhase) +
+    (expectedSkillStatus ? ' --expected-skill-status ' + shq(expectedSkillStatus) : '')
+  const imported = await agentSafe(exactStatePrompt(command, 'import completed ' + plan.kind + ' result'), {
+    schema: STATE_IMPORT_SCHEMA, phase: 'Setup', label: plan.callerLabel, effort: 'low',
+    disallowedTools: DENY_READONLY, bashCommandClamp: ['Bash(' + command + ')'], requireToolScope: true,
+  })
+  const binding = imported && imported.binding
+  const recoveredOrphan = imported && imported.recoveredOrphan === true
+  const acceptedSourceBinding = recoveredOrphan
+    ? imported.sourceResultMatches === true
+    : binding && binding.sourceLabel === plan.sourceLabel
+  const valid = imported && imported.ok && imported.run === stateClaim.run && imported.name === plan.name &&
+    typeof imported.recoveredOrphan === 'boolean' && imported.sourceResultMatches === true &&
+    /^[a-f0-9]{64}$/.test(imported.sha256 || '') &&
+    imported.resultSha256 === canonicalJsonSha256(result) &&
+    Number.isSafeInteger(imported.bytes) && imported.bytes > 0 &&
+    binding && binding.run === stateClaim.run && binding.keyHash === stateClaim.keyHash &&
+    !!binding.repositoryIdentity && binding.headSha === scope.headSha && binding.kind === plan.kind &&
+    binding.resultId === plan.resultId && acceptedSourceBinding &&
+    binding.sourcePhase === plan.sourcePhase && binding.artifactName === plan.name &&
+    !!binding.workflowId && !!binding.sourceKey && !!binding.agentId &&
+    !!binding.sessionId && !!binding.projectCwd
+  if (!valid) {
+    statePersistenceFailed = true
+    return false
+  }
+  resumedArtifacts.set(plan.name, { importVersion: 1, binding, result })
+  resumedArtifactRecords.set(plan.name, { sha256: imported.sha256, bytes: imported.bytes })
+  return plan.name
+}
+
+async function checkpointControlState(name, value, nameAlreadyReserved = false,
+  purpose = 'store compact control') {
+  const artifactName = nameAlreadyReserved ? name : reserveArtifactName(name)
+  if (!artifactName || (nameAlreadyReserved &&
+      (!reservedArtifactNames.has(name) || resumedArtifacts.has(name)))) {
+    statePersistenceFailed = true
+    return false
+  }
+  const encodedValue = utf8Base64(JSON.stringify(value))
+  if (encodedValue.length > MAX_CONTROL_BASE64_BYTES) {
+    log('disposition control exceeded ' + MAX_CONTROL_BASE64_BYTES + ' encoded bytes: ' + name)
+    statePersistenceFailed = true
+    return false
+  }
+  const command = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-state.js') +
+    ' put-control --store ' + shq(stateStore) + ' --run ' + shq(stateClaim.run) +
+    ' --lock-token ' + shq(stateClaim.lockToken) + ' --root ' + shq(scope.repoRoot) +
+    ' --name ' + shq(artifactName) + ' --expected-head ' + shq(scope.headSha) +
     ' --base64 ' + shq(encodedValue)
-  const result = await stateLifecycleResult(command, 'checkpoint ' + name)
-  if (!result || !result.ok) statePersistenceFailed = true
-  else resumedArtifacts.set(artifactName, value)
-  return result && result.ok ? artifactName : false
+  const label = 'rafp-control:v1:' + stateNonce.nonce + ':run=' + norm(stateClaim.run).slice(0, 80) +
+    ':head=' + scope.headSha + ':artifact=' + norm(artifactName).slice(-100)
+  const stored = await agentSafe(exactStatePrompt(command, purpose), {
+    schema: STATE_CONTROL_SCHEMA, phase: 'Setup', label, effort: 'low',
+    disallowedTools: DENY_READONLY, bashCommandClamp: ['Bash(' + command + ')'], requireToolScope: true,
+  })
+  const binding = stored && stored.binding
+  const valid = stored && stored.ok && stored.run === stateClaim.run && stored.name === artifactName &&
+    stored.valueMatches === true && /^[a-f0-9]{64}$/.test(stored.sha256 || '') &&
+    stored.valueSha256 === canonicalJsonSha256(value) && Number.isSafeInteger(stored.bytes) && stored.bytes > 0 &&
+    binding && binding.run === stateClaim.run && binding.keyHash === stateClaim.keyHash &&
+    binding.repositoryIdentity === stateClaim.repository.identity && binding.headSha === scope.headSha &&
+    binding.artifactName === artifactName
+  if (!valid) {
+    statePersistenceFailed = true
+    return false
+  }
+  resumedArtifacts.set(artifactName, value)
+  resumedArtifactRecords.set(artifactName, { sha256: stored.sha256, bytes: stored.bytes })
+  return artifactName
+}
+
+async function checkpointDispositionState(name, value, nameAlreadyReserved = false) {
+  return checkpointControlState(name, value, nameAlreadyReserved, 'store compact disposition control')
+}
+
+async function checkpointState(name, value, nameAlreadyReserved = false) {
+  return checkpointControlState(name, value, nameAlreadyReserved, 'checkpoint ' + name)
 }
 async function stateLifecycleResult(command, purpose) {
   const nonceCommand = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-state.js') + ' nonce --store ' + shq(stateStore)
@@ -3671,47 +4231,97 @@ async function reclaimStateAfterAdvance(newHead) {
     })
   } catch (error) {}
   const claim = canonicalClaim || direct
+  const repository = claim && claim.repository
   if (!claim || !claim.ok || claim.run !== stateClaim.run || !claim.resumed ||
-      claim.state.lineage.currentHead !== newHead) return false
+      claim.state.lineage.currentHead !== newHead || claim.state.keyHash !== claim.keyHash ||
+      !/^[a-f0-9]{64}$/.test(claim.keyHash || '') || !repository ||
+      repository.identity !== stateClaim.repository.identity || repository.root !== scope.repoRoot ||
+      repository.head !== newHead) return false
   stateClaim = claim
   return true
 }
-async function stageFixReceipt(batchId, value, rootPrefix = 'receipts') {
-  const encoded = utf8Base64(JSON.stringify(value))
-  if (encoded.length > 98304) {
+function compactFindingId(finding) {
+  if (!finding || typeof finding.candidateId !== 'string' || !finding.candidateId) return null
+  return canonicalJsonSha256(finding.candidateId)
+}
+
+function buildCompactFixReceipt(batchId, batch, result) {
+  if (!/^[A-Za-z0-9_.-]{1,128}$/.test(String(batchId || '')) || !Array.isArray(batch) || !batch.length ||
+      !result || !Array.isArray(result.fixed) || !Array.isArray(result.notABug) ||
+      !Array.isArray(result.stillOpen) || !Array.isArray(result.followUps)) return null
+  const originals = new Map()
+  for (const finding of batch) {
+    const key = norm(finding && finding.fingerprint)
+    const id = compactFindingId(finding)
+    if (!key || !id || originals.has(key)) return null
+    originals.set(key, { finding, id })
+  }
+  const allowedPaths = [...new Set(batch.flatMap(finding =>
+    Array.isArray(finding.files) && finding.files.length ? finding.files : [finding.primaryFile]))].sort()
+  if (!allowedPaths.length || allowedPaths.some(path => !safeFindingPath(path))) return null
+  const usedIds = new Set()
+  const resolve = item => {
+    const source = originals.get(norm(item && item.fingerprint))
+    if (!source || usedIds.has(source.id)) return null
+    usedIds.add(source.id)
+    return source
+  }
+  const fixed = []
+  for (const item of result.fixed) {
+    const source = resolve(item)
+    if (!source || typeof item.changeSummary !== 'string' || !item.changeSummary) return null
+    fixed.push({ id: source.id, changeSummary: item.changeSummary })
+  }
+  const notABug = []
+  for (const item of result.notABug) {
+    const source = resolve(item)
+    if (!source || typeof item.reason !== 'string' || !item.reason) return null
+    notABug.push({ id: source.id, reason: item.reason })
+  }
+  const stillOpen = []
+  for (const item of result.stillOpen) {
+    const source = resolve(item)
+    if (!source || typeof item.whyStillHere !== 'string' || !item.whyStillHere ||
+        typeof item.defer !== 'boolean' || typeof item.deferReason !== 'string' || !item.deferReason) return null
+    stillOpen.push({ id: source.id, whyStillHere: item.whyStillHere,
+      defer: item.defer, deferReason: item.deferReason })
+  }
+  if (usedIds.size !== originals.size) return null
+  const followUps = []
+  for (const followUp of result.followUps) {
+    if (!followUp || ['title', 'detail', 'area', 'size', 'blockerReason']
+      .some(field => typeof followUp[field] !== 'string' || !followUp[field]) ||
+      !['small', 'big'].includes(followUp.size) || typeof followUp.doneNow !== 'boolean' ||
+      typeof followUp.releaseBlocker !== 'boolean') return null
+    followUps.push({ title: followUp.title, detail: followUp.detail, area: followUp.area,
+      size: followUp.size, doneNow: followUp.doneNow, releaseBlocker: followUp.releaseBlocker,
+      blockerReason: followUp.blockerReason })
+  }
+  return { receiptVersion: 2, batchId, allowedPaths, fixed, notABug, stillOpen, followUps }
+}
+
+function inlineCompactFixReceipt(receipt) {
+  if (!receipt || receipt.receiptVersion !== 2) return null
+  const encoded = utf8Base64(JSON.stringify(receipt))
+  return encoded.length <= MAX_CONTROL_BASE64_BYTES ? encoded : null
+}
+
+async function prepareFixTransaction(batchId, parentSha, batch) {
+  const fallbackReceipt = buildCompactFixReceipt(batchId, batch, {
+    fixed: [], notABug: [], followUps: [],
+    stillOpen: (batch || []).map(finding => ({ fingerprint: finding.fingerprint,
+      whyStillHere: 'workflow interruption after commit prevented final fixer dispositions from being recorded',
+      defer: false, deferReason: 'none' })),
+  })
+  const encodedReceipt = inlineCompactFixReceipt(fallbackReceipt)
+  if (!encodedReceipt) {
     statePersistenceFailed = true
     return null
   }
-  const width = 49152 // divisible by four; safely below common per-argument limits
-  const parts = []
-  for (let offset = 0; offset < encoded.length; offset += width) parts.push(encoded.slice(offset, offset + width))
-  if (!parts.length) parts.push('e30=')
-  const prefix = rootPrefix + '/' + norm(batchId)
-  for (let index = 0; index < parts.length; index++) {
-    const name = prefix + '/' + String(index).padStart(4, '0') + '.part'
-    const command = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-state.js') + ' put --store ' + shq(stateStore) +
-      ' --run ' + shq(stateClaim.run) + ' --lock-token ' + shq(stateClaim.lockToken) +
-      ' --name ' + shq(name) + ' --base64 ' + shq(parts[index])
-    if (!await stateLifecycle(command, 'stage fix receipt ' + (index + 1) + '/' + parts.length)) {
-      statePersistenceFailed = true
-      return null
-    }
-  }
-  return { prefix, parts: parts.length }
-}
-async function prepareFixTransaction(batchId, parentSha, batch) {
-  const fallbackReceipt = {
-    batchId, fixed: [], notABug: [], followUps: [],
-    stillOpen: (batch || []).map(finding => Object.assign({}, finding, {
-      whyStillHere: 'workflow interruption after commit prevented final fixer dispositions from being recorded',
-    })),
-  }
-  const staged = await stageFixReceipt(batchId, fallbackReceipt, 'pending-receipts')
-  if (!staged) return null
   const command = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-state.js') + ' prepare-head --store ' +
     shq(stateStore) + ' --run ' + shq(stateClaim.run) + ' --lock-token ' + shq(stateClaim.lockToken) +
     ' --root ' + shq(scope.repoRoot) + ' --from ' + shq(parentSha) + ' --batch ' + shq(batchId) +
-    ' --receipt-prefix ' + shq(staged.prefix) + ' --receipt-parts ' + staged.parts
+    ' --receipt-base64 ' + shq(encodedReceipt)
   const prepared = await stateLifecycleResult(command, 'prepare recoverable fix transaction ' + batchId)
   return prepared && prepared.ok && /^[a-f0-9]{64}$/.test(prepared.txId || '') ? prepared : null
 }
@@ -3752,25 +4362,37 @@ if (!stateClaim.resumed || (!savedScopeArtifact && resumeLineage.ownedCommits.le
     resumedArtifacts.size === 0)) {
   const scopeProofAudit = Object.assign({}, scopeProof)
   delete scopeProofAudit.sourceJson
-  const compactFrozenScope = Object.assign({}, scope, { coverageUnits: (scope.coverageUnits || [])
-    .filter(unit => unit && !['hunk', 'non-text'].includes(unit.type)) })
+  const frozenScopeFields = ['title', 'url', 'intent', 'intentSource', 'bodyQuality', 'inScope',
+    'outOfScope', 'acceptanceCriteria', 'primaryLanguages', 'applicableLenses']
+  const compactFrozenScope = Object.fromEntries(frozenScopeFields.map(field => [field, scope[field]]))
+  compactFrozenScope.headSha = scope.headSha
+  compactFrozenScope.coverageUnits = (scope.coverageUnits || [])
+    .filter(unit => unit && !['hunk', 'non-text'].includes(unit.type))
   if (!await checkpointState('scope-' + stateClaim.keyHash + '.json', {
     scope: compactFrozenScope, stateKey, scopeProof: scopeProofAudit,
   })) {
     await unlockStateClaim('release state after frozen scope checkpoint failure')
-    return 'review-and-fix-pr stopped: frozen scope could not be checkpointed.\n\nNothing was changed.'
+    return terminalReviewResult(
+      'review-and-fix-pr stopped: frozen scope could not be checkpointed.\n\nNothing was changed.',
+      'state-checkpoint-failed')
   }
 } else if (!savedScopeArtifact) {
   const abandon = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-state.js') + ' abandon --store ' +
     shq(stateStore) + ' --run ' + shq(stateClaim.run) + ' --lock-token ' + shq(stateClaim.lockToken) +
     ' --status missing-frozen-scope'
   await stateLifecycle(abandon, 'seal invalid resume state missing frozen scope')
-  return 'review-and-fix-pr stopped: resumable state had work but no matching frozen scope; it was sealed invalid.\n\n' +
-    'Run the workflow again to start a fresh review. Nothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr stopped: resumable state had work but no matching frozen scope; it was sealed invalid.\n\n' +
+      'Run the workflow again to start a fresh review. Nothing was changed.',
+    'state-checkpoint-failed')
 }
 if (ownedResumeEvidence && !savedHeadSemantic) {
+  const semanticRecoveryImport = planJournalImport('scope-semantic-' + scope.headSha + '.json',
+    'semantic-manifest', 'recovery', 'Coverage', 0, 0)
   const recoveredSemantic = await agentSafe(semanticManifestPrompt(scope, frozenHeadSemanticUnits), {
-    schema: SEMANTIC_MANIFEST_SCHEMA, label: 'recover semantic coverage after committed fix', effort: 'high',
+    schema: SEMANTIC_MANIFEST_SCHEMA,
+    phase: 'Coverage', label: semanticRecoveryImport && semanticRecoveryImport.sourceLabel,
+    effort: 'high',
     disallowedTools: DENY_READONLY,
     bashCommandClamp: discoveryBashClamp(scope, 'semantic-recovery', false), requireToolScope: true,
   })
@@ -3782,17 +4404,19 @@ if (ownedResumeEvidence && !savedHeadSemantic) {
   if (!recoveredSemantic || recoveredSemantic.outcome !== 'refreshed' || recoveredSemantic.commitSha !== 'none' ||
       (recoveredSemantic.filesTouched || []).length || semanticError || immutableMissing) {
     await unlockStateClaim('release state after semantic recovery failure')
-    return 'review-and-fix-pr stopped: semantic coverage could not be reconstructed for the recovered fix head.\n\n' +
-      (semanticError || 'a frozen requirement/repository rule was omitted') + '\n\nNothing was changed.'
+    return terminalReviewResult(
+      'review-and-fix-pr stopped: semantic coverage could not be reconstructed for the recovered fix head.\n\n' +
+        (semanticError || 'a frozen requirement/repository rule was omitted') + '\n\nNothing was changed.',
+      'coverage-error')
   }
   const mutableRecovered = recoveredSemantic.coverageUnits.filter(unit =>
     !immutableSemanticUnits.some(frozen => frozen.id === unit.id))
   const recoveredUnits = immutableSemanticUnits.concat(mutableRecovered)
-  if (!await checkpointState('scope-semantic-' + scope.headSha + '.json', {
-    headSha: scope.headSha, coverageUnits: recoveredUnits,
-  })) {
+  if (!await importJournalArtifact(semanticRecoveryImport, recoveredSemantic)) {
     await unlockStateClaim('release state after semantic recovery checkpoint failure')
-    return 'review-and-fix-pr stopped: recovered semantic coverage could not be checkpointed.\n\nNothing was changed.'
+    return terminalReviewResult(
+      'review-and-fix-pr stopped: recovered semantic coverage could not be checkpointed.\n\nNothing was changed.',
+      'state-checkpoint-failed')
   }
   const recoveredManifest = new Map(deterministicManifest.coverageUnits.concat(deterministicNonTextUnits,
     recoveredUnits).map(unit => [unit.id, unit]))
@@ -3862,21 +4486,25 @@ function discardBatch(batchId, claimedFixed, findings, why) {
 // Distinguish "nothing to review" from "the chunker failed". Silently reviewing nothing because a
 // helper broke would look exactly like a clean PR, which is the worst possible failure mode here.
 if (setup.chunkerStderr && setup.chunkerStderr !== 'none' && !allManifest.chunks.length) {
-  return 'review-and-fix-pr stopped: the chunker failed, so no hunk could be scheduled.\n\n' +
-         setup.chunkerStderr + '\n\n' +
-         'Check that `node ' + HOME_BIN + '/review-and-fix-pr-chunker.js` runs, and that ' + setup.classifyPath + ' is valid JS.\n\n' +
-         'Nothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr stopped: the chunker failed, so no hunk could be scheduled.\n\n' +
+      setup.chunkerStderr + '\n\n' +
+      'Check that `node ' + HOME_BIN + '/review-and-fix-pr-chunker.js` runs, and that ' + setup.classifyPath + ' is valid JS.\n\n' +
+      'Nothing was changed.',
+    'coverage-error')
 }
 // In single mode the chunk manifest is informational only - the whole-PR pass reads the diff itself,
 // so an empty manifest (everything already in the ledger) must not abort the run.
 if (!['single', 'full'].includes(RESOLVED_MODE) && !scheduled && !allManifest.hunksInLedger) {
-  return 'review-and-fix-pr found nothing to review in PR #' + (scope.prNumber || '?') + '.\n\n' +
-         'The chunker produced no chunks and nothing was skipped as already-clean, which usually means\n' +
-         'the reviewability rule excluded every changed file.\n' +
-         (((allManifest.notReviewable || []).length)
-            ? 'Excluded:\n' + allManifest.notReviewable.map(f => '  ' + f).join('\n') + '\n'
-            : '') +
-         '\nRe-run with refreshRules: true if that looks wrong. Nothing was changed.'
+  return terminalReviewResult(
+    'review-and-fix-pr found nothing to review in PR #' + (scope.prNumber || '?') + '.\n\n' +
+      'The chunker produced no chunks and nothing was skipped as already-clean, which usually means\n' +
+      'the reviewability rule excluded every changed file.\n' +
+      (((allManifest.notReviewable || []).length)
+        ? 'Excluded:\n' + allManifest.notReviewable.map(f => '  ' + f).join('\n') + '\n'
+        : '') +
+      '\nRe-run with refreshRules: true if that looks wrong. Nothing was changed.',
+    'coverage-error')
 }
 
 let anythingFound = false
@@ -4374,7 +5002,9 @@ for (const [name, value] of resumedArtifacts) {
     if (!match) continue
   const cycle = Number(match[1])
   maxSavedCycle = Math.max(maxSavedCycle, cycle)
-    if (/^cycle-\d+\/lenses\//.test(name) && value && value.headSha === scope.headSha) {
+    const artifactHead = value && value.importVersion === 1 && value.binding
+      ? value.binding.headSha : value && value.headSha
+    if (/^cycle-\d+\/lenses\//.test(name) && artifactHead === scope.headSha) {
       matchingSavedCycle = Math.max(matchingSavedCycle, cycle)
     }
 }
@@ -4389,17 +5019,24 @@ const cumulativeUnverified = new Map()
 let lineageCursor = ownedCommits.length
 
 function latestArtifact(logicalName) {
+  const entry = latestArtifactEntry(logicalName)
+  return entry && entry.value
+}
+
+function latestArtifactEntry(logicalName) {
   const suffix = logicalName.endsWith('.json') ? '.json' : ''
   const stem = suffix ? logicalName.slice(0, -suffix.length) : logicalName
-  let best = resumedArtifacts.has(logicalName) ? { attempt: 1, value: resumedArtifacts.get(logicalName) } : null
+  let best = resumedArtifacts.has(logicalName)
+    ? { attempt: 1, name: logicalName, value: resumedArtifacts.get(logicalName) } : null
   for (const [name, value] of resumedArtifacts) {
     if (!name.startsWith(stem + '-attempt-') || !name.endsWith(suffix)) continue
     const middle = name.slice((stem + '-attempt-').length, suffix ? -suffix.length : undefined)
     if (!/^\d+$/.test(middle)) continue
     const attempt = Number(middle)
-    if (!best || attempt > best.attempt) best = { attempt, value }
+    if (!best || attempt > best.attempt) best = { attempt, name, value }
   }
-  return best && best.value
+  if (best) Object.assign(best, resumedArtifactRecords.get(best.name) || {})
+  return best
 }
 
 function lineageHeadAt(cursor) {
@@ -4408,13 +5045,486 @@ function lineageHeadAt(cursor) {
   return ownedCommits[cursor - 1] && ownedCommits[cursor - 1].to
 }
 
+function exactArtifactAttempt(name, logicalBase) {
+  if (name === logicalBase + '.json') return 1
+  const prefix = logicalBase + '-attempt-'
+  if (!name.startsWith(prefix) || !name.endsWith('.json')) return null
+  const attempt = name.slice(prefix.length, -'.json'.length)
+  return /^\d+$/.test(attempt) && Number(attempt) >= 2 ? Number(attempt) : null
+}
+
+function latestLogicalReceiptSources(sourceRefs, artifactValues = resumedArtifacts,
+  expectedRun = stateClaim.run) {
+  const selected = new Map()
+  for (const reference of sourceRefs || []) {
+    const ref = normalizeSourceArtifactRef(reference)
+    if (!ref) continue
+    const value = artifactValues.get(ref.name)
+    const imported = value && value.importVersion === 1 && value.binding && value.result
+    let logicalKey = null, attempt = null
+    if (imported) {
+      const binding = value.binding
+      const cycleMatch = /^cycle-(\d+)\//.exec(binding.artifactName || '')
+      if (binding.run !== expectedRun || binding.artifactName !== ref.name || !cycleMatch ||
+          !['lens', 'gap', 'verification'].includes(binding.kind)) continue
+      const cycle = Number(cycleMatch[1])
+      let base = null
+      if (binding.kind === 'lens') base = 'cycle-' + cycle + '/lenses/' + norm(binding.resultId)
+      else if (binding.kind === 'gap' && String(binding.resultId).startsWith('gap-')) {
+        base = 'cycle-' + cycle + '/gaps/' + norm(String(binding.resultId).slice(4))
+      } else if (binding.kind === 'verification' && ['first', 'challenge'].includes(binding.resultId)) {
+        base = 'cycle-' + cycle + '/verification/' + binding.resultId
+      }
+      attempt = base && exactArtifactAttempt(ref.name, base)
+      logicalKey = attempt && [cycle, binding.headSha, binding.kind, binding.resultId].join('\0')
+    } else {
+      // Legacy wrappers predate authenticated source bindings. Keep their filename fallback for
+      // compatibility only; imported sources never infer kind/result identity from a slug.
+      const match = /^(cycle-\d+\/(?:lenses|gaps|verification)\/.+?)(?:-attempt-(\d+))?\.json$/.exec(ref.name)
+      if (!match || /\/gaps\/.+-failure(?:-attempt-\d+)?\.json$/.test(ref.name)) continue
+      logicalKey = 'legacy\0' + match[1]
+      attempt = Number(match[2] || 1)
+    }
+    if (!logicalKey || !attempt) continue
+    const previous = selected.get(logicalKey)
+    if (!previous || attempt > previous.attempt) selected.set(logicalKey, { attempt, ref: reference })
+  }
+  const allowed = new Set([...selected.values()].map(item => normalizeSourceArtifactRef(item.ref).name))
+  return (sourceRefs || []).filter(reference => {
+    const ref = normalizeSourceArtifactRef(reference); return ref && allowed.has(ref.name)
+  })
+}
+
+function reconstructReceiptCandidates(sourceRefs, artifactValues, expectedRun,
+  extraCandidates = [], recoveryContext = null) {
+  const groupedRaw = new Map()
+  const verificationSources = []
+  for (const reference of latestLogicalReceiptSources(sourceRefs, artifactValues, expectedRun)) {
+    const ref = normalizeSourceArtifactRef(reference)
+    if (!ref) return []
+    const source = sourceResultRecord(ref.name, artifactValues.get(ref.name), expectedRun)
+    if (!source || !source.result) continue
+    const cycleMatch = /^cycle-(\d+)\//.exec(ref.name)
+    if (['lens', 'gap'].includes(source.kind) && cycleMatch && /^[a-f0-9]{40}$/.test(source.headSha || '')) {
+      const cycle = Number(cycleMatch[1])
+      const groupKey = cycle + '\0' + source.headSha
+      if (!groupedRaw.has(groupKey)) groupedRaw.set(groupKey, [])
+      const rawSource = source.kind === 'lens' ? 'lens:' + source.resultId :
+        'gap:' + String(source.resultId).replace(/^gap-/, '')
+      const occurrenceIndexes = stableFindingOccurrenceIndexes(source.result.findings || [])
+      for (const [findingIndex, finding] of (source.result.findings || []).entries()) {
+        groupedRaw.get(groupKey).push(Object.assign({}, finding, {
+          candidateId: stableRawCandidateId(cycle, source.headSha, rawSource,
+            occurrenceIndexes[findingIndex], finding),
+          reportingLenses: [source.result.lens || source.resultId], reviewerRejected: false,
+        }))
+      }
+    } else if (source.kind === 'verification') {
+      const cycleMatch = /^cycle-(\d+)\//.exec(ref.name)
+      verificationSources.push({ cycle: cycleMatch ? Number(cycleMatch[1]) : 0,
+        headSha: source.headSha || '', resultId: source.resultId, result: source.result })
+    }
+  }
+  const byCandidateId = new Map()
+  for (const [groupKey, raw] of groupedRaw) {
+    const headSha = groupKey.slice(groupKey.indexOf('\0') + 1)
+    for (const candidate of clusterCandidates(raw)) {
+      byCandidateId.set(headSha + '\0' + candidate.candidateId,
+        Object.assign({}, candidate, { _receiptHead: headSha }))
+    }
+  }
+  // The verification result is the last source of mutable finding fields. Reapply the same trusted
+  // identity fields as validationDecisionMap so a validator cannot redirect a compact receipt.
+  verificationSources.sort((left, right) => left.cycle - right.cycle ||
+    left.headSha.localeCompare(right.headSha) ||
+    (left.resultId === 'challenge' ? 1 : 0) - (right.resultId === 'challenge' ? 1 : 0))
+  for (const source of verificationSources) for (const bucket of ['confirmed', 'rejected', 'unresolved']) {
+    for (const item of source.result[bucket] || []) {
+      if (!item || !item.candidateId || !item.finding) continue
+      const occurrenceKey = source.headSha + '\0' + item.candidateId
+      const original = byCandidateId.get(occurrenceKey)
+      const finding = original ? Object.assign({}, item.finding, {
+        candidateId: item.candidateId,
+        rawCandidateIds: original.rawCandidateIds || [item.candidateId],
+        rawCandidateIdentities: original.rawCandidateIdentities || [],
+        fingerprint: original.fingerprint,
+        primaryFile: original.primaryFile, files: original.files, symbol: original.symbol,
+        defectClass: original.defectClass, trigger: original.trigger, mechanism: original.mechanism,
+        observableImpact: original.observableImpact, baseVsHead: original.baseVsHead,
+        coverageUnitIds: original.coverageUnitIds,
+      }) : Object.assign({}, item.finding, { candidateId: item.candidateId })
+      byCandidateId.set(occurrenceKey, Object.assign(finding, { _receiptHead: source.headSha }))
+    }
+  }
+  if (recoveryContext && Number.isSafeInteger(recoveryContext.cycle) && recoveryContext.cycle > 0 &&
+      /^[a-f0-9]{40}$/.test(recoveryContext.head || '')) {
+    for (const candidate of [...byCandidateId.values()]
+      .filter(item => item._receiptHead === recoveryContext.head)) for (const tag of ['recovery', 'pending-fix']) {
+      const source = tag + ':' + normalizedFingerprint(candidate)
+      const rawId = stableRawCandidateId(recoveryContext.cycle, recoveryContext.head, source, 0, candidate)
+      const clusterId = 'cluster-' + rawId
+      const occurrenceKey = recoveryContext.head + '\0' + clusterId
+      if (!byCandidateId.has(occurrenceKey)) byCandidateId.set(occurrenceKey,
+        Object.assign({}, candidate, { candidateId: clusterId, rawCandidateIds: [rawId],
+          rawCandidateIdentities: [{ rawCandidateId: rawId,
+            rawCandidateIdentity: normalizedFingerprint(candidate) }], _receiptHead: recoveryContext.head }))
+    }
+  }
+  for (const candidate of extraCandidates || []) {
+    if (candidate && candidate.candidateId) byCandidateId.set('extra\0' + candidate.candidateId, candidate)
+  }
+  return [...byCandidateId.values()].filter(candidate => !recoveryContext ||
+    !candidate._receiptHead || candidate._receiptHead === recoveryContext.head)
+}
+
+function immutableReceiptCandidates(extraCandidates = [], recoveryContext = null) {
+  return reconstructReceiptCandidates(sourceArtifactRefs(), resumedArtifacts, stateClaim.run,
+    extraCandidates, recoveryContext)
+}
+
+function expandCompactFixReceipt(receipt, sourceFindings) {
+  if (!receipt || receipt.receiptVersion !== 2 || !Array.isArray(receipt.allowedPaths) ||
+      !receipt.allowedPaths.length || !Array.isArray(sourceFindings) ||
+      !Array.isArray(receipt.fixed) || !Array.isArray(receipt.notABug) ||
+      !Array.isArray(receipt.stillOpen) || !Array.isArray(receipt.followUps)) return null
+  const allowedPaths = new Set(receipt.allowedPaths)
+  if (allowedPaths.size !== receipt.allowedPaths.length || [...allowedPaths].some(path => !safeFindingPath(path))) return null
+  const byId = new Map()
+  for (const sourceFinding of sourceFindings) {
+    const id = compactFindingId(sourceFinding)
+    if (!id) continue
+    const finding = Object.assign({}, sourceFinding, { fingerprint: normalizedFingerprint(sourceFinding) })
+    const previous = byId.get(id)
+    if (previous && (previous.candidateId !== finding.candidateId ||
+        canonicalJson(previous) !== canonicalJson(finding))) return null
+    byId.set(id, finding)
+  }
+  const used = new Set()
+  const sourceFor = item => {
+    if (!item || !/^[a-f0-9]{64}$/.test(String(item.id || '')) || used.has(item.id)) return null
+    const finding = byId.get(item.id)
+    if (!finding || !(finding.files || [finding.primaryFile]).every(path => allowedPaths.has(path))) return null
+    used.add(item.id)
+    return Object.assign({}, finding, { fingerprint: normalizedFingerprint(finding) })
+  }
+  const fixed = []
+  for (const item of receipt.fixed) {
+    const finding = sourceFor(item)
+    if (!finding || typeof item.changeSummary !== 'string' || !item.changeSummary) return null
+    fixed.push({ fingerprint: finding.fingerprint, changeSummary: item.changeSummary })
+  }
+  const notABug = []
+  for (const item of receipt.notABug) {
+    const finding = sourceFor(item)
+    if (!finding || typeof item.reason !== 'string' || !item.reason) return null
+    notABug.push({ fingerprint: finding.fingerprint, reason: item.reason })
+  }
+  const stillOpen = []
+  for (const item of receipt.stillOpen) {
+    const finding = sourceFor(item)
+    if (!finding || typeof item.whyStillHere !== 'string' || !item.whyStillHere ||
+        typeof item.defer !== 'boolean' || typeof item.deferReason !== 'string' || !item.deferReason) return null
+    stillOpen.push(Object.assign(finding, { whyStillHere: item.whyStillHere,
+      defer: item.defer, deferReason: item.deferReason }))
+  }
+  const dispositionCount = receipt.fixed.length + receipt.notABug.length + receipt.stillOpen.length
+  if (!dispositionCount || used.size !== dispositionCount) return null
+  return { batchId: receipt.batchId, fixed, notABug, stillOpen, followUps: receipt.followUps }
+}
+
+function validateLegacyFixReceipt(receipt) {
+  if (!receipt || receipt.receiptVersion !== 1 ||
+      !/^[A-Za-z0-9_.-]{1,128}$/.test(String(receipt.batchId || '')) ||
+      !Array.isArray(receipt.fixed) || !Array.isArray(receipt.notABug) ||
+      !Array.isArray(receipt.stillOpen) || !Array.isArray(receipt.followUps)) return null
+  const dispositionKeys = []
+  for (const item of receipt.fixed) {
+    const key = norm(item && item.fingerprint)
+    if (!key || typeof item.changeSummary !== 'string' || !item.changeSummary) return null
+    dispositionKeys.push(key)
+  }
+  for (const item of receipt.notABug) {
+    const key = norm(item && item.fingerprint)
+    if (!key || typeof item.reason !== 'string' || !item.reason) return null
+    dispositionKeys.push(key)
+  }
+  const findingStrings = ['fingerprint', 'title', 'detail', 'primaryFile', 'symbol', 'defectClass',
+    'evidence', 'trigger', 'mechanism', 'observableImpact', 'baseVsHead', 'severity', 'confidence',
+    'fixSize', 'deferReason', 'blockerReason', 'scopeLabel', 'deferralQuote', 'whyStillHere']
+  const defectClasses = new Set(['logic', 'nil-deref', 'bounds', 'concurrency', 'resource-leak',
+    'error-handling', 'security', 'api-contract', 'perf', 'regression', 'test-gap', 'docs', 'style',
+    'dead-code', 'design'])
+  for (const finding of receipt.stillOpen) {
+    const key = norm(finding && finding.fingerprint)
+    if (!key || !findingPathsSafe(finding) ||
+        findingStrings.some(field => typeof finding[field] !== 'string' || !finding[field]) ||
+        !Array.isArray(finding.coverageUnitIds) ||
+        finding.coverageUnitIds.some(id => typeof id !== 'string' || !id) ||
+        typeof finding.defer !== 'boolean' || typeof finding.releaseBlocker !== 'boolean' ||
+        !defectClasses.has(finding.defectClass) || !Object.hasOwn(SEV_RANK, finding.severity) ||
+        !['certain', 'likely', 'speculative'].includes(finding.confidence) ||
+        !['trivial', 'small', 'medium', 'large'].includes(finding.fixSize) ||
+        !['in', 'deferred', 'out'].includes(finding.scopeLabel)) return null
+    dispositionKeys.push(key)
+  }
+  if (!dispositionKeys.length || new Set(dispositionKeys).size !== dispositionKeys.length) return null
+  for (const followUp of receipt.followUps) {
+    if (!followUp || ['title', 'detail', 'area', 'size', 'blockerReason']
+      .some(field => typeof followUp[field] !== 'string' || !followUp[field]) ||
+      !['small', 'big'].includes(followUp.size) || typeof followUp.doneNow !== 'boolean' ||
+      typeof followUp.releaseBlocker !== 'boolean') return null
+  }
+  return receipt
+}
+
 function replayReceipt(commit) {
   const receipt = commit && commit.receipt
-  if (!receipt) return
+  if (!receipt) return true
+  const cycleMatch = /^c(\d+)-/.exec(receipt.batchId || '')
+  let expanded = null
+  if (receipt.receiptVersion === 2) {
+    expanded = expandCompactFixReceipt(receipt, immutableReceiptCandidates([], {
+      cycle: cycleMatch ? Number(cycleMatch[1]) : 0, head: commit && commit.from,
+    }))
+  } else if (receipt.receiptVersion === 1) expanded = validateLegacyFixReceipt(receipt)
+  if (!expanded) {
+    statePersistenceFailed = true
+    log('compact fix receipt could not be expanded from immutable source artifacts')
+    return false
+  }
   absorbFix({
-    fixed: receipt.fixed || [], notABug: receipt.notABug || [], stillOpen: receipt.stillOpen || [],
-    followUps: receipt.followUps || [],
-  }, 'resumed', receipt.batchId || commit.to)
+    fixed: expanded.fixed || [], notABug: expanded.notABug || [], stillOpen: expanded.stillOpen || [],
+    followUps: expanded.followUps || [],
+  }, 'full', expanded.batchId || commit.to)
+  return true
+}
+
+function reconstructionFindingKey(finding) {
+  if (!finding || typeof finding !== 'object') return ''
+  if (String(finding.fingerprint || '').startsWith('finding:')) return norm(finding.fingerprint)
+  const computed = normalizedFingerprint(finding)
+  return computed || norm(finding.fingerprint)
+}
+
+function trustedLineageKeyHashes(lineage) {
+  if (!lineage || !/^[a-f0-9]{40}$/.test(lineage.initialHead || '') ||
+      !/^[a-f0-9]{40}$/.test(lineage.currentHead || '') ||
+      !/^[a-f0-9]{64}$/.test(lineage.currentKeyHash || '') ||
+      !Array.isArray(lineage.ownedCommits)) return null
+  const map = new Map()
+  let head = lineage.initialHead
+  let keyHash = /^[a-f0-9]{64}$/.test(lineage.initialKeyHash || '') ? lineage.initialKeyHash : null
+  if (keyHash) map.set(head, keyHash)
+  for (const commit of lineage.ownedCommits) {
+    const mapped = /^[a-f0-9]{64}$/.test(commit && commit.fromKeyHash || '') &&
+      /^[a-f0-9]{64}$/.test(commit && commit.toKeyHash || '')
+    if (!commit || commit.from !== head || !/^[a-f0-9]{40}$/.test(commit.to || '') ||
+        (mapped && keyHash !== null && commit.fromKeyHash !== keyHash) ||
+        (!mapped && (commit.fromKeyHash !== undefined || commit.toKeyHash !== undefined))) return null
+    if (mapped) {
+      if (keyHash === null && map.size) return null
+      keyHash = commit.toKeyHash
+      map.set(commit.from, commit.fromKeyHash)
+      map.set(commit.to, commit.toKeyHash)
+    } else keyHash = null
+    head = commit.to
+  }
+  if (head !== lineage.currentHead || (keyHash !== null && keyHash !== lineage.currentKeyHash)) return null
+  map.set(lineage.currentHead, lineage.currentKeyHash)
+  return map
+}
+
+function validateImportedSourceBinding(ref, value, expectedRun, keyHashes, expectedRepositoryIdentity = null) {
+  if (!(value && value.importVersion === 1)) {
+    return { legacy: true, repositoryIdentity: expectedRepositoryIdentity }
+  }
+  const binding = value.binding
+  if (!ref || !binding || binding.run !== expectedRun ||
+      keyHashes.get(binding.headSha) !== binding.keyHash || !binding.repositoryIdentity ||
+      (expectedRepositoryIdentity !== null && expectedRepositoryIdentity !== binding.repositoryIdentity)) return null
+  return { legacy: false, repositoryIdentity: binding.repositoryIdentity }
+}
+
+function normalizeSourceArtifactRef(reference) {
+  const ref = Array.isArray(reference)
+    ? { name: reference[0], sha256: reference[1], bytes: reference[2] } : reference
+  return ref && typeof ref.name === 'string' && /^[a-f0-9]{64}$/.test(ref.sha256 || '') &&
+    Number.isSafeInteger(ref.bytes) && ref.bytes > 0 ? ref : null
+}
+
+function sourceArtifactRefs() {
+  const refs = []
+  for (const [name, value] of resumedArtifacts) {
+    const legacySource = /^cycle-\d+\/lenses\/.+\.json$/.test(name) ||
+      (/^cycle-\d+\/gaps\/.+\.json$/.test(name) && !/-failure(?:-attempt-\d+)?\.json$/.test(name)) ||
+      /^cycle-\d+\/coverage\/(?:initial|final)-audit(?:-attempt-\d+)?\.json$/.test(name) ||
+      /^cycle-\d+\/verification\/(?:first|challenge)(?:-attempt-\d+)?\.json$/.test(name) ||
+      /^scope-semantic-[a-f0-9]{40}(?:-attempt-\d+)?\.json$/.test(name)
+    if (!(value && value.importVersion === 1 && value.binding && value.result) && !legacySource) continue
+    const record = resumedArtifactRecords.get(name)
+    if (!record || !/^[a-f0-9]{64}$/.test(record.sha256 || '') ||
+        !Number.isSafeInteger(record.bytes) || record.bytes < 1) continue
+    const ref = { name, sha256: record.sha256, bytes: record.bytes }
+    refs.push(ref)
+  }
+  if (previousDispositionSources.length) {
+    const priorOrder = new Map(previousDispositionSources.map((ref, index) => [ref.name, index]))
+    refs.sort((left, right) => {
+      const leftIndex = priorOrder.has(left.name) ? priorOrder.get(left.name) : Number.MAX_SAFE_INTEGER
+      const rightIndex = priorOrder.has(right.name) ? priorOrder.get(right.name) : Number.MAX_SAFE_INTEGER
+      return leftIndex - rightIndex || left.name.localeCompare(right.name)
+    })
+  } else refs.sort((left, right) => left.name.localeCompare(right.name))
+  return refs
+}
+
+function sourceResultRecord(name, value, expectedRun = stateClaim.run) {
+  if (value && value.importVersion === 1 && value.binding && value.result &&
+      value.binding.run === expectedRun) {
+    return { kind: value.binding.kind, resultId: value.binding.resultId,
+      headSha: value.binding.headSha, keyHash: value.binding.keyHash, result: value.result }
+  }
+  let match = /^cycle-(\d+)\/lenses\/(.+?)(?:-attempt-\d+)?\.json$/.exec(name)
+  if (match && value && value.result) return { kind: 'lens', resultId: value.lens || value.result.lens,
+    headSha: value.headSha, result: value.result }
+  match = /^cycle-(\d+)\/gaps\/(.+?)(?:-attempt-\d+)?\.json$/.exec(name)
+  if (match && value && value.result && !name.includes('-failure')) return { kind: 'gap',
+    resultId: value.result.lens, headSha: value.headSha, result: value.result }
+  if (/\/coverage\/(?:initial|final)-audit(?:-attempt-\d+)?\.json$/.test(name)) {
+    return { kind: 'coverage-audit', resultId: name.includes('/initial-audit') ? 'initial' : 'final',
+      headSha: null, result: value }
+  }
+  if (/\/verification\/(?:first|challenge)(?:-attempt-\d+)?\.json$/.test(name)) {
+    return { kind: 'verification', resultId: name.includes('/first') ? 'first' : 'challenge',
+      headSha: null, result: value }
+  }
+  if (/^scope-semantic-/.test(name)) return { kind: 'semantic-manifest', resultId: 'legacy',
+    headSha: value && value.headSha, result: value }
+  return null
+}
+
+function reconstructReviewSourceState(sourceRefs, artifactValues, artifactRecords, expectedRun) {
+  const reconstructed = {
+    rawCandidates: [], rawLocations: new Map(), coverageReceipts: [], completedLenses: [],
+    reviewerRejections: [], followUps: [], verification: { first: null, challenge: null },
+    coverage: { initial: null, final: null, activeGaps: [] },
+  }
+  for (let sourceIndex = 0; sourceIndex < sourceRefs.length; sourceIndex++) {
+    const ref = normalizeSourceArtifactRef(sourceRefs[sourceIndex])
+    const record = ref && artifactRecords.get(ref.name)
+    if (!ref || !record || record.sha256 !== ref.sha256 || record.bytes !== ref.bytes) return null
+    const source = sourceResultRecord(ref.name, artifactValues.get(ref.name), expectedRun)
+    if (!source || !source.result) return null
+    const cycleMatch = /^cycle-(\d+)\//.exec(ref.name)
+    const cycle = cycleMatch ? Number(cycleMatch[1]) : 0
+    if (['lens', 'gap'].includes(source.kind)) {
+      const lens = source.result.lens || source.resultId
+      if (!cycle || !/^[a-f0-9]{40}$/.test(source.headSha || '') || !lens) return null
+      reconstructed.completedLenses.push(lens)
+      reconstructed.coverageReceipts.push({ lens, receipts: source.result.coverageReceipts || [] })
+      const sourceName = source.kind === 'lens' ? 'lens:' + source.resultId :
+        'gap:' + String(source.resultId).replace(/^gap-/, '')
+      const occurrenceIndexes = stableFindingOccurrenceIndexes(source.result.findings || [])
+      for (const [findingIndex, finding] of (source.result.findings || []).entries()) {
+        const candidateId = stableRawCandidateId(cycle, source.headSha, sourceName,
+          occurrenceIndexes[findingIndex], finding)
+        reconstructed.rawCandidates.push(Object.assign({}, finding, { candidateId,
+          reportingLenses: [lens], reviewerRejected: false, resumedCandidate: true }))
+        reconstructed.rawLocations.set(candidateId, [sourceIndex, findingIndex])
+      }
+      for (const rejected of source.result.rejected || []) if (rejected && rejected.fingerprint) {
+        reconstructed.reviewerRejections.push({ lens, finding: rejected,
+          reason: rejected.reason || 'reviewer rejected after self-check',
+          kind: rejected.kind || 'not-a-bug' })
+      }
+      const chunkId = source.kind === 'gap' ? String(source.resultId).replace(/^gap-/, '') : lens
+      for (const followUp of source.result.followUps || []) if (followUp && followUp.title) {
+        reconstructed.followUps.push(Object.assign({ stage: lens, chunkId, doneNow: false }, followUp))
+      }
+    } else if (source.kind === 'verification' && ['first', 'challenge'].includes(source.resultId)) {
+      reconstructed.verification[source.resultId] = source.result
+    } else if (source.kind === 'coverage-audit' && ['initial', 'final'].includes(source.resultId)) {
+      reconstructed.coverage[source.resultId] = source.result
+    }
+  }
+  const activeAudit = reconstructed.coverage.final || reconstructed.coverage.initial
+  reconstructed.coverage.activeGaps = activeAudit && Array.isArray(activeAudit.gaps)
+    ? activeAudit.gaps.slice() : []
+  return reconstructed
+}
+
+function buildReconstructionContext(sourceRefs) {
+  const catalog = []
+  const catalogByKey = new Map()
+  const catalogByHeadKey = new Map()
+  const catalogHeads = []
+  const rawLocations = new Map()
+  const derivedFollowUps = []
+  let repositoryIdentity = null
+  const reviewSources = reconstructReviewSourceState(sourceRefs, resumedArtifacts,
+    resumedArtifactRecords, stateClaim.run)
+  if (!reviewSources) return null
+  const addFinding = (finding, headSha) => {
+    const key = reconstructionFindingKey(finding)
+    if (!key) return -1
+    const headKey = String(headSha || 'unknown') + '\0' + key
+    if (!catalogByHeadKey.has(headKey)) {
+      catalogByHeadKey.set(headKey, catalog.length)
+      catalog.push(Object.assign({}, finding, { fingerprint: key }))
+      catalogHeads.push(headSha || 'unknown')
+    } else {
+      const index = catalogByHeadKey.get(headKey)
+      catalog[index] = mergeFinding(catalog[index], finding, null, !!finding.reviewerRejected)
+      catalog[index].fingerprint = key
+    }
+    const index = catalogByHeadKey.get(headKey)
+    catalogByKey.set(key, index)
+    return index
+  }
+  for (let sourceIndex = 0; sourceIndex < sourceRefs.length; sourceIndex++) {
+    const ref = normalizeSourceArtifactRef(sourceRefs[sourceIndex])
+    const record = resumedArtifactRecords.get(ref.name)
+    const value = resumedArtifacts.get(ref.name)
+    if (!record || record.sha256 !== ref.sha256 || record.bytes !== ref.bytes) return null
+    const validatedBinding = validateImportedSourceBinding(ref, value, stateClaim.run,
+      lineageKeyHashByHead, repositoryIdentity)
+    if (!validatedBinding) return null
+    repositoryIdentity = validatedBinding.repositoryIdentity
+    const source = sourceResultRecord(ref.name, value)
+    if (!source || !source.result) continue
+    for (const finding of source.result.findings || []) {
+      addFinding(finding, source.headSha)
+    }
+    for (const rejected of source.result.rejected || []) addFinding(rejected, source.headSha)
+    for (const bucket of ['confirmed', 'rejected', 'unresolved']) {
+      for (const item of source.result[bucket] || []) addFinding(item && item.finding, source.headSha)
+    }
+    if (['lens', 'gap'].includes(source.kind)) {
+      const stage = source.result.lens || source.resultId
+      const chunkId = source.kind === 'gap' ? String(source.resultId).replace(/^gap-/, '') : stage
+      for (const followUp of source.result.followUps || []) if (followUp && followUp.title) {
+        derivedFollowUps.push(Object.assign({ stage, chunkId, doneNow: false }, followUp))
+      }
+    }
+  }
+  for (const [candidateId, location] of reviewSources.rawLocations) rawLocations.set(candidateId, location)
+  for (const commit of ownedCommits) {
+    const receipt = commit && commit.receipt
+    if (!receipt) continue
+    if (receipt.receiptVersion !== 2) {
+      for (const bucket of ['fixed', 'notABug', 'stillOpen']) {
+        for (const finding of receipt[bucket] || []) addFinding(finding, commit.to)
+      }
+    }
+    for (const followUp of receipt.followUps || []) if (followUp && followUp.title) {
+      derivedFollowUps.push({ stage: 'full', chunkId: receipt.batchId || commit.to,
+        title: followUp.title, detail: followUp.detail || '', area: followUp.area || 'none',
+        size: followUp.size || 'big', doneNow: !!followUp.doneNow,
+        releaseBlocker: !!followUp.releaseBlocker, blockerReason: followUp.blockerReason || 'none' })
+    }
+  }
+  return { catalog, catalogByKey, catalogByHeadKey, catalogHeads,
+    rawLocations, derivedFollowUps, reviewSources }
 }
 
 function restoreSnapshotAudit(snapshot) {
@@ -4480,19 +5590,437 @@ function restoreLegacyDispositionSnapshot(snapshot) {
   restoreSnapshotAudit(snapshot)
 }
 
+function resolveRawLocator(locator, sourceRefs, context, cycle,
+  artifactValues = resumedArtifacts, expectedRun = stateClaim.run) {
+  if (!Array.isArray(locator) || !locator.length) return null
+  if (locator[0] === 's' && Number.isSafeInteger(locator[1]) && Number.isSafeInteger(locator[2])) {
+    const ref = normalizeSourceArtifactRef(sourceRefs[locator[1]])
+    const source = ref && sourceResultRecord(ref.name, artifactValues.get(ref.name), expectedRun)
+    const finding = source && source.result && (source.result.findings || [])[locator[2]]
+    const cycleMatch = ref && /^cycle-(\d+)\//.exec(ref.name)
+    if (!source || !finding || !cycleMatch || !/^[a-f0-9]{40}$/.test(source.headSha || '')) return null
+    const rawSource = source.kind === 'lens' ? 'lens:' + source.resultId :
+      (source.kind === 'gap' ? 'gap:' + String(source.resultId).replace(/^gap-/, '') : null)
+    return rawSource ? stableRawCandidateId(Number(cycleMatch[1]), source.headSha,
+      rawSource, locator[2], finding) : null
+  }
+  if (locator[0] === 'c' && Number.isSafeInteger(locator[1]) &&
+      ['recovery', 'pending-fix'].includes(locator[2]) && /^[a-f0-9]{40}$/.test(locator[3] || '')) {
+    const finding = context.catalog[locator[1]]
+    if (!finding) return null
+    const source = locator[2] + ':' + reconstructionFindingKey(finding)
+    return stableRawCandidateId(cycle, locator[3], source, 0, finding)
+  }
+  return null
+}
+
+const COMPACT_FINDING_STATE_FIELDS = ['title', 'detail', 'primaryFile', 'files', 'symbol', 'defectClass',
+  'evidence', 'supportingEvidence', 'trigger', 'mechanism', 'observableImpact', 'baseVsHead',
+  'coverageUnitIds', 'severity', 'confidence', 'fixSize', 'defer', 'deferReason', 'releaseBlocker',
+  'blockerReason', 'scopeLabel', 'deferralQuote', 'validationStatus', 'validationReason', 'whyStillHere']
+
+function compactFindingStateDelta(base, finding) {
+  const set = {}
+  const unset = []
+  for (const field of COMPACT_FINDING_STATE_FIELDS) {
+    const baseHas = Object.prototype.hasOwnProperty.call(base || {}, field)
+    const findingHas = Object.prototype.hasOwnProperty.call(finding || {}, field)
+    if (!findingHas && baseHas) unset.push(field)
+    else if (findingHas && (!baseHas || canonicalJson(base[field]) !== canonicalJson(finding[field]))) {
+      set[field] = finding[field]
+    }
+  }
+  return { set, unset }
+}
+
+function applyCompactFindingStateDelta(base, delta) {
+  if (!base || !delta || !delta.set || !Array.isArray(delta.unset) ||
+      Object.keys(delta.set).some(field => !COMPACT_FINDING_STATE_FIELDS.includes(field))) return null
+  const finding = Object.assign({}, base, delta.set)
+  for (const field of delta.unset) {
+    if (!COMPACT_FINDING_STATE_FIELDS.includes(field)) return null
+    delete finding[field]
+  }
+  return finding
+}
+
+const LIVE_HEAD_INDEX = { rejected: 2, rejectedHints: 2, setAside: 2, deferred: 3,
+  stillPresent: 4, open: 2, unresolved: 2, outOfScope: 3 }
+
+function emptyDispositionMaterialized() {
+  return { live: new Map(), cumulative: {
+    candidates: new Map(), confirmed: new Map(), unverified: new Map(),
+  }, rawDispositions: [], followUps: new Map() }
+}
+
+function dispositionLiveKey(bucket, row, context) {
+  const finding = row && context.catalog[row[0]]
+  const headIndex = LIVE_HEAD_INDEX[bucket]
+  const head = row && row[headIndex]
+  return finding && head ? canonicalJsonSha256(head + '\0' + reconstructionFindingKey(finding)) : null
+}
+
+function materializeDispositionFull(full, context) {
+  const state = emptyDispositionMaterialized()
+  if (!full || !full.live || !full.cumulative || !Array.isArray(full.rawDispositions)) return null
+  for (const bucket of Object.keys(LIVE_HEAD_INDEX)) for (const row of full.live[bucket] || []) {
+    const key = dispositionLiveKey(bucket, row, context)
+    if (!key) return null
+    state.live.set(key, [bucket, row])
+  }
+  for (const bucket of ['candidates', 'confirmed', 'unverified']) for (const row of full.cumulative[bucket] || []) {
+    const finding = row && context.catalog[row[0]]
+    if (!finding) return null
+    state.cumulative[bucket].set(canonicalJsonSha256(reconstructionFindingKey(finding)), row)
+  }
+  state.rawDispositions = full.rawDispositions.slice()
+  for (const followUp of full.extraFollowUps || []) {
+    const key = canonicalJsonSha256([followUp.stage || '', followUp.chunkId || '', followUp.title || '',
+      followUp.detail || '', followUp.area || 'none'])
+    state.followUps.set(key, followUp)
+  }
+  return state
+}
+
+function dispositionDelta(previous, current) {
+  const heads = []
+  const headIndex = head => {
+    let index = heads.indexOf(head)
+    if (index < 0) { heads.push(head); index = heads.length - 1 }
+    return index
+  }
+  const compressLiveRow = value => {
+    const row = value[1].slice()
+    row[LIVE_HEAD_INDEX[value[0]]] = headIndex(row[LIVE_HEAD_INDEX[value[0]]])
+    return [value[0], row]
+  }
+  const compressRawRow = row => {
+    const copy = row.slice()
+    if (Array.isArray(copy[0]) && copy[0][0] === 'c') {
+      copy[0] = copy[0].slice(); copy[0][3] = headIndex(copy[0][3])
+    }
+    return copy
+  }
+  const diffMap = (before, after, encode) => {
+    const set = [], remove = []
+    for (const [key, value] of after) {
+      if (!before.has(key) || canonicalJson(before.get(key)) !== canonicalJson(value)) set.push(encode(value))
+    }
+    for (const key of before.keys()) if (!after.has(key)) remove.push(key)
+    return [set, remove]
+  }
+  const [ls, ld] = diffMap(previous.live, current.live,
+    value => compressLiveRow(value))
+  const cumulativeBuckets = ['candidates', 'confirmed', 'unverified']
+  const cumulativeKeys = new Set(cumulativeBuckets.flatMap(bucket =>
+    [...previous.cumulative[bucket].keys(), ...current.cumulative[bucket].keys()]))
+  const cs = []
+  for (const key of cumulativeKeys) {
+    const beforeRows = cumulativeBuckets.map(bucket => previous.cumulative[bucket].get(key) || null)
+    const afterRows = cumulativeBuckets.map(bucket => current.cumulative[bucket].get(key) || null)
+    if (canonicalJson(beforeRows) === canonicalJson(afterRows)) continue
+    const encodedRows = []
+    let firstRow = null
+    for (const row of afterRows) {
+      if (!row) encodedRows.push(null)
+      else if (firstRow && canonicalJson(firstRow) === canonicalJson(row)) encodedRows.push(0)
+      else { encodedRows.push(row); if (!firstRow) firstRow = row }
+    }
+    cs.push(encodedRows)
+  }
+  const [fs, fd] = diffMap(previous.followUps, current.followUps, value => value)
+  let rawReset = false
+  for (let index = 0; index < previous.rawDispositions.length; index++) {
+    if (canonicalJson(previous.rawDispositions[index]) !== canonicalJson(current.rawDispositions[index])) {
+      rawReset = true; break
+    }
+  }
+  if (current.rawDispositions.length < previous.rawDispositions.length) rawReset = true
+  return { h: heads, ls, ld, cs,
+    r: (rawReset ? current.rawDispositions : current.rawDispositions.slice(previous.rawDispositions.length))
+      .map(compressRawRow), rr: rawReset ? 1 : 0, fs, fd }
+}
+
+function applyDispositionDelta(state, delta, context) {
+  if (!state || !delta || !Array.isArray(delta.ls) || !Array.isArray(delta.ld) ||
+      !Array.isArray(delta.cs) || !Array.isArray(delta.r) || !Array.isArray(delta.h) ||
+      !Array.isArray(delta.fs) || !Array.isArray(delta.fd)) return false
+  for (const key of delta.ld) state.live.delete(key)
+  for (const row of delta.ls) {
+    if (!Array.isArray(row) || !LIVE_HEAD_INDEX[row[0]] || !Array.isArray(row[1]) || !context) return false
+    const expanded = row[1].slice()
+    const headAt = LIVE_HEAD_INDEX[row[0]]
+    if (!Number.isSafeInteger(expanded[headAt]) || typeof delta.h[expanded[headAt]] !== 'string') return false
+    expanded[headAt] = delta.h[expanded[headAt]]
+    const key = dispositionLiveKey(row[0], expanded, context)
+    if (!key) return false
+    state.live.set(key, [row[0], expanded])
+  }
+  const cumulativeBuckets = ['candidates', 'confirmed', 'unverified']
+  for (const rows of delta.cs) {
+    if (!Array.isArray(rows) || rows.length !== cumulativeBuckets.length || !context) return false
+    const firstRow = rows.find(row => Array.isArray(row))
+    const finding = firstRow && context.catalog[firstRow[0]]
+    if (!finding) return false
+    const key = canonicalJsonSha256(reconstructionFindingKey(finding))
+    for (let index = 0; index < cumulativeBuckets.length; index++) {
+      const row = rows[index] === 0 ? firstRow : rows[index]
+      if (row === null) state.cumulative[cumulativeBuckets[index]].delete(key)
+      else if (Array.isArray(row)) state.cumulative[cumulativeBuckets[index]].set(key, row)
+      else return false
+    }
+  }
+  const rawRows = []
+  for (const row of delta.r) {
+    if (!Array.isArray(row)) return false
+    const expanded = row.slice()
+    if (Array.isArray(expanded[0]) && expanded[0][0] === 'c') {
+      expanded[0] = expanded[0].slice()
+      const index = expanded[0][3]
+      if (!Number.isSafeInteger(index) || typeof delta.h[index] !== 'string') return false
+      expanded[0][3] = delta.h[index]
+    }
+    rawRows.push(expanded)
+  }
+  state.rawDispositions = delta.rr ? rawRows : state.rawDispositions.concat(rawRows)
+  for (const key of delta.fd) state.followUps.delete(key)
+  for (const followUp of delta.fs) {
+    if (!followUp) return false
+    const key = canonicalJsonSha256([followUp.stage || '', followUp.chunkId || '', followUp.title || '',
+      followUp.detail || '', followUp.area || 'none'])
+    state.followUps.set(key, followUp)
+  }
+  return true
+}
+
+function fullDispositionFromMaterialized(state) {
+  const live = Object.fromEntries(Object.keys(LIVE_HEAD_INDEX).map(bucket => [bucket, []]))
+  for (const [, [bucket, row]] of [...state.live].sort(([left], [right]) => left.localeCompare(right))) {
+    live[bucket].push(row)
+  }
+  const valuesByKey = map => [...map].sort(([left], [right]) => left.localeCompare(right)).map(([, value]) => value)
+  return { live, cumulative: {
+    candidates: valuesByKey(state.cumulative.candidates),
+    confirmed: valuesByKey(state.cumulative.confirmed),
+    unverified: valuesByKey(state.cumulative.unverified),
+  }, rawDispositions: state.rawDispositions.slice(), extraFollowUps: valuesByKey(state.followUps) }
+}
+
+function dispositionSnapshotValue(name, stored) {
+  if (!(stored && stored.controlVersion === 1)) return stored
+  const binding = stored.binding
+  if (!binding || binding.run !== stateClaim.run || binding.artifactName !== name ||
+      binding.repositoryIdentity !== stateClaim.repository.identity ||
+      lineageKeyHashByHead.get(binding.headSha) !== binding.keyHash || !stored.value) return null
+  return stored.value
+}
+
+function resolveDispositionChain(latestName) {
+  const nodes = [], visited = new Set()
+  let name = latestName, expected = null
+  for (let depth = 0; name; depth++) {
+    if (depth >= 128 || visited.has(name) ||
+        !/^cycle-\d+\/dispositions(?:-attempt-\d+)?\.json$/.test(name)) return null
+    visited.add(name)
+    const record = resumedArtifactRecords.get(name)
+    if (!record || (expected && (record.sha256 !== expected.sha256 || record.bytes !== expected.bytes))) return null
+    const snapshot = dispositionSnapshotValue(name, resumedArtifacts.get(name))
+    if (!snapshot || snapshot.snapshotVersion !== 3 || !Array.isArray(snapshot.sourceArtifacts)) return null
+    nodes.push({ name, record, snapshot })
+    expected = snapshot.previousDisposition || null
+    if (expected === null) break
+    if (!expected || typeof expected.name !== 'string' || !/^[a-f0-9]{64}$/.test(expected.sha256 || '') ||
+        !Number.isSafeInteger(expected.bytes) || expected.bytes < 1) return null
+    name = expected.name
+  }
+  nodes.reverse()
+  const sourceArtifacts = [], sourceNames = new Set()
+  let materialized = emptyDispositionMaterialized()
+  for (const node of nodes) {
+    for (const reference of node.snapshot.sourceArtifacts) {
+      const ref = normalizeSourceArtifactRef(reference)
+      if (!ref) return null
+      const record = resumedArtifactRecords.get(ref.name)
+      if (!record || record.sha256 !== ref.sha256 || record.bytes !== ref.bytes) return null
+      if (!sourceNames.has(ref.name)) { sourceNames.add(ref.name); sourceArtifacts.push(ref) }
+    }
+    const context = buildReconstructionContext(sourceArtifacts)
+    if (!context) return null
+    if (node.snapshot.delta) {
+      if (!applyDispositionDelta(materialized, node.snapshot.delta, context)) return null
+    } else {
+      materialized = materializeDispositionFull(node.snapshot, context)
+      if (!materialized) return null
+    }
+  }
+  return { nodes, sourceArtifacts, materialized,
+    latestRef: nodes.length ? { name: nodes[nodes.length - 1].name,
+      sha256: nodes[nodes.length - 1].record.sha256, bytes: nodes[nodes.length - 1].record.bytes } : null }
+}
+
+function decodeCompactDispositionSnapshot(snapshot, context, artifactValues, expectedRun) {
+  if (!context || !snapshot.live || !snapshot.cumulative || !Array.isArray(snapshot.rawDispositions)) return null
+  const findingAt = (index, expectedHead, delta) => {
+    if (!Number.isSafeInteger(index) || index < 0 || index >= context.catalog.length ||
+        context.catalogHeads[index] !== expectedHead) return null
+    return applyCompactFindingStateDelta(context.catalog[index], delta)
+  }
+  const decodeRows = (rows, decode) => {
+    const out = []
+    for (const row of rows || []) {
+      const decoded = decode(row)
+      if (!decoded) return null
+      out.push(decoded)
+    }
+    return out
+  }
+  const decoded = { live: {}, cumulative: {}, rawDispositions: [],
+    reviewSources: context.reviewSources }
+  decoded.live.rejected = decodeRows(snapshot.live.rejected, row => {
+    const finding = findingAt(row[0], row[2], row[3]); return finding && { finding, reason: row[1] }
+  })
+  decoded.live.rejectedHints = decodeRows(snapshot.live.rejectedHints, row => {
+    const finding = findingAt(row[0], row[2], row[3]); return finding && { finding, reason: row[1] }
+  })
+  decoded.live.setAside = decodeRows(snapshot.live.setAside, row => {
+    const finding = findingAt(row[0], row[2], row[3]); return finding && { finding, reason: row[1] }
+  })
+  decoded.live.deferred = decodeRows(snapshot.live.deferred, row => {
+    const finding = findingAt(row[0], row[3], row[4]);
+    return finding && { finding, reason: row[1], authorDeferred: !!row[2] }
+  })
+  decoded.live.stillPresent = decodeRows(snapshot.live.stillPresent, row => {
+    const finding = findingAt(row[0], row[4], row[5])
+    if (!finding) return null
+    if (row[3]) finding.whyStillHere = row[3]
+    return { finding, chunkId: row[1], files: Array.isArray(row[2]) ? row[2] : finding.files }
+  })
+  decoded.live.open = decodeRows(snapshot.live.open, row => {
+    const finding = findingAt(row[0], row[2], row[3]); if (!finding) return null
+    if (row[1]) finding.validationStatus = row[1]
+    return finding
+  })
+  decoded.live.unresolved = decodeRows(snapshot.live.unresolved, row => {
+    const finding = findingAt(row[0], row[2], row[3]); if (!finding) return null
+    if (row[1]) finding.validationReason = row[1]
+    return finding
+  })
+  decoded.live.outOfScope = decodeRows(snapshot.live.outOfScope, row => {
+    const finding = findingAt(row[0], row[3], row[4]); return finding && { finding,
+      chunkId: row[1] || 'validation', stage: row[2] || 'full' }
+  })
+  if (Object.values(decoded.live).some(rows => rows === null)) return null
+  const cumulativeFinding = row => {
+    if (!Array.isArray(row) || !Number.isSafeInteger(row[0])) return null
+    const base = context.catalog[row[0]]
+    const finding = base ? Object.assign({}, base) : null
+    if (!finding) return null
+    finding.severity = row[1]; finding.confidence = row[2]; finding.defectClass = row[3]
+    finding.scopeLabel = row[4]; finding.defer = !!row[5]; finding.reviewerRejected = !!row[6]
+    return finding
+  }
+  for (const bucket of ['candidates', 'confirmed', 'unverified']) {
+    decoded.cumulative[bucket] = decodeRows(snapshot.cumulative[bucket], cumulativeFinding)
+    if (decoded.cumulative[bucket] === null) return null
+  }
+  for (const row of snapshot.rawDispositions) {
+    if (!Array.isArray(row) || !Number.isSafeInteger(row[2])) return null
+    const rawCandidateId = resolveRawLocator(row[0], snapshot.sourceArtifacts, context,
+      row[2], artifactValues, expectedRun)
+    const ref = row[0][0] === 's' && snapshot.sourceArtifacts[row[0][1]]
+    const source = ref && sourceResultRecord(ref.name, artifactValues.get(ref.name), expectedRun)
+    const locatorFinding = row[0][0] === 's'
+      ? source && source.result && source.result.findings[row[0][2]]
+      : context.catalog[row[0][1]]
+    if (!rawCandidateId || !locatorFinding) return null
+    const identity = reconstructionFindingKey(locatorFinding)
+    if (!/^cluster-[a-f0-9]{64}$/.test(String(row[3] || ''))) return null
+    decoded.rawDispositions.push({ rawCandidateId,
+      rawCandidateIdentity: identity,
+      clusterId: row[3], status: row[1], cycle: row[2] })
+  }
+  return decoded
+}
+
+function restoreCompactDispositionSnapshot(snapshot, cursor) {
+  if (!Array.isArray(snapshot.sourceArtifacts) || !snapshot.live || !snapshot.cumulative ||
+      !Array.isArray(snapshot.rawDispositions) || !/^[a-f0-9]{64}$/.test(snapshot.keyHash || '')) return false
+  if (lineageKeyHashByHead.get(snapshot.headSha) !== snapshot.keyHash) return false
+  if (cursor === ownedCommits.length && snapshot.headSha === scope.headSha &&
+      snapshot.keyHash !== stateClaim.keyHash) return false
+  const context = buildReconstructionContext(snapshot.sourceArtifacts)
+  if (!context) return false
+  const decoded = decodeCompactDispositionSnapshot(snapshot, context, resumedArtifacts, stateClaim.run)
+  if (!decoded) return false
+  knownFixed.clear(); knownDeferred.clear(); knownRejected.clear(); rejectedHints.clear();
+  setAside.clear(); deferDetail.clear(); authorDeferredKeys.clear()
+  stillPresent.splice(0); openReviewFindings.splice(0); unresolvedFindings.splice(0); outOfScopeFindings.splice(0)
+  fixLog.splice(0); followUpsRaw.splice(0); rawCandidateDispositions.splice(0)
+  cumulativeCandidates.clear(); cumulativeConfirmed.clear(); cumulativeUnverified.clear()
+  for (const commit of ownedCommits.slice(0, cursor)) replayReceipt(commit)
+  for (const followUp of context.derivedFollowUps) appendFollowUp(followUp)
+  const live = decoded.live
+  for (const row of live.rejected) {
+    setFindingRejected(row.finding.fingerprint, row.reason)
+  }
+  for (const row of live.rejectedHints) {
+    rejectedHints.set(row.finding.fingerprint, row.reason)
+  }
+  for (const row of live.setAside) {
+    setFindingSetAside(row.finding, row.reason, row.finding.fingerprint)
+  }
+  for (const row of live.deferred) {
+    deferFinding(row.finding, row.reason)
+    if (row.authorDeferred) authorDeferredKeys.add(norm(row.finding.fingerprint))
+  }
+  for (const row of live.stillPresent) {
+    setFindingStillPresent(row.finding, row.chunkId, row.files)
+  }
+  for (const finding of live.open) setFindingOpen(finding)
+  for (const finding of live.unresolved) setFindingUnresolved(finding)
+  for (const row of live.outOfScope) setFindingOutOfScope(row)
+  for (const followUp of snapshot.extraFollowUps || []) appendFollowUp(followUp)
+  for (const finding of decoded.cumulative.candidates) cumulativeCandidates.set(finding.fingerprint, finding)
+  for (const finding of decoded.cumulative.confirmed) cumulativeConfirmed.set(finding.fingerprint, finding)
+  for (const finding of decoded.cumulative.unverified) cumulativeUnverified.set(finding.fingerprint, finding)
+  rawCandidateDispositions.push(...decoded.rawDispositions)
+  return true
+}
+
 let latestDisposition = null
-for (const [name, snapshot] of resumedArtifacts) {
+for (const [name, stored] of resumedArtifacts) {
   const match = /^cycle-(\d+)\/dispositions(?:-attempt-(\d+))?\.json$/.exec(name)
+  const snapshot = match ? dispositionSnapshotValue(name, stored) : null
   if (!match || !snapshot) continue
   const rank = [Number(match[1]), Number(match[2] || 1)]
   if (!latestDisposition || rank[0] > latestDisposition.rank[0] ||
       (rank[0] === latestDisposition.rank[0] && rank[1] > latestDisposition.rank[1])) {
-    latestDisposition = { rank, snapshot }
+    latestDisposition = { rank, name, snapshot }
   }
 }
 
+let previousDispositionRef = null
+let previousDispositionMaterialized = emptyDispositionMaterialized()
+let previousDispositionSources = []
 if (latestDisposition) {
-  const snapshot = latestDisposition.snapshot
+  let snapshot = latestDisposition.snapshot
+  if (snapshot.snapshotVersion === 3) {
+    const chain = resolveDispositionChain(latestDisposition.name)
+    if (!chain) {
+      statePersistenceFailed = true
+      snapshot = null
+    } else {
+      previousDispositionRef = chain.latestRef
+      previousDispositionMaterialized = chain.materialized
+      previousDispositionSources = chain.sourceArtifacts
+      snapshot = Object.assign({}, snapshot, fullDispositionFromMaterialized(chain.materialized), {
+        sourceArtifacts: chain.sourceArtifacts,
+      })
+    }
+  }
+  if (!snapshot) {
+    for (const commit of ownedCommits) replayReceipt(commit)
+  } else {
   if (Array.isArray(snapshot.immutableSemanticUnits)) {
     immutableSemanticUnits = snapshot.immutableSemanticUnits
   }
@@ -4510,12 +6038,22 @@ if (latestDisposition) {
     statePersistenceFailed = true
     for (const commit of ownedCommits) replayReceipt(commit)
   } else {
-    if (snapshot.snapshotVersion === 2) restoreFullDispositionSnapshot(snapshot)
+    if (snapshot.snapshotVersion === 3) {
+      if (!restoreCompactDispositionSnapshot(snapshot, cursor)) {
+        statePersistenceFailed = true
+        knownFixed.clear(); knownDeferred.clear(); knownRejected.clear(); rejectedHints.clear();
+        setAside.clear(); deferDetail.clear(); authorDeferredKeys.clear()
+        stillPresent.splice(0); openReviewFindings.splice(0); unresolvedFindings.splice(0)
+        outOfScopeFindings.splice(0); fixLog.splice(0); followUpsRaw.splice(0)
+        for (const commit of ownedCommits.slice(0, cursor)) replayReceipt(commit)
+      }
+    } else if (snapshot.snapshotVersion === 2) restoreFullDispositionSnapshot(snapshot)
     else {
       for (const commit of ownedCommits.slice(0, cursor)) replayReceipt(commit)
       restoreLegacyDispositionSnapshot(snapshot)
     }
     for (const commit of ownedCommits.slice(cursor)) replayReceipt(commit)
+  }
   }
 } else {
   for (const commit of ownedCommits) replayReceipt(commit)
@@ -4589,8 +6127,11 @@ reviewCycles: while (reviewCycle < 20 && reviewPasses < 20) {
   }
   for (const lensSpec of lensPlan) {
     const saved = latestArtifact('cycle-' + reviewCycle + '/lenses/' + norm(lensSpec.lens) + '.json')
-    if (!saved || saved.headSha !== scope.headSha || !saved.result) continue
-    const result = saved.result
+    const imported = importedArtifactResult(saved, { headSha: scope.headSha, kind: 'lens',
+      resultId: lensSpec.lens, sourcePhase: 'Review' })
+    const result = imported || (saved && saved.headSha === scope.headSha && saved.lens === lensSpec.lens
+      ? saved.result : null)
+    if (!result) continue
     const expectedSkillStatus = lensSpec.reviewSkill ? 'used' : 'not-requested'
     if (result.lens !== lensSpec.lens || result.reviewSkillStatus !== expectedSkillStatus ||
         result.outcome !== 'reviewed' || result.commitSha !== 'none' ||
@@ -4603,9 +6144,10 @@ reviewCycles: while (reviewCycle < 20 && reviewPasses < 20) {
         { reason: rejected.reason || 'reviewer rejected after self-check', kind: rejected.kind || 'not-a-bug',
           hint: rejected })
     }
+    const occurrenceIndexes = stableFindingOccurrenceIndexes(result.findings || [])
     for (const [findingIndex, finding] of (result.findings || []).entries()) if (finding) rawCandidates.push(Object.assign({}, finding, {
       candidateId: stableRawCandidateId(reviewCycle, scope.headSha, 'lens:' + lensSpec.lens,
-        findingIndex, finding),
+        occurrenceIndexes[findingIndex], finding),
       reportingLenses: [lensSpec.lens], reviewerRejected: false, resumedCandidate: true,
     }))
     for (const followUp of result.followUps || []) if (followUp && followUp.title) {
@@ -4622,6 +6164,7 @@ if (RESOLVED_MODE === 'full') {
     const plannedWave = lensPlan.slice(li, li + REVIEW_CONCURRENCY)
     const wave = plannedWave.filter(lens => !restoredLensNames.has(lens.lens))
     if (!wave.length) continue
+    await refreshTranscriptTokens(scope, 'review wave ' + (Math.floor(li / REVIEW_CONCURRENCY) + 1))
     const emergency = mustStop()
     if (emergency) {
       stopReason = emergency
@@ -4629,8 +6172,12 @@ if (RESOLVED_MODE === 'full') {
       break
     }
     log('review wave: ' + wave.map(x => x.lens).join(', '))
-    const results = await parallel(wave.map(lensSpec => () => agentSafe(discoveryPrompt(scope, lensSpec), {
-      schema: LENS_REVIEW_SCHEMA, phase: 'Review', label: 'review ' + lensSpec.lens, effort: 'high',
+    const waveImports = wave.map(lensSpec => planJournalImport(
+      'cycle-' + reviewCycle + '/lenses/' + norm(lensSpec.lens) + '.json',
+      'lens', lensSpec.lens, 'Review', reviewCycle, reviewPasses))
+    const results = await parallel(wave.map((lensSpec, index) => () => agentSafe(discoveryPrompt(scope, lensSpec), {
+      schema: LENS_REVIEW_SCHEMA, phase: 'Review',
+      label: waveImports[index] && waveImports[index].sourceLabel, effort: 'high',
       disallowedTools: DENY_READONLY,
       bashCommandClamp: discoveryBashClamp(scope, lensSpec.lens, DETAILED), requireToolScope: true,
     })))
@@ -4656,6 +6203,14 @@ if (RESOLVED_MODE === 'full') {
                         note: result && result.notes || 'missing, malformed, or empty coverage receipt' })
         continue
       }
+      const expectedSkillStatus = lensSpec.reviewSkill ? 'used' : 'not-requested'
+      if (!await importJournalArtifact(waveImports[wi], result, expectedSkillStatus)) {
+        failedLenses.push(lensSpec.lens)
+        stageLog.push({ stage: lensSpec.lens, chunks: 1, clean: 0, fixed: 0, stillPresent: 0,
+                        verdict: 'INCOMPLETE - result import failed', commitSha: 'none',
+                        note: 'the completed lens result was not durably imported' })
+        continue
+      }
       completedLenses.push(lensSpec.lens)
       totalChunks++
       coverageReceipts.push({ lens: lensSpec.lens, receipts: result.coverageReceipts })
@@ -4665,11 +6220,12 @@ if (RESOLVED_MODE === 'full') {
           { reason: rejected.reason || 'reviewer rejected after self-check', kind: rejected.kind || 'not-a-bug',
             hint: rejected })
       }
+      const occurrenceIndexes = stableFindingOccurrenceIndexes(result.findings || [])
       for (const [findingIndex, finding] of (result.findings || []).entries()) {
         if (!finding) continue
         rawCandidates.push(Object.assign({}, finding, {
           candidateId: stableRawCandidateId(reviewCycle, scope.headSha, 'lens:' + lensSpec.lens,
-            findingIndex, finding), reportingLenses: [lensSpec.lens],
+            occurrenceIndexes[findingIndex], finding), reportingLenses: [lensSpec.lens],
           reviewerRejected: false,
         }))
       }
@@ -4677,9 +6233,6 @@ if (RESOLVED_MODE === 'full') {
         if (!followUp || !followUp.title) continue
         appendFollowUp(Object.assign({ stage: lensSpec.lens, chunkId: lensSpec.lens, doneNow: false }, followUp))
       }
-      await checkpointState('cycle-' + reviewCycle + '/lenses/' + norm(lensSpec.lens) + '.json', {
-        headSha: scope.headSha, lens: lensSpec.lens, result,
-      })
     }
     for (const key of reviewerRejections.keys()) {
       for (const candidate of rawCandidates) {
@@ -4710,6 +6263,7 @@ if (RESOLVED_MODE === 'full') {
 
   // Coverage closure runs only after every mandatory discovery lens returned. The auditor sees no
   // candidate prose, so it cannot be anchored by or rubber-stamp the bugs already found.
+  if (stopReason === 'completed') await refreshTranscriptTokens(scope, 'coverage audit')
   const preCoverageCircuit = mustStop()
   if (!await assertCurrentRepository('verify repository before coverage audit')) {
     repositoryStable = false
@@ -4719,36 +6273,53 @@ if (RESOLVED_MODE === 'full') {
   if (preCoverageCircuit && stopReason === 'completed') stopReason = preCoverageCircuit
   if (!preCoverageCircuit && !skippedLenses.length && !failedLenses.length && stopReason === 'completed') {
     phase('Coverage')
-    const audit = await agentSafe(coverageAuditPrompt(scope, coverageReceipts, 'initial'), {
-      schema: COVERAGE_AUDIT_SCHEMA, phase: 'Coverage', label: 'audit review coverage', effort: 'high',
-      disallowedTools: DENY_READONLY,
-      bashCommandClamp: discoveryBashClamp(scope, 'coverage-audit', false), requireToolScope: true,
-    })
+    const savedInitialAudit = latestArtifact('cycle-' + reviewCycle + '/coverage/initial-audit.json')
+    let audit = importedArtifactResult(savedInitialAudit, { headSha: scope.headSha,
+      kind: 'coverage-audit', resultId: 'initial', sourcePhase: 'Coverage' })
+    if (!audit && savedInitialAudit && savedInitialAudit.outcome === 'audited') audit = savedInitialAudit
+    let initialAuditImport = null
+    if (!audit) {
+      initialAuditImport = planJournalImport('cycle-' + reviewCycle + '/coverage/initial-audit.json',
+        'coverage-audit', 'initial', 'Coverage', reviewCycle, reviewPasses)
+      audit = await agentSafe(coverageAuditPrompt(scope, coverageReceipts, 'initial'), {
+        schema: COVERAGE_AUDIT_SCHEMA, phase: 'Coverage',
+        label: initialAuditImport && initialAuditImport.sourceLabel, effort: 'high',
+        disallowedTools: DENY_READONLY,
+        bashCommandClamp: discoveryBashClamp(scope, 'coverage-audit', false), requireToolScope: true,
+      })
+    }
     if (!audit || audit.outcome !== 'audited' || audit.commitSha !== 'none' ||
         (audit.filesTouched || []).length || !String(audit.coverage || '').trim()) {
       coverageStatus = 'incomplete-gaps'
       coverageGaps = [{ id: 'coverage-audit-failed', unitIds: [], focus: 'coverage audit',
                         reason: 'coverage auditor failed its read-only contract' }, ...carriedGapFailures]
     } else {
-      await checkpointState('cycle-' + reviewCycle + '/coverage/initial-audit.json', audit)
+      const auditImportFailures = []
+      if (initialAuditImport && !await importJournalArtifact(initialAuditImport, audit)) {
+        auditImportFailures.push({ id: 'coverage-audit-import-failed', unitIds: [], focus: 'coverage audit',
+          reason: 'the completed coverage audit was not durably imported' })
+      }
       coverageGaps = [...receiptMatrixGaps(scope.coverageUnits, coverageReceipts),
-        ...auditedCoverageGaps(scope.coverageUnits, audit), ...carriedGapFailures]
+        ...auditedCoverageGaps(scope.coverageUnits, audit), ...auditImportFailures, ...carriedGapFailures]
       coverageGaps = [...new Map(coverageGaps.map(gap => [gap.id, gap])).values()]
       if (coverageGaps.length) {
         const gapReceipts = []
         const failedGapReviews = []
         let gapThresholdStop = false
         const restoredGapIds = new Set()
+        const validGapResult = (gap, result) => !!result && result.lens === 'gap-' + gap.id &&
+          result.reviewSkillStatus === 'not-requested' && result.outcome === 'reviewed' &&
+          result.commitSha === 'none' && !(result.filesTouched || []).length &&
+          Array.isArray(result.coverageReceipts)
         const absorbGapResult = (gap, result, restored = false) => {
-          if (!result || result.lens !== 'gap-' + gap.id || result.reviewSkillStatus !== 'not-requested' ||
-              result.outcome !== 'reviewed' || result.commitSha !== 'none' ||
-              (result.filesTouched || []).length || !Array.isArray(result.coverageReceipts)) return false
+          if (!validGapResult(gap, result)) return false
           gapReceipts.push({ lens: gap.requiredLens || 'gap-' + gap.id, receipts: result.coverageReceipts })
           completedLenses.push('gap-' + gap.id)
           totalChunks++
+          const occurrenceIndexes = stableFindingOccurrenceIndexes(result.findings || [])
           for (const [findingIndex, finding] of (result.findings || []).entries()) rawCandidates.push(Object.assign({}, finding, {
             candidateId: stableRawCandidateId(reviewCycle, scope.headSha, 'gap:' + gap.id,
-              findingIndex, finding), reportingLenses: ['gap-' + gap.id],
+              occurrenceIndexes[findingIndex], finding), reportingLenses: ['gap-' + gap.id],
             reviewerRejected: false, resumedCandidate: restored,
           }))
           for (const rejected of result.rejected || []) if (rejected && rejected.fingerprint) {
@@ -4765,7 +6336,11 @@ if (RESOLVED_MODE === 'full') {
         }
         for (const gap of coverageGaps) {
           const saved = latestArtifact('cycle-' + reviewCycle + '/gaps/' + norm(gap.id) + '.json')
-          if (saved && saved.headSha === scope.headSha && saved.gapId === gap.id && absorbGapResult(gap, saved.result, true)) {
+          const imported = importedArtifactResult(saved, { headSha: scope.headSha, kind: 'gap',
+            resultId: 'gap-' + gap.id, sourcePhase: 'Coverage' })
+          const savedResult = imported || (saved && saved.headSha === scope.headSha && saved.gapId === gap.id
+            ? saved.result : null)
+          if (savedResult && absorbGapResult(gap, savedResult, true)) {
             restoredGapIds.add(gap.id)
           }
         }
@@ -4773,10 +6348,15 @@ if (RESOLVED_MODE === 'full') {
           const plannedGapWave = coverageGaps.slice(gi, gi + REVIEW_CONCURRENCY)
           const wave = plannedGapWave.filter(gap => !restoredGapIds.has(gap.id))
           if (!wave.length) continue
+          await refreshTranscriptTokens(scope, 'coverage gap wave ' + (Math.floor(gi / REVIEW_CONCURRENCY) + 1))
           const emergency = mustStop()
           if (emergency) { stopReason = emergency; break }
-          const results = await parallel(wave.map(gap => () => agentSafe(gapReviewPrompt(scope, gap), {
-            schema: LENS_REVIEW_SCHEMA, phase: 'Coverage', label: 'gap ' + gap.id, effort: 'high',
+          const gapImports = wave.map(gap => planJournalImport(
+            'cycle-' + reviewCycle + '/gaps/' + norm(gap.id) + '.json',
+            'gap', 'gap-' + gap.id, 'Coverage', reviewCycle, reviewPasses))
+          const results = await parallel(wave.map((gap, index) => () => agentSafe(gapReviewPrompt(scope, gap), {
+            schema: LENS_REVIEW_SCHEMA, phase: 'Coverage',
+            label: gapImports[index] && gapImports[index].sourceLabel, effort: 'high',
             disallowedTools: DENY_READONLY,
             bashCommandClamp: discoveryBashClamp(scope, 'gap-' + gap.id, DETAILED), requireToolScope: true,
           })))
@@ -4787,10 +6367,9 @@ if (RESOLVED_MODE === 'full') {
           }
           for (let wi = 0; wi < wave.length; wi++) {
             const gap = wave[wi], result = results[wi]
-            if (absorbGapResult(gap, result)) {
-              await checkpointState('cycle-' + reviewCycle + '/gaps/' + norm(gap.id) + '.json', {
-                headSha: scope.headSha, gapId: gap.id, result,
-              })
+            if (validGapResult(gap, result) &&
+                await importJournalArtifact(gapImports[wi], result, 'not-requested')) {
+              absorbGapResult(gap, result)
             } else {
               const failedGap = { id: String(gap.id).startsWith('gap-review-failed-')
                 ? gap.id : 'gap-review-failed-' + norm(gap.id), unitIds: gap.unitIds || [],
@@ -4814,18 +6393,36 @@ if (RESOLVED_MODE === 'full') {
             break
           }
         }
+        if (!gapThresholdStop && stopReason === 'completed') {
+          await refreshTranscriptTokens(scope, 'final coverage re-audit')
+          const reAuditCircuit = mustStop()
+          if (reAuditCircuit) stopReason = reAuditCircuit
+        }
         if (!gapThresholdStop && !mustStop()) {
-          const reAudit = await agentSafe(coverageAuditPrompt(scope, coverageReceipts.concat(gapReceipts), 'final'), {
-            schema: COVERAGE_AUDIT_SCHEMA, phase: 'Coverage', label: 're-audit review coverage', effort: 'high',
-            disallowedTools: DENY_READONLY,
-            bashCommandClamp: discoveryBashClamp(scope, 'coverage-reaudit', false), requireToolScope: true,
-          })
+          const savedFinalAudit = latestArtifact('cycle-' + reviewCycle + '/coverage/final-audit.json')
+          let reAudit = importedArtifactResult(savedFinalAudit, { headSha: scope.headSha,
+            kind: 'coverage-audit', resultId: 'final', sourcePhase: 'Coverage' })
+          if (!reAudit && savedFinalAudit && savedFinalAudit.outcome === 'audited') reAudit = savedFinalAudit
+          let finalAuditImport = null
+          if (!reAudit) {
+            finalAuditImport = planJournalImport('cycle-' + reviewCycle + '/coverage/final-audit.json',
+              'coverage-audit', 'final', 'Coverage', reviewCycle, reviewPasses)
+            reAudit = await agentSafe(coverageAuditPrompt(scope, coverageReceipts.concat(gapReceipts), 'final'), {
+              schema: COVERAGE_AUDIT_SCHEMA, phase: 'Coverage',
+              label: finalAuditImport && finalAuditImport.sourceLabel, effort: 'high',
+              disallowedTools: DENY_READONLY,
+              bashCommandClamp: discoveryBashClamp(scope, 'coverage-reaudit', false), requireToolScope: true,
+            })
+          }
           if (reAudit && reAudit.outcome === 'audited' && reAudit.commitSha === 'none' &&
               !(reAudit.filesTouched || []).length && String(reAudit.coverage || '').trim()) {
             coverageGaps = [...receiptMatrixGaps(scope.coverageUnits, coverageReceipts.concat(gapReceipts)),
               ...auditedCoverageGaps(scope.coverageUnits, reAudit), ...failedGapReviews]
             coverageGaps = [...new Map(coverageGaps.map(gap => [gap.id, gap])).values()]
-            await checkpointState('cycle-' + reviewCycle + '/coverage/final-audit.json', reAudit)
+            if (finalAuditImport && !await importJournalArtifact(finalAuditImport, reAudit)) {
+              coverageGaps.push({ id: 'coverage-reaudit-import-failed', unitIds: [],
+                focus: 'coverage re-audit', reason: 'the completed final coverage audit was not durably imported' })
+            }
           } else {
             coverageGaps = [{ id: 'coverage-reaudit-failed', unitIds: [], focus: 'coverage re-audit',
                               reason: 'final auditor failed its read-only contract' },
@@ -4851,8 +6448,12 @@ if (RESOLVED_MODE === 'full') {
     if (rejection.kind === 'out-of-scope') setFindingSetAside(rejection.hint || key, rejection.reason, key)
     else setFindingRejected(key, rejection.reason)
   }
+  const nonDerivableCoverageGaps = coverageGaps.filter(gap => {
+    const id = String(gap && gap.id || '')
+    return id.startsWith('gap-review-failed-') || id.includes('audit-failed') || id.includes('import-failed')
+  })
   await checkpointState('cycle-' + reviewCycle + '/coverage/unresolved.json', {
-    headSha: scope.headSha, gaps: coverageGaps,
+    headSha: scope.headSha, gaps: nonDerivableCoverageGaps,
   })
 
   if (!await assertCurrentRepository('verify repository before finding validation')) {
@@ -4887,18 +6488,43 @@ if (RESOLVED_MODE === 'full') {
   })
   provisionalScore = scoreFindings(candidates)
   let confirmed = []
+  if (repositoryStable && stopReason === 'completed') await refreshTranscriptTokens(scope, 'finding verification')
   const validationCircuit = repositoryStable ? mustStop() : 'repository-changed'
   if (validationCircuit && stopReason === 'completed') stopReason = validationCircuit
   if (candidatesForVerification.length && VERIFICATION_MODE !== 'none' && !validationCircuit) {
     phase('Validate')
-    const validation = await agentSafe(validationPrompt(scope, blindCandidates, 'single', RUN_TAG + '-validate-1'), {
-      schema: VALIDATION_SCHEMA, phase: 'Validate', label: 'blind verify findings', effort: 'high',
-      disallowedTools: DENY_READONLY,
-      bashCommandClamp: validationBashClamp(scope, RUN_TAG + '-validate-1', false, DETAILED),
-      requireToolScope: true,
-    })
+    const resultMatchesCandidates = (result, expectedCandidates) => {
+      const expected = new Set(expectedCandidates.map(candidate => candidate.candidateId))
+      const actual = []
+      for (const bucket of ['confirmed', 'rejected', 'unresolved']) {
+        for (const item of result && result[bucket] || []) if (item && item.candidateId) actual.push(item.candidateId)
+      }
+      return actual.length === expected.size && new Set(actual).size === actual.length &&
+        actual.every(id => expected.has(id))
+    }
+    const savedFirstVerification = latestArtifact('cycle-' + reviewCycle + '/verification/first.json')
+    let validation = importedArtifactResult(savedFirstVerification, { headSha: scope.headSha,
+      kind: 'verification', resultId: 'first', sourcePhase: 'Validate' })
+    if (!validation && savedFirstVerification && savedFirstVerification.outcome === 'validated') {
+      validation = savedFirstVerification
+    }
+    if (validation && !resultMatchesCandidates(validation, candidatesForVerification)) validation = null
+    let firstVerificationImport = null
+    if (!validation) {
+      firstVerificationImport = planJournalImport('cycle-' + reviewCycle + '/verification/first.json',
+        'verification', 'first', 'Validate', reviewCycle, reviewPasses)
+      validation = await agentSafe(validationPrompt(scope, blindCandidates, 'single', RUN_TAG + '-validate-1'), {
+        schema: VALIDATION_SCHEMA, phase: 'Validate',
+        label: firstVerificationImport && firstVerificationImport.sourceLabel, effort: 'high',
+        disallowedTools: DENY_READONLY,
+        bashCommandClamp: validationBashClamp(scope, RUN_TAG + '-validate-1', false, DETAILED),
+        requireToolScope: true,
+      })
+    }
     if (!validation || validation.outcome !== 'validated' || validation.commitSha !== 'none' ||
-        (validation.filesTouched || []).length || !String(validation.coverage || '').trim()) {
+        (validation.filesTouched || []).length || !String(validation.coverage || '').trim() ||
+        !resultMatchesCandidates(validation, candidatesForVerification) ||
+        (firstVerificationImport && !await importJournalArtifact(firstVerificationImport, validation))) {
       for (const f of candidatesForVerification) setFindingUnresolved(Object.assign({}, f, {
         validationReason: 'validator did not complete the read-only contract',
       }))
@@ -4911,25 +6537,41 @@ if (RESOLVED_MODE === 'full') {
     } else {
       let decisions = validationDecisionMap(candidatesForVerification, validation)
       let requiredChallengesComplete = true
-      await checkpointState('cycle-' + reviewCycle + '/verification/first.json', validation)
       if (VERIFICATION_MODE === 'double') {
         const challenged = new Set([...decisions].filter(([, decision]) =>
           decision.status !== 'confirmed' || ['critical', 'high'].includes(decision.finding.severity)).map(([id]) => id))
+        if (challenged.size) await refreshTranscriptTokens(scope, 'independent verification challenge')
         const challengeCircuit = challenged.size ? mustStop() : null
         if (challenged.size && !challengeCircuit) {
           const challengeCandidates = candidatesForVerification.filter(candidate => challenged.has(candidate.candidateId))
           const blindChallengeCandidates = blindCandidates.filter(candidate => challenged.has(candidate.candidateId))
-          const challenge = await agentSafe(validationPrompt(scope, blindChallengeCandidates, 'single', RUN_TAG + '-validate-2'), {
-            schema: VALIDATION_SCHEMA, phase: 'Validate', label: 'independent challenge findings', effort: 'high',
-            disallowedTools: DENY_READONLY,
-            bashCommandClamp: validationBashClamp(scope, RUN_TAG + '-validate-2', false, DETAILED),
-            requireToolScope: true,
-          })
+          const savedChallengeVerification = latestArtifact('cycle-' + reviewCycle + '/verification/challenge.json')
+          let challenge = importedArtifactResult(savedChallengeVerification, { headSha: scope.headSha,
+            kind: 'verification', resultId: 'challenge', sourcePhase: 'Validate' })
+          if (!challenge && savedChallengeVerification && savedChallengeVerification.outcome === 'validated') {
+            challenge = savedChallengeVerification
+          }
+          if (challenge && !resultMatchesCandidates(challenge, challengeCandidates)) challenge = null
+          let challengeVerificationImport = null
+          if (!challenge) {
+            challengeVerificationImport = planJournalImport(
+              'cycle-' + reviewCycle + '/verification/challenge.json', 'verification', 'challenge',
+              'Validate', reviewCycle, reviewPasses)
+            challenge = await agentSafe(validationPrompt(scope, blindChallengeCandidates, 'single', RUN_TAG + '-validate-2'), {
+              schema: VALIDATION_SCHEMA, phase: 'Validate',
+              label: challengeVerificationImport && challengeVerificationImport.sourceLabel, effort: 'high',
+              disallowedTools: DENY_READONLY,
+              bashCommandClamp: validationBashClamp(scope, RUN_TAG + '-validate-2', false, DETAILED),
+              requireToolScope: true,
+            })
+          }
           if (challenge && challenge.outcome === 'validated' && challenge.commitSha === 'none' &&
-              !(challenge.filesTouched || []).length && String(challenge.coverage || '').trim()) {
+              !(challenge.filesTouched || []).length && String(challenge.coverage || '').trim() &&
+              resultMatchesCandidates(challenge, challengeCandidates) &&
+              (!challengeVerificationImport ||
+                await importJournalArtifact(challengeVerificationImport, challenge))) {
             decisions = combineDoubleVerification(decisions,
               validationDecisionMap(challengeCandidates, challenge), challenged)
-            await checkpointState('cycle-' + reviewCycle + '/verification/challenge.json', challenge)
           } else {
             requiredChallengesComplete = false
             if (stopReason === 'completed') stopReason = 'validation-error'
@@ -5073,36 +6715,144 @@ if (RESOLVED_MODE === 'full') {
   }))
   cleanChunks = candidates.length ? 0 : completedLenses.length
 
-  const currentDispositionSnapshot = () => ({
-    snapshotVersion: 2,
-    headSha: scope.headSha,
-    lineageCursor,
-    knownFixed: [...knownFixed.entries()],
-    knownRejected: [...knownRejected.entries()],
-    rejectedHints: [...rejectedHints.entries()],
-    setAside: [...setAside.entries()],
-    knownDeferred: [...knownDeferred.entries()],
-    deferDetail: [...deferDetail.entries()],
-    authorDeferredKeys: [...authorDeferredKeys],
-    stillPresent,
-    unresolved: unresolvedFindings,
-    outOfScope: outOfScopeFindings,
-    open: openReviewFindings,
-    fixLog,
-    followUps: followUpsRaw,
-    immutableSemanticUnits,
-    coverageGaps,
-    failedGapReviews: coverageGaps.filter(gap => String(gap && gap.id || '').startsWith('gap-review-failed-')),
-    cumulativeCandidates: [...cumulativeCandidates.values()],
-    cumulativeConfirmed: [...cumulativeConfirmed.values()],
-    cumulativeUnverified: [...cumulativeUnverified.values()],
-    rawCandidateDispositions,
-  })
-  const dispositionArtifactName = await checkpointState('cycle-' + reviewCycle + '/dispositions.json',
-    currentDispositionSnapshot())
-  const dispositionAttempt = dispositionArtifactName &&
-    /\/dispositions(?:-attempt-(\d+))?\.json$/.exec(dispositionArtifactName)
+  let pendingDispositionMaterialized = null
+  let pendingDispositionSources = null
+  const currentDispositionSnapshot = fixWindowValue => {
+    const sourceArtifacts = sourceArtifactRefs()
+    const context = buildReconstructionContext(sourceArtifacts)
+    if (!context) return null
+    const indexForKey = (key, preferredHead = scope.headSha) =>
+      context.catalogByHeadKey.get(String(preferredHead) + '\0' + norm(key)) ?? context.catalogByKey.get(norm(key))
+    const indexFor = finding => indexForKey(reconstructionFindingKey(finding))
+    const stateRef = (finding, key, omit = []) => {
+      const index = indexForKey(key || reconstructionFindingKey(finding))
+      if (!Number.isSafeInteger(index)) return null
+      const base = context.catalog[index]
+      const exact = finding ? Object.assign({}, base, finding) : base
+      const delta = compactFindingStateDelta(base, exact)
+      for (const field of omit) {
+        delete delta.set[field]
+        delta.unset = delta.unset.filter(item => item !== field)
+      }
+      return [index, context.catalogHeads[index], delta]
+    }
+    const requireRows = (items, convert) => {
+      const rows = []
+      for (const item of items) {
+        const row = convert(item)
+        if (!row || !Number.isSafeInteger(row[0])) return null
+        rows.push(row)
+      }
+      return rows
+    }
+    const rejected = requireRows([...knownRejected], ([key, reason]) => {
+      const ref = stateRef(null, key); return ref && [ref[0], reason, ref[1], ref[2]]
+    })
+    const hints = requireRows([...rejectedHints], ([key, reason]) => {
+      const ref = stateRef(null, key); return ref && [ref[0], reason, ref[1], ref[2]]
+    })
+    const asideRows = requireRows([...setAside], ([key, finding]) => {
+      const ref = stateRef(finding, key); return ref && [ref[0], finding && finding.reason, ref[1], ref[2]]
+    })
+    const deferred = requireRows([...knownDeferred], ([key, reason]) => {
+      const ref = stateRef(deferDetail.get(key), key)
+      return ref && [ref[0], reason, authorDeferredKeys.has(norm(key)) ? 1 : 0, ref[1], ref[2]]
+    })
+    const stillRows = requireRows(stillPresent, row => {
+      const ref = stateRef(row && row.finding, null, ['whyStillHere'])
+      return ref && [ref[0], row && row.chunkId, row && row.files,
+        row && row.finding && row.finding.whyStillHere, ref[1], ref[2]]
+    })
+    const openRows = requireRows(openReviewFindings, finding => {
+      const ref = stateRef(finding, null, ['validationStatus'])
+      return ref && [ref[0], finding.validationStatus, ref[1], ref[2]]
+    })
+    const unresolvedRows = requireRows(unresolvedFindings, finding => {
+      const ref = stateRef(finding, null, ['validationReason'])
+      return ref && [ref[0], finding.validationReason, ref[1], ref[2]]
+    })
+    const outRows = requireRows(outOfScopeFindings, row => {
+      const ref = stateRef(row && row.finding)
+      return ref && [ref[0], row && row.chunkId, row && row.stage, ref[1], ref[2]]
+    })
+    if ([rejected, hints, asideRows, deferred, stillRows, openRows, unresolvedRows, outRows]
+      .some(rows => rows === null)) return null
+    const cumulativeRow = finding => [indexFor(finding), finding.severity, finding.confidence,
+      finding.defectClass, finding.scopeLabel, finding.defer ? 1 : 0, finding.reviewerRejected ? 1 : 0]
+    const cumulative = {
+      candidates: [...cumulativeCandidates.values()].map(cumulativeRow),
+      confirmed: [...cumulativeConfirmed.values()].map(cumulativeRow),
+      unverified: [...cumulativeUnverified.values()].map(cumulativeRow),
+    }
+    if (Object.values(cumulative).some(rows => rows.some(row => !Number.isSafeInteger(row[0])))) return null
+    const possibleHeads = [resumeLineage.initialHead, ...ownedCommits.map(commit => commit && commit.to)]
+      .filter(head => /^[a-f0-9]{40}$/.test(head || ''))
+    const locateRaw = (rawId, cycle) => {
+      const sourceLocation = context.rawLocations.get(rawId)
+      if (sourceLocation) return ['s', sourceLocation[0], sourceLocation[1]]
+      const inMemory = rawCandidates.find(candidate => candidate && candidate.candidateId === rawId)
+      const candidates = inMemory ? [inMemory] : context.catalog
+      for (const finding of candidates) {
+        const catalogIndex = indexFor(finding)
+        if (!Number.isSafeInteger(catalogIndex)) continue
+        for (const tag of ['recovery', 'pending-fix']) for (const head of possibleHeads.concat(scope.headSha)) {
+          const source = tag + ':' + reconstructionFindingKey(finding)
+          if (stableRawCandidateId(cycle, head, source, 0, finding) === rawId) {
+            return ['c', catalogIndex, tag, head]
+          }
+        }
+      }
+      return null
+    }
+    const rawDispositions = []
+    for (const disposition of rawCandidateDispositions) {
+      const raw = locateRaw(disposition.rawCandidateId, disposition.cycle)
+      if (!raw || !/^cluster-[a-f0-9]{64}$/.test(String(disposition.clusterId || ''))) return null
+      rawDispositions.push([raw, disposition.status, disposition.cycle, disposition.clusterId])
+    }
+    const followUpKey = followUp => followUp && (followUp._resumeKey ||
+      [followUp.stage || '', followUp.chunkId || '', followUp.title, followUp.detail || '',
+        followUp.area || 'none'].join('\0'))
+    const derivedFollowUpKeys = new Set(context.derivedFollowUps.map(followUpKey))
+    const extraFollowUps = followUpsRaw.filter(followUp => !derivedFollowUpKeys.has(followUpKey(followUp)))
+    const full = {
+      live: { rejected, rejectedHints: hints, setAside: asideRows, deferred,
+        stillPresent: stillRows, open: openRows, unresolved: unresolvedRows, outOfScope: outRows },
+      cumulative, rawDispositions, extraFollowUps,
+    }
+    const materialized = materializeDispositionFull(full, context)
+    if (!materialized) return null
+    const previousSourceNames = new Set(previousDispositionSources.map(ref => ref.name))
+    const sourceDelta = sourceArtifacts.filter(ref => !previousSourceNames.has(ref.name))
+    pendingDispositionMaterialized = materialized
+    pendingDispositionSources = sourceArtifacts
+    return {
+      snapshotVersion: 3, headSha: scope.headSha, keyHash: stateClaim.keyHash, lineageCursor,
+      fixWindow: fixWindowValue || 0, previousDisposition: previousDispositionRef,
+      sourceArtifacts: sourceDelta.map(ref => [ref.name, ref.sha256, ref.bytes]),
+      delta: dispositionDelta(previousDispositionMaterialized, materialized),
+    }
+  }
+  const acceptDispositionCheckpoint = artifactName => {
+    if (!artifactName || !pendingDispositionMaterialized || !pendingDispositionSources) return false
+    const record = resumedArtifactRecords.get(artifactName)
+    if (!record || !/^[a-f0-9]{64}$/.test(record.sha256 || '') || !Number.isSafeInteger(record.bytes)) return false
+    previousDispositionRef = { name: artifactName, sha256: record.sha256, bytes: record.bytes }
+    previousDispositionMaterialized = pendingDispositionMaterialized
+    previousDispositionSources = pendingDispositionSources
+    pendingDispositionMaterialized = null
+    pendingDispositionSources = null
+    return true
+  }
+  const reservedDispositionName = reserveArtifactName('cycle-' + reviewCycle + '/dispositions.json')
+  const dispositionAttempt = reservedDispositionName &&
+    /\/dispositions(?:-attempt-(\d+))?\.json$/.exec(reservedDispositionName)
   const fixWindow = dispositionAttempt ? Number(dispositionAttempt[1] || 1) : 0
+  const initialDispositionSnapshot = currentDispositionSnapshot(fixWindow)
+  if (!initialDispositionSnapshot) statePersistenceFailed = true
+  const dispositionArtifactName = initialDispositionSnapshot && reservedDispositionName &&
+    await checkpointDispositionState(reservedDispositionName, initialDispositionSnapshot, true)
+  if (dispositionArtifactName && !acceptDispositionCheckpoint(dispositionArtifactName)) statePersistenceFailed = true
 
   if (statePersistenceFailed && !REVIEW_ONLY) {
     stopReason = 'state-checkpoint-failed'
@@ -5136,6 +6886,7 @@ if (RESOLVED_MODE === 'full') {
     log('whole-PR: fixing ' + fixEligible.length + ' finding(s) in ' + batches.length + ' serial batch(es)')
     let fixedCount = 0, lastCommit = 'none', verdict = 'not run', note = ''
     for (let bi = 0; bi < batches.length; bi++) {
+      await refreshTranscriptTokens(scope, 'fix batch ' + (bi + 1))
       if (mustStop()) {
         stopReason = mustStop()
         fixStatus = 'failed'
@@ -5202,7 +6953,10 @@ if (RESOLVED_MODE === 'full') {
           note = 'fix batch ' + (bi + 1) + ' could not clear its no-change transaction'
           break
         }
-        if (!await checkpointState('cycle-' + reviewCycle + '/dispositions.json', currentDispositionSnapshot())) {
+        const noChangeDispositionSnapshot = currentDispositionSnapshot(fixWindow)
+        const noChangeDispositionName = noChangeDispositionSnapshot && await checkpointDispositionState(
+          'cycle-' + reviewCycle + '/dispositions.json', noChangeDispositionSnapshot)
+        if (!noChangeDispositionName || !acceptDispositionCheckpoint(noChangeDispositionName)) {
           stopReason = 'state-checkpoint-failed'; fixStatus = 'failed'
           deferUnprocessedBatches(batches, bi, 'fixing stopped because no-change dispositions could not be persisted')
           note = 'fix batch ' + (bi + 1) + ' dispositions could not be checkpointed'
@@ -5228,23 +6982,19 @@ if (RESOLVED_MODE === 'full') {
       }
       fixedCount += (res.fixed || []).length
       const oldHeadSha = headSha
-      const fixReceipt = {
-        batchId,
-        fixed: res.fixed || [],
-        notABug: res.notABug || [],
-        stillOpen: res.stillOpen || [],
-        followUps: res.followUps || [],
-      }
-      const stagedReceipt = await stageFixReceipt(batchId, fixReceipt)
-      if (!stagedReceipt) {
+      const oldKeyHash = stateClaim.keyHash
+      const fixReceipt = buildCompactFixReceipt(batchId, batches[bi], res)
+      const encodedFixReceipt = inlineCompactFixReceipt(fixReceipt)
+      if (!encodedFixReceipt) {
+        statePersistenceFailed = true
         stopReason = 'state-checkpoint-failed'; fixStatus = 'failed'
-        note = 'fix batch ' + (bi + 1) + ' committed, but its lineage receipt could not be staged'
+        note = 'fix batch ' + (bi + 1) + ' committed, but its compact lineage receipt was invalid or too large'
         break
       }
       const advance = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-state.js') + ' advance-head --store ' +
         shq(stateStore) + ' --run ' + shq(stateClaim.run) + ' --lock-token ' + shq(stateClaim.lockToken) +
         ' --root ' + shq(scope.repoRoot) + ' --from ' + shq(oldHeadSha) + ' --to ' + shq(res.commitSha) +
-        ' --receipt-prefix ' + shq(stagedReceipt.prefix) + ' --receipt-parts ' + stagedReceipt.parts +
+        ' --receipt-base64 ' + shq(encodedFixReceipt) +
         ' --tx-id ' + shq(txId)
       if (!await stateLifecycle(advance, 'record workflow-owned fix commit')) {
         stopReason = 'state-advance-failed'; fixStatus = 'failed'; break
@@ -5278,6 +7028,15 @@ if (RESOLVED_MODE === 'full') {
         note = 'fix batch ' + (bi + 1) + ' committed, but the unlocked advanced state could not be reclaimed'
         break
       }
+      if (!ownedCommits.some(commit => commit && commit.to === res.commitSha)) {
+        ownedCommits.push({ from: oldHeadSha, to: res.commitSha,
+          fromKeyHash: oldKeyHash, toKeyHash: stateClaim.keyHash,
+          transactionId: txId, receipt: fixReceipt })
+      }
+      resumeLineage.currentHead = res.commitSha
+      resumeLineage.currentKeyHash = stateClaim.keyHash
+      lineageKeyHashByHead.set(oldHeadSha, oldKeyHash)
+      lineageKeyHashByHead.set(res.commitSha, stateClaim.keyHash)
       // One successful commit invalidates every remaining pre-commit validation decision. Carry the
       // later batches forward as open work; the next cycle re-runs all lenses and blind validation
       // on the new HEAD before any second fixer may edit.
@@ -5309,6 +7068,13 @@ if (RESOLVED_MODE === 'full') {
   if (reviewCycle >= 20) {
     stopReason = 'cycle-cap'; coverageStatus = 'partial-stop'; break reviewCycles
   }
+  // Fixers and their commit/state helpers can cross the token or agent boundary after the last
+  // pre-fix measurement. Refresh before launching the post-fix chunker or semantic reviewer.
+  const postFixPreMeterCircuit = mustStop()
+  if (postFixPreMeterCircuit) {
+    stopReason = postFixPreMeterCircuit; coverageStatus = 'partial-stop'; break reviewCycles
+  }
+  await refreshTranscriptTokens(scope, 'post-fix coverage rebuild')
   const postFixCircuit = mustStop()
   if (postFixCircuit) {
     stopReason = postFixCircuit; coverageStatus = 'partial-stop'; break reviewCycles
@@ -5335,8 +7101,11 @@ if (RESOLVED_MODE === 'full') {
     stopReason = 'rechunk-failed'; coverageStatus = 'incomplete-lens'; fixStatus = 'failed'
     break reviewCycles
   }
+  const semanticRefreshImport = planJournalImport('scope-semantic-' + headSha + '.json',
+    'semantic-manifest', 'refresh', 'Coverage', reviewCycle, reviewPasses)
   const semanticManifest = await agentSafe(semanticManifestPrompt(scope, retainedSemanticUnits), {
-    schema: SEMANTIC_MANIFEST_SCHEMA, label: 'refresh semantic coverage after fixes', effort: 'high',
+    schema: SEMANTIC_MANIFEST_SCHEMA, phase: 'Coverage',
+    label: semanticRefreshImport && semanticRefreshImport.sourceLabel, effort: 'high',
     disallowedTools: DENY_READONLY,
     bashCommandClamp: discoveryBashClamp(scope, 'semantic-manifest', false), requireToolScope: true,
   })
@@ -5368,9 +7137,7 @@ if (RESOLVED_MODE === 'full') {
   const mutableRefreshedUnits = semanticManifest.coverageUnits.filter(unit =>
     !immutableSemanticUnits.some(frozen => frozen.id === (unit && unit.id)))
   const refreshedHeadSemanticUnits = immutableSemanticUnits.concat(mutableRefreshedUnits)
-  if (!await checkpointState('scope-semantic-' + headSha + '.json', {
-    headSha, coverageUnits: refreshedHeadSemanticUnits,
-  })) {
+  if (!await importJournalArtifact(semanticRefreshImport, semanticManifest)) {
     stopReason = 'state-checkpoint-failed'; coverageStatus = 'incomplete-lens'; fixStatus = 'failed'
     break reviewCycles
   }
@@ -5422,6 +7189,12 @@ if (rawCandidateDispositions.length) {
   }
 }
 const bigFollowUps = followUpsRaw.filter(u => u.size !== 'small' || !u.doneNow)
+if (stopReason === 'completed') await refreshTranscriptTokens(scope, 'terminal report')
+const terminalCircuit = mustStop()
+if (terminalCircuit && stopReason === 'completed') {
+  stopReason = terminalCircuit
+  coverageStatus = 'partial-stop'
+}
 // Discovery stop must not secretly launch another review-like agent. Normalize title + area and
 // merge provenance deterministically; active validation already reconciles finding disagreements.
 const reconciled = dedupeFollowUps(bigFollowUps)
@@ -5449,11 +7222,13 @@ const reportState = {
 }
 await checkpointState('summary/cycle-' + reviewCycle + '-' + norm(stopReason) + '-' +
   completedLenses.length + '-' + rawCandidates.length + '.json', {
+  summaryVersion: 2,
   coverageStatus, verificationStatus, fixStatus, stopReason, completedLenses, skippedLenses,
-  failedLenses, coverageGaps, provisionalScore, validatedScore, unverifiedScore, validationTotals,
+  failedLenses, coverageGapIds: coverageGaps.map(gap => gap && gap.id).filter(Boolean),
+  provisionalScore, validatedScore, unverifiedScore, validationTotals,
   findingStopTrigger, stopTrigger,
-  rawCandidates, unresolvedFindings, fixed: [...knownFixed.entries()],
-  rawCandidateDispositions,
+  rawCandidateCount: rawCandidates.length, unresolvedCount: unresolvedFindings.length,
+  fixedCount: knownFixed.size, rawCandidateDispositionCount: rawCandidateDispositions.length,
 })
 let expectedArtifactIndexName = null
 if (!statePersistenceFailed && ((coverageStatus === 'complete' && verificationStatus !== 'incomplete' && fixStatus !== 'failed') ||
@@ -5481,6 +7256,24 @@ if (statePersistenceFailed) {
   reportState.ranFullPass = false
   coverageGaps.push({ id: 'state-checkpoint-failed', focus: 'audit trail',
     reason: 'one or more required resumable artifacts could not be persisted' })
+}
+// Summary/index persistence itself uses helper agents. Measure one final time before choosing the
+// terminal state: a cap crossed by those calls must remain resumable and must never be sealed as a
+// complete run. There is intentionally no paid agent launch after the state decision.
+const terminalPreMeterCircuit = mustStop()
+if (shouldRefreshTerminalTokens(MAX_TOKENS, reportState.stopReason, terminalPreMeterCircuit)) {
+  await refreshTranscriptTokens(scope, 'terminal exit')
+}
+const exitCircuit = mustStop()
+const terminalCircuitDecision = terminalCircuitState(stopReason, coverageStatus, exitCircuit)
+if (terminalCircuitDecision.stopReason !== stopReason) {
+  stopReason = terminalCircuitDecision.stopReason
+  coverageStatus = terminalCircuitDecision.coverageStatus
+  reportState.stopReason = stopReason
+  reportState.stopTrigger = exitCircuit === 'token-cap' ? 'tokens' : 'agent-cap'
+  reportState.coverageStatus = coverageStatus
+  reportState.ranFullPass = false
+  reportState.resumeEligible = !!MODEL
 }
 const terminalIntegrityFailure = statePersistenceFailed && reviewCycle >= 20
 if (terminalIntegrityFailure) reportState.resumeEligible = false

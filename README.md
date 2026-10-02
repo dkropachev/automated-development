@@ -254,6 +254,9 @@ verification strength, or `fix` authority are allowed on resume. See
 `skills/review-and-fix-pr/reference.md` for the exact API, status axes, and migration from removed
 arguments. Fix commits carry a write-ahead transaction proof, allowing a crash after `git commit`
 but before orchestration returns to recover conservatively on the next invocation.
+Large agent results are copied directly from the runtime's completed Workflow journal into one
+immutable, hash-bound artifact. Compact derived checkpoints reconstruct from those sources on resume;
+unexpectedly large control records fail closed instead of spawning one model helper per byte chunk.
 
 ## Layout
 

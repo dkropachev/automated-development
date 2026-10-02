@@ -247,6 +247,25 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   const badge = (text, type = '') => el('span', { class: `badge ${type}`.trim() }, text)
+  function toolTraits(value) {
+    const items = Array.isArray(value) ? value : value?.rows ? value.rows : value?.tools ? value.tools : [value]
+    const snapshots = items.filter(Boolean).flatMap((item) => {
+      const tool = item.toolSnapshot || (item.toolId && tools.get(item.toolId)) || item
+      return [tool, ...Object.values(tool.snapshots || {})]
+    })
+    return {
+      experimental: snapshots.some((tool) => tool.experimental === true),
+      selfAuthored: snapshots.some((tool) => tool.selfAuthored === true),
+      reviewOnly: snapshots.some((tool) => tool.reviewOnly === true),
+    }
+  }
+
+  function experimentalToolBadge(value) {
+    const traits = toolTraits(value)
+    const labels = [traits.experimental ? 'experimental' : null, traits.selfAuthored ? 'self-authored' : null].filter(Boolean)
+    return labels.length ? badge(labels.join(' · '), 'experimental') : null
+  }
+
   function preserveModel(hash) {
     const model = activeParams.get('model')
     if (!hash.startsWith('#') || !model || /(?:^|[?&])model=/.test(hash)) return hash
@@ -634,6 +653,7 @@ if (typeof module !== 'undefined' && module.exports) {
     return el('article', { class: 'rank-card' },
       el('div', { class: 'rank-number' }, marker),
       el('h3', {}, hashLink(group.label, skillHash(group.id))),
+      experimentalToolBadge(group.rows),
       el('strong', {}, value),
       el('p', {}, note),
     )
@@ -643,6 +663,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const stats = aggregateRuns(skill.id, skill.label, 'Skill', skill.rows, universeRows)
     return el('article', { class: 'skill-summary-card' },
       skill.parked ? badge('did not finish', 'dnf') : null,
+      experimentalToolBadge(skill),
       el('h3', {}, hashLink(skill.label, `#skills/${encodeURIComponent(skill.id)}`)),
       el('p', {}, skill.description || 'No description is recorded for this skill.'),
       el('span', { class: 'skill-facts' }, `${skill.rows.length} run${skill.rows.length === 1 ? '' : 's'} · ${stats.real} cohort-adjudicated real finding${stats.real === 1 ? '' : 's'} · ${fmt(stats.cost, 'money')} attempted cost`),
@@ -820,7 +841,7 @@ if (typeof module !== 'undefined' && module.exports) {
       const box = selectable ? el('input', { type: 'checkbox', checked, disabled: !checked && selected.length >= 5, 'aria-label': `Compare ${group.label}`, onchange: (event) => setComparison(params, group.id, event.target.checked) }) : el('span', { class: 'muted' }, '—')
       body.append(el('tr', {},
         el('td', {}, box),
-        el('td', {}, el('strong', {}, `${index + 1}. `, runSetLink(group.rows, group.label)), el('span', { class: 'subline' }, group.skillIds.length === 1 ? [skillInfoLink(group.skillIds[0]), ' · '] : null, `${group.dimension} · ${group.coverage} target${group.coverage === 1 ? '' : 's'} · `, runCountLink(group.rows)), group.coverage < 2 ? badge('low evidence', 'unproven') : null),
+        el('td', {}, el('strong', {}, `${index + 1}. `, runSetLink(group.rows, group.label)), el('span', { class: 'subline' }, group.skillIds.length === 1 ? [skillInfoLink(group.skillIds[0]), ' · '] : null, `${group.dimension} · ${group.coverage} target${group.coverage === 1 ? '' : 's'} · `, runCountLink(group.rows)), groupBy === 'language' ? null : experimentalToolBadge(group.rows), group.coverage < 2 ? badge('low evidence', 'unproven') : null),
         el('td', { class: 'num' }, fmt(group.medianCost, 'money'), el('span', { class: 'subline' }, 'median / run')),
         el('td', { class: 'num' }, fmt(group.realPerRun)),
         el('td', { class: 'num' }, fmt(group.highMedium)),
@@ -1062,6 +1083,7 @@ if (typeof module !== 'undefined' && module.exports) {
       return {
         ...stats,
         cohortId,
+        cohortRows,
         createdAt: cohort.createdAt || null,
         modelId,
         modelLabel: cohort.modelLabel || configured?.label || cohortRows[0]?.modelLabel || modelId || 'Model unavailable',
@@ -1077,7 +1099,7 @@ if (typeof module !== 'undefined' && module.exports) {
     for (const row of stats) {
       const created = row.createdAt ? String(row.createdAt).slice(0, 10) : null
       body.append(el('tr', {},
-        el('td', {}, el('strong', {}, row.modelLabel), el('span', { class: 'subline' }, `${row.modelId || 'model unavailable'} · ${row.modelProvenance}`)),
+        el('td', {}, el('strong', {}, row.modelLabel), experimentalToolBadge(row.cohortRows), el('span', { class: 'subline' }, `${row.modelId || 'model unavailable'} · ${row.modelProvenance}`)),
         el('td', {}, el('strong', {}, row.cohortId), created ? el('span', { class: 'subline' }, `created ${created}`) : null),
         el('td', {}, row.claudeVersion),
         el('td', { class: 'num' }, fmt(row.real)),
@@ -1406,7 +1428,7 @@ if (typeof module !== 'undefined' && module.exports) {
     return el('section', { class: 'selection-grid' }, DATA.tools.filter((tool) => DATA.runs.some((run) => run.toolId === tool.id)).map((tool) => {
       const checked = selected.includes(tool.id)
       const box = el('input', { type: 'checkbox', checked, disabled: !checked && selected.length >= 5, onchange: (event) => setComparison(params, tool.id, event.target.checked) })
-      return el('label', { class: `selection-card${checked ? ' selected' : ''}` }, box, el('span', {}, el('strong', {}, tool.label), el('small', {}, tool.source || tool.id)))
+      return el('label', { class: `selection-card${checked ? ' selected' : ''}` }, box, el('span', {}, el('strong', {}, tool.label), experimentalToolBadge(tool), el('small', {}, tool.source || tool.id)))
     }))
   }
 
@@ -1421,7 +1443,7 @@ if (typeof module !== 'undefined' && module.exports) {
     for (const group of groups) {
       const unique = [...allIssues.values()].filter((reporters) => reporters.size === 1 && reporters.has(group.id)).length
       const shared = [...allIssues.values()].filter((reporters) => reporters.size > 1 && reporters.has(group.id)).length
-      body.append(el('tr', {}, el('td', {}, el('strong', {}, runSetLink(group.rows, group.label)), el('span', { class: 'subline' }, skillInfoLink(group.id), ' · ', runCountLink(group.rows))), el('td', { class: 'num' }, fmt(group.cost, 'money')), el('td', { class: 'num' }, fmt(group.real)), el('td', { class: 'num' }, fmt(unique)), el('td', { class: 'num' }, fmt(shared)), el('td', { class: 'num' }, fmt(group.completeness, 'percent')), el('td', { class: 'num' }, fmt(group.precision, 'percent')), el('td', { class: 'num' }, fmt(group.successRate, 'percent'))))
+      body.append(el('tr', {}, el('td', {}, el('strong', {}, runSetLink(group.rows, group.label)), el('span', { class: 'subline' }, skillInfoLink(group.id), ' · ', runCountLink(group.rows)), experimentalToolBadge(group.rows)), el('td', { class: 'num' }, fmt(group.cost, 'money')), el('td', { class: 'num' }, fmt(group.real)), el('td', { class: 'num' }, fmt(unique)), el('td', { class: 'num' }, fmt(shared)), el('td', { class: 'num' }, fmt(group.completeness, 'percent')), el('td', { class: 'num' }, fmt(group.precision, 'percent')), el('td', { class: 'num' }, fmt(group.successRate, 'percent'))))
     }
     return el('div', { class: 'table-wrap' }, el('table', {}, el('thead', {}, el('tr', {}, el('th', {}, 'Skill'), el('th', { class: 'num' }, metricLabel('Attempted cost')), el('th', { class: 'num' }, metricLabel('Distinct real')), el('th', { class: 'num' }, metricLabel('Only this skill')), el('th', { class: 'num' }, metricLabel('Shared')), el('th', { class: 'num' }, metricLabel('Completeness')), el('th', { class: 'num' }, metricLabel('Precision')), el('th', { class: 'num' }, metricLabel('Success')))), body))
   }
@@ -1490,7 +1512,7 @@ if (typeof module !== 'undefined' && module.exports) {
     return el('article', { class: 'skill-card', id: `skill-${skill.id}` },
       el('div', { class: 'skill-card-head' },
         el('div', {}, el('h2', {}, skill.label), el('span', { class: 'subline' }, hintedLabel(skill.source, 'Plugin package or built-in source identifier recorded by the benchmark.'), ` · ${languages.join(', ') || 'all benchmark languages'}`)),
-        skill.parked ? badge('parked', 'dnf') : null,
+        el('div', { class: 'badges tool-metadata-badges' }, experimentalToolBadge(skill), skill.parked ? badge('parked', 'dnf') : null),
       ),
       el('p', {}, skill.description || 'No description is recorded for this tested skill.'),
       skill.parkedReason ? el('div', { class: 'notice' }, skill.parkedReason) : null,
@@ -1615,7 +1637,7 @@ if (typeof module !== 'undefined' && module.exports) {
       })
       body.append(el('tr', {},
         el('td', {}, box),
-        el('td', {}, hashLink(run.toolLabel, runHash(run), 'run-link'), el('span', { class: 'subline' }, `${run.targetId} · ${run.modelLabel || 'model unavailable'} · ${run.cohortId} · `, hashLink(run.toolId, skillHash(run.toolId), 'skill-info-link'))),
+        el('td', {}, hashLink(run.toolLabel, runHash(run), 'run-link'), experimentalToolBadge(run), el('span', { class: 'subline' }, `${run.targetId} · ${run.modelLabel || 'model unavailable'} · ${run.cohortId} · `, hashLink(run.toolId, skillHash(run.toolId), 'skill-info-link'))),
         el('td', {}, badge(run.status, run.status)),
         el('td', { class: 'num' }, fmt(run.usage.costUsd, 'money'), el('span', { class: 'subline' }, usageSourceLabel(run.usage.source))),
         el('td', { class: 'num' }, fmt(run.wallMs, 'minutes')),
@@ -1720,7 +1742,7 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function toolChart(items, key) {
-    const width = 680, rowHeight = 31, left = 190, right = 46
+    const width = 680, rowHeight = 31, left = 250, right = 46
     const toolsInView = [...new Map(items.map((run) => [run.toolId, run.toolSnapshot || tools.get(run.toolId) || { id: run.toolId, label: run.toolLabel }])).values()]
     const targetsInView = [...new Map(items.map((run) => [run.targetId, targetForRun(run)])).entries()]
     const height = Math.max(300, 55 + toolsInView.length * rowHeight)
@@ -1736,9 +1758,12 @@ if (typeof module !== 'undefined' && module.exports) {
     }
     toolsInView.forEach((tool, row) => {
       const y = 31 + row * rowHeight
-      const labelText = svg('text', { class: 'chart-link', x: left - 10, y: y + 4, 'text-anchor': 'end', tabindex: 0, role: 'link', 'aria-label': `Open skill information for ${tool.label}` })
-      labelText.textContent = tool.label.length > 27 ? tool.label.slice(0, 25) + '…' : tool.label
-      const labelTitle = svg('title'); labelTitle.textContent = `${tool.label}: open tested-skill details`; labelText.append(labelTitle)
+      const traits = toolTraits(tool)
+      const disclosure = traits.experimental && traits.selfAuthored ? 'experimental · self-authored · ' : ''
+      const visibleLabel = disclosure + tool.label
+      const labelText = svg('text', { class: 'chart-link', x: left - 10, y: y + 4, 'text-anchor': 'end', tabindex: 0, role: 'link', 'aria-label': `Open skill information for ${visibleLabel}` })
+      labelText.textContent = visibleLabel.length > 41 ? visibleLabel.slice(0, 39) + '…' : visibleLabel
+      const labelTitle = svg('title'); labelTitle.textContent = `${visibleLabel}: open tested-skill details`; labelText.append(labelTitle)
       labelText.addEventListener('click', () => { location.hash = skillHash(tool.id) })
       labelText.addEventListener('keydown', (event) => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); location.hash = skillHash(tool.id) } })
       graph.append(labelText)
@@ -1804,6 +1829,7 @@ if (typeof module !== 'undefined' && module.exports) {
   function analysisLabel(group) {
     return el('div', { class: 'analysis-label' },
       el('strong', {}, hashLink(group.label, skillHash(group.toolId), 'skill-info-link')),
+      experimentalToolBadge(group.runs),
       el('span', {}, hintedLabel(group.source || 'source unavailable', 'Plugin package or built-in source identifier recorded by the benchmark.'), ' · ', hintedLabel(group.modelUnderTest, 'Requested model under test and its provenance.'), ' · observed ', hintedLabel(group.modelMix, 'Exact runtime model stack recorded for these runs.'), ` · ${group.coverage}/${group.targetIds.length} targets · `, runCountLink(group.runs), ` · ${fmt(group.cost, 'money')}`),
     )
   }
@@ -1955,7 +1981,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const stats = run.subagentStats
     const subagentText = stats ? `${fmt(stats.spawned)} spawned · ${fmt(stats.completed)} completed · ${fmt(stats.failed)} failed` : run.usage.subagentTranscripts == null ? 'N/A' : `${fmt(run.usage.subagentTranscripts)} transcript files`
     return el('section', { class: 'panel' },
-      el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Execution record'), el('p', {}, 'Missing measurements stay unavailable; they are never converted to zero.')), badge(run.status, run.status)),
+      el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Execution record'), el('p', {}, 'Missing measurements stay unavailable; they are never converted to zero.')), el('div', { class: 'badges tool-metadata-badges' }, experimentalToolBadge(run), badge(run.status, run.status))),
       el('div', { class: 'panel-body' },
         run.dnfReason ? el('div', { class: 'notice' }, run.dnfReason) : null,
         el('dl', { class: 'summary-grid' },
@@ -2143,7 +2169,7 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function compareRun(run) {
-    return el('div', { class: 'compare-run' }, hashLink(run.toolLabel, runHash(run), 'run-link'), el('span', { class: 'subline' }, hashLink(run.id, runHash(run), 'run-link'), ` · ${run.modelLabel || 'model unavailable'} · `, skillInfoLink(run.toolId)), el('div', { class: 'badges' }, badge(run.status, run.status), usageSourceLabel(run.usage.source, true)))
+    return el('div', { class: 'compare-run' }, hashLink(run.toolLabel, runHash(run), 'run-link'), experimentalToolBadge(run), el('span', { class: 'subline' }, hashLink(run.id, runHash(run), 'run-link'), ` · ${run.modelLabel || 'model unavailable'} · `, skillInfoLink(run.toolId)), el('div', { class: 'badges' }, badge(run.status, run.status), usageSourceLabel(run.usage.source, true)))
   }
 
   function comparisonTable(left, right) {

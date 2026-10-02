@@ -9,6 +9,12 @@
 //   claim  (--key-file key.json|--key-base64 base64) [--root repo] [--owner label]
 //   init   (--key-file key.json|--key-base64 base64) [--root repo] [--run id] [--owner label]
 //   put    --run id --lock-token token --name logical/name.json (--file p|--stdin|--base64 data)
+//   put-control --run id --lock-token token --root repo --name logical/name.json
+//               --expected-head sha --base64 data
+//   import-journal --run id --lock-token token --root repo --name logical/name.json
+//                  --source-label label --caller-label label --kind kind --expected-id id
+//                  --expected-head sha --source-phase phase [--expected-skill-status status]
+//                  [--project-cwd cwd]
 //   get    --run id --name logical/name.json (--out p|--base64)
 //   list   --run id
 //   export-json --run id --prefix discovery/
@@ -19,7 +25,7 @@
 //   unlock --run id --lock-token token
 //   resume (--key-file key.json|--key-base64 base64) [--root repo]
 //   prepare-head --run id --lock-token token --root repo --from sha --batch id
-//                --receipt-prefix prefix --receipt-parts count
+//                (--receipt-base64 data|--receipt-prefix prefix --receipt-parts count)
 //   abort-head --run id --lock-token token --root repo --tx-id id
 //   advance-head --run id --lock-token token --root repo --from sha --to sha
 //                (--receipt-base64 data|--receipt-prefix prefix --receipt-parts count)
@@ -40,6 +46,13 @@ const DEFAULT_PRUNE_DAYS = 7
 const DEFAULT_LEASE_SECONDS = 6 * 60 * 60
 const MIN_LEASE_SECONDS = 1
 const MAX_LEASE_SECONDS = 7 * 24 * 60 * 60
+const MAX_JOURNAL_BYTES = 64 * 1024 * 1024
+const MAX_TRANSCRIPT_BYTES = 128 * 1024 * 1024
+const MAX_META_BYTES = 1024 * 1024
+const IMPORT_KINDS = new Set(['lens', 'gap', 'coverage-audit', 'verification', 'semantic-manifest'])
+const STATE_CLAIM_LABELS = new Set([
+  'claim review state', 'recover state claim', 'reclaim advanced state', 'verify advanced claim',
+])
 const COMMAND = process.argv[2] || ''
 
 class StateError extends Error {
@@ -57,6 +70,10 @@ const SPECS = {
   claim: { values: ['store', 'key-file', 'key-base64', 'root', 'run', 'owner', 'lease-seconds', 'response-id'] },
   init: { values: ['store', 'key-file', 'key-base64', 'root', 'run', 'owner', 'lease-seconds', 'response-id'] },
   put: { values: ['store', 'run', 'lock-token', 'name', 'file', 'base64', 'expected-sha256', 'response-id'], bools: ['stdin'] },
+  'put-control': { values: ['store', 'run', 'lock-token', 'root', 'name', 'expected-head', 'base64'] },
+  'import-journal': { values: ['store', 'run', 'lock-token', 'root', 'name', 'source-label',
+                               'caller-label', 'kind', 'expected-id', 'expected-head', 'source-phase',
+                               'expected-skill-status', 'project-cwd'] },
   get: { values: ['store', 'run', 'name', 'out'], bools: ['base64'] },
   list: { values: ['store', 'run'] },
   'export-json': { values: ['store', 'run', 'prefix'] },
@@ -71,7 +88,7 @@ const SPECS = {
   unlock: { values: ['store', 'run', 'lock-token', 'response-id'] },
   resume: { values: ['store', 'key-file', 'key-base64', 'root'] },
   'prepare-head': { values: ['store', 'run', 'lock-token', 'root', 'from', 'batch',
-                              'receipt-prefix', 'receipt-parts', 'response-id'] },
+                              'receipt-base64', 'receipt-prefix', 'receipt-parts', 'response-id'] },
   'seal-head': { values: ['store', 'run', 'root', 'tx-id', 'paths-base64'] },
   'abort-head': { values: ['store', 'run', 'lock-token', 'root', 'tx-id', 'response-id'] },
   'ack-head': { values: ['store', 'run', 'lock-token', 'tx-id', 'response-id'] },
@@ -140,6 +157,95 @@ function readRegularFile(file, label) {
   }
   if (!stat.isFile() || stat.isSymbolicLink()) throw new StateError('state: ' + label + ' must be a regular, non-symlink file')
   return fs.readFileSync(file)
+}
+
+function requireRealDirectory(directory, label) {
+  const resolved = path.resolve(directory)
+  let stat
+  try { stat = fs.lstatSync(resolved) } catch (error) {
+    throw new StateError('state: cannot inspect ' + label + ': ' + String(error.message || error), 3)
+  }
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    throw new StateError('state: ' + label + ' must be a real, non-symlink directory', 3)
+  }
+  let real
+  try { real = fs.realpathSync(resolved) } catch (error) {
+    throw new StateError('state: cannot resolve ' + label + ': ' + String(error.message || error), 3)
+  }
+  if (real !== resolved) throw new StateError('state: ' + label + ' must be canonical and contain no symlink', 3)
+  return real
+}
+
+function pinRealDirectory(directory, label) {
+  const real = requireRealDirectory(directory, label)
+  const stat = fs.lstatSync(real, { bigint: true })
+  return { path: real, label, dev: stat.dev, ino: stat.ino }
+}
+
+function assertPinnedDirectories(pins) {
+  for (const pin of pins) {
+    let stat, real
+    try {
+      stat = fs.lstatSync(pin.path, { bigint: true })
+      real = fs.realpathSync(pin.path)
+    } catch (error) {
+      throw new StateError('state: pinned ' + pin.label + ' became unavailable: ' +
+        String(error.message || error), 3)
+    }
+    if (!stat.isDirectory() || stat.isSymbolicLink() || real !== pin.path ||
+        stat.dev !== pin.dev || stat.ino !== pin.ino) {
+      throw new StateError('state: pinned ' + pin.label + ' directory identity changed during import', 3)
+    }
+  }
+}
+
+function stableStatEqual(left, right) {
+  return left.dev === right.dev && left.ino === right.ino && left.size === right.size &&
+    left.mtimeNs === right.mtimeNs && left.ctimeNs === right.ctimeNs
+}
+
+function readStableRegularFile(file, label, maxBytes, requireNewline = false) {
+  let fd
+  try {
+    const flags = fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0)
+    fd = fs.openSync(file, flags)
+    const before = fs.fstatSync(fd, { bigint: true })
+    if (!before.isFile()) throw new StateError('state: ' + label + ' must be a regular, non-symlink file', 3)
+    if (before.size > BigInt(maxBytes)) throw new StateError('state: ' + label + ' exceeds the size limit', 3)
+    const bytes = fs.readFileSync(fd)
+    const after = fs.fstatSync(fd, { bigint: true })
+    const current = fs.lstatSync(file, { bigint: true })
+    if (!current.isFile() || current.isSymbolicLink() || !stableStatEqual(before, after) ||
+        before.dev !== current.dev || before.ino !== current.ino || before.size !== current.size ||
+        before.mtimeNs !== current.mtimeNs || before.ctimeNs !== current.ctimeNs ||
+        BigInt(bytes.length) !== before.size) {
+      throw new StateError('state: ' + label + ' changed while it was read', 3)
+    }
+    if (requireNewline && (!bytes.length || bytes[bytes.length - 1] !== 0x0a)) {
+      throw new StateError('state: ' + label + ' must be newline-terminated', 3)
+    }
+    return bytes
+  } catch (error) {
+    if (error instanceof StateError) throw error
+    if (error && error.code === 'ELOOP') {
+      throw new StateError('state: ' + label + ' must be a regular, non-symlink file', 3)
+    }
+    throw new StateError('state: cannot read ' + label + ': ' + String(error.message || error), 3)
+  } finally {
+    if (fd !== undefined) try { fs.closeSync(fd) } catch {}
+  }
+}
+
+function parseJsonLines(bytes, label) {
+  const text = bytes.toString('utf8')
+  const lines = text.split('\n')
+  if (lines[lines.length - 1] === '') lines.pop()
+  const values = []
+  for (let index = 0; index < lines.length; index++) {
+    if (!lines[index]) throw new StateError('state: blank line in ' + label + ' at line ' + (index + 1), 3)
+    values.push(parseJsonBuffer(Buffer.from(lines[index]), label + ' line ' + (index + 1), true))
+  }
+  return values
 }
 
 function decodeBase64(value, label) {
@@ -260,6 +366,30 @@ function atomicWrite(file, buffer, mode = 0o600) {
     fd = undefined
     fs.renameSync(temp, file)
     fsyncDirectory(parent)
+  } finally {
+    if (fd !== undefined) try { fs.closeSync(fd) } catch {}
+    try { fs.unlinkSync(temp) } catch {}
+  }
+}
+
+function atomicWriteImmutable(file, buffer, mode = 0o600) {
+  const parent = path.dirname(file)
+  ensureDirectory(parent, true)
+  const temp = path.join(parent, '.' + path.basename(file) + '.tmp-' + process.pid + '-' +
+    crypto.randomBytes(8).toString('hex'))
+  let fd
+  try {
+    fd = fs.openSync(temp, 'wx', mode)
+    fs.writeFileSync(fd, buffer)
+    fs.fsyncSync(fd)
+    fs.closeSync(fd)
+    fd = undefined
+    try { fs.linkSync(temp, file) } catch (error) {
+      if (error.code === 'EEXIST') return false
+      throw error
+    }
+    fsyncDirectory(parent)
+    return true
   } finally {
     if (fd !== undefined) try { fs.closeSync(fd) } catch {}
     try { fs.unlinkSync(temp) } catch {}
@@ -830,6 +960,7 @@ function recoverPendingAdvance(key, keyHash, repository, root) {
     if (computeKeyHash(nextKey, repository) !== keyHash) {
       throw new StateError('state: prepared transaction key hash mismatch', 3)
     }
+    const fromKeyHash = state.keyHash
     const timestamp = now()
     state.key = nextKey
     state.keyHash = keyHash
@@ -837,6 +968,7 @@ function recoverPendingAdvance(key, keyHash, repository, root) {
     state.lineage.currentHead = head
     state.lineage.ownedCommits.push({
       from: pending.from, to: head, tree: git(root, 'rev-parse', head + '^{tree}'),
+      fromKeyHash, toKeyHash: keyHash,
       commitSha256: sha256(Buffer.from(git(root, 'cat-file', 'commit', head))), recordedAt: timestamp,
       transactionId: txId, receipt: pending.fallbackReceipt,
       recovered: true,
@@ -947,6 +1079,778 @@ function claim(alwaysFresh) {
   }
 }
 
+function isObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function requireOpaque(value, label, max = 512) {
+  if (typeof value !== 'string' || !value || value.length > max || /[\0\r\n]/.test(value)) {
+    throw new StateError('state: ' + label + ' must be a non-empty string without control newlines', 3)
+  }
+  return value
+}
+
+function requireObject(value, label) {
+  if (!isObject(value)) throw new StateError('state: imported ' + label + ' must be an object', 3)
+  return value
+}
+
+function requireStringField(value, field, label, allowed = null) {
+  if (typeof value[field] !== 'string' || !value[field]) {
+    throw new StateError('state: imported ' + label + '.' + field + ' must be a non-empty string', 3)
+  }
+  if (allowed && !allowed.has(value[field])) {
+    throw new StateError('state: imported ' + label + '.' + field + ' has an unsupported value', 3)
+  }
+}
+
+function requireBooleanField(value, field, label) {
+  if (typeof value[field] !== 'boolean') {
+    throw new StateError('state: imported ' + label + '.' + field + ' must be boolean', 3)
+  }
+}
+
+function requireStringArrayField(value, field, label) {
+  if (!Array.isArray(value[field]) || value[field].some(item => typeof item !== 'string' || !item)) {
+    throw new StateError('state: imported ' + label + '.' + field + ' must be an array of non-empty strings', 3)
+  }
+}
+
+const FINDING_STRING_FIELDS = ['fingerprint', 'title', 'detail', 'primaryFile', 'symbol', 'defectClass',
+  'evidence', 'trigger', 'mechanism', 'observableImpact', 'baseVsHead', 'severity', 'confidence',
+  'fixSize', 'deferReason', 'blockerReason', 'scopeLabel', 'deferralQuote']
+const REJECTION_STRING_FIELDS = ['fingerprint', 'title', 'detail', 'primaryFile', 'symbol', 'defectClass',
+  'evidence', 'trigger', 'mechanism', 'observableImpact', 'baseVsHead', 'severity', 'confidence',
+  'blockerReason', 'reason', 'kind']
+const DEFECT_CLASSES = new Set(['logic', 'nil-deref', 'bounds', 'concurrency', 'resource-leak',
+  'error-handling', 'security', 'api-contract', 'perf', 'regression', 'test-gap', 'docs', 'style',
+  'dead-code', 'design'])
+const SEVERITIES = new Set(['critical', 'high', 'medium', 'low'])
+const CONFIDENCES = new Set(['certain', 'likely', 'speculative'])
+const FIX_SIZES = new Set(['trivial', 'small', 'medium', 'large'])
+const SCOPE_LABELS = new Set(['in', 'deferred', 'out'])
+const NATIVE_LENSES = new Set(['correctness', 'spec', 'standards', 'security', 'reliability', 'contracts',
+  'testing', 'performance', 'comments', 'maintainability'])
+
+function validateFinding(finding, label) {
+  requireObject(finding, label)
+  for (const field of FINDING_STRING_FIELDS) requireStringField(finding, field, label)
+  requireStringArrayField(finding, 'files', label)
+  requireStringArrayField(finding, 'coverageUnitIds', label)
+  requireBooleanField(finding, 'defer', label)
+  requireBooleanField(finding, 'releaseBlocker', label)
+  if (!DEFECT_CLASSES.has(finding.defectClass) || !SEVERITIES.has(finding.severity) ||
+      !CONFIDENCES.has(finding.confidence) || !FIX_SIZES.has(finding.fixSize) ||
+      !SCOPE_LABELS.has(finding.scopeLabel)) {
+    throw new StateError('state: imported ' + label + ' has an unsupported finding enum value', 3)
+  }
+}
+
+function validateRejection(rejection, label) {
+  requireObject(rejection, label)
+  for (const field of REJECTION_STRING_FIELDS) requireStringField(rejection, field, label)
+  requireStringArrayField(rejection, 'files', label)
+  requireStringArrayField(rejection, 'coverageUnitIds', label)
+  requireBooleanField(rejection, 'releaseBlocker', label)
+  if (!DEFECT_CLASSES.has(rejection.defectClass) || !SEVERITIES.has(rejection.severity) ||
+      !CONFIDENCES.has(rejection.confidence) || !['not-a-bug', 'out-of-scope'].includes(rejection.kind)) {
+    throw new StateError('state: imported ' + label + '.kind has an unsupported value', 3)
+  }
+}
+
+function validateFollowUp(followUp, label) {
+  requireObject(followUp, label)
+  for (const field of ['title', 'detail', 'area', 'size', 'blockerReason']) {
+    requireStringField(followUp, field, label)
+  }
+  requireBooleanField(followUp, 'releaseBlocker', label)
+  if (!['small', 'big'].includes(followUp.size)) {
+    throw new StateError('state: imported ' + label + '.size has an unsupported value', 3)
+  }
+}
+
+function validateReadOnlyResult(result, expectedOutcome, label) {
+  requireStringField(result, 'outcome', label)
+  if (result.outcome !== expectedOutcome) {
+    throw new StateError('state: imported ' + label + ' must have outcome ' + expectedOutcome, 3)
+  }
+  if (result.commitSha !== 'none') throw new StateError('state: imported ' + label + '.commitSha must be "none"', 3)
+  if (!Array.isArray(result.filesTouched) || result.filesTouched.length) {
+    throw new StateError('state: imported ' + label + '.filesTouched must be empty', 3)
+  }
+  if (typeof result.notes !== 'string') throw new StateError('state: imported ' + label + '.notes must be a string', 3)
+}
+
+function validateLensResult(result, expectedId, expectedSkillStatus, kind) {
+  const label = kind + ' result'
+  requireObject(result, label)
+  if (result.lens !== expectedId) throw new StateError('state: imported ' + label + '.lens does not match --expected-id', 3)
+  const skillStatuses = new Set(['not-requested', 'used', 'unavailable', 'incompatible'])
+  requireStringField(result, 'reviewSkillStatus', label, skillStatuses)
+  if (expectedSkillStatus !== undefined && result.reviewSkillStatus !== expectedSkillStatus) {
+    throw new StateError('state: imported ' + label + '.reviewSkillStatus does not match --expected-skill-status', 3)
+  }
+  for (const field of ['findings', 'rejected', 'followUps', 'coverageReceipts']) {
+    if (!Array.isArray(result[field])) throw new StateError('state: imported ' + label + '.' + field + ' must be an array', 3)
+  }
+  result.findings.forEach((item, index) => validateFinding(item, label + '.findings[' + index + ']'))
+  result.rejected.forEach((item, index) => validateRejection(item, label + '.rejected[' + index + ']'))
+  result.followUps.forEach((item, index) => validateFollowUp(item, label + '.followUps[' + index + ']'))
+  result.coverageReceipts.forEach((receipt, index) => {
+    const receiptLabel = label + '.coverageReceipts[' + index + ']'
+    requireObject(receipt, receiptLabel)
+    for (const field of ['unitId', 'status', 'depth', 'evidence', 'reason']) {
+      requireStringField(receipt, field, receiptLabel)
+    }
+    if (!['checked', 'not-applicable', 'blocked'].includes(receipt.status) ||
+        !['surface', 'traced'].includes(receipt.depth)) {
+      throw new StateError('state: imported ' + receiptLabel + ' has an unsupported status or depth', 3)
+    }
+  })
+  validateReadOnlyResult(result, 'reviewed', label)
+}
+
+function validateCoverageAuditResult(result) {
+  const label = 'coverage-audit result'
+  requireObject(result, label)
+  requireStringArrayField(result, 'coveredUnitIds', label)
+  if (!Array.isArray(result.gaps)) throw new StateError('state: imported ' + label + '.gaps must be an array', 3)
+  result.gaps.forEach((gap, index) => {
+    const gapLabel = label + '.gaps[' + index + ']'
+    requireObject(gap, gapLabel)
+    for (const field of ['id', 'requiredLens', 'focus', 'reason']) requireStringField(gap, field, gapLabel)
+    requireStringArrayField(gap, 'unitIds', gapLabel)
+    if (!NATIVE_LENSES.has(gap.requiredLens)) {
+      throw new StateError('state: imported ' + gapLabel + '.requiredLens has an unsupported value', 3)
+    }
+  })
+  requireStringField(result, 'coverage', label)
+  validateReadOnlyResult(result, 'audited', label)
+}
+
+function validateVerificationResult(result) {
+  const label = 'verification result'
+  requireObject(result, label)
+  for (const field of ['confirmed', 'rejected', 'unresolved']) {
+    if (!Array.isArray(result[field])) throw new StateError('state: imported ' + label + '.' + field + ' must be an array', 3)
+    result[field].forEach((item, index) => {
+      const itemLabel = label + '.' + field + '[' + index + ']'
+      requireObject(item, itemLabel)
+      for (const key of ['candidateId', 'reason', 'firstPassReason', 'secondPassReason']) {
+        requireStringField(item, key, itemLabel)
+      }
+      validateFinding(item.finding, itemLabel + '.finding')
+    })
+  }
+  requireStringField(result, 'coverage', label)
+  validateReadOnlyResult(result, 'validated', label)
+}
+
+function validateSemanticManifestResult(result) {
+  const label = 'semantic-manifest result'
+  requireObject(result, label)
+  if (!Array.isArray(result.coverageUnits)) {
+    throw new StateError('state: imported ' + label + '.coverageUnits must be an array', 3)
+  }
+  const unitTypes = new Set(['requirement', 'contract', 'test-obligation', 'documentation-claim', 'repository-rule'])
+  result.coverageUnits.forEach((unit, index) => {
+    const unitLabel = label + '.coverageUnits[' + index + ']'
+    requireObject(unit, unitLabel)
+    for (const field of ['id', 'type', 'path', 'symbol', 'hash', 'summary']) requireStringField(unit, field, unitLabel)
+    if (!unitTypes.has(unit.type)) throw new StateError('state: imported ' + unitLabel + '.type is unsupported', 3)
+  })
+  validateReadOnlyResult(result, 'refreshed', label)
+}
+
+function validateImportedResult(kind, result, expectedId, expectedSkillStatus) {
+  if (kind === 'lens' || kind === 'gap') validateLensResult(result, expectedId, expectedSkillStatus, kind)
+  else if (kind === 'coverage-audit') validateCoverageAuditResult(result)
+  else if (kind === 'verification') validateVerificationResult(result)
+  else if (kind === 'semantic-manifest') validateSemanticManifestResult(result)
+  else throw new StateError('state: unsupported journal import kind', 3)
+  canonical(result)
+}
+
+function validateStoredImportEnvelope(bytes, label, state, expected) {
+  const envelope = parseJsonBuffer(bytes, label, true)
+  if (envelope.importVersion !== 1 || !isObject(envelope.binding) || !isObject(envelope.result)) {
+    throw new StateError('state: ' + label + ' is not a supported journal import envelope', 3)
+  }
+  const binding = envelope.binding
+  if (binding.run !== state.run || binding.keyHash !== state.keyHash ||
+      binding.repositoryIdentity !== state.repository.identity || binding.headSha !== expected.headSha ||
+      binding.kind !== expected.kind || binding.resultId !== expected.resultId ||
+      binding.artifactName !== expected.artifactName || binding.sourcePhase !== expected.sourcePhase ||
+      binding.projectCwd !== expected.projectCwd) {
+    throw new StateError('state: ' + label + ' binding does not match the active checkpoint', 3)
+  }
+  requireOpaque(binding.sourceLabel, label + ' binding.sourceLabel')
+  requireOpaque(binding.sourceKey, label + ' binding.sourceKey')
+  requireOpaque(binding.agentId, label + ' binding.agentId', 256)
+  requireOpaque(binding.workflowId, label + ' binding.workflowId', 256)
+  requireOpaque(binding.sessionId, label + ' binding.sessionId', 128)
+  if (!/^wf_[A-Za-z0-9._-]{1,128}$/.test(binding.workflowId) ||
+      !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(binding.agentId) ||
+      !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(binding.sessionId)) {
+    throw new StateError('state: ' + label + ' has unsafe Workflow provenance', 3)
+  }
+  validateImportedResult(expected.kind, envelope.result, expected.resultId, expected.expectedSkillStatus)
+  const canonicalBytes = Buffer.from(JSON.stringify(envelope, null, 2) + '\n')
+  if (!canonicalBytes.equals(bytes)) {
+    throw new StateError('state: ' + label + ' does not use the immutable import encoding', 3)
+  }
+  return envelope
+}
+
+function pairKey(event) {
+  return event.agentId + '\0' + event.key
+}
+
+function validateJournalEvents(events, label) {
+  const starts = new Map()
+  const terminals = new Map()
+  for (let index = 0; index < events.length; index++) {
+    const event = events[index]
+    if (!['launched', 'started', 'result', 'failed'].includes(event.type)) {
+      throw new StateError('state: unsupported event type in ' + label + ' at line ' + (index + 1), 3)
+    }
+    if (event.type === 'launched') continue
+    for (const field of ['key', 'agentId']) {
+      if (typeof event[field] !== 'string' || !event[field] || event[field].length > 256 || /[\0\r\n]/.test(event[field])) {
+        throw new StateError('state: malformed ' + event.type + ' event in ' + label + ' at line ' + (index + 1), 3)
+      }
+    }
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(event.agentId)) {
+      throw new StateError('state: unsafe agentId in ' + label + ' at line ' + (index + 1), 3)
+    }
+    const pair = pairKey(event)
+    if (event.type === 'started') {
+      for (const field of ['label', 'phase']) {
+        if (typeof event[field] !== 'string' || !event[field] || event[field].length > 512 || /[\0\r\n]/.test(event[field])) {
+          throw new StateError('state: malformed started event in ' + label + ' at line ' + (index + 1), 3)
+        }
+      }
+      if (starts.has(pair)) throw new StateError('state: duplicate started pair in ' + label, 3)
+      starts.set(pair, event)
+    } else if (!starts.has(pair)) {
+      throw new StateError('state: unpaired ' + event.type + ' event in ' + label, 3)
+    } else {
+      if (terminals.has(pair)) throw new StateError('state: duplicate terminal event pair in ' + label, 3)
+      terminals.set(pair, event.type)
+      if (event.type === 'result' && !Object.prototype.hasOwnProperty.call(event, 'result')) {
+        throw new StateError('state: result event in ' + label + ' is missing its result', 3)
+      }
+      if (event.type === 'result') canonical(event.result)
+    }
+  }
+}
+
+function pairedEvents(events, started) {
+  const pair = pairKey(started)
+  return {
+    results: events.filter(event => event.type === 'result' && pairKey(event) === pair),
+    failures: events.filter(event => event.type === 'failed' && pairKey(event) === pair),
+  }
+}
+
+function claimResultMatches(value, expected) {
+  const repository = value && value.repository
+  const publicStateValue = value && value.state
+  const lineage = publicStateValue && publicStateValue.lineage
+  return isObject(value) && value.ok === true && value.run === expected.run &&
+    value.keyHash === expected.keyHash && /^[a-f0-9]{64}$/.test(String(value.lockToken || '')) &&
+    (expected.lockToken === undefined || value.lockToken === expected.lockToken) &&
+    isObject(repository) && repository.identity === expected.repositoryIdentity &&
+    repository.root === expected.root && repository.head === expected.head &&
+    isObject(publicStateValue) && publicStateValue.keyHash === expected.keyHash &&
+    isObject(lineage) && lineage.currentHead === expected.head
+}
+
+function validateAgentMeta(workflowDir, started, role) {
+  const file = path.join(workflowDir, 'agent-' + started.agentId + '.meta.json')
+  const bytes = readStableRegularFile(file, role + ' agent metadata', MAX_META_BYTES)
+  const meta = parseJsonBuffer(bytes,
+    role + ' agent metadata', true)
+  if (meta.agentType !== 'workflow-subagent' || meta.description !== started.label ||
+      meta.workflowPhase !== started.phase) {
+    throw new StateError('state: ' + role + ' agent metadata does not match the journal start', 3)
+  }
+  return sha256(bytes)
+}
+
+function structuredOutputValue(input, label) {
+  if (isObject(input) && Object.keys(input).length === 1 && typeof input.input === 'string') {
+    return parseJsonBuffer(Buffer.from(input.input), label, true)
+  }
+  return requireObject(input, label)
+}
+
+function validateAgentTranscript(workflowDir, started, sessionId, projectCwd, expectedResult, role) {
+  const file = path.join(workflowDir, 'agent-' + started.agentId + '.jsonl')
+  const bytes = readStableRegularFile(file, role + ' agent transcript', MAX_TRANSCRIPT_BYTES, true)
+  const entries = parseJsonLines(bytes, role + ' agent transcript')
+  let sawBinding = false
+  let lastStructured
+  for (const entry of entries) {
+    if (entry.agentId !== undefined && entry.agentId !== started.agentId) {
+      throw new StateError('state: ' + role + ' transcript agentId does not match its journal start', 3)
+    }
+    if (entry.sessionId !== undefined || entry.cwd !== undefined) {
+      if (entry.sessionId !== sessionId || entry.cwd !== projectCwd) {
+        throw new StateError('state: ' + role + ' transcript cwd/session does not match its Workflow directory', 3)
+      }
+      sawBinding = true
+    }
+    const content = entry.message && Array.isArray(entry.message.content) ? entry.message.content : []
+    for (const item of content) {
+      if (isObject(item) && item.type === 'tool_use' && item.name === 'StructuredOutput') {
+        lastStructured = structuredOutputValue(item.input, role + ' StructuredOutput input')
+      }
+    }
+  }
+  if (!sawBinding) throw new StateError('state: ' + role + ' transcript has no cwd/session binding', 3)
+  if (expectedResult !== undefined) {
+    if (!lastStructured) throw new StateError('state: ' + role + ' transcript has no StructuredOutput result', 3)
+    if (canonical(lastStructured) !== canonical(expectedResult)) {
+      throw new StateError('state: ' + role + ' transcript StructuredOutput does not match the journal result', 3)
+    }
+  }
+  return sha256(bytes)
+}
+
+function safeDirectoryEntries(directory, label) {
+  let entries
+  try { entries = fs.readdirSync(directory, { withFileTypes: true }) } catch (error) {
+    throw new StateError('state: cannot enumerate ' + label + ': ' + String(error.message || error), 3)
+  }
+  return entries.sort((left, right) => left.name.localeCompare(right.name))
+}
+
+function workflowJournalCandidates(state, options) {
+  const config = requireRealDirectory(path.resolve(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude')),
+    'Claude config directory')
+  const projects = requireRealDirectory(path.join(config, 'projects'), 'Claude projects directory')
+  const projectName = options.projectCwd.replace(/[^A-Za-z0-9]/g, '-')
+  const projectPin = pinRealDirectory(path.join(projects, projectName), 'Workflow project')
+  const projectDir = projectPin.path
+  const candidates = []
+  const near = []
+  for (const sessionEntry of safeDirectoryEntries(projectDir, 'Workflow project directory')) {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(sessionEntry.name) || !sessionEntry.isDirectory() ||
+        sessionEntry.isSymbolicLink()) continue
+    assertPinnedDirectories([projectPin])
+    const sessionPin = pinRealDirectory(path.join(projectDir, sessionEntry.name), 'Workflow session')
+    const sessionDir = sessionPin.path
+    const workflowsPath = path.join(sessionDir, 'subagents', 'workflows')
+    if (!fs.existsSync(workflowsPath)) continue
+    const workflowsPin = pinRealDirectory(workflowsPath, 'Workflow collection')
+    const workflowsDir = workflowsPin.path
+    for (const workflowEntry of safeDirectoryEntries(workflowsDir, 'Workflow collection directory')) {
+      if (!/^wf_[A-Za-z0-9._-]{1,128}$/.test(workflowEntry.name) || !workflowEntry.isDirectory() ||
+          workflowEntry.isSymbolicLink()) continue
+      const workflowPin = pinRealDirectory(path.join(workflowsDir, workflowEntry.name), 'Workflow')
+      const workflowDir = workflowPin.path
+      const directoryPins = [projectPin, sessionPin, workflowsPin, workflowPin]
+      const journalPath = path.join(workflowDir, 'journal.jsonl')
+      if (!fs.existsSync(journalPath)) continue
+      let journalBytes, events
+      try {
+        assertPinnedDirectories(directoryPins)
+        journalBytes = readStableRegularFile(journalPath, 'Workflow journal', MAX_JOURNAL_BYTES, true)
+        assertPinnedDirectories(directoryPins)
+        events = parseJsonLines(journalBytes, 'Workflow journal')
+      } catch (error) {
+        if (error instanceof StateError) throw error
+        throw error
+      }
+      const callerLabelStarts = events.filter(event => event.type === 'started' && event.label === options.callerLabel)
+      const callerStarts = callerLabelStarts.filter(start => {
+        const paired = pairedEvents(events, start)
+        return !paired.results.length && !paired.failures.length
+      })
+      const sourceLabelStarts = events.filter(event => event.type === 'started' && event.label === options.sourceLabel)
+      const exactClaimResults = []
+      for (const start of events.filter(event => event.type === 'started' && STATE_CLAIM_LABELS.has(event.label))) {
+        const paired = pairedEvents(events, start)
+        if (paired.results.length === 1 && !paired.failures.length) {
+          const value = paired.results[0].result
+          if (claimResultMatches(value, { run: state.run, keyHash: state.keyHash,
+            repositoryIdentity: state.repository.identity, root: options.root, head: state.lineage.currentHead,
+            lockToken: options.lockToken })) exactClaimResults.push({ start, result: value })
+        }
+      }
+      if (!callerLabelStarts.length && !sourceLabelStarts.length && !exactClaimResults.length) continue
+      validateJournalEvents(events, 'Workflow journal ' + workflowEntry.name)
+      if (callerStarts.length !== 1) {
+        near.push({ workflowId: workflowEntry.name, reason: 'caller label is missing or ambiguous' })
+        continue
+      }
+      const caller = callerStarts[0]
+      if (!exactClaimResults.length) {
+        near.push({ workflowId: workflowEntry.name, reason: 'active state claim proof is missing' })
+        continue
+      }
+      if (sourceLabelStarts.length !== 1 || sourceLabelStarts[0].phase !== options.sourcePhase) {
+        near.push({ workflowId: workflowEntry.name, reason: 'source label/phase is missing or ambiguous' })
+        continue
+      }
+      const source = sourceLabelStarts[0]
+      const sourcePaired = pairedEvents(events, source)
+      if (sourcePaired.results.length !== 1 || sourcePaired.failures.length) {
+        near.push({ workflowId: workflowEntry.name, reason: 'source result is missing, failed, or duplicated' })
+        continue
+      }
+      if (exactClaimResults.some(claim => claim.start.phase !== 'Setup')) {
+        near.push({ workflowId: workflowEntry.name, reason: 'state claim phase is invalid' })
+        continue
+      }
+      assertPinnedDirectories(directoryPins)
+      const callerMetaHash = validateAgentMeta(workflowDir, caller, 'caller')
+      const callerTranscriptHash = validateAgentTranscript(workflowDir, caller, sessionEntry.name,
+        options.projectCwd, undefined, 'caller')
+      const sourceMetaHash = validateAgentMeta(workflowDir, source, 'source')
+      const sourceTranscriptHash = validateAgentTranscript(workflowDir, source, sessionEntry.name, options.projectCwd,
+        sourcePaired.results[0].result, 'source')
+      const claimMetaHashes = exactClaimResults.map(claim => validateAgentMeta(workflowDir, claim.start, 'state claim'))
+      const claimTranscriptHashes = exactClaimResults.map(claim => validateAgentTranscript(workflowDir,
+        claim.start, sessionEntry.name, options.projectCwd, claim.result, 'state claim'))
+      const journalAgain = readStableRegularFile(journalPath, 'Workflow journal', MAX_JOURNAL_BYTES, true)
+      if (!journalAgain.equals(journalBytes) ||
+          validateAgentMeta(workflowDir, caller, 'caller') !== callerMetaHash ||
+          validateAgentTranscript(workflowDir, caller, sessionEntry.name, options.projectCwd,
+            undefined, 'caller') !== callerTranscriptHash ||
+          validateAgentMeta(workflowDir, source, 'source') !== sourceMetaHash ||
+          validateAgentTranscript(workflowDir, source, sessionEntry.name, options.projectCwd,
+            sourcePaired.results[0].result, 'source') !== sourceTranscriptHash ||
+          exactClaimResults.some((claim, index) =>
+            validateAgentMeta(workflowDir, claim.start, 'state claim') !== claimMetaHashes[index] ||
+            validateAgentTranscript(workflowDir, claim.start, sessionEntry.name, options.projectCwd,
+              claim.result, 'state claim') !== claimTranscriptHashes[index])) {
+        throw new StateError('state: Workflow journal or agent files changed during import', 3)
+      }
+      assertPinnedDirectories(directoryPins)
+      candidates.push({ workflowId: workflowEntry.name, sessionId: sessionEntry.name,
+        source, result: sourcePaired.results[0].result })
+    }
+    assertPinnedDirectories([projectPin, sessionPin, workflowsPin])
+  }
+  assertPinnedDirectories([projectPin])
+  if (candidates.length !== 1) {
+    const reason = candidates.length ? 'ambiguous matching Workflow journals' :
+      'no single Workflow journal contains the active caller, state claim, and source result'
+    throw new StateError('state: ' + reason, 3, near.length ? { workflows: near } : undefined)
+  }
+  return candidates[0]
+}
+
+function pinnedWorkflowLocation(projectCwd, sessionId, workflowId) {
+  const config = requireRealDirectory(path.resolve(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude')),
+    'Claude config directory')
+  const projects = requireRealDirectory(path.join(config, 'projects'), 'Claude projects directory')
+  const projectName = projectCwd.replace(/[^A-Za-z0-9]/g, '-')
+  const projectPin = pinRealDirectory(path.join(projects, projectName), 'stored Workflow project')
+  const sessionPin = pinRealDirectory(path.join(projectPin.path, sessionId), 'stored Workflow session')
+  const workflowsPin = pinRealDirectory(path.join(sessionPin.path, 'subagents', 'workflows'),
+    'stored Workflow collection')
+  const workflowPin = pinRealDirectory(path.join(workflowsPin.path, workflowId), 'stored Workflow')
+  const pins = [projectPin, sessionPin, workflowsPin, workflowPin]
+  assertPinnedDirectories(pins)
+  return { workflowDir: workflowPin.path, pins }
+}
+
+function validateStoredEnvelopeProvenance(envelope, state, options) {
+  const binding = envelope.binding
+  const location = pinnedWorkflowLocation(options.projectCwd, binding.sessionId, binding.workflowId)
+  const journalPath = path.join(location.workflowDir, 'journal.jsonl')
+  const journalBytes = readStableRegularFile(journalPath, 'stored Workflow journal', MAX_JOURNAL_BYTES, true)
+  assertPinnedDirectories(location.pins)
+  const events = parseJsonLines(journalBytes, 'stored Workflow journal')
+  validateJournalEvents(events, 'stored Workflow journal ' + binding.workflowId)
+  const sourceStarts = events.filter(event => event.type === 'started' && event.agentId === binding.agentId &&
+    event.key === binding.sourceKey && event.label === binding.sourceLabel && event.phase === binding.sourcePhase)
+  if (sourceStarts.length !== 1) throw new StateError('state: stored orphan source start is missing or ambiguous', 3)
+  const source = sourceStarts[0]
+  const sourcePaired = pairedEvents(events, source)
+  if (sourcePaired.results.length !== 1 || sourcePaired.failures.length ||
+      canonical(sourcePaired.results[0].result) !== canonical(envelope.result)) {
+    throw new StateError('state: stored orphan source result does not match its envelope', 3)
+  }
+  const claimProofs = []
+  for (const start of events.filter(event => event.type === 'started' && STATE_CLAIM_LABELS.has(event.label))) {
+    const paired = pairedEvents(events, start)
+    if (start.phase === 'Setup' && paired.results.length === 1 && !paired.failures.length &&
+        claimResultMatches(paired.results[0].result, { run: state.run, keyHash: binding.keyHash,
+          repositoryIdentity: binding.repositoryIdentity, root: options.root, head: binding.headSha })) {
+      claimProofs.push({ start, result: paired.results[0].result })
+    }
+  }
+  if (!claimProofs.length) throw new StateError('state: stored orphan Workflow has no repository-bound state claim', 3)
+  assertPinnedDirectories(location.pins)
+  const sourceMetaHash = validateAgentMeta(location.workflowDir, source, 'stored source')
+  const sourceTranscriptHash = validateAgentTranscript(location.workflowDir, source, binding.sessionId,
+    options.projectCwd, envelope.result, 'stored source')
+  const claimMetaHashes = claimProofs.map(claim =>
+    validateAgentMeta(location.workflowDir, claim.start, 'stored state claim'))
+  const claimTranscriptHashes = claimProofs.map(claim => validateAgentTranscript(location.workflowDir,
+    claim.start, binding.sessionId, options.projectCwd, claim.result, 'stored state claim'))
+  const journalAgain = readStableRegularFile(journalPath, 'stored Workflow journal', MAX_JOURNAL_BYTES, true)
+  if (!journalAgain.equals(journalBytes) ||
+      validateAgentMeta(location.workflowDir, source, 'stored source') !== sourceMetaHash ||
+      validateAgentTranscript(location.workflowDir, source, binding.sessionId, options.projectCwd,
+        envelope.result, 'stored source') !== sourceTranscriptHash ||
+      claimProofs.some((claim, index) =>
+        validateAgentMeta(location.workflowDir, claim.start, 'stored state claim') !== claimMetaHashes[index] ||
+        validateAgentTranscript(location.workflowDir, claim.start, binding.sessionId, options.projectCwd,
+          claim.result, 'stored state claim') !== claimTranscriptHashes[index])) {
+    throw new StateError('state: stored Workflow provenance changed during orphan recovery', 3)
+  }
+  assertPinnedDirectories(location.pins)
+}
+
+function importJournalArtifact() {
+  const run = validateRunId(requireArg('run'))
+  const name = validateArtifactName(requireArg('name'))
+  const root = requireRealDirectory(path.resolve(requireArg('root')), '--root')
+  const sourceLabel = requireOpaque(requireArg('source-label'), '--source-label')
+  const callerLabel = requireOpaque(requireArg('caller-label'), '--caller-label')
+  const sourcePhase = requireOpaque(requireArg('source-phase'), '--source-phase', 128)
+  const expectedId = requireOpaque(requireArg('expected-id'), '--expected-id')
+  const expectedHead = validateSha(requireArg('expected-head'), '--expected-head')
+  const kind = requireOpaque(requireArg('kind'), '--kind', 64)
+  if (!IMPORT_KINDS.has(kind)) throw new StateError('state: unsupported --kind for import-journal', 3)
+  const expectedSkillStatus = args['expected-skill-status'] === undefined ? undefined :
+    requireOpaque(args['expected-skill-status'], '--expected-skill-status', 64)
+  if (expectedSkillStatus !== undefined && !['not-requested', 'used', 'unavailable', 'incompatible'].includes(expectedSkillStatus)) {
+    throw new StateError('state: unsupported --expected-skill-status', 3)
+  }
+  if (expectedSkillStatus !== undefined && kind !== 'lens' && kind !== 'gap') {
+    throw new StateError('state: --expected-skill-status is valid only for lens/gap imports', 3)
+  }
+  const projectCwd = requireRealDirectory(path.resolve(args['project-cwd'] || process.cwd()), 'Workflow project cwd')
+  const lockToken = requireArg('lock-token')
+  const result = withMutation(run, state => {
+    if (state.key.head !== expectedHead || state.lineage.currentHead !== expectedHead) {
+      throw new StateError('state: --expected-head does not match the checkpoint head', 3)
+    }
+    const repository = validateRepository(state.key, root, state.repository || null)
+    if (!repository || !state.repository || repository.identity !== state.repository.identity) {
+      throw new StateError('state: journal import requires the checkpoint repository identity', 3)
+    }
+    const imported = workflowJournalCandidates(state, {
+      sourceLabel, callerLabel, sourcePhase, projectCwd, lockToken, root,
+    })
+    const repositoryAfterRead = validateRepository(state.key, root, state.repository || null)
+    if (!repositoryAfterRead || repositoryAfterRead.identity !== repository.identity ||
+        repositoryAfterRead.head !== expectedHead) {
+      throw new StateError('state: repository changed while the Workflow result was imported', 3)
+    }
+    validateImportedResult(kind, imported.result, expectedId, expectedSkillStatus)
+    const binding = {
+      run: state.run,
+      keyHash: state.keyHash,
+      repositoryIdentity: state.repository.identity,
+      headSha: expectedHead,
+      kind,
+      resultId: expectedId,
+      artifactName: name,
+      sourceLabel,
+      sourcePhase,
+      sessionId: imported.sessionId,
+      projectCwd,
+      workflowId: imported.workflowId,
+      sourceKey: imported.source.key,
+      agentId: imported.source.agentId,
+    }
+    const envelope = { importVersion: 1, binding, result: imported.result }
+    const bytes = Buffer.from(JSON.stringify(envelope, null, 2) + '\n')
+    const storedExpected = { headSha: expectedHead, kind, resultId: expectedId, artifactName: name,
+      sourcePhase, projectCwd, expectedSkillStatus }
+    if (state.artifacts[name]) {
+      const existing = readStableRegularFile(artifactPath(run, name), 'artifact ' + name,
+        MAX_JOURNAL_BYTES + MAX_META_BYTES)
+      const record = state.artifacts[name]
+      if (sha256(existing) !== record.sha256 || existing.length !== record.bytes) {
+        throw new StateError('state: artifact integrity check failed: ' + name, 3)
+      }
+      if (existing.equals(bytes)) {
+        return { ok: true, run, name, sha256: record.sha256, bytes: record.bytes, idempotent: true,
+          recoveredOrphan: !!record.recoveredOrphan, sourceResultMatches: true,
+          resultSha256: sha256(Buffer.from(canonical(imported.result))), binding }
+      }
+      if (!record.recoveredOrphan) {
+        throw new StateError('state: artifact names are immutable; imported source or bytes differ', 3)
+      }
+      let recovered
+      try { recovered = validateStoredImportEnvelope(existing, 'recovered artifact ' + name, state, storedExpected) } catch (error) {
+        throw new StateError('state: conflicting recovered artifact: ' + name + ': ' + String(error.message || error), 3)
+      }
+      return { ok: true, run, name, sha256: record.sha256, bytes: record.bytes, idempotent: true,
+        recoveredOrphan: true, sourceResultMatches: canonical(recovered.result) === canonical(imported.result),
+        resultSha256: sha256(Buffer.from(canonical(recovered.result))), binding: recovered.binding }
+    }
+    const file = artifactPath(run, name, true)
+    const artifactRootPin = pinRealDirectory(artifactsRoot(run), 'artifact root')
+    const artifactParentPin = path.dirname(file) === artifactRootPin.path ? artifactRootPin :
+      pinRealDirectory(path.dirname(file), 'artifact parent')
+    const artifactPins = artifactParentPin === artifactRootPin ? [artifactRootPin] :
+      [artifactRootPin, artifactParentPin]
+    assertPinnedDirectories(artifactPins)
+    let persistedBytes = bytes
+    let persistedBinding = binding
+    let persistedResult = imported.result
+    let recoveredOrphan = false
+    let sourceResultMatches = true
+    const recoverExistingOrphan = orphan => {
+      let recovered
+      try { recovered = validateStoredImportEnvelope(orphan, 'orphan artifact ' + name, state, storedExpected) } catch (error) {
+        throw new StateError('state: conflicting orphan artifact: ' + name + ': ' + String(error.message || error), 3)
+      }
+      try { validateStoredEnvelopeProvenance(recovered, state, { projectCwd, root }) } catch (error) {
+        throw new StateError('state: conflicting orphan provenance: ' + name + ': ' + String(error.message || error), 3)
+      }
+      persistedBytes = orphan
+      persistedBinding = recovered.binding
+      persistedResult = recovered.result
+      recoveredOrphan = true
+      sourceResultMatches = canonical(recovered.result) === canonical(imported.result)
+    }
+    if (fs.existsSync(file)) {
+      recoverExistingOrphan(readStableRegularFile(file, 'orphan artifact ' + name,
+        MAX_JOURNAL_BYTES + MAX_META_BYTES, true))
+    } else if (!atomicWriteImmutable(file, bytes)) {
+      const racedOrphan = readStableRegularFile(file, 'raced orphan artifact ' + name,
+        MAX_JOURNAL_BYTES + MAX_META_BYTES, true)
+      recoverExistingOrphan(racedOrphan)
+    }
+    assertPinnedDirectories(artifactPins)
+    const persisted = readStableRegularFile(file, 'persisted imported artifact ' + name,
+      MAX_JOURNAL_BYTES + MAX_META_BYTES)
+    assertPinnedDirectories(artifactPins)
+    const digest = sha256(persistedBytes)
+    if (persisted.length !== persistedBytes.length || sha256(persisted) !== digest ||
+        !persisted.equals(persistedBytes)) {
+      throw new StateError('state: persisted imported artifact failed verification: ' + name, 3)
+    }
+    state.artifacts[name] = Object.assign({ sha256: digest, bytes: persistedBytes.length, createdAt: now() },
+      recoveredOrphan ? { recoveredOrphan: true } : {})
+    return { ok: true, run, name, sha256: digest, bytes: persistedBytes.length, idempotent: false,
+      recoveredOrphan, sourceResultMatches,
+      resultSha256: sha256(Buffer.from(canonical(persistedResult))), binding: persistedBinding }
+  })
+  output(result)
+}
+
+function validateStoredControlEnvelope(bytes, label, state, expected) {
+  const envelope = parseJsonBuffer(bytes, label, true)
+  if (envelope.controlVersion !== 1 || !isObject(envelope.binding) || !isObject(envelope.value)) {
+    throw new StateError('state: ' + label + ' is not a supported control envelope', 3)
+  }
+  requireExactKeys(envelope, ['controlVersion', 'binding', 'value'], label)
+  requireExactKeys(envelope.binding, ['run', 'keyHash', 'repositoryIdentity', 'headSha', 'artifactName'],
+    label + '.binding')
+  const binding = envelope.binding
+  if (binding.run !== state.run || binding.keyHash !== state.keyHash ||
+      binding.repositoryIdentity !== state.repository.identity || binding.headSha !== expected.headSha ||
+      binding.artifactName !== expected.artifactName) {
+    throw new StateError('state: ' + label + ' binding does not match the active checkpoint', 3)
+  }
+  canonical(envelope.value)
+  const encoded = Buffer.from(JSON.stringify(envelope, null, 2) + '\n')
+  if (!encoded.equals(bytes)) throw new StateError('state: ' + label + ' is not canonically encoded', 3)
+  return envelope
+}
+
+function putControlArtifact() {
+  const run = validateRunId(requireArg('run'))
+  const name = validateArtifactName(requireArg('name'))
+  if (!name.endsWith('.json')) throw new StateError('state: put-control requires a .json artifact name', 3)
+  const root = requireRealDirectory(path.resolve(requireArg('root')), '--root')
+  const expectedHead = validateSha(requireArg('expected-head'), '--expected-head')
+  const input = decodeBase64(requireArg('base64'), '--base64')
+  if (input.length > 65536) throw new StateError('state: control value exceeds 64 KiB', 3)
+  const value = parseJsonBuffer(input, '--base64 control value', true)
+  const result = withMutation(run, state => {
+    if (state.key.head !== expectedHead || state.lineage.currentHead !== expectedHead) {
+      throw new StateError('state: --expected-head does not match the checkpoint head', 3)
+    }
+    const repository = validateRepository(state.key, root, state.repository || null)
+    if (!repository || !state.repository || repository.identity !== state.repository.identity) {
+      throw new StateError('state: put-control requires the checkpoint repository identity', 3)
+    }
+    const binding = { run: state.run, keyHash: state.keyHash,
+      repositoryIdentity: state.repository.identity, headSha: expectedHead, artifactName: name }
+    const envelope = { controlVersion: 1, binding, value }
+    const bytes = Buffer.from(JSON.stringify(envelope, null, 2) + '\n')
+    const currentValueSha = sha256(Buffer.from(canonical(value)))
+    if (state.artifacts[name]) {
+      const existing = readStableRegularFile(artifactPath(run, name), 'control artifact ' + name,
+        MAX_JOURNAL_BYTES + MAX_META_BYTES, true)
+      const record = state.artifacts[name]
+      if (sha256(existing) !== record.sha256 || existing.length !== record.bytes) {
+        throw new StateError('state: artifact integrity check failed: ' + name, 3)
+      }
+      if (existing.equals(bytes)) {
+        return { ok: true, run, name, sha256: record.sha256, bytes: record.bytes, idempotent: true,
+          recoveredOrphan: !!record.recoveredOrphan, valueMatches: true, valueSha256: currentValueSha, binding }
+      }
+      if (!record.recoveredOrphan) throw new StateError('state: control artifact name is immutable: ' + name, 3)
+      const recovered = validateStoredControlEnvelope(existing, 'recovered control artifact ' + name,
+        state, { headSha: expectedHead, artifactName: name })
+      return { ok: true, run, name, sha256: record.sha256, bytes: record.bytes, idempotent: true,
+        recoveredOrphan: true, valueMatches: canonical(recovered.value) === canonical(value),
+        valueSha256: sha256(Buffer.from(canonical(recovered.value))), binding: recovered.binding }
+    }
+    const file = artifactPath(run, name, true)
+    const artifactRootPin = pinRealDirectory(artifactsRoot(run), 'artifact root')
+    const artifactParentPin = path.dirname(file) === artifactRootPin.path ? artifactRootPin :
+      pinRealDirectory(path.dirname(file), 'artifact parent')
+    const artifactPins = artifactParentPin === artifactRootPin ? [artifactRootPin] :
+      [artifactRootPin, artifactParentPin]
+    assertPinnedDirectories(artifactPins)
+    let persistedBytes = bytes
+    let persistedBinding = binding
+    let persistedValue = value
+    let recoveredOrphan = false
+    let valueMatches = true
+    const adoptOrphan = orphan => {
+      let recovered
+      try {
+        recovered = validateStoredControlEnvelope(orphan, 'orphan control artifact ' + name,
+          state, { headSha: expectedHead, artifactName: name })
+      } catch (error) {
+        throw new StateError('state: conflicting orphan control artifact: ' + name + ': ' +
+          String(error.message || error), 3)
+      }
+      persistedBytes = orphan
+      persistedBinding = recovered.binding
+      persistedValue = recovered.value
+      recoveredOrphan = true
+      valueMatches = canonical(recovered.value) === canonical(value)
+    }
+    if (fs.existsSync(file)) {
+      adoptOrphan(readStableRegularFile(file, 'orphan control artifact ' + name,
+        MAX_JOURNAL_BYTES + MAX_META_BYTES, true))
+    } else if (!atomicWriteImmutable(file, bytes)) {
+      adoptOrphan(readStableRegularFile(file, 'raced orphan control artifact ' + name,
+        MAX_JOURNAL_BYTES + MAX_META_BYTES, true))
+    }
+    assertPinnedDirectories(artifactPins)
+    const persisted = readStableRegularFile(file, 'persisted control artifact ' + name,
+      MAX_JOURNAL_BYTES + MAX_META_BYTES, true)
+    assertPinnedDirectories(artifactPins)
+    const digest = sha256(persistedBytes)
+    if (!persisted.equals(persistedBytes) || persisted.length !== persistedBytes.length || sha256(persisted) !== digest) {
+      throw new StateError('state: persisted control artifact failed verification: ' + name, 3)
+    }
+    state.artifacts[name] = Object.assign({ sha256: digest, bytes: persistedBytes.length, createdAt: now() },
+      recoveredOrphan ? { recoveredOrphan: true } : {})
+    return { ok: true, run, name, sha256: digest, bytes: persistedBytes.length, idempotent: false,
+      recoveredOrphan, valueMatches, valueSha256: sha256(Buffer.from(canonical(persistedValue))),
+      binding: persistedBinding }
+  })
+  output(result)
+}
+
 function putArtifact() {
   const run = validateRunId(requireArg('run'))
   const name = validateArtifactName(requireArg('name'))
@@ -1017,6 +1921,50 @@ function exportJsonArtifacts() {
   output({ ok: true, run, artifacts })
 }
 
+function lineageKeyHashes(state) {
+  const commits = state.lineage.ownedCommits || []
+  const valid = value => /^[a-f0-9]{64}$/.test(String(value || ''))
+  if (!valid(state.keyHash)) throw new StateError('state: current lineage key hash is invalid', 3)
+  let previousTo = null
+  let mappingStarted = false
+  for (let index = 0; index < commits.length; index++) {
+    const commit = commits[index]
+    const hasFrom = commit.fromKeyHash !== undefined
+    const hasTo = commit.toKeyHash !== undefined
+    if (hasFrom !== hasTo || (hasFrom && (!valid(commit.fromKeyHash) || !valid(commit.toKeyHash)))) {
+      throw new StateError('state: lineage commit key hash mapping is invalid at index ' + index, 3)
+    }
+    if (!hasFrom && mappingStarted) {
+      throw new StateError('state: unmapped lineage commit follows mapped history at index ' + index, 3)
+    }
+    if (hasFrom && previousTo && commit.fromKeyHash !== previousTo) {
+      throw new StateError('state: lineage commit key hash chain is broken at index ' + index, 3)
+    }
+    if (hasFrom) {
+      mappingStarted = true
+      previousTo = commit.toKeyHash
+    }
+  }
+  const last = commits[commits.length - 1]
+  if (last && last.toKeyHash !== undefined && last.toKeyHash !== state.keyHash) {
+    throw new StateError('state: current key hash does not match the lineage tail', 3)
+  }
+  return {
+    initialKeyHash: commits.length ? (commits[0].fromKeyHash || null) : state.keyHash,
+    currentKeyHash: state.keyHash,
+  }
+}
+
+function exportedLineageCommit(commit) {
+  const exported = Object.assign({}, commit)
+  if (isObject(commit.receipt)) {
+    exported.receipt = commit.receipt.receiptVersion === 2
+      ? Object.assign({}, commit.receipt)
+      : Object.assign({ receiptVersion: 1 }, commit.receipt)
+  }
+  return exported
+}
+
 function exportLineage() {
   const run = validateRunId(requireArg('run'))
   const after = Number(args.after === undefined ? 0 : args.after)
@@ -1025,9 +1973,11 @@ function exportLineage() {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 10) throw new StateError('state: --limit must be from 1 to 10')
   const state = loadState(run)
   const all = state.lineage.ownedCommits || []
+  const keyHashes = lineageKeyHashes(state)
   if (after > all.length) throw new StateError('state: --after exceeds lineage length', 3)
-  const commits = all.slice(after, after + limit)
+  const commits = all.slice(after, after + limit).map(exportedLineageCommit)
   output({ ok: true, run, initialHead: state.lineage.initialHead, currentHead: state.lineage.currentHead,
+    initialKeyHash: keyHashes.initialKeyHash, currentKeyHash: keyHashes.currentKeyHash,
     total: all.length, after, nextAfter: after + commits.length, commits })
 }
 
@@ -1055,20 +2005,120 @@ function resumeJsonArtifacts() {
       latestDisposition = { name, rank }
     }
   }
+  const sourceClosure = new Set()
+  const closureRecords = new Set()
+  let closureBytes = 0
+  const MAX_DISPOSITION_CHAIN = 128
+  const MAX_DISPOSITION_REFS = 4096
+  const MAX_DISPOSITION_BYTES = 64 * 1024 * 1024
+  const addClosure = (name, reference, label) => {
+    name = validateArtifactName(name)
+    if (!name.endsWith('.json')) throw new StateError('state: ' + label + ' must name a JSON artifact', 3)
+    const record = state.artifacts[name]
+    if (!record || (reference && (record.sha256 !== reference.sha256 || record.bytes !== reference.bytes))) {
+      throw new StateError('state: ' + label + ' does not match the artifact index: ' + name, 3)
+    }
+    verifyArtifact(state, name)
+    if (!closureRecords.has(name)) {
+      closureRecords.add(name)
+      closureBytes += record.bytes
+      if (closureRecords.size > MAX_DISPOSITION_REFS || closureBytes > MAX_DISPOSITION_BYTES) {
+        throw new StateError('state: disposition closure exceeds the count or size limit', 3)
+      }
+    }
+    return record
+  }
+  const dispositionValue = (name, bytes) => {
+    const stored = parseJsonBuffer(bytes, 'artifact ' + name, true)
+    if (stored.controlVersion === 1) {
+      if (!isObject(stored.binding) || stored.binding.artifactName !== name || !isObject(stored.value)) {
+        throw new StateError('state: disposition control envelope is malformed: ' + name, 3)
+      }
+      return stored.value
+    }
+    return stored
+  }
+  const validateReference = (reference, label, requireBytes = true) => {
+    if (label === 'source artifact reference' && Array.isArray(reference)) {
+      if (reference.length !== 3 || typeof reference[0] !== 'string' ||
+          typeof reference[1] !== 'string' || !Number.isSafeInteger(reference[2])) {
+        throw new StateError('state: invalid compact ' + label, 3)
+      }
+      reference = { name: reference[0], sha256: reference[1], bytes: reference[2] }
+    }
+    if (!isObject(reference)) throw new StateError('state: invalid ' + label, 3)
+    if (typeof reference.name !== 'string' || typeof reference.sha256 !== 'string') {
+      throw new StateError('state: ' + label + ' name and sha256 must be strings', 3)
+    }
+    if (label === 'previousDisposition') requireExactKeys(reference, ['name', 'sha256', 'bytes'], label)
+    const name = validateArtifactName(reference.name)
+    if (!/^[a-f0-9]{64}$/.test(String(reference.sha256 || ''))) {
+      throw new StateError('state: ' + label + ' must contain a sha256', 3)
+    }
+    if ((requireBytes && reference.bytes === undefined) || (reference.bytes !== undefined &&
+        (!Number.isSafeInteger(reference.bytes) || reference.bytes < 0))) {
+      throw new StateError('state: ' + label + ' bytes must be a non-negative integer', 3)
+    }
+    return { name, sha256: reference.sha256, bytes: reference.bytes }
+  }
+  if (latestDisposition) {
+    const visited = new Set()
+    let dispositionName = latestDisposition.name
+    let expectedReference = null
+    for (let depth = 0; dispositionName; depth++) {
+      if (depth >= MAX_DISPOSITION_CHAIN) throw new StateError('state: disposition chain exceeds the depth limit', 3)
+      if (visited.has(dispositionName)) throw new StateError('state: disposition chain contains a cycle', 3)
+      if (!/^cycle-\d+\/dispositions(?:-attempt-\d+)?\.json$/.test(dispositionName)) {
+        throw new StateError('state: previousDisposition must reference a disposition artifact', 3)
+      }
+      visited.add(dispositionName)
+      const verified = verifyArtifact(state, dispositionName)
+      if (expectedReference && (verified.record.sha256 !== expectedReference.sha256 ||
+          verified.record.bytes !== expectedReference.bytes)) {
+        throw new StateError('state: previousDisposition does not match the artifact index: ' + dispositionName, 3)
+      }
+      addClosure(dispositionName, expectedReference, 'disposition snapshot reference')
+      sourceClosure.add(dispositionName)
+      const disposition = dispositionValue(dispositionName, verified.bytes)
+      if (disposition.snapshotVersion !== undefined &&
+          (!Number.isSafeInteger(disposition.snapshotVersion) || disposition.snapshotVersion < 1)) {
+        throw new StateError('state: disposition snapshotVersion must be a positive integer', 3)
+      }
+      if (disposition.snapshotVersion >= 3) {
+        if (!Array.isArray(disposition.sourceArtifacts)) {
+          throw new StateError('state: v3 disposition sourceArtifacts must be an array', 3)
+        }
+        for (let index = 0; index < disposition.sourceArtifacts.length; index++) {
+          const reference = validateReference(disposition.sourceArtifacts[index],
+            'source artifact reference', false)
+          const record = state.artifacts[reference.name]
+          const normalized = Object.assign({}, reference,
+            reference.bytes === undefined && record ? { bytes: record.bytes } : {})
+          addClosure(reference.name, normalized, 'source artifact reference')
+          sourceClosure.add(reference.name)
+        }
+        if (disposition.previousDisposition === undefined || disposition.previousDisposition === null) break
+        expectedReference = validateReference(disposition.previousDisposition, 'previousDisposition', true)
+        dispositionName = expectedReference.name
+      } else break
+    }
+  }
   const selected = jsonNames.filter(name => /^scope-[a-f0-9]{64}\.json$/.test(name) ||
     name === 'baseline.json' ||
     name === 'scope-semantic-' + state.key.head + '.json' ||
     name.startsWith('summary/') ||
     (maxCycle && name.startsWith('cycle-' + maxCycle + '/')) ||
-    (latestDisposition && name === latestDisposition.name)).sort()
+    (latestDisposition && name === latestDisposition.name) || sourceClosure.has(name)).sort()
   const remaining = selected.filter(name => name > after)
   const artifacts = []
   let bytes = 0
   for (const name of remaining) {
-    const value = parseJsonBuffer(verifyArtifact(state, name).bytes, 'artifact ' + name)
-    const size = Buffer.byteLength(JSON.stringify({ name, value }))
+    const verified = verifyArtifact(state, name)
+    const value = parseJsonBuffer(verified.bytes, 'artifact ' + name)
+    const artifact = { name, sha256: verified.record.sha256, bytes: verified.record.bytes, value }
+    const size = Buffer.byteLength(JSON.stringify(artifact))
     if (artifacts.length && bytes + size > maxBytes) break
-    artifacts.push({ name, value })
+    artifacts.push(artifact)
     bytes += size
   }
   const last = artifacts.length ? artifacts[artifacts.length - 1].name : after
@@ -1161,7 +2211,12 @@ function completeRun() {
     const names = verifyArtifacts(state)
     if (args['expected-index']) {
       const expectedName = validateArtifactName(args['expected-index'])
-      const expected = parseJsonBuffer(verifyArtifact(state, expectedName).bytes, 'expected artifact index', true)
+      const expectedBytes = verifyArtifact(state, expectedName).bytes
+      const storedExpected = parseJsonBuffer(expectedBytes, 'expected artifact index', true)
+      const expected = storedExpected.controlVersion === 1
+        ? validateStoredControlEnvelope(expectedBytes, 'expected artifact index', state,
+          { headSha: state.lineage.currentHead, artifactName: expectedName }).value
+        : storedExpected
       if (!Array.isArray(expected.artifacts) || expected.artifacts.some(name => typeof name !== 'string')) {
         throw new StateError('state: expected artifact index is malformed', 3)
       }
@@ -1246,13 +2301,120 @@ function repositoryStatus() {
   output({ ok: true, root, head, clean: dirty.length === 0, dirtyEntries: dirty ? dirty.split('\0').filter(Boolean).length : 0 })
 }
 
+function requireExactKeys(value, keys, label) {
+  if (!isObject(value)) throw new StateError('state: ' + label + ' must be an object', 3)
+  const actual = Object.keys(value).sort()
+  const expected = [...keys].sort()
+  if (canonical(actual) !== canonical(expected)) {
+    throw new StateError('state: ' + label + ' must contain exactly: ' + expected.join(', '), 3)
+  }
+}
+
+function validateReceiptPath(value, label) {
+  if (typeof value !== 'string' || !value || path.isAbsolute(value) || value.includes('\\') ||
+      /[\r\n\0]/.test(value)) throw new StateError('state: unsafe ' + label + ' ' + JSON.stringify(value), 3)
+  const segments = value.split('/')
+  if (segments.some(segment => !segment || segment === '.' || segment === '..' ||
+      segment.toLowerCase() === '.git')) {
+    throw new StateError('state: unsafe ' + label + ' ' + JSON.stringify(value), 3)
+  }
+  return value
+}
+
+function validateCompactFixReceipt(receipt) {
+  requireExactKeys(receipt, ['receiptVersion', 'batchId', 'allowedPaths', 'fixed', 'notABug',
+    'stillOpen', 'followUps'], 'v2 fix receipt')
+  if (receipt.receiptVersion !== 2 || typeof receipt.batchId !== 'string' ||
+      !/^[A-Za-z0-9_.-]{1,128}$/.test(receipt.batchId)) {
+    throw new StateError('state: v2 fix receipt has an invalid version or batchId', 3)
+  }
+  for (const field of ['allowedPaths', 'fixed', 'notABug', 'stillOpen', 'followUps']) {
+    if (!Array.isArray(receipt[field])) throw new StateError('state: v2 fix receipt.' + field + ' must be an array', 3)
+  }
+  if (!receipt.allowedPaths.length) throw new StateError('state: v2 fix receipt.allowedPaths must not be empty', 3)
+  const allowedPaths = receipt.allowedPaths.map((value, index) =>
+    validateReceiptPath(value, 'v2 fix receipt.allowedPaths[' + index + ']'))
+  if (new Set(allowedPaths).size !== allowedPaths.length) {
+    throw new StateError('state: v2 fix receipt.allowedPaths must be unique', 3)
+  }
+  const ids = []
+  const validateId = (item, label) => {
+    if (!/^[a-f0-9]{64}$/.test(String(item.id || ''))) {
+      throw new StateError('state: ' + label + '.id must be 64 lowercase hex characters', 3)
+    }
+    ids.push(item.id)
+  }
+  receipt.fixed.forEach((item, index) => {
+    const label = 'v2 fix receipt.fixed[' + index + ']'
+    requireExactKeys(item, ['id', 'changeSummary'], label)
+    validateId(item, label)
+    if (typeof item.changeSummary !== 'string' || !item.changeSummary) {
+      throw new StateError('state: ' + label + '.changeSummary must be a non-empty string', 3)
+    }
+  })
+  receipt.notABug.forEach((item, index) => {
+    const label = 'v2 fix receipt.notABug[' + index + ']'
+    requireExactKeys(item, ['id', 'reason'], label)
+    validateId(item, label)
+    if (typeof item.reason !== 'string' || !item.reason) {
+      throw new StateError('state: ' + label + '.reason must be a non-empty string', 3)
+    }
+  })
+  receipt.stillOpen.forEach((item, index) => {
+    const label = 'v2 fix receipt.stillOpen[' + index + ']'
+    requireExactKeys(item, ['id', 'whyStillHere', 'defer', 'deferReason'], label)
+    validateId(item, label)
+    if (typeof item.whyStillHere !== 'string' || !item.whyStillHere ||
+        typeof item.defer !== 'boolean' || typeof item.deferReason !== 'string' || !item.deferReason) {
+      throw new StateError('state: ' + label + ' has invalid disposition fields', 3)
+    }
+  })
+  if (!ids.length || new Set(ids).size !== ids.length) {
+    throw new StateError('state: v2 fix receipt disposition IDs must be non-empty and unique', 3)
+  }
+  receipt.followUps.forEach((item, index) => {
+    const label = 'v2 fix receipt.followUps[' + index + ']'
+    requireExactKeys(item, ['title', 'detail', 'area', 'size', 'doneNow', 'releaseBlocker', 'blockerReason'], label)
+    for (const field of ['title', 'detail', 'area', 'size', 'blockerReason']) {
+      if (typeof item[field] !== 'string' || !item[field]) {
+        throw new StateError('state: ' + label + '.' + field + ' must be a non-empty string', 3)
+      }
+    }
+    if (!['small', 'big'].includes(item.size) || typeof item.doneNow !== 'boolean' ||
+        typeof item.releaseBlocker !== 'boolean') {
+      throw new StateError('state: ' + label + ' has invalid follow-up fields', 3)
+    }
+  })
+  return receipt
+}
+
 function validateFixReceipt(receipt) {
+  if (isObject(receipt) && Object.prototype.hasOwnProperty.call(receipt, 'receiptVersion')) {
+    if (receipt.receiptVersion !== 2) throw new StateError('state: unsupported fix receipt version', 3)
+    return validateCompactFixReceipt(receipt)
+  }
   if (!receipt || typeof receipt.batchId !== 'string' || !receipt.batchId ||
       !Array.isArray(receipt.fixed) || !Array.isArray(receipt.notABug) ||
       !Array.isArray(receipt.stillOpen) || !Array.isArray(receipt.followUps)) {
     throw new StateError('state: fix receipt is missing required disposition arrays', 3)
   }
   return receipt
+}
+
+function readInlineFixReceipt(value) {
+  const bytes = decodeBase64(value, '--receipt-base64')
+  if (bytes.length > 65536) throw new StateError('state: inline receipt exceeds 64 KiB', 3)
+  return validateFixReceipt(parseJsonBuffer(bytes, '--receipt-base64', true))
+}
+
+function receiptAllowedPaths(receipt) {
+  if (receipt.receiptVersion === 2) return receipt.allowedPaths
+  return (receipt.stillOpen || []).flatMap(finding =>
+    Array.isArray(finding.files) && finding.files.length ? finding.files : [finding.primaryFile]).filter(Boolean)
+}
+
+function receiptDispositionIds(receipt) {
+  return ['fixed', 'notABug', 'stillOpen'].flatMap(field => (receipt[field] || []).map(item => item.id))
 }
 
 function readStagedReceipt(state, prefix, partCount) {
@@ -1297,8 +2459,7 @@ function verifyPreparedCommit(state, root, to, txId) {
   if (trailers['Review-And-Fix-Run'] !== state.run || trailers['Review-And-Fix-Transaction'] !== txId) {
     throw new StateError('state: commit is missing its prepared review transaction trailers', 3)
   }
-  const allowed = new Set((pending.fallbackReceipt.stillOpen || []).flatMap(finding =>
-    Array.isArray(finding.files) && finding.files.length ? finding.files : [finding.primaryFile]).filter(Boolean))
+  const allowed = new Set(receiptAllowedPaths(pending.fallbackReceipt))
   const committed = gitRawExact(root, 'diff-tree', '--no-renames', '--no-commit-id', '--name-only', '-r', '-z', to)
     .split('\0').filter(Boolean)
   const outside = committed.filter(file => !allowed.has(file))
@@ -1314,15 +2475,10 @@ function verifyPreparedCommit(state, root, to, txId) {
 
 function validateTransactionPaths(root, receipt) {
   root = fs.realpathSync(path.resolve(root))
-  const files = (receipt.stillOpen || []).flatMap(finding =>
-    Array.isArray(finding.files) && finding.files.length ? finding.files : [finding.primaryFile])
+  const files = receiptAllowedPaths(receipt)
   for (const value of files) {
-    const relative = String(value || '')
+    const relative = validateReceiptPath(value, 'prepared finding path')
     const segments = relative.split('/')
-    if (!relative || path.isAbsolute(relative) || relative.includes('\\') || /[\r\n\0]/.test(relative) ||
-        segments.some(segment => !segment || segment === '.' || segment === '..' || segment.toLowerCase() === '.git')) {
-      throw new StateError('state: unsafe prepared finding path ' + JSON.stringify(relative), 3)
-    }
     const target = path.resolve(root, relative)
     if (!target.startsWith(root + path.sep)) throw new StateError('state: prepared finding path escapes repository', 3)
     let cursor = root
@@ -1402,7 +2558,7 @@ function sealPreparedHead() {
       throw new StateError('state: HEAD moved before validation seal', 3)
     }
     validateTransactionPaths(root, pending.fallbackReceipt)
-    const allowed = new Set((pending.fallbackReceipt.stillOpen || []).flatMap(finding => finding.files || []))
+    const allowed = new Set(receiptAllowedPaths(pending.fallbackReceipt))
     if (paths.some(file => !allowed.has(file))) throw new StateError('state: validated paths exceed transaction fence', 3)
     if (canonical(parseStatusPaths(root)) !== canonical(paths)) {
       throw new StateError('state: validated paths do not equal measured dirty paths', 3)
@@ -1424,6 +2580,14 @@ function prepareHead() {
   const from = validateSha(requireArg('from'), '--from')
   const batchId = requireArg('batch')
   if (!/^[A-Za-z0-9_.-]+$/.test(batchId)) throw new StateError('state: --batch must be a safe identifier', 3)
+  const hasInlineReceipt = args['receipt-base64'] !== undefined
+  const hasStagedReceipt = args['receipt-prefix'] !== undefined || args['receipt-parts'] !== undefined
+  if (hasInlineReceipt === hasStagedReceipt) {
+    throw new StateError('state: prepare-head requires exactly one receipt source', 3)
+  }
+  const inlineReceipt = hasInlineReceipt ? readInlineFixReceipt(args['receipt-base64']) : null
+  const receiptPrefix = hasStagedReceipt ? requireArg('receipt-prefix') : null
+  const receiptParts = hasStagedReceipt ? requireArg('receipt-parts') : null
   if (git(root, 'rev-parse', '--verify', 'HEAD^{commit}') !== from) throw new StateError('state: HEAD does not equal prepared parent', 3)
   if (git(root, 'status', '--porcelain=v1', '-z')) throw new StateError('state: repository must be clean before preparing a fix', 3)
   const result = withMutation(run, state => {
@@ -1432,7 +2596,7 @@ function prepareHead() {
       throw new StateError('state: prepared parent does not match checkpoint head', 3)
     }
     validateRepository(state.key, root, state.repository || null)
-    const fallbackReceipt = readStagedReceipt(state, requireArg('receipt-prefix'), requireArg('receipt-parts'))
+    const fallbackReceipt = hasStagedReceipt ? readStagedReceipt(state, receiptPrefix, receiptParts) : inlineReceipt
     validateTransactionPaths(root, fallbackReceipt)
     if (fallbackReceipt.batchId !== batchId) throw new StateError('state: fallback receipt batch does not match --batch', 3)
     const txId = crypto.randomBytes(32).toString('hex')
@@ -1497,9 +2661,7 @@ function advanceHead() {
   if (hasInlineReceipt === hasStagedReceipt) {
     throw new StateError('state: advance-head requires exactly one receipt source', 3)
   }
-  let receipt = hasInlineReceipt
-    ? parseJsonBuffer(decodeBase64(args['receipt-base64'], '--receipt-base64'), '--receipt-base64', true)
-    : null
+  let receipt = hasInlineReceipt ? readInlineFixReceipt(args['receipt-base64']) : null
   const receiptPrefix = hasStagedReceipt ? requireArg('receipt-prefix') : null
   const receiptParts = hasStagedReceipt ? requireArg('receipt-parts') : null
   const resolvedFrom = git(root, 'rev-parse', '--verify', from + '^{commit}')
@@ -1531,11 +2693,21 @@ function advanceHead() {
     if (pending.from !== from) throw new StateError('state: --from does not match prepared transaction', 3)
     receipt = hasStagedReceipt ? readStagedReceipt(state, receiptPrefix, receiptParts) : validateFixReceipt(receipt)
     if (receipt.batchId !== pending.batchId) throw new StateError('state: final receipt batch does not match prepared transaction', 3)
+    if (pending.fallbackReceipt.receiptVersion === 2) {
+      if (receipt.receiptVersion !== 2 ||
+          canonical([...receiptAllowedPaths(receipt)].sort()) !==
+            canonical([...receiptAllowedPaths(pending.fallbackReceipt)].sort()) ||
+          canonical([...receiptDispositionIds(receipt)].sort()) !==
+            canonical([...receiptDispositionIds(pending.fallbackReceipt)].sort())) {
+        throw new StateError('state: final v2 receipt does not exhaust the prepared IDs and path fence', 3)
+      }
+    }
     if (state.key.head !== from || state.lineage.currentHead !== from) {
       throw new StateError('state: --from does not match checkpoint head', 3)
     }
     const nextKey = Object.assign({}, state.key, { head: to })
     const repository = validateRepository(nextKey, root, state.repository || null)
+    const fromKeyHash = state.keyHash
     const nextHash = computeKeyHash(nextKey, repository)
     const lock = keyLockPath(nextHash)
     const lockToken = acquireDirectoryLock(lock)
@@ -1549,6 +2721,7 @@ function advanceHead() {
       state.lineage.currentHead = to
       state.lineage.ownedCommits.push({
         from, to, tree: git(root, 'rev-parse', to + '^{tree}'),
+        fromKeyHash, toKeyHash: nextHash,
         commitSha256: sha256(Buffer.from(git(root, 'cat-file', 'commit', to))), recordedAt: timestamp,
         transactionId: txId, receipt,
       })
@@ -1588,6 +2761,8 @@ try {
   else if (COMMAND === 'claim') claim(false)
   else if (COMMAND === 'init') claim(true)
   else if (COMMAND === 'put') putArtifact()
+  else if (COMMAND === 'put-control') putControlArtifact()
+  else if (COMMAND === 'import-journal') importJournalArtifact()
   else if (COMMAND === 'get') getArtifact()
   else if (COMMAND === 'list') listArtifacts()
   else if (COMMAND === 'export-json') exportJsonArtifacts()

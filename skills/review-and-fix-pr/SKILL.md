@@ -24,14 +24,18 @@ Run inline:
 ```bash
 git rev-parse --abbrev-ref HEAD && git status --porcelain && gh auth status 2>&1 | head -3
 gh pr view $1 --json number,title,headRefOid,baseRefName,url,author
-gh api user --jq .login
+gh api user --jq .login || gh api graphql -f 'query=query { viewer { login } }' --jq .data.viewer.login
 ```
+
+`gh auth status` is diagnostic here: when an exhausted REST core bucket makes it report the token
+as invalid, a successful authenticated GraphQL `viewer.login` is valid proof of the same login.
+Both login lookups failing is an authentication failure.
 
 Omit `$1` from `gh pr view` when no PR argument was supplied. Refuse when:
 
 - working tree is dirty;
 - `HEAD` differs from both the PR head and a resumable workflow-owned fix commit;
-- GitHub authentication or PR resolution fails.
+- GitHub authentication (both login lookups) or PR resolution fails.
 
 Confirm `${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-driver.js`,
 `${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-reviewed.js`, and

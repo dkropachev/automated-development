@@ -2,12 +2,15 @@
 // Run every review tool against every prepared PR, one headless `claude -p` process per pair.
 //
 //   node bench/run.js [--model <model>] [--run <run-id>] [--only <target>] [--tool <tool>]
+//                     [--cohort-tool <tool>] [--cohort-target <target>] [--plugin-dir <dir>]
 //                     [--concurrency N] [--limit-retries N] [--timeout MIN]
+//                     [--max-budget-usd USD]
 //                     [--include-parked] [--list]
 //
 // New artifacts land in bench/runs/<run-id>/results/. The original flat results directory is a
 // read-only legacy cohort. Recorded cells are immutable: an existing result is always skipped.
 const fs = require('node:fs')
+const crypto = require('node:crypto')
 const path = require('node:path')
 const { spawn, spawnSync } = require('node:child_process')
 const { run, git, gitTry } = require('./lib/exec')
@@ -24,6 +27,7 @@ const {
   loadModelConfig,
   manifestMetadata,
   modelById,
+  parseReviewAndFixPrResultContract,
   readManifest,
   readResultRecord,
   releaseLocalLock,
@@ -42,6 +46,12 @@ const ROOT = __dirname
 const CLAUDE = process.env.CLAUDE || 'claude'
 const FABLE_MODEL = 'claude-fable-5-1'
 const MIN_FABLE_CLAUDE_VERSION = Object.freeze({ major: 2, minor: 1, patch: 284 })
+const PLUGIN_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
+const PLUGIN_LIST_MAX_BUFFER = 16 * 1024 * 1024
+const PLUGIN_LIST_TIMEOUT_MS = 30_000
+const PLUGIN_CONTENT_EXCLUDED = new Set([
+  'bench/findings', 'bench/judgement', 'bench/logs', 'bench/results', 'bench/runs', 'bench/work',
+])
 
 function validateInputs(state, config) {
   if (!state || !state.targets || typeof state.targets !== 'object') throw new Error('invalid state.json targets')
@@ -59,12 +69,206 @@ function validateInputs(state, config) {
   }
 }
 
+function assertSafeDirectory(directory, label = 'directory') {
+  const absolute = path.resolve(directory)
+  const parsed = path.parse(absolute)
+  let current = parsed.root
+  for (const part of absolute.slice(parsed.root.length).split(path.sep).filter(Boolean)) {
+    current = path.join(current, part)
+    if (!fs.existsSync(current)) throw new Error(`${label} does not exist: ${absolute}`)
+    const stat = fs.lstatSync(current)
+    if (stat.isSymbolicLink()) throw new Error(`refusing symlink ${label} path: ${current}`)
+    if (current !== absolute && !stat.isDirectory()) throw new Error(`${label} path component is not a directory: ${current}`)
+  }
+  if (!fs.lstatSync(absolute).isDirectory()) throw new Error(`${label} is not a directory: ${absolute}`)
+  return absolute
+}
+
+function pluginContentExcluded(relative) {
+  const slash = relative.split(path.sep).join('/')
+  const parts = slash.split('/')
+  if (parts.includes('.git') || parts.includes('node_modules')) return true
+  return [...PLUGIN_CONTENT_EXCLUDED].some((prefix) => slash === prefix || slash.startsWith(`${prefix}/`))
+}
+
+function pluginContentFiles(directory) {
+  const files = []
+  const visit = (relative) => {
+    const absolute = relative ? path.join(directory, relative) : directory
+    for (const entry of fs.readdirSync(absolute, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+      const child = relative ? path.join(relative, entry.name) : entry.name
+      if (pluginContentExcluded(child)) continue
+      const file = path.join(directory, child)
+      const stat = fs.lstatSync(file)
+      if (stat.isSymbolicLink()) throw new Error(`refusing symlink in plugin directory: ${file}`)
+      if (stat.isDirectory()) visit(child)
+      else if (stat.isFile()) files.push(child)
+      else throw new Error(`refusing special file in plugin directory: ${file}`)
+    }
+  }
+  visit('')
+  return files
+}
+
+function pluginContentHash(directory) {
+  const hash = crypto.createHash('sha256')
+  for (const relative of pluginContentFiles(directory)) {
+    const file = path.join(directory, relative)
+    const bytes = fs.readFileSync(file)
+    const executable = fs.statSync(file).mode & 0o111 ? 'x' : '-'
+    const name = relative.split(path.sep).join('/')
+    hash.update(`${Buffer.byteLength(name)}:${name}:${executable}:${bytes.length}:`)
+    hash.update(bytes)
+    hash.update('\0')
+  }
+  return hash.digest('hex')
+}
+
+function assertPluginName(value, label = 'plugin name') {
+  if (typeof value !== 'string' || !PLUGIN_NAME.test(value)) throw new Error(`invalid ${label}: ${JSON.stringify(value)}`)
+  return value
+}
+
+function parseInstalledPluginEntries(output, pluginName) {
+  const expectedName = assertPluginName(pluginName)
+  let plugins
+  try { plugins = JSON.parse(output) } catch {
+    throw new Error('Claude plugin discovery returned invalid JSON')
+  }
+  if (!Array.isArray(plugins)) throw new Error('Claude plugin discovery did not return an array')
+  const matching = []
+  for (const [index, plugin] of plugins.entries()) {
+    if (!plugin || typeof plugin !== 'object' || Array.isArray(plugin)) {
+      throw new Error(`Claude plugin discovery entry ${index} is malformed`)
+    }
+    if (typeof plugin.id !== 'string' || !/^[^@\s]+@[^@\s]+$/.test(plugin.id)) {
+      throw new Error(`Claude plugin discovery entry ${index} has an invalid id`)
+    }
+    if (typeof plugin.enabled !== 'boolean' || typeof plugin.projectEnabled !== 'boolean') {
+      throw new Error(`Claude plugin discovery entry ${plugin.id} has unknown enabled state`)
+    }
+    if (plugin.id.slice(0, plugin.id.indexOf('@')) === expectedName) matching.push(plugin)
+  }
+  return matching.sort((left, right) => left.id.localeCompare(right.id))
+}
+
+function settingsForInstalledPluginEntries(entries) {
+  const matchingIds = new Set(entries.map((entry) => entry.id))
+  return {
+    enabledPlugins: Object.fromEntries([...matchingIds].sort().map((id) => [id, false])),
+  }
+}
+
+function parseInstalledPluginSettings(output, pluginName) {
+  return settingsForInstalledPluginEntries(parseInstalledPluginEntries(output, pluginName))
+}
+
+function discoverPluginIsolationSettings(executable, pluginName, cwd, dependencies = {}) {
+  const discover = dependencies.pluginListSpawnSync || spawnSync
+  const runList = (args, phase) => {
+    const result = discover(executable, args, {
+      cwd,
+      encoding: 'utf8',
+      env: dependencies.env || process.env,
+      maxBuffer: PLUGIN_LIST_MAX_BUFFER,
+      timeout: PLUGIN_LIST_TIMEOUT_MS,
+    })
+    if (!result || typeof result !== 'object') throw new Error(`Claude plugin ${phase} returned no process result`)
+    if (result.error) throw new Error(`Claude plugin ${phase} failed: ${result.error.message}`)
+    if (result.status !== 0) {
+      const detail = String(result.stderr || '').trim().slice(0, 500)
+      throw new Error(`Claude plugin ${phase} exited ${result.status}${detail ? `: ${detail}` : ''}`)
+    }
+    if (typeof result.stdout !== 'string') throw new Error(`Claude plugin ${phase} returned no text output`)
+    return result.stdout
+  }
+  const before = parseInstalledPluginEntries(runList(['plugin', 'list', '--json'], 'discovery'), pluginName)
+  const settings = settingsForInstalledPluginEntries(before)
+  const serialized = JSON.stringify(settings)
+  const after = parseInstalledPluginEntries(runList(
+    ['--settings', serialized, 'plugin', 'list', '--json'], 'isolation verification',
+  ), pluginName)
+  if (before.map((plugin) => plugin.id).join('\0') !== after.map((plugin) => plugin.id).join('\0')) {
+    throw new Error('Claude plugin inventory changed during isolation verification')
+  }
+  const enabled = after.filter((plugin) => plugin.enabled).map((plugin) => plugin.id)
+  if (enabled.length) throw new Error(`Claude ignored local plugin isolation settings for: ${enabled.join(', ')}`)
+  return settings
+}
+
+function normalizePluginIsolationSettings(settings, pluginName) {
+  const expectedName = assertPluginName(pluginName)
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings) ||
+      !settings.enabledPlugins || typeof settings.enabledPlugins !== 'object' ||
+      Array.isArray(settings.enabledPlugins)) {
+    throw new Error('local plugin launch requires verified plugin isolation settings')
+  }
+  const ids = Object.keys(settings.enabledPlugins).sort()
+  for (const id of ids) {
+    if (!/^[^@\s]+@[^@\s]+$/.test(id) || id.slice(0, id.indexOf('@')) !== expectedName ||
+        settings.enabledPlugins[id] !== false) {
+      throw new Error(`invalid local plugin isolation entry: ${JSON.stringify(id)}`)
+    }
+  }
+  return { enabledPlugins: Object.fromEntries(ids.map((id) => [id, false])) }
+}
+
+function resolvePluginDirectory(directory, cwd = process.cwd()) {
+  const absolute = assertSafeDirectory(path.resolve(cwd, directory), 'plugin directory')
+  const manifestFile = path.join(absolute, '.claude-plugin', 'plugin.json')
+  if (!fs.existsSync(manifestFile)) throw new Error(`plugin manifest not found: ${manifestFile}`)
+  const stat = fs.lstatSync(manifestFile)
+  if (stat.isSymbolicLink() || !stat.isFile()) throw new Error(`refusing unsafe plugin manifest: ${manifestFile}`)
+  let manifest
+  try { manifest = JSON.parse(fs.readFileSync(manifestFile, 'utf8')) } catch (error) {
+    throw new Error(`invalid plugin manifest ${manifestFile}: ${error.message}`, { cause: error })
+  }
+  if (!manifest || typeof manifest.version !== 'string' || !manifest.version.trim()) {
+    throw new Error(`plugin manifest version is required: ${manifestFile}`)
+  }
+  const pluginName = assertPluginName(manifest.name, 'plugin manifest name')
+  const revision = spawnSync('git', ['-C', absolute, 'rev-parse', '--verify', 'HEAD^{commit}'], { encoding: 'utf8' })
+  let gitCommit = null
+  if (!revision.error && revision.status === 0) {
+    gitCommit = String(revision.stdout || '').trim().toLowerCase()
+    if (!/^[0-9a-f]{40}$/.test(gitCommit)) throw new Error(`invalid git commit for plugin directory: ${absolute}`)
+  }
+  return {
+    directory: absolute,
+    name: pluginName,
+    fingerprint: {
+      version: manifest.version,
+      gitCommit,
+      contentSha256: pluginContentHash(absolute),
+    },
+  }
+}
+
+function assertPluginDirectoryCurrent(options) {
+  if (!options || !options.pluginDir) return
+  const current = resolvePluginDirectory(options.pluginDir)
+  if (current.name !== options.pluginName ||
+      JSON.stringify(current.fingerprint) !== JSON.stringify(options.pluginFingerprint)) {
+    throw new Error('local plugin checkout changed after it was fingerprinted')
+  }
+}
+
+function hashJson(value) {
+  const canonical = (input) => Array.isArray(input) ? input.map(canonical) :
+    input && typeof input === 'object'
+      ? Object.fromEntries(Object.keys(input).sort().map((key) => [key, canonical(input[key])]))
+      : input
+  return crypto.createHash('sha256').update(JSON.stringify(canonical(value))).digest('hex')
+}
+
 function parseArgs(argv, root = ROOT) {
   if (argv.includes('--force')) throw new Error('--force is not supported; benchmark artifacts are append-only')
   const config = loadModelConfig(root)
   const options = {
     only: null,
     onlyTool: null,
+    cohortTool: null,
+    cohortTarget: null,
     concurrency: 2,
     timeoutMs: 120 * 60_000,
     includeParked: false,
@@ -72,6 +276,10 @@ function parseArgs(argv, root = ROOT) {
     listOnly: false,
     model: config.defaultModel,
     modelExplicit: false,
+    maxBudgetUsd: null,
+    pluginDir: null,
+    pluginFingerprint: null,
+    pluginName: null,
     runId: null,
     runExplicit: false,
   }
@@ -86,6 +294,22 @@ function parseArgs(argv, root = ROOT) {
     if (arg === '--list') { options.listOnly = true; continue }
     if (arg === '--only') { options.only = assertSafeId(value(arg, i++), 'target'); continue }
     if (arg === '--tool') { options.onlyTool = assertSafeId(value(arg, i++), 'tool'); continue }
+    if (arg === '--cohort-tool') { options.cohortTool = assertSafeId(value(arg, i++), 'cohort tool'); continue }
+    if (arg === '--cohort-target') { options.cohortTarget = assertSafeId(value(arg, i++), 'cohort target'); continue }
+    if (arg === '--plugin-dir') {
+      const plugin = resolvePluginDirectory(value(arg, i++))
+      options.pluginDir = plugin.directory
+      options.pluginFingerprint = plugin.fingerprint
+      options.pluginName = plugin.name
+      continue
+    }
+    if (arg === '--max-budget-usd') {
+      options.maxBudgetUsd = Number(value(arg, i++))
+      if (!Number.isFinite(options.maxBudgetUsd) || options.maxBudgetUsd <= 0) {
+        throw new Error('--max-budget-usd must be a finite positive number')
+      }
+      continue
+    }
     if (arg === '--model') { options.model = value(arg, i++); options.modelExplicit = true; continue }
     if (arg === '--run') { options.runId = assertSafeId(value(arg, i++), 'run id'); options.runExplicit = true; continue }
     if (arg === '--concurrency') {
@@ -104,12 +328,15 @@ function parseArgs(argv, root = ROOT) {
     }
     if (arg === '--timeout') {
       const minutes = Number(value(arg, i++))
-      if (!Number.isFinite(minutes) || minutes <= 0) throw new Error('--timeout must be a positive number')
       options.timeoutMs = minutes * 60_000
+      if (!Number.isFinite(minutes) || minutes <= 0 || !Number.isFinite(options.timeoutMs)) {
+        throw new Error('--timeout must be a positive finite number')
+      }
       continue
     }
     throw new Error(`unknown argument: ${arg}`)
   }
+  if (options.cohortTarget && !options.cohortTool) throw new Error('--cohort-target requires --cohort-tool')
   modelById(config, options.model)
   if (!options.listOnly && options.model === FABLE_MODEL && options.concurrency !== 1) {
     throw new Error(`${FABLE_MODEL} requires --concurrency 1`)
@@ -129,9 +356,26 @@ function selectCohort(root, options, targetIds = null) {
   }
   const paths = cohortPaths(root, options.runId)
   if (fs.existsSync(paths.manifest)) {
-    const manifest = readManifest(root, options.runId, targetIds)
+    const manifest = readManifest(root, options.runId)
+    if (!manifest.cohortScope && targetIds) assertManifestTargets(manifest, targetIds)
     if (options.modelExplicit && manifest.requestedModel !== options.model) {
       throw new Error(`cohort ${options.runId} uses ${manifest.requestedModel}, not ${options.model}`)
+    }
+    if (options.cohortTool) {
+      const supplied = { tool: options.cohortTool, target: options.cohortTarget || null }
+      if (JSON.stringify(manifest.cohortScope || null) !== JSON.stringify(supplied)) {
+        throw new Error(`cohort ${options.runId} scope mismatch`)
+      }
+    }
+    if (!options.listOnly) {
+      const recordedPlugin = manifest.pluginFingerprint || null
+      const suppliedPlugin = options.pluginFingerprint || null
+      if (recordedPlugin && !suppliedPlugin) {
+        throw new Error(`cohort ${options.runId} requires --plugin-dir matching its plugin fingerprint`)
+      }
+      if (JSON.stringify(recordedPlugin) !== JSON.stringify(suppliedPlugin)) {
+        throw new Error(`cohort ${options.runId} plugin fingerprint mismatch`)
+      }
     }
     return { ...manifest, legacy: false }
   }
@@ -177,9 +421,35 @@ function expectedCellsForPairs(runId, pairs) {
 }
 
 function expectedCellsForFreshCohort(root, options, paths, state, config) {
-  const pairs = buildPairs(root, { ...options, only: null, onlyTool: null }, paths, state, config)
+  const pairs = buildPairs(root, {
+    ...options,
+    only: options.cohortTarget || null,
+    onlyTool: options.cohortTool || null,
+  }, paths, state, config)
+    .filter((pair) => options.cohortTool || pair.tool.cohortOnly !== true)
     .filter((pair) => !pair.tool.parked || options.includeParked)
   return expectedCellsForPairs(options.runId, pairs)
+}
+
+function scopedToolConfig(config, scope) {
+  if (!scope) return config
+  const tool = config.tools.find((entry) => entry.id === scope.tool)
+  if (!tool) throw new Error(`unknown cohort tool: ${scope.tool}`)
+  return { ...config, tools: [tool] }
+}
+
+function selectStateTargets(state, targetIds) {
+  return {
+    targets: Object.fromEntries(targetIds.map((targetId) => {
+      const target = state.targets[targetId]
+      if (!target) throw new Error(`cohort target is unavailable in current state: ${targetId}`)
+      return [targetId, target]
+    })),
+  }
+}
+
+function freshCohortScope(options) {
+  return options.cohortTool ? { tool: options.cohortTool, target: options.cohortTarget || null } : null
 }
 
 function pairsForManifest(root, options, paths, state, config, manifest) {
@@ -297,24 +567,35 @@ function assertClaudeVersionSupportsModel(version, requestedModel) {
   }
 }
 
-function claudeArgs(prompt, requestedModel) {
-  return [
+function claudeArgs(prompt, requestedModel, options = {}) {
+  const args = [
     '-p', prompt,
     '--output-format', 'json',
     '--model', requestedModel,
     '--effort', 'medium',
     '--permission-mode', 'bypassPermissions',
-    // No web: the upstream project's own PR, with the maintainers' review already on it, is one
-    // search away, and a reviewer that reads it is not reviewing anything.
-    '--disallowedTools', 'WebSearch', 'WebFetch',
   ]
+  if (options.maxBudgetUsd != null) args.push('--max-budget-usd', String(options.maxBudgetUsd))
+  if (options.pluginDir) {
+    const isolation = normalizePluginIsolationSettings(options.pluginIsolationSettings, options.pluginName)
+    args.push('--settings', JSON.stringify(isolation))
+    args.push('--plugin-dir', options.pluginDir)
+  }
+  // Keep this variadic option last: otherwise Commander can consume subsequent scalar flags as
+  // additional tool names. No web because the maintainers' upstream review is one search away.
+  args.push('--disallowedTools', 'WebSearch', 'WebFetch')
+  return args
 }
 
-function claudeRun(prompt, cwd, requestedModel, timeoutMs, executable = CLAUDE) {
+function claudeEnvironment(env = process.env) {
+  return { ...env, CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS: '0' }
+}
+
+function claudeRun(prompt, cwd, requestedModel, timeoutMs, executable = CLAUDE, options = {}) {
   return new Promise((resolve) => {
     const started = Date.now()
-    const child = spawn(executable, claudeArgs(prompt, requestedModel), {
-      cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'],
+    const child = spawn(executable, claudeArgs(prompt, requestedModel, options), {
+      cwd, env: claudeEnvironment(), stdio: ['ignore', 'pipe', 'pipe'],
     })
     let out = '', err = '', processError = null
     child.stdout.on('data', (data) => { out += data })
@@ -347,14 +628,23 @@ function hitLimit(parsed, out) {
 }
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+function toolRequiresPluginDirectory(tool) {
+  return !!tool && (tool.requiresPluginDir === true || tool.id === 'review-and-fix-pr')
+}
+
+function toolRequiresStructuredResult(tool) {
+  return !!tool && (tool.id === 'review-and-fix-pr' || tool.resultContract === 'review-and-fix-pr-v1')
+}
+
 async function execPair(pair, context, dependencies = {}) {
   const { target, tool, outFile } = pair
-  const { options, cohort, config, root } = context
+  const { options, cohort, config, root, claudeExecutable = CLAUDE } = context
   const prepareCheckout = dependencies.checkoutPrepared || checkoutPrepared
   const runClaude = dependencies.claudeRun || claudeRun
   const waitFor = dependencies.sleep || sleep
   const readUsage = dependencies.totalsForCwd || totalsForCwd
   const authorize = dependencies.authorizePaidCall || quota.authorizePaidCall
+  const discoverPluginSettings = dependencies.discoverPluginIsolationSettings || discoverPluginIsolationSettings
   if (fs.existsSync(outFile)) {
     readResultRecord(outFile, cohort, target.id, tool.id)
     console.log(`skip ${target.id}/${tool.id} (recorded)`)
@@ -369,20 +659,43 @@ async function execPair(pair, context, dependencies = {}) {
       console.log(`skip ${target.id}/${tool.id} (recorded)`)
       return
     }
+    if (toolRequiresPluginDirectory(tool) && !options.pluginDir) {
+      throw new Error(`${tool.id} requires --plugin-dir`)
+    }
+    if (cohort.pluginFingerprint) {
+      if (!options.pluginFingerprint || JSON.stringify(options.pluginFingerprint) !== JSON.stringify(cohort.pluginFingerprint)) {
+        throw new Error(`cohort ${cohort.runId} plugin fingerprint mismatch`)
+      }
+    } else if (options.pluginFingerprint) {
+      throw new Error(`cohort ${cohort.runId} was created without a plugin fingerprint`)
+    }
     const prompt = fill(tool.prompt, target, tool, config)
     let checkout, response, parsed, attempts, authorization = null
     for (attempts = 1; ; attempts += 1) {
       checkout = prepareCheckout(root, target, tool, cohort.runId, cohort.targets[target.id])
       console.log(`start ${target.id}/${tool.id}${attempts > 1 ? ` (attempt ${attempts})` : ''}`)
-      let executable = CLAUDE
+      const pluginIsolationSettings = options.pluginDir
+        ? discoverPluginSettings(claudeExecutable, options.pluginName, checkout.repo, dependencies)
+        : null
+      assertPluginDirectoryCurrent(options)
+      let executable = claudeExecutable
       if (cohort.requestedModel === FABLE_MODEL) {
         authorization = authorize(root, {
           runId: cohort.runId, stage: 'review', target: target.id, tool: tool.id,
           claudeVersion: cohort.claudeVersion,
         }, dependencies)
         executable = authorization.executable
+        if (options.pluginDir && executable !== claudeExecutable) {
+          throw new Error('Claude executable changed after local plugin isolation discovery')
+        }
       }
-      response = await runClaude(prompt, checkout.repo, cohort.requestedModel, options.timeoutMs, executable)
+      response = await runClaude(prompt, checkout.repo, cohort.requestedModel, options.timeoutMs, executable, {
+        maxBudgetUsd: options.maxBudgetUsd,
+        pluginDir: options.pluginDir,
+        pluginName: options.pluginName,
+        pluginIsolationSettings,
+      })
+      assertPluginDirectoryCurrent(options)
       parsed = null
       try { parsed = JSON.parse(response.out) } catch {}
       if (!hitLimit(parsed, response.out)) break
@@ -395,6 +708,9 @@ async function execPair(pair, context, dependencies = {}) {
       await waitFor(wait * 60_000)
     }
     assertPublishableResponse(response, parsed, cohort.requestedModel)
+    const resultContract = toolRequiresStructuredResult(tool)
+      ? parseReviewAndFixPrResultContract(parsed.result)
+      : null
     const usage = readUsage(checkout.repo)
     assertTranscriptUsage(usage, cohort.requestedModel)
     const record = {
@@ -424,6 +740,7 @@ async function execPair(pair, context, dependencies = {}) {
       apiErrorStatus: parsed ? parsed.api_error_status : null,
       transcriptUsage: usage,
       result: parsed ? parsed.result : null,
+      ...(resultContract == null ? {} : { resultContract }),
       ...(cohort.requestedModel === FABLE_MODEL ? { quotaEvidence: authorization && authorization.quotaEvidence } : {}),
       stderrTail: response.err.slice(-4000),
       attempts,
@@ -443,10 +760,7 @@ async function execPair(pair, context, dependencies = {}) {
 async function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
   const options = parseArgs(argv, root)
   const state = JSON.parse(fs.readFileSync(path.join(root, 'state.json'), 'utf8'))
-  const targetIds = Object.keys(state.targets)
-  const requestedPaths = cohortPaths(root, options.runId)
-  const validateTargetIds = !options.listOnly && requestedPaths.manifest && fs.existsSync(requestedPaths.manifest) ? targetIds : null
-  const cohort = selectCohort(root, options, validateTargetIds)
+  const cohort = selectCohort(root, options, options.listOnly ? null : Object.keys(state.targets))
   if (!options.listOnly && cohort.requestedModel === FABLE_MODEL && options.concurrency !== 1) {
     throw new Error(`${FABLE_MODEL} requires --concurrency 1`)
   }
@@ -462,9 +776,16 @@ async function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}
     const displayConfig = cohort.toolConfig || config
     const allDisplayPairs = buildPairs(root, { ...options, only: null, onlyTool: null }, paths, displayState, displayConfig)
     if (cohort.expectedCells) assertParkedScope(cohort.runId, cohort.expectedCells, allDisplayPairs, options.includeParked)
-    const pairs = cohort.expectedCells
+    let pairs = cohort.expectedCells
       ? pairsForManifest(root, options, paths, displayState, displayConfig, cohort)
-      : buildPairs(root, options, paths, displayState, displayConfig)
+      : buildPairs(root, {
+          ...options, only: options.cohortTarget, onlyTool: options.cohortTool,
+        }, paths, displayState, displayConfig)
+        .filter((pair) => (!options.only || pair.target.id === options.only) &&
+          (!options.onlyTool || pair.tool.id === options.onlyTool))
+    if (!cohort.expectedCells && !options.cohortTool) {
+      pairs = pairs.filter((pair) => pair.tool.cohortOnly !== true)
+    }
     for (const pair of pairs) {
       const status = fs.existsSync(pair.outFile) ? 'done' : pair.tool.parked ? 'parked' : 'pending'
       console.log(`${pair.target.id.padEnd(12)} ${pair.tool.id.padEnd(22)} ${status}`)
@@ -479,22 +800,40 @@ async function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}
     : CLAUDE
   const version = (dependencies.claudeVersion || claudeVersion)(versionExecutable, dependencies)
   assertClaudeVersionSupportsModel(version, cohort.requestedModel)
-  const configSha256 = sha256File(configFile)
-  const targets = cohort.targets || resolveManifestTargets(root, state)
-  const targetMetadata = snapshotTargetMetadata(state.targets)
+  const scope = cohort.cohortScope || freshCohortScope(options)
+  const toolConfig = scopedToolConfig(config, scope)
+  const expectedCells = cohort.expectedCells || expectedCellsForFreshCohort(root, options, paths, state, config)
+  if (!expectedCells.length) throw new Error('cohort scope selects no eligible benchmark cells')
+  const targetIds = cohort.targets
+    ? Object.keys(cohort.targets).sort()
+    : scope
+      ? [...new Set(expectedCells.map((cell) => cell.target))].sort()
+      : Object.keys(state.targets).sort()
+  const scopedState = selectStateTargets(state, targetIds)
+  const toolsById = new Map(toolConfig.tools.map((tool) => [tool.id, tool]))
+  const pluginRequired = expectedCells.find((cell) => {
+    const tool = toolsById.get(cell.tool)
+    const selectedForInvocation = (!options.only || cell.target === options.only) &&
+      (!options.onlyTool || cell.tool === options.onlyTool)
+    return (!cohort.expectedCells || selectedForInvocation) &&
+      tool && (!tool.parked || options.includeParked) && toolRequiresPluginDirectory(tool)
+  })
+  if (pluginRequired && !options.pluginDir) throw new Error(`${pluginRequired.tool} requires --plugin-dir`)
+  const configSha256 = scope ? hashJson(toolConfig) : sha256File(configFile)
+  const targets = cohort.targets || (dependencies.resolveManifestTargets || resolveManifestTargets)(root, scopedState)
+  const targetMetadata = snapshotTargetMetadata(scopedState.targets)
   const groundtruth = cohort.groundtruth || snapshotGroundtruth(root, targetIds)
   const scopeOptions = { ...options, only: null, onlyTool: null }
-  const allEligiblePairs = buildPairs(root, scopeOptions, paths, state, config)
-  const expectedCells = cohort.expectedCells || expectedCellsForFreshCohort(root, options, paths, state, config)
+  const allEligiblePairs = buildPairs(root, scopeOptions, paths, scopedState, toolConfig)
   if (cohort.expectedCells) assertParkedScope(cohort.runId, cohort.expectedCells, allEligiblePairs, options.includeParked)
   const manifest = ensureManifest(root, {
     ...cohort, claudeVersion: version, configSha256, targets, targetMetadata, expectedCells,
-    toolConfig: config, groundtruth,
+    toolConfig, groundtruth, cohortScope: scope, pluginFingerprint: options.pluginFingerprint,
   })
   assertManifestTargets(manifest, targetIds)
   const pinnedState = { targets: manifest.targetMetadata }
   const pairs = pairsForManifest(root, options, paths, pinnedState, manifest.toolConfig, manifest)
-  const context = { options, cohort: manifest, config: manifest.toolConfig, root }
+  const context = { options, cohort: manifest, config: manifest.toolConfig, root, claudeExecutable: versionExecutable }
   const queue = pairs.slice()
   let failures = 0
   let stopped = false
@@ -516,16 +855,21 @@ async function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}
 
 module.exports = {
   assertClaudeVersionSupportsModel,
+  assertPluginDirectoryCurrent,
   buildPairs,
   checkoutPrepared,
   claim,
   claudeArgs,
+  claudeEnvironment,
   claudeRun,
   claudeVersion,
+  discoverPluginIsolationSettings,
   execPair,
   expectedCellsForFreshCohort,
   expectedCellsForPairs,
   fill,
+  freshCohortScope,
+  hashJson,
   hitLimit,
   assertPublishableResponse,
   assertRequestedModelUsage,
@@ -534,12 +878,20 @@ module.exports = {
   main,
   parseArgs,
   parseClaudeVersion,
+  parseInstalledPluginSettings,
   parseLsRemote,
   pairsForManifest,
+  pluginContentFiles,
+  pluginContentHash,
+  resolvePluginDirectory,
   resolveManifestTargets,
   resolveTargetPins,
   selectCohort,
   sourceHasPins,
+  scopedToolConfig,
+  selectStateTargets,
+  toolRequiresPluginDirectory,
+  toolRequiresStructuredResult,
   validateInputs,
 }
 

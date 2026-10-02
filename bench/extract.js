@@ -2,11 +2,13 @@
 // Turn each tool's prose report into comparable findings inside the selected immutable cohort.
 //
 //   node bench/extract.js [--run <run-id>] [--only <target>] [--tool <tool>]
+//                         [--max-budget-usd <amount>] [--timeout <minutes>]
 const fs = require('node:fs')
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 const {
   acquireLocalLock,
+  assertRecordMetadata,
   assertSafeId,
   defaultRunId,
   ensureSeal,
@@ -25,6 +27,7 @@ const quota = require('./quota')
 const ROOT = __dirname
 const CLAUDE = process.env.CLAUDE || 'claude'
 const EXTRACTOR_MODEL = 'claude-sonnet-5'
+const DEFAULT_TIMEOUT_MS = 120 * 60_000
 const TITLE_LIMIT = 90
 
 const INSTRUCTIONS = `You are given one code-review report. Extract every distinct finding it makes.
@@ -45,7 +48,13 @@ REPORT:
 
 function parseArgs(argv, root = ROOT) {
   if (argv.includes('--force')) throw new Error('--force is not supported; benchmark artifacts are append-only')
-  const options = { runId: defaultRunId(root), only: null, onlyTool: null }
+  const options = {
+    runId: defaultRunId(root),
+    only: null,
+    onlyTool: null,
+    maxBudgetUsd: null,
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+  }
   const value = (flag, index) => {
     const next = argv[index + 1]
     if (next == null || next.startsWith('--')) throw new Error(`${flag} requires a value`)
@@ -56,22 +65,39 @@ function parseArgs(argv, root = ROOT) {
     if (arg === '--run') { options.runId = assertSafeId(value(arg, i++), 'run id'); continue }
     if (arg === '--only') { options.only = assertSafeId(value(arg, i++), 'target'); continue }
     if (arg === '--tool') { options.onlyTool = assertSafeId(value(arg, i++), 'tool'); continue }
+    if (arg === '--max-budget-usd') {
+      options.maxBudgetUsd = Number(value(arg, i++))
+      if (!Number.isFinite(options.maxBudgetUsd) || options.maxBudgetUsd <= 0) {
+        throw new Error('--max-budget-usd must be a positive finite number')
+      }
+      continue
+    }
+    if (arg === '--timeout') {
+      const minutes = Number(value(arg, i++))
+      options.timeoutMs = minutes * 60_000
+      if (!Number.isFinite(minutes) || minutes <= 0 || !Number.isFinite(options.timeoutMs)) {
+        throw new Error('--timeout must be a positive finite number')
+      }
+      continue
+    }
     throw new Error(`unknown argument: ${arg}`)
   }
   if (options.runId === 'legacy') throw new Error('legacy cohort is read-only')
   return options
 }
 
-function extractorArgs(report) {
-  return [
+function extractorArgs(report, options = {}) {
+  const args = [
     '-p', INSTRUCTIONS + report,
     '--output-format', 'json',
     '--model', EXTRACTOR_MODEL,
     '--effort', 'high',
     '--tools', '',
     '--permission-mode', 'bypassPermissions',
-    '--disallowedTools', 'WebSearch', 'WebFetch', 'Bash', 'Edit', 'Write',
   ]
+  if (options.maxBudgetUsd != null) args.push('--max-budget-usd', String(options.maxBudgetUsd))
+  args.push('--disallowedTools', 'WebSearch', 'WebFetch', 'Bash', 'Edit', 'Write')
+  return args
 }
 
 // Model output occasionally exceeds its requested title ceiling by a few characters. Titles are
@@ -100,12 +126,18 @@ function normalizeFindings(findings) {
   ))
 }
 
-function extractOne(file, cwd, executable = CLAUDE, dependencies = {}) {
+function extractOne(file, cwd, executable = CLAUDE, dependencies = {}, options = {}) {
   const record = JSON.parse(fs.readFileSync(file, 'utf8'))
   const report = record.result || ''
   if (!report.trim()) return { ok: true, record, findings: [], extractError: null, modelUsage: null, sourceReportEmpty: true }
   const runExtractor = dependencies.spawnSync || spawnSync
-  const result = runExtractor(executable, extractorArgs(report), { maxBuffer: 1 << 28, encoding: 'utf8', cwd })
+  const result = runExtractor(executable, extractorArgs(report, options), {
+    maxBuffer: 1 << 28,
+    encoding: 'utf8',
+    cwd,
+    timeout: options.timeoutMs == null ? DEFAULT_TIMEOUT_MS : options.timeoutMs,
+    killSignal: 'SIGKILL',
+  })
   let meta
   try {
     meta = JSON.parse(result.stdout)
@@ -127,11 +159,7 @@ function extractOne(file, cwd, executable = CLAUDE, dependencies = {}) {
 }
 
 function assertRecordCohort(record, manifest) {
-  for (const [key, value] of Object.entries(manifestMetadata(manifest))) {
-    if (record[key] !== value) {
-      throw new Error(`${record.target || 'result'}/${record.tool || 'unknown'} ${key} does not match cohort manifest`)
-    }
-  }
+  return assertRecordMetadata(record, manifest, `${record.target || 'result'}/${record.tool || 'unknown'}`)
 }
 
 function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
@@ -175,7 +203,7 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
         }, dependencies)
         executable = authorization.executable
       }
-      const extracted = runExtract(input, cwd, executable, dependencies)
+      const extracted = runExtract(input, cwd, executable, dependencies, options)
       if (!extracted.ok) {
         console.error(`FAIL ${target}/${tool}: ${extracted.error}`)
         return failures + 1
@@ -228,7 +256,7 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
 }
 
 module.exports = {
-  EXTRACTOR_MODEL, TITLE_LIMIT, assertRecordCohort, extractOne, extractorArgs, main,
+  DEFAULT_TIMEOUT_MS, EXTRACTOR_MODEL, TITLE_LIMIT, assertRecordCohort, extractOne, extractorArgs, main,
   normalizeFindings, normalizeTitle, parseArgs,
 }
 

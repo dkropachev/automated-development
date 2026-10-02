@@ -1,6 +1,7 @@
 'use strict'
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
+const crypto = require('node:crypto')
 const fs = require('fs')
 const path = require('path')
 const vm = require('vm')
@@ -35,14 +36,15 @@ function helpers(overrides = {}) {
     'const SEV_RANK = { critical: 0, high: 1, medium: 2, low: 3 }',
     'const severityRank = s => SEV_RANK[s] === undefined ? 9 : SEV_RANK[s]',
     "const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9:.\\/]+/g, '-').replace(/^-+|-+$/g, '')",
-    extractFn('plannedDiscoveryLenses'), extractFn('identityHex'),
+    extractFn('plannedDiscoveryLenses'), extractFn('canonicalJson'), extractFn('sha256Utf8'),
+    extractFn('canonicalJsonSha256'), extractFn('identityHex'),
     extractFn('followUpIdentity'),
     extractFn('normalizedFingerprint'), extractFn('stableRawCandidateId'), extractFn('safeFindingPath'),
     extractFn('findingPathsSafe'), extractFn('mergeFinding'),
     extractFn('findingConsumesThreshold'),
     "const CODE_DEFECT_CLASSES = new Set(['logic','nil-deref','bounds','concurrency','resource-leak','error-handling','security','api-contract','perf','regression'])",
     extractFn('defectBucket'), extractFn('scoreFindings'), extractFn('thresholdTrigger'),
-    extractFn('clusterCandidates'), extractFn('appendRawCandidateDispositions'),
+    extractFn('stableClusterCandidateId'), extractFn('clusterCandidates'), extractFn('appendRawCandidateDispositions'),
     extractFn('validationDecisionMap'), extractFn('combineDoubleVerification'),
     extractFn('receiptMatrixGaps'),
     extractFn('coverageUnitSetError'),
@@ -101,6 +103,16 @@ test('conservative clustering keeps same-symbol defects with different mechanism
     finding('medium', { candidateId: 'scope-out', scopeLabel: 'out' }),
   ])
   assert.equal(scopeConflict[0].scopeLabel, 'in')
+
+  const sameDefect = [
+    finding('medium', { candidateId: 'raw-z', evidence: 'src/a.js:1 short' }),
+    finding('high', { candidateId: 'raw-a', evidence: 'src/a.js:1 substantially longer evidence' }),
+  ]
+  const forward = h.clusterCandidates(sameDefect)[0]
+  const reversed = h.clusterCandidates(sameDefect.slice().reverse())[0]
+  assert.equal(forward.candidateId, reversed.candidateId)
+  assert.match(forward.candidateId, /^cluster-[a-f0-9]{64}$/)
+  assert.deepEqual(Array.from(forward.rawCandidateIds).sort(), Array.from(reversed.rawCandidateIds).sort())
 })
 
 test('fix authorization accepts only safe repository-relative finding paths', () => {
@@ -144,7 +156,7 @@ test('raw candidate IDs and dispositions remain stable and identity-bound', () =
   assert.deepEqual(JSON.parse(JSON.stringify(dispositions)), [{
     rawCandidateId: id,
     rawCandidateIdentity: h.normalizedFingerprint(f),
-    clusterId: 'cluster-' + id,
+    clusterId: clustered.candidateId,
     status: 'confirmed',
     cycle: 2,
   }])
@@ -220,6 +232,27 @@ test('semantic coverage units cannot collide or disappear behind duplicate ids',
   assert.match(h.coverageUnitSetError([{ id: 'hunk:a:hash' }], new Set(['hunk:a:hash'])), /collides/)
   assert.match(h.coverageUnitSetError([{ id: '' }]), /no stable id/)
   assert.equal(h.coverageUnitSetError([{ id: 'contract:a' }, { id: 'test:a' }]), null)
+})
+
+test('resume freezes initial semantic IDs and immutable requirements despite a changed fresh scope', () => {
+  const select = vm.runInNewContext(extractFn('selectFrozenSemanticCoverage') +
+    '\nselectFrozenSemanticCoverage')
+  const head = 'a'.repeat(40)
+  const saved = { headSha: head, coverageUnits: [
+    { id: 'requirement:saved', type: 'requirement' },
+    { id: 'contract:saved', type: 'contract' },
+  ] }
+  const fresh = [
+    { id: 'requirement:changed', type: 'requirement' },
+    { id: 'contract:changed', type: 'contract' },
+  ]
+  const sameHead = select(saved, null, fresh, head)
+  assert.deepEqual(Array.from(sameHead.currentUnits, unit => unit.id), ['requirement:saved', 'contract:saved'])
+  assert.deepEqual(Array.from(sameHead.immutableUnits, unit => unit.id), ['requirement:saved'])
+  const advanced = select(saved, null, fresh, 'b'.repeat(40))
+  assert.deepEqual(Array.from(advanced.currentUnits, unit => unit.id), ['requirement:changed', 'contract:changed'])
+  assert.deepEqual(Array.from(advanced.immutableUnits, unit => unit.id), ['requirement:saved'])
+  assert.match(select({ headSha: head }, null, fresh, head).error, /missing/)
 })
 
 test('deterministic manifest must account for every changed hunk exactly once', () => {
@@ -323,14 +356,26 @@ test('finding disposition transitions keep exactly one live terminal bucket', ()
 test('resume revalidates restored discovery and atomically records fixer follow-ups', () => {
   assert.match(WF, /const candidatesForVerification = candidates\s/)
   assert.doesNotMatch(WF, /candidates\.filter\(candidate => !candidate\.resumedCandidate\)/)
-  assert.match(WF, /followUps: res\.followUps \|\| \[\]/)
-  assert.match(WF, /snapshotVersion: 2[\s\S]*lineageCursor/)
-  assert.match(WF, /stageFixReceipt\(batchId, fixReceipt\)/)
-  assert.doesNotMatch(WF, /advance-head[\s\S]{0,600}--receipt-base64/)
-  assert.match(WF, /failedGapReviews: coverageGaps\.filter/)
+  assert.match(WF, /followUps: expanded\.followUps \|\| \[\]/)
+  assert.match(WF, /snapshotVersion: 3[\s\S]*lineageCursor/)
+  assert.match(WF, /sourceArtifacts/)
+  assert.match(WF, /sha256: record\.sha256/)
+  assert.match(WF, /fixWindow: fixWindowValue/)
+  assert.match(WF, /import-journal --store/)
+  assert.match(WF, /label: plan\.callerLabel/)
+  assert.match(WF, /put-control --store/)
+  assert.doesNotMatch(WF, /review-and-fix-pr-state\.js'\) \+ ' put --store/)
+  assert.doesNotMatch(WF, /checkpoint-parts|stage checkpoint|\scompose --store/)
+  const importHelper = WF.slice(WF.indexOf('async function importJournalArtifact'),
+    WF.indexOf('async function checkpointControlState'))
+  assert.equal((importHelper.match(/await agentSafe\(/g) || []).length, 1)
+  assert.doesNotMatch(WF, /stageFixReceipt|receipt-prefix|receipt-parts/)
+  assert.match(WF, /prepare-head[\s\S]{0,800}--receipt-base64/)
+  assert.match(WF, /advance-head[\s\S]{0,800}--receipt-base64/)
+  assert.match(WF, /const nonDerivableCoverageGaps = coverageGaps\.filter/)
   const noChanges = WF.slice(WF.lastIndexOf("if (res.outcome === 'no-changes')"),
     WF.lastIndexOf("if (res.outcome === 'no-changes')") + 1200)
-  assert.match(noChanges, /if \(!await checkpointState/)
+  assert.match(noChanges, /checkpointDispositionState/)
   assert.match(WF, /prepareFixTransaction\(batchId, headSha, batches\[bi\]\)[\s\S]{0,500}fixerPrompt/)
   assert.match(WF, /c' \+ reviewCycle \+ '-w' \+ fixWindow \+ '-full-b'/)
   assert.doesNotMatch(WF, /findingStopTrigger && skippedLenses\.length/)
@@ -338,7 +383,8 @@ test('resume revalidates restored discovery and atomically records fixer follow-
   assert.match(WF, /build coverage manifest'[\s\S]{0,180}bashCommandClamp:[\s\S]{0,120}requireToolScope: true/)
   assert.match(WF, /rejection\.kind === 'out-of-scope'\) setFindingSetAside/)
   assert.match(WF, /missingImmutableUnits[\s\S]{0,500}coverage-error/)
-  assert.match(WF, /immutableSemanticUnits,[\s\S]{0,300}coverageGaps/)
+  assert.match(WF, /semanticRecoveryImport = planJournalImport/)
+  assert.match(WF, /importJournalArtifact\(semanticRefreshImport, semanticManifest\)/)
   assert.match(WF, /snapshot\.immutableSemanticUnits[\s\S]{0,120}immutableSemanticUnits =/)
   assert.match(WF, /claim-result --store/)
   assert.match(WF, /transactionId\.slice\(0, 16\)/)
@@ -349,10 +395,15 @@ test('resume revalidates restored discovery and atomically records fixer follow-
   assert.match(WF, /if \(base\.baselineLintOk === false\) base\.lintCmd = 'none'/)
   assert.match(WF, /const remainingChecks = \[base\.buildCmd, base\.lintCmd, base\.testCmd\]/)
   assert.match(WF, /const savedLocalCommits = ownedCommits\.map/)
+  assert.match(WF, /ownedCommits\.push\(\{ from: oldHeadSha, to: res\.commitSha[\s\S]{0,300}lineageKeyHashByHead\.set/)
   assert.match(WF, /LOCAL COMMITS CREATED/)
   assert.match(WF, /reportState\.stopReason = 'state-seal-failed'/)
   assert.match(WF, /const statusSaved = await stateLifecycle/)
   assert.match(WF, /const unlocked = await stateLifecycle/)
+  assert.ok(WF.lastIndexOf("refreshTranscriptTokens(scope, 'terminal exit')") < WF.indexOf('const sealable ='))
+  assert.ok(WF.indexOf('const sealable =') < WF.lastIndexOf("' complete --store '"))
+  assert.doesNotMatch(WF.slice(WF.lastIndexOf("' complete --store '")), /refreshTranscriptTokens\(scope, 'terminal exit'\)/)
+  assert.match(WF, /compactFrozenScope\.coverageUnits = [\s\S]{0,180}!\['hunk', 'non-text'\]/)
   assert.match(WF, /baseline-unavailable[\s\S]{0,500}No fixer ran and nothing was committed/)
   assert.doesNotMatch(WF, /baseline agent returned nothing - continuing UNVALIDATED/)
   assert.match(WF, /const cumulativeUnverified = new Map\(\)/)
@@ -365,14 +416,622 @@ test('resume revalidates restored discovery and atomically records fixer follow-
   }
 })
 
-test('follow-ups are reconciled deterministically', () => {
-  const result = helpers().dedupeFollowUps([
-    { title: 'Add timeout test', area: 'client', detail: 'exercise retry expiry', stage: 'reliability', size: 'small' },
-    { title: 'Add timeout test!', area: 'client', detail: 'exercise retry expiry', stage: 'testing', size: 'small', releaseBlocker: true, blockerReason: 'hangs' },
+test('latest artifact lookup returns the artifact value while record lookup retains metadata', () => {
+  const legacy = { headSha: 'a'.repeat(40), result: { lens: 'correctness' } }
+  const imported = { importVersion: 1, binding: { headSha: 'b'.repeat(40) }, result: { lens: 'correctness' } }
+  const source = [
+    `const resumedArtifacts = new Map(${JSON.stringify([
+      ['cycle-1/lenses/correctness.json', legacy],
+      ['cycle-1/lenses/correctness-attempt-2.json', imported],
+    ])})`,
+    `const resumedArtifactRecords = new Map(${JSON.stringify([
+      ['cycle-1/lenses/correctness-attempt-2.json', { sha256: 'c'.repeat(64), bytes: 123 }],
+    ])})`,
+    extractFn('latestArtifact'), extractFn('latestArtifactEntry'),
+    "({ value: latestArtifact('cycle-1/lenses/correctness.json'), entry: latestArtifactEntry('cycle-1/lenses/correctness.json') })",
+  ].join('\n')
+  const restored = vm.runInNewContext(source)
+  assert.deepEqual(JSON.parse(JSON.stringify(restored.value)), imported)
+  assert.equal(restored.entry.attempt, 2)
+  assert.equal(restored.entry.sha256, 'c'.repeat(64))
+  assert.equal(restored.entry.bytes, 123)
+})
+
+test('control envelopes unwrap only with exact repository and lineage bindings', () => {
+  const head = 'a'.repeat(40), keyHash = 'b'.repeat(64)
+  const envelope = { controlVersion: 1, binding: { run: 'run-1', keyHash,
+    repositoryIdentity: 'repo-id', headSha: head, artifactName: 'baseline.json' },
+    value: { headSha: head, base: { mode: 'none' } } }
+  const source = [
+    "const stateClaim = { run: 'run-1', repository: { identity: 'repo-id' } }",
+    `const lineageKeyHashByHead = new Map(${JSON.stringify([[head, keyHash]])})`,
+    extractFn('controlArtifactValue'),
+    `const envelope = ${JSON.stringify(envelope)};`,
+    ";({ valid: controlArtifactValue('baseline.json', envelope),",
+    "  wrongName: controlArtifactValue('scope.json', envelope),",
+    "  wrongRepo: controlArtifactValue('baseline.json', { ...envelope, binding: { ...envelope.binding, repositoryIdentity: 'other' } }) })",
+  ].join('\n')
+  const result = vm.runInNewContext(source)
+  assert.equal(result.valid.base.mode, 'none')
+  assert.equal(result.wrongName, null)
+  assert.equal(result.wrongRepo, null)
+})
+
+test('v3 reconstruction reproduces imported review evidence and compact dispositions', () => {
+  const head = 'a'.repeat(40)
+  const run = 'run-1'
+  const first = finding('high', { fingerprint: 'src/a.js:run:logic', candidateId: undefined,
+    files: ['src/a.js'], coverageUnitIds: ['u1'] })
+  const second = finding('medium', { fingerprint: 'src/b.js:test:test-gap', candidateId: undefined,
+    primaryFile: 'src/b.js', files: ['src/b.js'], symbol: 'testRun', defectClass: 'test-gap',
+    mechanism: 'missing assertion', observableImpact: 'regression escapes', coverageUnitIds: ['u2'] })
+  const envelope = (kind, resultId, result) => ({ importVersion: 1,
+    binding: { run, keyHash: 'b'.repeat(64), repositoryIdentity: 'repo', headSha: head,
+      kind, resultId, sourceLabel: 'source-' + resultId, sourcePhase: kind === 'verification' ? 'Validate' : 'Review',
+      workflowId: 'wf', sourceKey: 'key-' + resultId, agentId: 'agent-' + resultId }, result })
+  const artifacts = [
+    ['cycle-2/lenses/correctness.json', envelope('lens', 'correctness', {
+      lens: 'correctness', findings: [first], rejected: [], followUps: [{ title: 'follow', detail: 'd', area: 'a' }],
+      coverageReceipts: [{ unitId: 'u1' }],
+    })],
+    ['cycle-2/gaps/g1.json', envelope('gap', 'gap-g1', {
+      lens: 'gap-g1', findings: [second], rejected: [], followUps: [], coverageReceipts: [{ unitId: 'u2' }],
+    })],
+    ['cycle-2/coverage/initial-audit.json', envelope('coverage-audit', 'initial', {
+      gaps: [{ id: 'old-gap' }],
+    })],
+    ['cycle-2/coverage/final-audit.json', envelope('coverage-audit', 'final', {
+      gaps: [{ id: 'remaining-gap' }],
+    })],
+    ['cycle-2/verification/first.json', envelope('verification', 'first', {
+      confirmed: [{ candidateId: 'placeholder', finding: first }], rejected: [], unresolved: [],
+    })],
+  ]
+  for (const [name, value] of artifacts) value.binding.artifactName = name
+  const refs = artifacts.map(([name], index) => ({ name, sha256: String(index + 1).repeat(64).slice(0, 64),
+    bytes: 100 + index }))
+  const records = refs.map(ref => [ref.name, { sha256: ref.sha256, bytes: ref.bytes }])
+  const source = [
+    "const stateClaim = { run: 'run-1' }, resumedArtifacts = new Map()",
+    "const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9:.\\/]+/g, '-').replace(/^-+|-+$/g, '')",
+    extractFn('canonicalJson'), extractFn('sha256Utf8'), extractFn('canonicalJsonSha256'),
+    extractFn('identityHex'), extractFn('normalizedFingerprint'), extractFn('stableRawCandidateId'),
+    extractFn('stableFindingOccurrenceIndexes'),
+    extractFn('reconstructionFindingKey'), extractFn('sourceResultRecord'), extractFn('normalizeSourceArtifactRef'),
+    extractFn('reconstructReviewSourceState'), extractFn('resolveRawLocator'),
+    extractFn('canonicalJson'),
+    `const COMPACT_FINDING_STATE_FIELDS = ${JSON.stringify([
+      'title', 'detail', 'primaryFile', 'files', 'symbol', 'defectClass', 'evidence', 'supportingEvidence',
+      'trigger', 'mechanism', 'observableImpact', 'baseVsHead', 'coverageUnitIds', 'severity', 'confidence',
+      'fixSize', 'defer', 'deferReason', 'releaseBlocker', 'blockerReason', 'scopeLabel', 'deferralQuote',
+      'validationStatus', 'validationReason', 'whyStillHere',
+    ])}`,
+    extractFn('applyCompactFindingStateDelta'),
+    extractFn('decodeCompactDispositionSnapshot'),
+    `const refs = ${JSON.stringify(refs)}`,
+    `const values = new Map(${JSON.stringify(artifacts)})`,
+    `const records = new Map(${JSON.stringify(records)})`,
+    `const rebuilt = reconstructReviewSourceState(refs, values, records, ${JSON.stringify(run)})`,
+    'const context = { catalog: rebuilt.rawCandidates.map(candidate => ({ ...candidate })),',
+    `  catalogHeads: [${JSON.stringify(head)}, ${JSON.stringify(head)}],`,
+    '  rawLocations: rebuilt.rawLocations, reviewSources: rebuilt }',
+    'const snapshot = { sourceArtifacts: refs, live: { rejected: [], rejectedHints: [], setAside: [], deferred: [],',
+    `  stillPresent: [], open: [[0, 'eligible; confirmed', ${JSON.stringify(head)}, { set: { validationStatus: 'eligible; confirmed' }, unset: [] }]],`,
+    `  unresolved: [[1, 'needs another check', ${JSON.stringify(head)}, { set: { validationReason: 'needs another check' }, unset: [] }]], outOfScope: [] },`,
+    "  cumulative: { candidates: [[0, 'high', 'likely', 'logic', 'in', 0, 0], [1, 'medium', 'likely', 'test-gap', 'in', 0, 0]],",
+    "    confirmed: [[0, 'high', 'likely', 'logic', 'in', 0, 0]], unverified: [] },",
+    `  rawDispositions: [[['s', 0, 0], 'confirmed', 2, ${JSON.stringify('cluster-' + 'a'.repeat(64))}], [['s', 1, 0], 'unresolved', 2, ${JSON.stringify('cluster-' + 'b'.repeat(64))}]] }`,
+    `const decoded = decodeCompactDispositionSnapshot(snapshot, context, values, ${JSON.stringify(run)})`,
+    ';({ rebuilt, decoded })',
+  ].join('\n')
+  const result = vm.runInNewContext(source)
+  assert.deepEqual(Array.from(result.rebuilt.completedLenses), ['correctness', 'gap-g1'])
+  assert.equal(result.rebuilt.rawCandidates.length, 2)
+  assert.match(result.rebuilt.rawCandidates[0].candidateId, /^raw:c2:h/)
+  assert.deepEqual(Array.from(result.rebuilt.coverageReceipts, row => row.receipts[0].unitId), ['u1', 'u2'])
+  assert.equal(result.rebuilt.followUps[0].title, 'follow')
+  assert.equal(result.rebuilt.verification.first.confirmed.length, 1)
+  assert.deepEqual(Array.from(result.rebuilt.coverage.activeGaps, gap => gap.id), ['remaining-gap'])
+  assert.equal(result.decoded.live.open[0].validationStatus, 'eligible; confirmed')
+  assert.equal(result.decoded.live.unresolved[0].validationReason, 'needs another check')
+  assert.deepEqual(Array.from(result.decoded.cumulative.candidates, item => item.severity), ['high', 'medium'])
+  assert.deepEqual(Array.from(result.decoded.rawDispositions, item => item.status), ['confirmed', 'unresolved'])
+  assert.equal(result.decoded.rawDispositions[0].rawCandidateId, result.rebuilt.rawCandidates[0].candidateId)
+  assert.deepEqual(Array.from(result.decoded.reviewSources.coverage.activeGaps, gap => gap.id), ['remaining-gap'])
+})
+
+test('v3 live finding restoration stays bound to the latest head occurrence', () => {
+  const oldHead = 'a'.repeat(40), newHead = 'b'.repeat(40)
+  const oldFinding = finding('critical', { candidateId: 'old', files: ['src/old.js'],
+    evidence: 'src/old.js:1 stale', detail: 'stale occurrence' })
+  const newFinding = finding('low', { candidateId: 'new', files: ['src/new.js'],
+    evidence: 'src/new.js:9 current', detail: 'current occurrence', validationStatus: 'eligible; confirmed' })
+  const stateFields = ['title', 'detail', 'primaryFile', 'files', 'symbol', 'defectClass', 'evidence',
+    'supportingEvidence', 'trigger', 'mechanism', 'observableImpact', 'baseVsHead', 'coverageUnitIds',
+    'severity', 'confidence', 'fixSize', 'defer', 'deferReason', 'releaseBlocker', 'blockerReason',
+    'scopeLabel', 'deferralQuote', 'validationStatus', 'validationReason', 'whyStillHere']
+  const source = [
+    `const COMPACT_FINDING_STATE_FIELDS = ${JSON.stringify(stateFields)}`,
+    extractFn('canonicalJson'), extractFn('compactFindingStateDelta'), extractFn('applyCompactFindingStateDelta'),
+    "const stateClaim = { run: 'run-1' }, resumedArtifacts = new Map()",
+    "const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9:.\\/]+/g, '-').replace(/^-+|-+$/g, '')",
+    extractFn('canonicalJson'), extractFn('sha256Utf8'), extractFn('canonicalJsonSha256'),
+    extractFn('identityHex'), extractFn('normalizedFingerprint'), extractFn('stableRawCandidateId'),
+    extractFn('reconstructionFindingKey'), extractFn('sourceResultRecord'), extractFn('resolveRawLocator'),
+    extractFn('decodeCompactDispositionSnapshot'),
+    `const oldFinding = ${JSON.stringify(oldFinding)}, newFinding = ${JSON.stringify(newFinding)}`,
+    'const delta = compactFindingStateDelta(newFinding, newFinding)',
+    `const context = { catalog: [oldFinding, newFinding], catalogHeads: [${JSON.stringify(oldHead)}, ${JSON.stringify(newHead)}],`,
+    '  reviewSources: { marker: true } }',
+    `const snapshot = { sourceArtifacts: [], live: { rejected: [], rejectedHints: [], setAside: [], deferred: [], stillPresent: [],
+      open: [[1, 'eligible; confirmed', ${JSON.stringify(newHead)}, delta]], unresolved: [], outOfScope: [] },
+      cumulative: { candidates: [], confirmed: [], unverified: [] }, rawDispositions: [] }`,
+    "const decoded = decodeCompactDispositionSnapshot(snapshot, context, new Map(), 'run-1')",
+    ';decoded.live.open[0]',
+  ].join('\n')
+  const restored = vm.runInNewContext(source)
+  assert.deepEqual(Array.from(restored.files), ['src/new.js'])
+  assert.equal(restored.severity, 'low')
+  assert.equal(restored.evidence, 'src/new.js:9 current')
+  assert.doesNotMatch(JSON.stringify(restored), /old\.js|stale occurrence/)
+})
+
+test('v3 disposition deltas remain under the relay cap across 20 findings and cycles', () => {
+  const head = 'a'.repeat(40)
+  const findings = Array.from({ length: 20 }, (_, index) => finding(index % 2 ? 'medium' : 'high', {
+    candidateId: 'cluster-' + String(index).padStart(2, '0'), symbol: 'symbol-' + index,
+    trigger: 'trigger-' + index, mechanism: 'mechanism-' + index,
+    observableImpact: 'impact-' + index, files: ['src/file-' + index + '.js'],
+  }))
+  const source = [
+    extractFn('canonicalJson'), extractFn('sha256Utf8'), extractFn('canonicalJsonSha256'),
+    extractFn('identityHex'), extractFn('normalizedFingerprint'), extractFn('reconstructionFindingKey'),
+    `const LIVE_HEAD_INDEX = ${JSON.stringify({ rejected: 2, rejectedHints: 2, setAside: 2,
+      deferred: 3, stillPresent: 4, open: 2, unresolved: 2, outOfScope: 3 })}`,
+    extractFn('emptyDispositionMaterialized'), extractFn('dispositionLiveKey'),
+    extractFn('materializeDispositionFull'), extractFn('dispositionDelta'),
+    extractFn('applyDispositionDelta'), extractFn('fullDispositionFromMaterialized'),
+    `const head = ${JSON.stringify(head)}, catalog = ${JSON.stringify(findings)}, catalogHeads = Array(20).fill(head)`,
+    'const context = { catalog, catalogHeads }',
+    'let previous = emptyDispositionMaterialized(), replayed = emptyDispositionMaterialized(), previousRef = null',
+    'const snapshots = []',
+    'for (let cycle = 1; cycle <= 20; cycle++) {',
+    '  const open = []; const candidates = []; const rawDispositions = []; const extraFollowUps = []',
+    '  for (let index = 0; index < 20; index++) {',
+    "    open.push([index, 'eligible; confirmed', head, { set: {}, unset: [] }])",
+    "    candidates.push([index, catalog[index].severity, 'likely', 'logic', 'in', 0, 0])",
+    "    rawDispositions.push([['c', index, 'recovery', head], 'confirmed', 1, 'cluster-' + String(index).padStart(64, '0')])",
+    '  }',
+    '  const full = { live: { rejected: [], rejectedHints: [], setAside: [], deferred: [], stillPresent: [],',
+    '    open, unresolved: [], outOfScope: [] }, cumulative: { candidates, confirmed: candidates, unverified: [] },',
+    '    rawDispositions, extraFollowUps }',
+    '  const current = materializeDispositionFull(full, context); const delta = dispositionDelta(previous, current)',
+    "  const ref = { name: 'cycle-' + cycle + '/dispositions.json', sha256: String(cycle).padStart(64, '0'), bytes: 400 }",
+    "  const sourceArtifacts = Array.from({ length: cycle === 1 ? 13 : 1 }, (_, sourceIndex) => ([",
+    "    'cycle-' + cycle + '/lenses/l' + sourceIndex + '.json', 'c'.repeat(64), 100]))",
+    "  snapshots.push({ snapshotVersion: 3, headSha: head, keyHash: 'b'.repeat(64), lineageCursor: cycle - 1,",
+    '    fixWindow: 1, previousDisposition: previousRef, sourceArtifacts, delta })',
+    '  if (!applyDispositionDelta(replayed, delta, context)) throw new Error("delta failed")',
+    '  previous = current; previousRef = ref',
+    '}',
+    ';({ snapshots, finalExpected: fullDispositionFromMaterialized(previous), finalActual: fullDispositionFromMaterialized(replayed) })',
+  ].join('\n')
+  const result = vm.runInNewContext(source)
+  for (const snapshot of result.snapshots) {
+    const encodedBytes = Buffer.from(JSON.stringify(snapshot)).toString('base64').length
+    assert.ok(encodedBytes <= 8192, 'encoded disposition bytes: ' + encodedBytes)
+    assert.ok(snapshot.sourceArtifacts.length <= 13)
+  }
+  assert.deepEqual(JSON.parse(JSON.stringify(result.finalActual)), JSON.parse(JSON.stringify(result.finalExpected)))
+  assert.equal(result.snapshots[0].previousDisposition, null)
+  assert.equal(result.snapshots[19].previousDisposition.name, 'cycle-19/dispositions.json')
+  assert.match(WF, /visited\.has\(name\)/)
+  assert.match(WF, /record\.sha256 !== expected\.sha256 \|\| record\.bytes !== expected\.bytes/)
+})
+
+test('v3 disposition chain resolves oldest-to-newest and rejects hash mismatches or cycles', () => {
+  const rootName = 'cycle-1/dispositions.json', nextName = 'cycle-2/dispositions.json'
+  const rootRef = { name: rootName, sha256: 'a'.repeat(64), bytes: 300 }
+  const sourceOne = { name: 'cycle-1/lenses/a.json', sha256: 'c'.repeat(64), bytes: 100 }
+  const sourceTwo = { name: 'cycle-2/lenses/b.json', sha256: 'd'.repeat(64), bytes: 110 }
+  const emptyDelta = { h: [], ls: [], ld: [], cs: [], r: [], rr: 0, fs: [], fd: [] }
+  const root = { snapshotVersion: 3, sourceArtifacts: [sourceOne], previousDisposition: null,
+    delta: { ...emptyDelta, fs: [{ title: 'first' }] } }
+  const next = { snapshotVersion: 3, sourceArtifacts: [sourceTwo], previousDisposition: rootRef,
+    delta: { ...emptyDelta, fs: [{ title: 'second' }] } }
+  const run = (rootValue, nextValue) => vm.runInNewContext([
+    `const resumedArtifacts = new Map(${JSON.stringify([[rootName, { value: rootValue }],
+      [nextName, { value: nextValue }], [sourceOne.name, {}], [sourceTwo.name, {}]])})`,
+    `const resumedArtifactRecords = new Map(${JSON.stringify([[rootName, { sha256: rootRef.sha256, bytes: rootRef.bytes }],
+      [nextName, { sha256: 'b'.repeat(64), bytes: 320 }], [sourceOne.name, sourceOne], [sourceTwo.name, sourceTwo]])})`,
+    'const LIVE_HEAD_INDEX = { rejected: 2, rejectedHints: 2, setAside: 2, deferred: 3, stillPresent: 4, open: 2, unresolved: 2, outOfScope: 3 }',
+    extractFn('canonicalJson'), extractFn('sha256Utf8'), extractFn('canonicalJsonSha256'),
+    extractFn('normalizeSourceArtifactRef'),
+    extractFn('emptyDispositionMaterialized'), extractFn('applyDispositionDelta'),
+    'const dispositionSnapshotValue = (name, stored) => stored && stored.value',
+    'const buildReconstructionContext = () => ({ catalog: [] })',
+    'const materializeDispositionFull = () => null', extractFn('resolveDispositionChain'),
+    `resolveDispositionChain(${JSON.stringify(nextName)})`,
+  ].join('\n'))
+  const resolved = run(root, next)
+  assert.deepEqual(Array.from(resolved.sourceArtifacts, ref => ref.name), [sourceOne.name, sourceTwo.name])
+  assert.deepEqual(Array.from(resolved.materialized.followUps.values(), item => item.title), ['first', 'second'])
+  assert.equal(run(root, { ...next, previousDisposition: { ...rootRef, sha256: 'e'.repeat(64) } }), null)
+  assert.equal(run({ ...root, previousDisposition: { name: nextName, sha256: 'b'.repeat(64), bytes: 320 } }, next), null)
+})
+
+test('verification-none receipt candidates rebuild per head without semantic cross-head merging', () => {
+  const oldHead = 'a'.repeat(40), newHead = 'b'.repeat(40)
+  const oldFinding = finding('critical', { files: ['src/a.js', 'src/old.js'], evidence: 'src/old.js:1 stale' })
+  const newFinding = finding('low', { files: ['src/a.js', 'src/new.js'], evidence: 'src/new.js:9 current' })
+  const envelope = (head, result) => ({ importVersion: 1, binding: { run: 'run-1', headSha: head,
+    kind: 'lens', resultId: 'correctness' }, result })
+  const artifacts = [
+    ['cycle-1/lenses/correctness.json', envelope(oldHead, { lens: 'correctness', findings: [oldFinding] })],
+    ['cycle-2/lenses/correctness.json', envelope(newHead, { lens: 'correctness', findings: [newFinding] })],
+  ]
+  for (const [name, value] of artifacts) value.binding.artifactName = name
+  const source = [
+    "const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9:.\\/]+/g, '-').replace(/^-+|-+$/g, '')",
+    'const SEV_RANK = { critical: 0, high: 1, medium: 2, low: 3 }',
+    'const severityRank = s => SEV_RANK[s] === undefined ? 9 : SEV_RANK[s]',
+    extractFn('canonicalJson'), extractFn('sha256Utf8'), extractFn('canonicalJsonSha256'),
+    extractFn('identityHex'), extractFn('normalizedFingerprint'), extractFn('stableRawCandidateId'),
+    extractFn('stableFindingOccurrenceIndexes'),
+    extractFn('mergeFinding'), extractFn('stableClusterCandidateId'), extractFn('clusterCandidates'), extractFn('sourceResultRecord'),
+    extractFn('normalizeSourceArtifactRef'), extractFn('exactArtifactAttempt'),
+    extractFn('latestLogicalReceiptSources'), extractFn('reconstructReceiptCandidates'),
+    `const artifacts = new Map(${JSON.stringify(artifacts)})`,
+    `reconstructReceiptCandidates(${JSON.stringify(artifacts.map(([name]) => ({ name,
+      sha256: 'f'.repeat(64), bytes: 1 })))}, artifacts, 'run-1')`,
+  ].join('\n')
+  const candidates = vm.runInNewContext(source)
+  assert.equal(candidates.length, 2)
+  const old = candidates.find(candidate => candidate.files.includes('src/old.js'))
+  const current = candidates.find(candidate => candidate.files.includes('src/new.js'))
+  assert.deepEqual(Array.from(old.files), ['src/a.js', 'src/old.js'])
+  assert.equal(old.severity, 'critical')
+  assert.deepEqual(Array.from(current.files), ['src/a.js', 'src/new.js'])
+  assert.equal(current.severity, 'low')
+})
+
+test('verification-none same-defect replay is equivalent under reversed lens order', () => {
+  const head = 'a'.repeat(40)
+  const first = finding('medium', { files: ['src/a.js'], evidence: 'src/a.js:1 short' })
+  const second = finding('high', { files: ['src/a.js'], evidence: 'src/a.js:1 substantially longer evidence' })
+  const entry = (lens, findingValue) => {
+    const name = 'cycle-1/lenses/' + lens + '.json'
+    return [name, { importVersion: 1, binding: { run: 'run-1', headSha: head, kind: 'lens',
+      resultId: lens, artifactName: name }, result: { lens, findings: [findingValue] } }]
+  }
+  const artifacts = [entry('correctness', first), entry('security', second)]
+  const source = [
+    "const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9:.\\/]+/g, '-').replace(/^-+|-+$/g, '')",
+    'const SEV_RANK = { critical: 0, high: 1, medium: 2, low: 3 }',
+    'const severityRank = s => SEV_RANK[s] === undefined ? 9 : SEV_RANK[s]',
+    extractFn('canonicalJson'), extractFn('sha256Utf8'), extractFn('canonicalJsonSha256'),
+    extractFn('identityHex'), extractFn('normalizedFingerprint'), extractFn('stableRawCandidateId'),
+    extractFn('stableFindingOccurrenceIndexes'),
+    extractFn('mergeFinding'), extractFn('stableClusterCandidateId'), extractFn('clusterCandidates'),
+    extractFn('sourceResultRecord'), extractFn('normalizeSourceArtifactRef'), extractFn('exactArtifactAttempt'),
+    extractFn('latestLogicalReceiptSources'), extractFn('reconstructReceiptCandidates'),
+    `const values = new Map(${JSON.stringify(artifacts)})`,
+    `const forwardRefs = ${JSON.stringify(artifacts.map(([name]) => ({ name,
+      sha256: 'f'.repeat(64), bytes: 1 })))}`,
+    "const forward = reconstructReceiptCandidates(forwardRefs, values, 'run-1')[0]",
+    "const reversed = reconstructReceiptCandidates(forwardRefs.slice().reverse(), values, 'run-1')[0]",
+    ';({ forward, reversed })',
+  ].join('\n')
+  const result = vm.runInNewContext(source)
+  assert.equal(result.forward.candidateId, result.reversed.candidateId)
+  assert.equal(result.forward.severity, result.reversed.severity)
+  assert.equal(result.forward.evidence, result.reversed.evidence)
+  assert.deepEqual(Array.from(result.forward.rawCandidateIds).sort(),
+    Array.from(result.reversed.rawCandidateIds).sort())
+})
+
+test('receipt reconstruction uses only the latest immutable attempt for each logical source', () => {
+  const head = 'a'.repeat(40)
+  const first = finding('high', { primaryFile: 'src/a.js', files: ['src/a.js'], symbol: 'a' })
+  const second = finding('medium', { primaryFile: 'src/b.js', files: ['src/b.js'], symbol: 'b' })
+  const envelope = findings => ({ importVersion: 1, binding: { run: 'run-1', headSha: head,
+    kind: 'lens', resultId: 'correctness' }, result: { lens: 'correctness', findings } })
+  const artifacts = [
+    ['cycle-1/lenses/correctness.json', envelope([first, second])],
+    ['cycle-1/lenses/correctness-attempt-2.json', envelope([second, first])],
+  ]
+  for (const [name, value] of artifacts) value.binding.artifactName = name
+  const source = [
+    "const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9:.\\/]+/g, '-').replace(/^-+|-+$/g, '')",
+    'const SEV_RANK = { critical: 0, high: 1, medium: 2, low: 3 }',
+    'const severityRank = s => SEV_RANK[s] === undefined ? 9 : SEV_RANK[s]',
+    extractFn('canonicalJson'), extractFn('sha256Utf8'), extractFn('canonicalJsonSha256'),
+    extractFn('identityHex'), extractFn('normalizedFingerprint'), extractFn('stableRawCandidateId'),
+    extractFn('stableFindingOccurrenceIndexes'),
+    extractFn('mergeFinding'), extractFn('stableClusterCandidateId'), extractFn('clusterCandidates'), extractFn('sourceResultRecord'),
+    extractFn('normalizeSourceArtifactRef'), extractFn('exactArtifactAttempt'),
+    extractFn('latestLogicalReceiptSources'), extractFn('reconstructReceiptCandidates'),
+    `const artifacts = new Map(${JSON.stringify(artifacts)})`,
+    `reconstructReceiptCandidates(${JSON.stringify(artifacts.map(([name]) => ({ name,
+      sha256: 'f'.repeat(64), bytes: 1 })))}, artifacts, 'run-1')`,
+  ].join('\n')
+  const candidates = vm.runInNewContext(source)
+  assert.equal(candidates.length, 2)
+  assert.match(candidates[0].candidateId, /^cluster-[a-f0-9]{64}$/)
+  assert.match(candidates[0].rawCandidateIds[0], /^raw:c1:/)
+  assert.equal(candidates[0].primaryFile, 'src/b.js')
+  assert.match(candidates[1].candidateId, /^cluster-[a-f0-9]{64}$/)
+  assert.match(candidates[1].rawCandidateIds[0], /^raw:c1:/)
+  assert.equal(candidates[1].primaryFile, 'src/a.js')
+  assert.notEqual(candidates[0].candidateId, candidates[1].candidateId)
+})
+
+test('authenticated gap identities ending in failure or attempt suffix remain valid sources', () => {
+  const head = 'a'.repeat(40)
+  const entry = (name, resultId) => [name, { importVersion: 1, binding: {
+    run: 'run-1', headSha: head, kind: 'gap', resultId, artifactName: name,
+  }, result: { lens: resultId, findings: [] } }]
+  const artifacts = [
+    entry('cycle-1/gaps/cache-failure.json', 'gap-cache-failure'),
+    entry('cycle-1/gaps/retry-attempt-2.json', 'gap-retry-attempt-2'),
+    entry('cycle-1/gaps/retry-attempt-2-attempt-2.json', 'gap-retry-attempt-2'),
+  ]
+  const source = [
+    "const stateClaim = { run: 'run-1' }, resumedArtifacts = new Map()",
+    "const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9:.\\/]+/g, '-').replace(/^-+|-+$/g, '')",
+    extractFn('normalizeSourceArtifactRef'), extractFn('exactArtifactAttempt'), extractFn('latestLogicalReceiptSources'),
+    `const values = new Map(${JSON.stringify(artifacts)})`,
+    `latestLogicalReceiptSources(${JSON.stringify(artifacts.map(([name]) => ({ name,
+      sha256: 'f'.repeat(64), bytes: 1 })))}, values, 'run-1')`,
+  ].join('\n')
+  const selected = vm.runInNewContext(source)
+  assert.deepEqual(Array.from(selected, ref => ref.name).sort(), [
+    'cycle-1/gaps/cache-failure.json',
+    'cycle-1/gaps/retry-attempt-2-attempt-2.json',
   ])
+})
+
+test('receipt reconstruction applies double verification in first-then-challenge order', () => {
+  const head = 'a'.repeat(40)
+  const raw = finding('high', { files: ['src/a.js'], evidence: 'src/a.js:1 raw' })
+  const sourceName = 'lens:correctness'
+  const rawIdSource = [extractFn('identityHex'), extractFn('normalizedFingerprint'), extractFn('stableRawCandidateId'),
+    `stableRawCandidateId(1, ${JSON.stringify(head)}, ${JSON.stringify(sourceName)}, 0, ${JSON.stringify(raw)})`,
+  ].join('\n')
+  const rawId = vm.runInNewContext(rawIdSource)
+  const candidateId = helpers().clusterCandidates([{ ...raw, candidateId: rawId }])[0].candidateId
+  const first = { ...raw, severity: 'medium', evidence: 'src/a.js:2 first', fixSize: 'large' }
+  const challenge = { ...raw, severity: 'low', evidence: 'src/a.js:3 challenge', fixSize: 'trivial' }
+  const envelope = (kind, resultId, result) => ({ importVersion: 1,
+    binding: { run: 'run-1', headSha: head, kind, resultId }, result })
+  const artifacts = [
+    ['cycle-1/lenses/correctness.json', envelope('lens', 'correctness', { lens: 'correctness', findings: [raw] })],
+    // Lexical export order puts challenge before first; reconstruction must override that order.
+    ['cycle-1/verification/challenge.json', envelope('verification', 'challenge', {
+      confirmed: [{ candidateId, finding: challenge }], rejected: [], unresolved: [] })],
+    ['cycle-1/verification/first.json', envelope('verification', 'first', {
+      confirmed: [{ candidateId, finding: first }], rejected: [], unresolved: [] })],
+  ]
+  for (const [name, value] of artifacts) value.binding.artifactName = name
+  const source = [
+    "const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9:.\\/]+/g, '-').replace(/^-+|-+$/g, '')",
+    'const SEV_RANK = { critical: 0, high: 1, medium: 2, low: 3 }',
+    'const severityRank = s => SEV_RANK[s] === undefined ? 9 : SEV_RANK[s]',
+    extractFn('canonicalJson'), extractFn('sha256Utf8'), extractFn('canonicalJsonSha256'),
+    extractFn('identityHex'), extractFn('normalizedFingerprint'), extractFn('stableRawCandidateId'),
+    extractFn('stableFindingOccurrenceIndexes'),
+    extractFn('mergeFinding'), extractFn('stableClusterCandidateId'), extractFn('clusterCandidates'), extractFn('sourceResultRecord'),
+    extractFn('normalizeSourceArtifactRef'), extractFn('exactArtifactAttempt'),
+    extractFn('latestLogicalReceiptSources'), extractFn('reconstructReceiptCandidates'),
+    `const artifacts = new Map(${JSON.stringify(artifacts)})`,
+    `reconstructReceiptCandidates(${JSON.stringify(artifacts.map(([name]) => ({ name,
+      sha256: 'f'.repeat(64), bytes: 1 })))}, artifacts, 'run-1')`,
+  ].join('\n')
+  const candidates = vm.runInNewContext(source)
+  assert.equal(candidates.length, 1)
+  assert.equal(candidates[0].severity, 'low')
+  assert.equal(candidates[0].evidence, 'src/a.js:3 challenge')
+  assert.equal(candidates[0].fixSize, 'trivial')
+})
+
+test('v3 imported sources are bound to the trusted lineage head-key mapping', () => {
+  const firstHead = 'a'.repeat(40), secondHead = 'b'.repeat(40)
+  const firstKey = 'c'.repeat(64), secondKey = 'd'.repeat(64)
+  const source = [extractFn('trustedLineageKeyHashes'), extractFn('validateImportedSourceBinding'),
+    `const lineage = ${JSON.stringify({ initialHead: firstHead, currentHead: secondHead,
+      initialKeyHash: firstKey, currentKeyHash: secondKey,
+      ownedCommits: [{ from: firstHead, to: secondHead, fromKeyHash: firstKey, toKeyHash: secondKey }] })}`,
+    'const hashes = trustedLineageKeyHashes(lineage)',
+    `const value = ${JSON.stringify({ importVersion: 1, binding: { run: 'run-1', keyHash: firstKey,
+      repositoryIdentity: 'repo-identity', headSha: firstHead, kind: 'lens', resultId: 'correctness' }, result: {} })}`,
+    'const ref = { name: "cycle-1/lenses/correctness.json" }',
+    "const valid = validateImportedSourceBinding(ref, value, 'run-1', hashes)",
+    'const wrong = validateImportedSourceBinding(ref,',
+    "  { ...value, binding: { ...value.binding, keyHash: 'e'.repeat(64) } }, 'run-1', hashes)",
+    ';({ hashes, valid, wrong })',
+  ].join('\n')
+  const result = vm.runInNewContext(source)
+  assert.equal(result.hashes.get(firstHead), firstKey)
+  assert.equal(result.hashes.get(secondHead), secondKey)
+  assert.equal(result.valid.repositoryIdentity, 'repo-identity')
+  assert.equal(result.wrong, null)
+
+  const mixedSource = [extractFn('trustedLineageKeyHashes'),
+    `trustedLineageKeyHashes(${JSON.stringify({ initialHead: '1'.repeat(40), currentHead: '3'.repeat(40),
+      initialKeyHash: null, currentKeyHash: secondKey, ownedCommits: [
+        { from: '1'.repeat(40), to: '2'.repeat(40) },
+        { from: '2'.repeat(40), to: '3'.repeat(40), fromKeyHash: firstKey, toKeyHash: secondKey },
+      ] })})`,
+  ].join('\n')
+  const mixed = vm.runInNewContext(mixedSource)
+  assert.equal(mixed.get('2'.repeat(40)), firstKey)
+  assert.equal(mixed.get('3'.repeat(40)), secondKey)
+})
+
+test('ordinary imported artifact restore accepts the key bound to its expected lineage head', () => {
+  const oldHead = 'a'.repeat(40), currentHead = 'b'.repeat(40)
+  const oldKey = 'c'.repeat(64), currentKey = 'd'.repeat(64)
+  const value = { importVersion: 1, binding: { run: 'run-1', keyHash: oldKey,
+    repositoryIdentity: 'repo', headSha: oldHead, kind: 'lens', resultId: 'correctness',
+    sourceLabel: 'source', sourcePhase: 'Review', workflowId: 'workflow', sourceKey: 'key', agentId: 'agent' },
+    result: { lens: 'correctness' } }
+  const source = [
+    "const stateClaim = { run: 'run-1', keyHash: " + JSON.stringify(currentKey) + ' };',
+    `const lineageKeyHashByHead = new Map(${JSON.stringify([[oldHead, oldKey], [currentHead, currentKey]])});`,
+    extractFn('importedArtifactResult'),
+    `const value = ${JSON.stringify(value)};`,
+    `;({ restored: importedArtifactResult(value, ${JSON.stringify({ headSha: oldHead, kind: 'lens',
+      resultId: 'correctness', sourcePhase: 'Review' })}), rejected: importedArtifactResult(value,
+      ${JSON.stringify({ headSha: currentHead, kind: 'lens', resultId: 'correctness', sourcePhase: 'Review' })}) })`,
+  ].join('\n')
+  const result = vm.runInNewContext(source)
+  assert.equal(result.restored.lens, 'correctness')
+  assert.equal(result.rejected, null)
+})
+
+test('workflow canonical result digest matches the trusted helper for nested Unicode JSON', () => {
+  const source = [extractFn('canonicalJson'), extractFn('sha256Utf8'),
+    '({ canonicalJson, sha256Utf8, canonicalJsonSha256: value => sha256Utf8(canonicalJson(value)) })',
+  ].join('\n')
+  const digest = vm.runInNewContext(source)
+  const fixtures = [
+    { z: ['用户', { beta: true, alpha: 7 }], a: 'e\u0301', emoji: '🧪' },
+    { nested: { d: null, c: [0, -1, 1.25] }, empty: {}, bool: false },
+  ]
+  for (const value of fixtures) {
+    const expectedCanonical = JSON.stringify(value, Object.keys(value).sort())
+    const helperCanonical = value => {
+      if (value === null || ['string', 'boolean', 'number'].includes(typeof value)) return JSON.stringify(value)
+      if (Array.isArray(value)) return '[' + value.map(helperCanonical).join(',') + ']'
+      return '{' + Object.keys(value).sort()
+        .map(key => JSON.stringify(key) + ':' + helperCanonical(value[key])).join(',') + '}'
+    }
+    assert.notEqual(expectedCanonical.length, 0)
+    const canonical = helperCanonical(value)
+    assert.equal(digest.canonicalJson(value), canonical)
+    assert.equal(digest.canonicalJsonSha256(value),
+      crypto.createHash('sha256').update(Buffer.from(canonical)).digest('hex'))
+  }
+})
+
+test('compact v2 fix receipts expand exactly and fail closed on missing, ambiguous, or oversized state', () => {
+  const first = finding('high', { candidateId: 'cluster-raw:c2:hhead:first', files: ['src/a.js'],
+    coverageUnitIds: ['u1'] })
+  const second = finding('medium', { candidateId: 'cluster-raw:c2:hhead:second',
+    fingerprint: 'ignored-2', primaryFile: 'src/b.js', files: ['src/b.js'], symbol: 'other',
+    mechanism: 'missing guard', observableImpact: 'throws', coverageUnitIds: ['u2'] })
+  const fixerResult = {
+    fixed: [{ fingerprint: first.fingerprint, changeSummary: 'guarded input' }],
+    notABug: [],
+    stillOpen: [{ ...second, whyStillHere: 'needs redesign', defer: true, deferReason: 'too large' }],
+    followUps: [{ title: 'Add fuzzing', detail: 'exercise invalid inputs', area: 'tests', size: 'big',
+      doneNow: false, releaseBlocker: false, blockerReason: 'none' }],
+  }
+  const source = [
+    'const MAX_CONTROL_BASE64_BYTES = 8192',
+    "const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9:.\\/]+/g, '-').replace(/^-+|-+$/g, '')",
+    'const SEV_RANK = { critical: 0, high: 1, medium: 2, low: 3 }',
+    'const severityRank = s => SEV_RANK[s] === undefined ? 9 : SEV_RANK[s]',
+    extractFn('canonicalJson'), extractFn('sha256Utf8'), extractFn('canonicalJsonSha256'),
+    extractFn('utf8Base64'), extractFn('identityHex'), extractFn('normalizedFingerprint'),
+    extractFn('safeFindingPath'), extractFn('mergeFinding'), extractFn('compactFindingId'),
+    extractFn('buildCompactFixReceipt'), extractFn('inlineCompactFixReceipt'),
+    extractFn('expandCompactFixReceipt'),
+    `const batch = ${JSON.stringify([first, second])}`,
+    `const result = ${JSON.stringify(fixerResult)}`,
+    "const receipt = buildCompactFixReceipt('c2-w1-full-b1', batch, result)",
+    'const expanded = expandCompactFixReceipt(receipt, batch)',
+    'const missing = expandCompactFixReceipt(receipt, [batch[0]])',
+    'const ambiguous = expandCompactFixReceipt(receipt, [batch[0], { ...batch[0], detail: "different" }, batch[1]])',
+    'const oversized = inlineCompactFixReceipt({ ...receipt, followUps: [{ ...receipt.followUps[0], detail: "x".repeat(10000) }] })',
+    `const oldOccurrence = ${JSON.stringify({ ...first, candidateId: 'cluster-old-head', severity: 'critical',
+      files: ['src/a.js', 'src/old-helper.js'], evidence: 'src/old-helper.js:1 stale' })}`,
+    `const newOccurrence = ${JSON.stringify({ ...first, candidateId: 'cluster-new-head', severity: 'low',
+      files: ['src/a.js', 'src/new-helper.js'], evidence: 'src/new-helper.js:9 current' })}`,
+    "const latestReceipt = buildCompactFixReceipt('c3-w1-full-b1', [newOccurrence], { fixed: [], notABug: [],",
+    "  stillOpen: [{ ...newOccurrence, whyStillHere: 'current head', defer: false, deferReason: 'none' }], followUps: [] })",
+    'const latestExpanded = expandCompactFixReceipt(latestReceipt, [oldOccurrence, newOccurrence])',
+    ';({ receipt, expanded, missing, ambiguous, oversized, encoded: inlineCompactFixReceipt(receipt),',
+    '  firstId: compactFindingId(batch[0]), secondId: compactFindingId(batch[1]), latestExpanded })',
+  ].join('\n')
+  const result = vm.runInNewContext(source)
+  assert.equal(result.receipt.receiptVersion, 2)
+  assert.deepEqual(Array.from(result.receipt.allowedPaths), ['src/a.js', 'src/b.js'])
+  assert.equal(result.receipt.fixed[0].id, result.firstId)
+  assert.equal(result.receipt.stillOpen[0].id, result.secondId)
+  assert.match(result.encoded, /^[A-Za-z0-9+/]+=*$/)
+  assert.equal(result.expanded.fixed[0].fingerprint, helpers().normalizedFingerprint(first))
+  assert.equal(result.expanded.stillOpen[0].primaryFile, 'src/b.js')
+  assert.equal(result.expanded.stillOpen[0].severity, 'medium')
+  assert.equal(result.expanded.stillOpen[0].whyStillHere, 'needs redesign')
+  assert.equal(result.missing, null)
+  assert.equal(result.ambiguous, null)
+  assert.equal(result.oversized, null)
+  assert.deepEqual(Array.from(result.latestExpanded.stillOpen[0].files), ['src/a.js', 'src/new-helper.js'])
+  assert.equal(result.latestExpanded.stillOpen[0].severity, 'low')
+  assert.equal(result.latestExpanded.stillOpen[0].evidence, 'src/new-helper.js:9 current')
+})
+
+test('lineage receipt replay requires an explicit valid v1 or v2 discriminator', () => {
+  const fullFinding = finding('high', { title: 'Legacy issue', files: ['src/a.js'],
+    coverageUnitIds: ['u1'], baseVsHead: 'introduced on head', deferReason: 'none',
+    whyStillHere: 'not fixed' })
+  const validV1 = { receiptVersion: 1, batchId: 'legacy-b1', fixed: [], notABug: [],
+    stillOpen: [fullFinding], followUps: [] }
+  const malformedV1 = { receiptVersion: 1, batchId: 'legacy-b1', fixed: [], notABug: [],
+    stillOpen: [{ id: 'a'.repeat(64), whyStillHere: 'not fixed', defer: false, deferReason: 'none' }],
+    followUps: [] }
+  const omittedV2 = { batchId: 'compact-b1', allowedPaths: ['src/a.js'],
+    fixed: [{ id: 'a'.repeat(64), changeSummary: 'changed' }], notABug: [], stillOpen: [], followUps: [] }
+  const source = [
+    "const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9:.\\/]+/g, '-').replace(/^-+|-+$/g, '')",
+    'const SEV_RANK = { critical: 0, high: 1, medium: 2, low: 3 }',
+    extractFn('safeFindingPath'), extractFn('findingPathsSafe'), extractFn('validateLegacyFixReceipt'),
+    'let statePersistenceFailed = false, absorbed = []; const log = () => {}',
+    'const immutableReceiptCandidates = () => []; const expandCompactFixReceipt = () => null',
+    'const absorbFix = value => absorbed.push(value)', extractFn('replayReceipt'),
+    `const validV1 = ${JSON.stringify(validV1)}, malformedV1 = ${JSON.stringify(malformedV1)}, omittedV2 = ${JSON.stringify(omittedV2)}`,
+    'const omittedOk = replayReceipt({ from: "a".repeat(40), receipt: omittedV2 })',
+    'const omittedState = { failed: statePersistenceFailed, absorbed: absorbed.length }',
+    'statePersistenceFailed = false; absorbed = []',
+    'const malformedOk = replayReceipt({ from: "a".repeat(40), receipt: malformedV1 })',
+    'const malformedState = { failed: statePersistenceFailed, absorbed: absorbed.length }',
+    'statePersistenceFailed = false; absorbed = []',
+    'const validOk = replayReceipt({ from: "a".repeat(40), receipt: validV1 })',
+    ';({ omittedOk, omittedState, malformedOk, malformedState, validOk, failed: statePersistenceFailed, absorbed })',
+  ].join('\n')
+  const result = vm.runInNewContext(source)
+  assert.equal(result.omittedOk, false)
+  assert.deepEqual(JSON.parse(JSON.stringify(result.omittedState)), { failed: true, absorbed: 0 })
+  assert.equal(result.malformedOk, false)
+  assert.deepEqual(JSON.parse(JSON.stringify(result.malformedState)), { failed: true, absorbed: 0 })
+  assert.equal(result.validOk, true)
+  assert.equal(result.failed, false)
+  assert.equal(result.absorbed.length, 1)
+  assert.equal(result.absorbed[0].stillOpen[0].primaryFile, 'src/a.js')
+  assert.match(WF, /receiptVersion: \{ type: 'integer', enum: \[1, 2\] \}/)
+  assert.match(WF, /required: \['receiptVersion', 'batchId', 'fixed', 'notABug', 'stillOpen', 'followUps'\]/)
+})
+
+test('follow-ups are reconciled deterministically', () => {
+  const duplicateRows = [
+    { title: 'Add timeout test', area: 'client', detail: 'exercise retry expiry', stage: 'reliability',
+      size: 'big', releaseBlocker: false, blockerReason: 'none' },
+    { title: 'Add timeout test!', area: 'client', detail: 'exercise retry expiry', stage: 'testing',
+      size: 'small', releaseBlocker: false, blockerReason: 'later' },
+    { title: 'Add timeout test', area: 'client', detail: 'exercise retry expiry', stage: 'correctness',
+      size: 'big', releaseBlocker: true, blockerReason: 'hangs' },
+  ]
+  const result = helpers().dedupeFollowUps(duplicateRows)
+  const reversed = helpers().dedupeFollowUps(duplicateRows.slice().reverse())
+  assert.deepEqual(JSON.parse(JSON.stringify(result)), JSON.parse(JSON.stringify(reversed)))
   assert.equal(result.followUps.length, 1)
-  assert.equal(result.followUps[0].mergedFrom, 2)
+  assert.equal(result.followUps[0].mergedFrom, 3)
   assert.equal(result.followUps[0].priority, 'should-block-merge')
+  assert.equal(result.followUps[0].raisedInStages, 'correctness, reliability, testing')
+  assert.equal(result.followUps[0].blockerReason, 'hangs; later')
+  const noBlocker = helpers().dedupeFollowUps(duplicateRows.slice(0, 2)).followUps[0]
+  assert.equal(noBlocker.priority, 'before-merge')
   const distinct = helpers().dedupeFollowUps([
     { title: 'Add regression test', area: 'client', detail: 'exercise retry expiry', stage: 'reliability' },
     { title: 'Add regression test', area: 'client', detail: 'exercise cancellation cleanup', stage: 'testing' },

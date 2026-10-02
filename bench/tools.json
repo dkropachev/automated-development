@@ -96,6 +96,23 @@
       "repoUrl": "https://github.com/mattpocock/skills",
       "pageUrl": "https://github.com/mattpocock/skills/blob/main/docs/engineering/code-review.md",
       "prompt": "/mattpocock-skills:code-review main\n\n{context}"
+    },
+    {
+      "id": "review-and-fix-pr",
+      "label": "Automated Development review-and-fix-pr",
+      "source": "automated-development@inline",
+      "description": "A whole-pull-request review that runs independent code, specification, standards, and risk lenses, audits their coverage, and verifies candidate findings before reporting them.",
+      "install": "/plugin marketplace add dkropachev/automated-development\n/plugin install automated-development@automated-development",
+      "invoke": "/automated-development:review-and-fix-pr <PR number or URL>",
+      "repoUrl": "https://github.com/dkropachev/automated-development",
+      "pageUrl": "https://github.com/dkropachev/automated-development/blob/main/skills/review-and-fix-pr/SKILL.md",
+      "experimental": true,
+      "selfAuthored": true,
+      "reviewOnly": true,
+      "cohortOnly": true,
+      "requiresPluginDir": true,
+      "resultContract": "review-and-fix-pr-v1",
+      "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill to review pull request #{pr}.\n\n{context}\n\nInvoke its workflow exactly once in review-only mode with `pr: \"{pr}\"` and `fix: false`. Do not pass a workflow `model` or `stopAt`; inherit the benchmark's pinned outer model and run the complete coverage protocol. Wait for the workflow result before ending your turn, then relay that result exactly and in full, including its final `REVIEW_AND_FIX_PR_RESULT_JSON=` line. Do not rewrite, summarize, or omit any part of the workflow result."
     }
   ]
 }

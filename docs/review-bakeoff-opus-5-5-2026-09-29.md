@@ -26,7 +26,7 @@ the maintainers' review instead of doing its own.
 - Reviews: 19 calls, 27,223,505 tokens, $21.36, 68.1 minutes wall time.
 - Extraction: 19 calls, 119 raw claims, $2.23.
 - Judging: 3 calls, 73 merged issues (55 real, 17 false-positive, 1 unproven), $4.80.
-- Total known canonical spend: $28.40. Discarded attempts are not included in immutable stage artifacts.
+- Total known cohort spend: $28.40. Discarded attempts are not included in immutable stage artifacts.
 
 ## Findings, by issue
 

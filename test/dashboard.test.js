@@ -46,6 +46,7 @@ function createCompleteDashboardCohort(root, options = {}) {
     groundtruth,
     expectedCells: [{ id: `${runId}/${target.id}/tool`, target: target.id, tool: 'tool' }],
     toolConfig: toolFile,
+    ...(options.pluginFingerprint ? { pluginFingerprint: options.pluginFingerprint } : {}),
   })
   const paths = artifacts.cohortPaths(root, runId)
   const cellId = `${runId}/${target.id}/tool`
@@ -286,12 +287,27 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
   assert.ok(data.cohorts.filter((cohort) => !cohort.legacy).every((cohort) => cohort.complete))
   assert.ok(data.cohorts.some((cohort) => cohort.id === 'sonnet-5-5-2026-09-30' && cohort.complete))
   assert.equal(data.targets.length, 3)
-  assert.equal(data.tools.length, 8)
+  assert.equal(data.tools.length, 9)
+  assert.deepEqual(data.tools.filter((tool) => tool.id === 'review-and-fix-pr').map((tool) => ({
+    experimental: tool.experimental,
+    selfAuthored: tool.selfAuthored,
+    reviewOnly: tool.reviewOnly,
+    requiresPluginDir: tool.requiresPluginDir,
+    cohortOnly: tool.cohortOnly,
+    resultContract: tool.resultContract,
+  })), [{
+    experimental: true,
+    selfAuthored: true,
+    reviewOnly: true,
+    requiresPluginDir: true,
+    cohortOnly: true,
+    resultContract: 'review-and-fix-pr-v1',
+  }])
   const legacyRuns = data.runs.filter((run) => run.cohortId === 'legacy')
   const legacyIssues = data.issues.filter((issue) => issue.cohortId === 'legacy')
   assert.equal(legacyRuns.length, 18)
   assert.equal(legacyIssues.length, 137)
-  assert.doesNotMatch(JSON.stringify(data), /review-and-fix-pr|rafp-(?:review|detailed)/)
+  assert.doesNotMatch(JSON.stringify(legacyRuns), /review-and-fix-pr|rafp-(?:review|detailed)/)
   assert.deepEqual(legacyRuns.reduce((counts, run) => {
     counts[run.status] = (counts[run.status] || 0) + 1
     return counts
@@ -383,6 +399,9 @@ test('artifact loader uses complete cohort snapshots after live state and tools 
     fs.writeFileSync(path.join(fixture, 'tools.json'), JSON.stringify({ context: 'Live', tools: [{ id: 'tool', label: 'Wrong', prompt: 'Wrong' }] }))
     const finished = createCompleteDashboardCohort(fixture, {
       runId: 'future-cohort', requestedModel: 'claude-future-9', modelLabel: 'Claude Future 9',
+      pluginFingerprint: {
+        version: '0.5.0', gitCommit: 'c'.repeat(40), contentSha256: 'd'.repeat(64),
+      },
     })
     artifacts.ensureManifest(fixture, {
       runId: 'in-progress',

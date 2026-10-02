@@ -6,7 +6,9 @@
 // from the repository alone.
 const fs = require('node:fs')
 const path = require('node:path')
-const { cellId, discoverCohorts, loadModelConfig, manifestMetadata, readComplete } = require('./lib/artifacts')
+const {
+  assertRecordMetadata, cellId, discoverCohorts, loadModelConfig, readComplete,
+} = require('./lib/artifacts')
 
 const ROOT = __dirname
 const ASSET_DIR = path.join(ROOT, 'dashboard')
@@ -299,11 +301,7 @@ function cohortDirectories(cohort, root) {
 
 function assertCohortMetadata(record, cohort, kind, file) {
   if (!record || record.schemaVersion !== 2) throw new Error(`${kind} has invalid schemaVersion: ${file}`)
-  for (const [key, expected] of Object.entries(manifestMetadata(cohort))) {
-    if (record[key] !== expected) {
-      throw new Error(`${kind} ${key} does not match cohort ${cohort.runId}: ${file}`)
-    }
-  }
+  assertRecordMetadata(record, cohort, `${kind} ${file}`)
 }
 
 function assertCellIdentity(record, cohort, targetId, fileName, kind, file) {
@@ -340,12 +338,19 @@ function targetView(target, groundtruth = null) {
 function toolView(tool) {
   const {
     id, label, source, languages, parked, parkedReason, catalogId, catalogLabel,
-    description, install, invoke, repoUrl, pageUrl,
+    description, install, invoke, repoUrl, pageUrl, experimental, selfAuthored, reviewOnly,
+    requiresPluginDir, resultContract, cohortOnly,
   } = tool
   return {
     id, label, source, languages: languages || null, parked: Boolean(parked), parkedReason: parkedReason || null,
     catalogId: catalogId || id, catalogLabel: catalogLabel || label, description: description || null,
     install: install || null, invoke: invoke || null, repoUrl: repoUrl || null, pageUrl: pageUrl || null,
+    ...(experimental == null ? {} : { experimental: Boolean(experimental) }),
+    ...(selfAuthored == null ? {} : { selfAuthored: Boolean(selfAuthored) }),
+    ...(reviewOnly == null ? {} : { reviewOnly: Boolean(reviewOnly) }),
+    ...(requiresPluginDir == null ? {} : { requiresPluginDir: Boolean(requiresPluginDir) }),
+    ...(resultContract == null ? {} : { resultContract }),
+    ...(cohortOnly == null ? {} : { cohortOnly: Boolean(cohortOnly) }),
   }
 }
 
@@ -665,6 +670,10 @@ function loadArtifacts(root = ROOT) {
           toolLabel: (tool && tool.label) || record.label || record.tool,
           toolSource: (tool && tool.source) || record.source || null,
           toolSnapshot,
+          ...('experimental' in toolSnapshot ? { experimental: toolSnapshot.experimental } : {}),
+          ...('selfAuthored' in toolSnapshot ? { selfAuthored: toolSnapshot.selfAuthored } : {}),
+          ...('reviewOnly' in toolSnapshot ? { reviewOnly: toolSnapshot.reviewOnly } : {}),
+          ...('resultContract' in toolSnapshot ? { resultContract: toolSnapshot.resultContract } : {}),
           status: deriveStatus(record),
           wallMs: finite(record.wallMs),
           finishedAt: record.finishedAt || null,
@@ -714,25 +723,36 @@ function loadArtifacts(root = ROOT) {
     if (modelId && !models.some((model) => model.id === modelId)) models.push({ id: modelId, label: cohort.modelLabel || modelId, cliModel: null })
   }
   const modelComparison = loadPublishedModelComparison(root, runs)
+  const cohortToolSnapshots = new Map()
+  for (const run of runs) {
+    if (!cohortToolSnapshots.has(run.cohortId)) cohortToolSnapshots.set(run.cohortId, new Map())
+    cohortToolSnapshots.get(run.cohortId).set(run.toolId, run.toolSnapshot)
+  }
   return {
     schemaVersion: 3,
     defaultTokenLimit: DEFAULT_TOKEN_LIMIT,
     defaultModel: modelConfig.defaultModel || (models[0] && models[0].id) || null,
     models,
     omittedCohorts,
-    cohorts: cohorts.map((cohort) => ({
-      id: cohort.runId,
-      runId: cohort.runId,
-      label: cohort.label || cohort.runId,
-      requestedModel: cohort.requestedModel || null,
-      observedModel: cohort.observedModel || null,
-      modelLabel: cohort.modelLabel || null,
-      modelProvenance: cohort.requestedModel ? 'requested' : cohort.observedModel ? 'observed' : 'unavailable',
-      claudeVersion: cohort.claudeVersion || null,
-      createdAt: cohort.createdAt || null,
-      complete: Boolean(cohort.complete),
-      legacy: Boolean(cohort.legacy),
-    })),
+    cohorts: cohorts.map((cohort) => {
+      const toolSnapshots = [...(cohortToolSnapshots.get(cohort.runId) || new Map()).values()]
+      const hasToolTraits = toolSnapshots.some((tool) =>
+        tool.experimental != null || tool.selfAuthored != null || tool.reviewOnly != null)
+      return {
+        id: cohort.runId,
+        runId: cohort.runId,
+        label: cohort.label || cohort.runId,
+        requestedModel: cohort.requestedModel || null,
+        observedModel: cohort.observedModel || null,
+        modelLabel: cohort.modelLabel || null,
+        modelProvenance: cohort.requestedModel ? 'requested' : cohort.observedModel ? 'observed' : 'unavailable',
+        claudeVersion: cohort.claudeVersion || null,
+        createdAt: cohort.createdAt || null,
+        complete: Boolean(cohort.complete),
+        legacy: Boolean(cohort.legacy),
+        ...(hasToolTraits ? { toolSnapshots } : {}),
+      }
+    }),
     targets: targetData,
     tools,
     issues,

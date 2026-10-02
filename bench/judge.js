@@ -2,6 +2,7 @@
 // Merge and verify findings from one immutable benchmark cohort.
 //
 //   node bench/judge.js [--run <run-id>] [--only <target>]
+//                       [--max-budget-usd <amount>] [--timeout <minutes>]
 const fs = require('node:fs')
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
@@ -29,6 +30,7 @@ const quota = require('./quota')
 const ROOT = __dirname
 const CLAUDE = process.env.CLAUDE || 'claude'
 const JUDGE_MODEL = 'claude-sonnet-5'
+const DEFAULT_TIMEOUT_MS = 120 * 60_000
 
 const SCHEMA = `[
   {
@@ -52,7 +54,12 @@ const SCHEMA = `[
 
 function parseArgs(argv, root = ROOT) {
   if (argv.includes('--force')) throw new Error('--force is not supported; benchmark artifacts are append-only')
-  const options = { runId: defaultRunId(root), only: null }
+  const options = {
+    runId: defaultRunId(root),
+    only: null,
+    maxBudgetUsd: null,
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+  }
   const value = (flag, index) => {
     const next = argv[index + 1]
     if (next == null || next.startsWith('--')) throw new Error(`${flag} requires a value`)
@@ -62,6 +69,21 @@ function parseArgs(argv, root = ROOT) {
     const arg = argv[i]
     if (arg === '--run') { options.runId = assertSafeId(value(arg, i++), 'run id'); continue }
     if (arg === '--only') { options.only = assertSafeId(value(arg, i++), 'target'); continue }
+    if (arg === '--max-budget-usd') {
+      options.maxBudgetUsd = Number(value(arg, i++))
+      if (!Number.isFinite(options.maxBudgetUsd) || options.maxBudgetUsd <= 0) {
+        throw new Error('--max-budget-usd must be a positive finite number')
+      }
+      continue
+    }
+    if (arg === '--timeout') {
+      const minutes = Number(value(arg, i++))
+      options.timeoutMs = minutes * 60_000
+      if (!Number.isFinite(minutes) || minutes <= 0 || !Number.isFinite(options.timeoutMs)) {
+        throw new Error('--timeout must be a positive finite number')
+      }
+      continue
+    }
     throw new Error(`unknown argument: ${arg}`)
   }
   if (options.runId === 'legacy') throw new Error('legacy cohort is read-only')
@@ -96,15 +118,17 @@ ${findingsBlob}
 `
 }
 
-function judgeArgs(text) {
-  return [
+function judgeArgs(text, options = {}) {
+  const args = [
     '-p', text,
     '--output-format', 'json',
     '--model', JUDGE_MODEL,
     '--effort', 'high',
     '--permission-mode', 'bypassPermissions',
-    '--disallowedTools', 'WebSearch', 'WebFetch', 'ReportFindings',
   ]
+  if (options.maxBudgetUsd != null) args.push('--max-budget-usd', String(options.maxBudgetUsd))
+  args.push('--disallowedTools', 'WebSearch', 'WebFetch', 'ReportFindings')
+  return args
 }
 
 function normalizeAttribution(issues, blob, runId, targetId) {
@@ -145,7 +169,7 @@ function loadSealedFindings(root, manifest, seal) {
   return byTarget
 }
 
-function judgeTarget(root, manifest, target, cells, blob, out, dependencies) {
+function judgeTarget(root, manifest, target, cells, blob, out, dependencies, options = {}) {
   if (fs.existsSync(out)) {
     readJudgementRecord(out, manifest, target.id, cells)
     console.log(`skip ${target.id}`)
@@ -179,8 +203,12 @@ function judgeTarget(root, manifest, target, cells, blob, out, dependencies) {
       }, dependencies)
       executable = authorization.executable
     }
-    const result = runJudge(executable, judgeArgs(prompt(target, JSON.stringify(blob, null, 1))), {
-      cwd: checkout.repo, maxBuffer: 1 << 28, encoding: 'utf8',
+    const result = runJudge(executable, judgeArgs(prompt(target, JSON.stringify(blob, null, 1)), options), {
+      cwd: checkout.repo,
+      maxBuffer: 1 << 28,
+      encoding: 'utf8',
+      timeout: options.timeoutMs == null ? DEFAULT_TIMEOUT_MS : options.timeoutMs,
+      killSignal: 'SIGKILL',
     })
     let meta
     try { meta = JSON.parse(result.stdout) } catch (error) {
@@ -230,10 +258,14 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
   const { manifest, seal } = readSeal(root, options.runId)
   const paths = cohortPaths(root, options.runId)
   // Validate every sealed cell before publishing any target judgement. A partial extraction remains
-  // retryable and can never produce an immutable partial judgement cohort.
-  const findingsByTarget = loadSealedFindings(root, manifest, seal)
+  // retryable and can never produce an immutable partial judgement cohort. With --only, validate
+  // just that target so targets can be extracted and judged sequentially.
+  const selectedCells = options.only
+    ? seal.cells.filter((cell) => cell.target === options.only)
+    : seal.cells
+  const findingsByTarget = loadSealedFindings(root, manifest, { ...seal, cells: selectedCells })
   const cellsByTarget = new Map()
-  for (const sealedCell of seal.cells) {
+  for (const sealedCell of selectedCells) {
     const cells = cellsByTarget.get(sealedCell.target) || []
     cells.push(sealedCell)
     cellsByTarget.set(sealedCell.target, cells)
@@ -245,13 +277,16 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
     const cells = cellsByTarget.get(target.id) || []
     if (!cells.length) { console.log(`no sealed results for ${target.id}`); continue }
     const blob = findingsByTarget.get(target.id) || []
-    judgeTarget(root, manifest, target, cells, blob, out, dependencies)
+    judgeTarget(root, manifest, target, cells, blob, out, dependencies, options)
   }
   const completed = ensureComplete(root, manifest.runId)
   console.log(completed ? `complete ${manifest.runId}` : `pending ${manifest.runId}: judgements remain`)
 }
 
-module.exports = { JUDGE_MODEL, SCHEMA, judgeArgs, judgeTarget, loadSealedFindings, main, normalizeAttribution, parseArgs, prompt }
+module.exports = {
+  DEFAULT_TIMEOUT_MS, JUDGE_MODEL, SCHEMA, judgeArgs, judgeTarget, loadSealedFindings,
+  main, normalizeAttribution, parseArgs, prompt,
+}
 
 if (require.main === module) {
   try { main() } catch (error) {

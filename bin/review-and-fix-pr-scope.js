@@ -11,7 +11,9 @@ const path = require('path')
 
 const argv = process.argv.slice(2)
 function run(command, args, options = {}) {
-  return execFileSync(command, args, Object.assign({ encoding: 'utf8', maxBuffer: 1 << 26 }, options)).trim()
+  return execFileSync(command, args, Object.assign({
+    encoding: 'utf8', maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'],
+  }, options)).trim()
 }
 function git(root, ...args) { return run('git', ['-C', root, ...args]) }
 function canonical(value) {
@@ -85,10 +87,14 @@ try {
       const issue = JSON.parse(run('gh', ['issue', 'view', String(ref.number), '--repo', ref.repo, '--json',
         'number,title,body,state'], { cwd: root }))
       issues.push(Object.assign({ repo: ref.repo }, issue))
-    } catch (error) {
-      throw new Error('linked issue ' + ref.repo + '#' + ref.number + ' could not be read: ' +
-        String(error.stderr || error.message || error),
-        { cause: error })
+    } catch {
+      // Blinded benchmark PRs and repository migrations can preserve issue references without
+      // republishing the linked issue. Retain a stable explicit absence in the frozen sources:
+      // never invent issue text, and never hash transient API errors or request IDs.
+      issues.push({
+        repo: ref.repo, number: ref.number, title: '', body: '', state: 'unavailable',
+        unavailable: true,
+      })
     }
   }
   const treeRows = execFileSync('git', ['-C', root, 'ls-tree', '-r', '-z', head],
@@ -127,13 +133,21 @@ try {
   const startSha = git(root, 'rev-parse', '--verify', 'HEAD^{commit}')
   const clean = git(root, 'status', '--porcelain=v1', '-z') === ''
   let ghUser = 'unknown'
-  try { ghUser = run('gh', ['api', 'user', '--jq', '.login'], { cwd: root }) || 'unknown' } catch {}
+  try {
+    ghUser = run('gh', ['api', 'user', '--jq', '.login'], { cwd: root }) || 'unknown'
+  } catch {
+    try {
+      ghUser = run('gh', ['api', 'graphql', '-f', 'query=query { viewer { login } }',
+        '--jq', '.data.viewer.login'], { cwd: root }) || 'unknown'
+    } catch {}
+  }
   const sourceJson = JSON.stringify({ repo, pr, issues, instructions, repoRoot: root,
     startBranch: startBranchRaw === 'HEAD' ? 'DETACHED' : startBranchRaw, startSha, treeClean: clean,
     mergeBase, ghUser })
   process.stdout.write(JSON.stringify({ ok: true, repo, prNumber, baseRef: pr.baseRefName,
     prHead: head, mergeBase, scopeFingerprint: sha256(Buffer.from(canonical(sources))),
-    issueCount: issues.length, instructionCount: instructions.length,
+    issueCount: issues.length, unavailableIssueCount: issues.filter(issue => issue.unavailable).length,
+    instructionCount: instructions.length,
     verifiedDeferrals: requestedDeferrals, sourceJson }, null, 2) + '\n')
 } catch (error) {
   process.stdout.write(JSON.stringify({ ok: false, error: String(error.stderr || error.message || error).trim().slice(0, 1000) }, null, 2) + '\n')

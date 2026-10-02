@@ -92,6 +92,21 @@ test('review-and-fix-pr defines every mandatory lens and keeps discovery read-on
                       'the reviewer shell clamp must not admit a whole write-capable command family')
 })
 
+test('scope capture retains unavailable linked issues without inventing source text', () => {
+  const helper = rd('bin/review-and-fix-pr-scope.js')
+  const workflow = rd('workflows/review-and-fix-pr.js')
+  assert.match(helper, /state: 'unavailable',[\s\S]*unavailable: true/)
+  assert.match(helper, /never invent issue text/)
+  assert.match(helper, /query=query \{ viewer \{ login \} \}/)
+  assert.doesNotMatch(helper, /linked issue .* could not be read/)
+  assert.match(workflow, /linked issue with state "unavailable" is an explicit missing source/)
+  assert.match(workflow, /otherwise set blocker to explain that the[\s\S]*authoritative scope is insufficient/)
+  assert.match(workflow, /WORKFLOW_STATE_VERSION = '0\.5\.0-completeness-contract-v1'/)
+  assert.match(workflow, /function stableTrustedSourcePayload/)
+  assert.match(workflow, /delete payload\.ghUser/)
+  assert.match(workflow, /authenticated GitHub user changed during setup/)
+})
+
 test('native lens prompt assets exist and stay methodology-only', () => {
   const lenses = ['correctness', 'spec', 'standards', 'security', 'reliability', 'contracts',
                   'testing', 'performance', 'comments', 'maintainability']

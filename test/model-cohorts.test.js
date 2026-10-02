@@ -1206,6 +1206,10 @@ test('report requires a complete hash snapshot and uses only its frozen target/t
       url: 'https://upstream.invalid/pull/1', author: 'author',
       review: { inline: [{ user: 'maintainer', path: 'src/sample.js', line: 1, body: 'Frozen review comment' }], issue: [] },
     })
+    const frozenTools = JSON.parse(fs.readFileSync(path.join(root, 'tools.json'), 'utf8'))
+    frozenTools.tools[0].experimental = true
+    frozenTools.tools[0].selfAuthored = true
+    writeJson(path.join(root, 'tools.json'), frozenTools)
     const metadata = cohortMetadata(root)
     metadata.targets.unused = { baseSha: 'c'.repeat(40), headSha: 'd'.repeat(40) }
     metadata.targetMetadata.unused = {
@@ -1239,7 +1243,8 @@ test('report requires a complete hash snapshot and uses only its frozen target/t
     assert.match(report.stdout, /Reviews: 1 calls, 3 tokens, \$0\.25/)
     assert.match(report.stdout, /Extraction: 1 calls, 1 raw claims, \$0\.05/)
     assert.match(report.stdout, /Judging: 1 calls, 1 merged issues \(1 real, 0 false-positive, 0 unproven\), \$0\.25/)
-    assert.match(report.stdout, /Total known canonical spend: \$0\.55/)
+    assert.match(report.stdout, /Total known cohort spend: \$0\.55/)
+    assert.match(report.stdout, /Experimental cohort-local evidence:[\s\S]*not canonical gold/)
     assert.match(report.stdout, /Frozen review comment/)
     assert.doesNotMatch(report.stdout, /CHANGED-LIVE-STATE|Changed Live Reviewer|Changed live comment|changed\.invalid|unused/)
 

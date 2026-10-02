@@ -27,7 +27,7 @@ the maintainers' review instead of doing its own.
 - Reviews: 19 calls, 72,528,644 tokens, $119.78, 162.8 minutes wall time.
 - Extraction: 19 calls, 187 raw claims, $2.62.
 - Judging: 3 calls, 113 merged issues (75 real, 33 false-positive, 5 unproven), $7.86.
-- Total known canonical spend: $130.85. Discarded attempts are not included in immutable stage artifacts.
+- Total known cohort spend: $130.85. Discarded attempts are not included in immutable stage artifacts.
 - Final quota: current session 59%, all-model week 31%, Fable week 52% (recorded ceilings: 95% / 95% / 95%).
 
 ## Findings, by issue
