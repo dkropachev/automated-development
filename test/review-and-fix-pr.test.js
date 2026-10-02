@@ -47,7 +47,10 @@ const sh = (cmd, args, opts) => execFileSync(cmd, args, Object.assign({ encoding
 
 // ---------------------------------------------------------------- 1. bytes --
 const scripts = fs.readdirSync(BIN).filter(f => f.endsWith('.js')).sort()
-ck('found the helper scripts', ['review-and-fix-pr-chunker.js','review-and-fix-pr-driver.js','review-and-fix-pr-meter.js','review-and-fix-pr-repofp.js','review-and-fix-pr-reviewed.js'].every(x => scripts.includes(x)), scripts.join(','))
+ck('found the helper scripts', ['review-and-fix-pr-chunker.js','review-and-fix-pr-diff.js',
+  'review-and-fix-pr-driver.js','review-and-fix-pr-meter.js','review-and-fix-pr-repofp.js',
+  'review-and-fix-pr-reviewed.js','review-and-fix-pr-scope.js','review-and-fix-pr-state.js']
+  .every(x => scripts.includes(x)), scripts.join(','))
 for (const f of scripts) {
   const buf = fs.readFileSync(path.join(BIN, f))
   // Anything outside tab/LF/CR means a heredoc or an editor mangled an escape sequence.
@@ -275,7 +278,10 @@ ck('everything comes back after revoke', filesIn(m).length === 4 && m.totals.cle
   ck('fix: a red build never reaches a commit step', !/COMMIT/.test(out) && /REPAIR/.test(out))
   ck('fix: repair never asks the agent to undo anything',
      !/checkout --|reset --hard|\brm -f\b/.test(cmdLines(out)), cmdLines(out))
-  // The repair attempt re-validates; it does not re-enter `fixed`. There is only one repair.
+  ck('fix: repair returns through fixed so newly needed files are measured',
+     /fixed --batch fx2 --followups/.test(out), out.slice(-240))
+  out = drive('fixed', 'fx2', ['--followups', '0'])
+  ck('fix: repaired tree gets a fresh validation step', /VALIDATE/.test(out), out.slice(0, 200))
   out = drive('validated', 'fx2', ['--passed', 'no'])
   ck('fix: a second failure simply does not commit',
      /FINAL STATE: not-committed/.test(out) && /DO NOT COMMIT/.test(out), out.slice(-200))
@@ -293,16 +299,30 @@ ck('everything comes back after revoke', filesIn(m).length === 4 && m.totals.cle
   ck('fix: --passed refuses anything but yes/no', bad)
   git('checkout', '--', 'src/a.js')
 
+  // A repair/build can erase the intended edit while leaving only a validation artifact. That is a
+  // no-change outcome, but it must still return the checkout clean.
+  drive('start', 'fx-clean-nochange', ['--root', R, '--parent', parent, '--mode', 'fix'])
+  fs.appendFileSync(path.join(R, 'src/a.js'), '// transient\n')
+  drive('fixed', 'fx-clean-nochange', ['--followups', '0'])
+  git('checkout', '--', 'src/a.js')
+  fs.writeFileSync(path.join(R, 'validation-only.tmp'), 'artifact\n')
+  out = drive('validated', 'fx-clean-nochange', ['--passed', 'yes'])
+  ck('fix: no-change validation cleans artifacts before returning',
+     /FINAL STATE: no-changes/.test(out) && !fs.existsSync(path.join(R, 'validation-only.tmp')))
+
   // green path
   drive('start', 'fx3', ['--root', R, '--parent', parent, '--mode', 'fix'])
   fs.appendFileSync(path.join(R, 'src/a.js'), '// ok\n')
   drive('fixed', 'fx3', ['--followups', '0'])
   fs.writeFileSync(path.join(R, 'build.tmp'), 'validation artifact\n')
   out = drive('validated', 'fx3', ['--passed', 'yes'])
+  ck('fix: cleaning a green validation artifact forces validation of the exact clean tree',
+     /VALIDATE THE CLEAN COMMIT TREE/.test(out) && !/\nCOMMIT\n/.test(out), out.slice(0, 500))
+  ck('fix: validation artifacts are cleaned before the exact-tree recheck',
+     !fs.existsSync(path.join(R, 'build.tmp')), out.slice(0, 700))
+  out = drive('validated', 'fx3', ['--passed', 'yes'])
   ck('fix: a green build offers COMMIT with an explicit add list',
      /COMMIT/.test(out) && /src\/a\.js/.test(out), out.slice(0, 200))
-  ck('fix: an untracked validation artifact is explicitly excluded from staging',
-     /Do NOT stage[\s\S]*build\.tmp/.test(out), out.slice(0, 500))
   ck('fix: the commit is gated on the parent sha', out.includes(parent))
   ck('fix: the add list is explicit, never -A/./-u', !/add (-A|\.|-u)\b/.test(cmdLines(out)))
   let threw = false
@@ -311,7 +331,7 @@ ck('everything comes back after revoke', filesIn(m).length === 4 && m.totals.cle
   git('add', '--', 'src/a.js'); git('commit', '-qm', 'batch fx3')
   out = drive('committed', 'fx3')
   ck('fix: confirms the commit once HEAD has moved', /FINAL STATE: committed/.test(out))
-  fs.unlinkSync(path.join(R, 'build.tmp'))
+  ck('fix: the committed tree is clean of validation artifacts', !fs.existsSync(path.join(R, 'build.tmp')))
   git('reset', '--hard', parent, '-q')
 
   // ---- review machine: start -> found* -> checked -> marked ----
@@ -711,8 +731,8 @@ ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'review-and
       repoRoot: '/repo', mergeBaseSha: 'a'.repeat(40), headSha: 'b'.repeat(40), prNumber: 12,
       changedFiles: [{ path: 'src/a.js' }],
     }, { ledgerPath: '/state/reviewed.json' }, 'test-run-rv-full', true)
-    ck('detailed review admits experiments only behind the scratch-clone prefix',
-       detailedClamp.includes("Bash(cd '/tmp/prfix-rv-test-run-full' && *)") &&
+    ck('detailed review never grants a cwd-prefixed wildcard that can escape the scratch clone',
+       !detailedClamp.includes("Bash(cd '/tmp/prfix-rv-test-run-full' && *)") &&
        !clamp.includes("Bash(cd '/tmp/prfix-rv-test-run-full' && *)") &&
        detailedClamp.includes("Bash(rm -rf -- '/tmp/prfix-rv-test-run-full' && git clone --no-hardlinks --no-local '/repo' '/tmp/prfix-rv-test-run-full' && cd '/tmp/prfix-rv-test-run-full')"),
        detailedClamp.join(' | '))
@@ -729,8 +749,8 @@ ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'review-and
     const detailedDiscoveryClamp = wf.discoveryBashClamp({
       repoRoot: '/repo', mergeBaseSha: 'a'.repeat(40), headSha: 'b'.repeat(40), changedFiles: [],
     }, 'testing', true)
-    ck('active detailed discovery permits experiments only behind its own scratch prefix',
-       detailedDiscoveryClamp.includes("Bash(cd '/tmp/prfix-rv-test-run-testing' && *)") &&
+    ck('active detailed discovery stays read-only without scratch-shell wildcards',
+       !detailedDiscoveryClamp.includes("Bash(cd '/tmp/prfix-rv-test-run-testing' && *)") &&
        !discoveryClamp.some(x => x.endsWith('&& *)')),
        detailedDiscoveryClamp.join(' | '))
     const validationClamp = wf.validationBashClamp({
@@ -755,7 +775,7 @@ ck('changes when the repo shape changes', sh('node', [path.join(BIN, 'review-and
        JSON.stringify(deferred))
 
     ck('every early serial-fixer failure wires in later-batch preservation',
-       (WF.match(/deferUnprocessedBatches\(batches, bi,/g) || []).length === 7)
+       (WF.match(/deferUnprocessedBatches\(batches, bi,/g) || []).length === 10)
   }
 }
 

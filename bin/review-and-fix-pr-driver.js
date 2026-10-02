@@ -9,6 +9,7 @@
 // which status this step wants:
 //
 //   fix    : start -> fixed --followups N -> validated --passed yes|no -> committed
+//            failed validation -> repair -> fixed again (remeasure) -> validated again
 //   review : start -> found --new N       -> checked --kept N --clean-files ... -> marked
 //   validate: start -> screened --confirmed N -> rechecked --kept N -> final
 //
@@ -46,6 +47,34 @@ const one = (f, d) => { const i = argv.indexOf('--' + f); return i === -1 ? d : 
 const has = (f) => argv.indexOf('--' + f) !== -1
 const list = (f) => String(one(f, '')).split(',').map(x => x.trim()).filter(Boolean)
 const num = (f) => Math.max(0, parseInt(one(f, '0'), 10) || 0)
+const base64JsonList = (f) => {
+  const raw = one(f, '')
+  if (!raw) return []
+  let value
+  try { value = JSON.parse(Buffer.from(raw, 'base64').toString('utf8')) } catch { throw new Error('driver: --' + f + ' must be base64 JSON') }
+  if (!Array.isArray(value) || value.some(item => typeof item !== 'string' || !item || path.isAbsolute(item) ||
+      item.includes('\\') || item.split('/').some(segment => !segment || segment === '.' || segment === '..' ||
+        segment.toLowerCase() === '.git'))) {
+    throw new Error('driver: --' + f + ' must contain safe repository-relative paths')
+  }
+  return [...new Set(value)]
+}
+
+function assertContainedPaths(root, files) {
+  const resolvedRoot = fs.realpathSync(path.resolve(root))
+  for (const relative of files || []) {
+    const target = path.resolve(resolvedRoot, relative)
+    if (!target.startsWith(resolvedRoot + path.sep)) throw new Error('driver: allowed path escapes repository: ' + relative)
+    let cursor = resolvedRoot
+    for (const segment of relative.split('/')) {
+      cursor = path.join(cursor, segment)
+      if (!fs.existsSync(cursor)) break
+      const stat = fs.lstatSync(cursor)
+      if (stat.isSymbolicLink()) throw new Error('driver: allowed path crosses a symlink: ' + relative)
+      if (fs.realpathSync(cursor) !== cursor) throw new Error('driver: allowed path escapes canonical repository: ' + relative)
+    }
+  }
+}
 
 const BATCH = one('batch')
 if (!BATCH) { console.error('driver: --batch is required'); process.exit(2) }
@@ -82,14 +111,17 @@ function prune() {
 }
 
 function changed(st) {
-  const out = gitRaw(st, 'status', '--porcelain=v1', '-z')
+  const out = gitRaw(st, 'status', '--porcelain=v1', '-z', '--untracked-files=all')
   const modified = [], untracked = []
   const entries = out.split('\0').filter(Boolean)
   for (let i = 0; i < entries.length; i++) {
     const line = entries[i]
     const code = line.slice(0, 2), p = line.slice(3)
     if (code === '??') untracked.push(p); else modified.push(p)
-    if (/[RC]/.test(code)) i++                 // porcelain -z emits the source path as the next record
+    if (/[RC]/.test(code)) {                   // porcelain -z emits the source path as the next record
+      const source = entries[++i]
+      if (source) modified.push(source)
+    }
   }
   return { modified, untracked }
 }
@@ -100,11 +132,58 @@ function changedSinceStart(st) {
   return { modified: now.modified.filter(p => !oldM.has(p)), untracked: now.untracked.filter(p => !oldU.has(p)), all: now }
 }
 
+function validationChanges(st) {
+  const now = changedSinceStart(st)
+  const intended = new Set(st.fixPaths || [])
+  return {
+    now,
+    intended,
+    modified: now.modified.filter(relative => !intended.has(relative)),
+    untracked: now.untracked.filter(relative => !intended.has(relative)),
+  }
+}
+
+function cleanValidationArtifacts(st, modified, untracked) {
+  if (modified.length) gitRaw(st, '--literal-pathspecs', 'restore', '--', ...modified)
+  for (const relative of untracked) {
+    const target = path.resolve(st.root, relative), root = path.resolve(st.root)
+    if (target === root || !target.startsWith(root + path.sep)) {
+      throw new Error('unsafe validation artifact path ' + relative)
+    }
+    if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: false })
+  }
+}
+
+function workingPathSnapshots(st, paths) {
+  const snapshots = []
+  for (const relative of [...paths].sort()) {
+    const target = path.resolve(st.root, relative)
+    if (!fs.existsSync(target)) { snapshots.push([relative, { kind: 'missing' }]); continue }
+    const stat = fs.lstatSync(target)
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('fix path is not a regular file: ' + relative)
+    snapshots.push([relative, { kind: 'file', mode: stat.mode & 0o111 ? '100755' : '100644',
+      oid: git(st, 'hash-object', '--path=' + relative, '--', relative) }])
+  }
+  return snapshots
+}
+
+function commitPathSnapshots(st, commit, paths) {
+  const snapshots = []
+  for (const relative of [...paths].sort()) {
+    const tree = gitRaw(st, '--literal-pathspecs', 'ls-tree', '-z', commit, '--', relative).split('\0').filter(Boolean)
+    if (!tree.length) { snapshots.push([relative, { kind: 'missing' }]); continue }
+    if (tree.length !== 1 || !tree[0].endsWith('\t' + relative)) throw new Error('commit path is ambiguous: ' + relative)
+    const fields = tree[0].slice(0, tree[0].indexOf('\t')).split(/\s+/)
+    snapshots.push([relative, { kind: 'file', mode: fields[0], oid: fields[2] }])
+  }
+  return snapshots
+}
+
 const EXPECTS = {
   fixing:     ['fixed', '--followups <N>'],
   followups:  ['fixed', '--followups <N>'],
   validating: ['validated', '--passed yes|no'],
-  repairing:  ['validated', '--passed yes|no'],
+  repairing:  ['fixed', '--followups <N>'],
   committing: ['committed', ''],
   looking:    ['found', '--new <N>'],
   checking:   ['checked', "--kept <N> --clean-files '<paths>'"],
@@ -126,7 +205,7 @@ const STEP_SAYS = {
   fixing:     'you have not reported your fixes yet',
   followups:  'you are working through the small follow-ups',
   validating: 'you have not said whether the build passed',
-  repairing:  'you are on your one repair attempt and have not re-run the build',
+  repairing:  'you are on your one repair attempt and have not remeasured the repaired files',
   committing: 'the build passed and you have not committed yet',
   looking:    'you are still looking for issues',
   checking:   'you are double-checking the candidates you have',
@@ -136,7 +215,7 @@ const STEP_SAYS = {
   finalizing: 'validation decisions are complete and you have not finalized them',
 }
 const SEQUENCE = {
-  fix:    'start -> fixed --followups N -> validated --passed yes|no -> committed',
+  fix:    'start -> fixed --followups N -> validated --passed yes|no -> (repair -> fixed -> validated) -> committed',
   review: "start -> found --new N -> checked --kept N --clean-files '...' -> marked",
   validate: 'start -> screened --confirmed N -> rechecked --kept N -> final',
 }
@@ -252,6 +331,9 @@ if (VERB === 'start') {
   if (mode !== 'fix' && mode !== 'review' && mode !== 'validate') { console.error('driver: --mode must be fix, review or validate'); process.exit(2) }
   const st = {
     batch: BATCH, mode, root: one('root', process.cwd()), parent: one('parent', ''),
+    reviewRun: one('review-run', ''), transaction: one('transaction', ''),
+    allowedFiles: base64JsonList('allowed-files-base64'),
+    stateHelper: one('state-helper', ''), stateStore: one('state-store', ''),
     chunk: one('chunk', ''), wholeFiles: list('whole-files'),
     base: one('base', ''), ledger: one('ledger', ''), pr: one('pr', ''),
     detailed: has('detailed'), scratch: one('scratch', ''),
@@ -265,6 +347,12 @@ if (VERB === 'start') {
   try { git(st, 'rev-parse', '--git-dir') } catch { console.error('driver: --root is not a git repository'); process.exit(2) }
   if (mode === 'fix') {
     if (!/^[0-9a-f]{40}$/i.test(st.parent)) { console.error('driver: --parent must be a full commit sha in fix mode'); process.exit(2) }
+    if (!!st.reviewRun !== !!st.transaction) { console.error('driver: --review-run and --transaction must be supplied together'); process.exit(2) }
+    if (st.reviewRun && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(st.reviewRun)) { console.error('driver: --review-run is unsafe'); process.exit(2) }
+    if (st.transaction && !/^[a-f0-9]{64}$/.test(st.transaction)) { console.error('driver: --transaction must be 64 lowercase hex characters'); process.exit(2) }
+    if (st.transaction && !st.allowedFiles.length) { console.error('driver: --allowed-files-base64 is required for prepared fixes'); process.exit(2) }
+    if (st.transaction && (!path.isAbsolute(st.stateHelper) || !st.stateStore)) { console.error('driver: prepared fixes require --state-helper and --state-store'); process.exit(2) }
+    try { assertContainedPaths(st.root, st.allowedFiles) } catch (error) { console.error(String(error.message || error)); process.exit(2) }
     if (git(st, 'rev-parse', 'HEAD') !== st.parent) { console.error('driver: HEAD does not match --parent; refusing to edit the wrong tree'); process.exit(2) }
   }
   if (mode === 'review') {
@@ -461,16 +549,29 @@ if (VERB === 'final') {
 }
 
 if (VERB === 'fixed') {
-  requireStep(st, 'fixing', 'followups')
+  requireStep(st, 'fixing', 'followups', 'repairing')
   if (!has('followups')) {
     refuse(st, 'MISSING COUNT',
            'How many small follow-ups are still left to do? That is a number, and it is what decides',
            'whether this step repeats: 0 means none are left and the batch moves on to the build.')
   }
   const left = num('followups')
+  try { assertContainedPaths(st.root, st.allowedFiles) } catch (error) {
+    abort(st, 'The prepared transaction fence became unsafe.', String(error.message || error))
+  }
   const ch = changedSinceStart(st)
+  const allowed = new Set(st.allowedFiles || [])
+  const outsideFence = st.transaction ? ch.modified.concat(ch.untracked).filter(file => !allowed.has(file)) : []
+  if (outsideFence.length) {
+    abort(st, 'The fixer edited path(s) outside its prepared transaction fence.',
+      ...outsideFence.map(file => '  ' + file),
+      'Leave the edits for human inspection; this driver will not validate or commit them.')
+  }
   st.modified = ch.modified; st.untracked = ch.untracked; st.rounds++
   st.fixPaths = [...new Set(ch.modified.concat(ch.untracked))]
+  // A repair can legitimately add another transaction-fenced file. Its new measured tree needs a
+  // fresh validation/artifact pass; no path set from the failed attempt remains authoritative.
+  st.artifactRechecks = 0
   if (left > 0 && st.rounds < MAX_FOLLOWUP_ROUNDS) {
     st.step = 'followups'; save(st)
     say('DO THE FOLLOW-UPS',
@@ -508,7 +609,7 @@ if (VERB === 'fixed') {
 }
 
 if (VERB === 'validated') {
-  requireStep(st, 'validating', 'repairing')
+  requireStep(st, 'validating')
   const p = one('passed', '')
   if (p !== 'yes' && p !== 'no') {
     refuse(st, 'NOT A YES OR NO',
@@ -518,17 +619,74 @@ if (VERB === 'validated') {
            'and it is the one thing it will not decide for you.')
   }
   if (p === 'yes') {
-    const now = changedSinceStart(st)
+    const validation = validationChanges(st)
+    const now = validation.now
     st.modified = now.modified; st.untracked = now.untracked
-    const intended = new Set(st.fixPaths || [])
-    const paths = now.modified.concat(now.untracked).filter(q => intended.has(q))
-    const artifacts = now.modified.concat(now.untracked).filter(q => !intended.has(q))
+    const intended = validation.intended
+    const validationModified = validation.modified
+    const validationUntracked = validation.untracked
+    const artifacts = validationModified.concat(validationUntracked)
+    if (artifacts.length) {
+      try { cleanValidationArtifacts(st, validationModified, validationUntracked) } catch (error) {
+        abort(st, 'Validation artifacts could not be cleaned after validation.', String(error.message || error))
+      }
+      const cleaned = changedSinceStart(st)
+      const cleanedPaths = cleaned.modified.concat(cleaned.untracked)
+      if (cleanedPaths.some(file => !intended.has(file))) {
+        abort(st, 'The cleaned tree still contains paths outside the fix set.',
+          ...cleanedPaths.filter(file => !intended.has(file)))
+      }
+      if (!cleanedPaths.length) {
+        st.step = 'done'; st.outcome = 'no-changes'; save(st)
+        say('Nothing is left to commit - the tree matches ' + st.parent + '.', '',
+            'Report your result and finish.', 'FINAL STATE: no-changes')
+        process.exit(0)
+      }
+      if ((st.artifactRechecks || 0) >= 1) {
+        st.step = 'done'; st.outcome = 'not-committed'; st.validationArtifacts = artifacts; save(st)
+        say('VALIDATION COULD NOT PRODUCE THE EXACT COMMIT TREE.', '',
+            'The passing check recreated paths outside the measured fix set after they had already',
+            'been cleaned once. Committing now would commit a different tree from the one tested.',
+            'The artifacts were cleaned, but the intended edits remain for human inspection.', '',
+            'DO NOT COMMIT. Report every finding as still open with this validation reason.',
+            'FINAL STATE: not-committed')
+        process.exit(0)
+      }
+      st.artifactRechecks = (st.artifactRechecks || 0) + 1
+      st.validationArtifacts = artifacts
+      st.step = 'validating'; save(st)
+      say('VALIDATE THE CLEAN COMMIT TREE', '',
+          'The passing check changed path(s) outside the measured fix set. They have been removed:',
+          ...artifacts.map(relative => '  ' + relative), '',
+          'That cleanup changed the tested tree, so it is not safe to seal or commit yet. Run the',
+          'same build and tests once more on the clean tree, then report the new verdict:', '',
+          cmd('validated', '--passed yes'), cmd('validated', '--passed no'))
+      process.exit(0)
+    }
+    const paths = now.modified.concat(now.untracked)
     if (!paths.length) {
       st.step = 'done'; st.outcome = 'no-changes'; save(st)
       say('Nothing is left to commit - the tree matches ' + st.parent + '.', '', 'Report your result and finish.', 'FINAL STATE: no-changes')
       process.exit(0)
     }
-    st.commitPaths = paths; st.validationArtifacts = artifacts; st.step = 'committing'; save(st)
+    if (st.transaction) {
+      let sealed
+      try {
+        const encodedPaths = Buffer.from(JSON.stringify(paths)).toString('base64')
+        sealed = JSON.parse(execFileSync(process.execPath, [st.stateHelper, 'seal-head', '--store', st.stateStore,
+          '--run', st.reviewRun, '--root', st.root, '--tx-id', st.transaction,
+          '--paths-base64', encodedPaths], { encoding: 'utf8', maxBuffer: 1 << 24 }))
+      } catch (error) {
+        abort(st, 'Validated transaction state could not be sealed before commit.', String(error.stderr || error.message || error))
+      }
+      if (!sealed || !sealed.ok || sealed.txId !== st.transaction) {
+        abort(st, 'Validated transaction state helper returned no matching seal.')
+      }
+    }
+    st.commitPaths = paths; st.validationArtifacts = []
+    st.validatedSnapshots = workingPathSnapshots(st, paths)
+    st.validationModified = []; st.validationUntracked = []
+    st.step = 'committing'; save(st)
     const msgfile = path.join(STATEDIR, BATCH + '.msg')
     say('COMMIT',
         '',
@@ -549,13 +707,27 @@ if (VERB === 'validated') {
         '  cat > ' + shellQuote(msgfile) + " <<'EOF'",
         '  <your message>',
         '  EOF',
-        '  git -C ' + shellQuote(st.root) + ' add -- ' + paths.map(shellQuote).join(' '),
+        ...(st.transaction ? [
+          '  cat >> ' + shellQuote(msgfile) + " <<'EOF'",
+          '',
+          'Review-And-Fix-Run: ' + st.reviewRun,
+          'Review-And-Fix-Transaction: ' + st.transaction,
+          'EOF',
+        ] : []),
+        '  git -C ' + shellQuote(st.root) + ' --literal-pathspecs add -- ' + paths.map(shellQuote).join(' '),
         '  git -C ' + shellQuote(st.root) + ' commit -F ' + shellQuote(msgfile),
         '',
         cmd('committed', ''))
     process.exit(0)
   }
   if (st.repairs === 0) {
+    // A failed test may have left tracked or untracked outputs. Remove only paths outside the
+    // measured fix before repair, then force `fixed` to measure every legitimate repair path and
+    // start validation again. The repair can never jump directly from a stale path set to commit.
+    const validation = validationChanges(st)
+    try { cleanValidationArtifacts(st, validation.modified, validation.untracked) } catch (error) {
+      abort(st, 'Validation artifacts could not be cleaned before repair.', String(error.message || error))
+    }
     st.repairs = 1; st.step = 'repairing'; save(st)
     say('FAILING - the tree was green before this batch, so this is your breakage.',
         '',
@@ -565,8 +737,9 @@ if (VERB === 'validated') {
         'and the test encoded the old buggy behaviour, update the test - and say plainly why that is',
         'legitimate rather than convenient.',
         '',
-        'Then run the build again:',
-        cmd('validated', '--passed yes'), cmd('validated', '--passed no'))
+        'Then re-read the repaired files and report the small follow-ups still left. The driver will',
+        'remeasure the complete repaired path set before it tells you to run the build again:',
+        cmd('fixed', '--followups <N>'))
     process.exit(0)
   }
   st.step = 'done'; st.outcome = 'not-committed'; save(st)
@@ -588,16 +761,49 @@ if (VERB === 'committed') {
     say('ERROR: HEAD is still ' + st.parent + ', so no commit was made. Run the commit commands from the previous step, then run this again.')
     process.exit(3)
   }
-  let parent = ''
-  try { parent = git(st, 'rev-parse', head + '^') } catch {}
-  if (parent !== st.parent) {
+  let parents = []
+  try { parents = git(st, 'rev-list', '--parents', '-n', '1', head).split(/\s+/).slice(1) } catch {}
+  if (parents.length !== 1 || parents[0] !== st.parent) {
     say('ERROR: the new HEAD is not a direct child of ' + st.parent + '. Another commit moved the branch; this batch cannot claim it.')
     process.exit(3)
   }
-  const committedPaths = new Set(gitRaw(st, 'diff-tree', '--no-commit-id', '--name-only', '-r', '-z', head).split('\0').filter(Boolean))
+  const message = gitRaw(st, 'show', '-s', '--format=%B', head)
+  if (st.transaction && (!message.split(/\r?\n/).includes('Review-And-Fix-Run: ' + st.reviewRun) ||
+      !message.split(/\r?\n/).includes('Review-And-Fix-Transaction: ' + st.transaction))) {
+    say('ERROR: the commit is missing the recovery trailers printed by the driver; this batch cannot claim it.')
+    process.exit(3)
+  }
+  const committedPaths = new Set(gitRaw(st, 'diff-tree', '--no-renames', '--no-commit-id', '--name-only', '-r', '-z', head)
+    .split('\0').filter(Boolean))
   const missing = (st.commitPaths || []).filter(p => !committedPaths.has(p))
-  if (missing.length) {
-    say('ERROR: the commit omitted paths the validated batch required:', ...missing.map(p => '  ' + p))
+  const extra = [...committedPaths].filter(p => !(st.commitPaths || []).includes(p))
+  if (missing.length || extra.length) {
+    say('ERROR: the commit path set differs from the validated batch:',
+        ...missing.map(p => '  missing: ' + p), ...extra.map(p => '  extra: ' + p))
+    process.exit(3)
+  }
+  let committedSnapshots
+  try { committedSnapshots = commitPathSnapshots(st, head, st.commitPaths || []) } catch (error) {
+    say('ERROR: committed content could not be compared with the validated batch: ' + String(error.message || error))
+    process.exit(3)
+  }
+  if (JSON.stringify(committedSnapshots) !== JSON.stringify(st.validatedSnapshots || {})) {
+    say('ERROR: at least one committed file changed after validation; this batch cannot claim it.')
+    process.exit(3)
+  }
+  try {
+    if ((st.validationModified || []).length) {
+      gitRaw(st, '--literal-pathspecs', 'restore', '--', ...(st.validationModified || []))
+    }
+    for (const relative of st.validationUntracked || []) {
+      const target = path.resolve(st.root, relative)
+      const root = path.resolve(st.root)
+      if (target === root || !target.startsWith(root + path.sep)) throw new Error('unsafe validation artifact path ' + relative)
+      if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: false })
+    }
+  } catch (error) {
+    say('ERROR: the commit landed, but validation artifacts could not be cleaned: ' + String(error.message || error),
+        'Clean only the validation artifacts listed by the previous step, then run this committed command again.')
     process.exit(3)
   }
   const after = changed(st)
