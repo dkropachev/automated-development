@@ -116,6 +116,8 @@ cells are publishable only when the final response ends with the structured
 The runner rejects the response before writing a result if any part of that contract is absent,
 partial, or inconsistent. The dashboard visibly labels this tool experimental and self-authored in
 cohort-local views; those labels and a completed cohort do not make it part of canonical gold.
+The outer reviewer must relay the Workflow result as its immediate final response; any later tool or
+progress turn can replace the process result and discard the required final marker.
 Review processes also set `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`; the runner's own `--timeout`
 remains the authoritative wall limit, so Claude print mode cannot kill a still-running Workflow at
 its shorter background-task default and return a publishable-looking stub.

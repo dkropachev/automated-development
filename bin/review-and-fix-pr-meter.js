@@ -137,10 +137,14 @@ const tokens = {
 tokens.total = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheCreation
 // This script runs inside a helper agent. Its tool-use request is visible while the script reads
 // transcripts; the agent's final structured-output request is not written until after the script
-// returns. Reserve one more context plus bounded output for that in-flight tail so a near-limit
-// measurement cannot authorize another wave on a stale undercount.
+// returns. Reserve one full observed agent total plus bounded output for that in-flight tail so a
+// near-limit measurement cannot authorize another wave on a stale undercount.
 const meterAgents = agents.filter(agent => String(agent.label).startsWith('measure transcript tokens '))
-tokens.tailReserve = meterAgents.length ? Math.max(...meterAgents.map(agent => agent.C)) + 8192 : 0
+// The first meter cannot see its own not-yet-written assistant response. Use the largest completed
+// agent total as a conservative first-call proxy; later meters can use prior meter totals
+// directly. Always reserve output too, so the first boundary never reports a zero in-flight tail.
+const tailAgents = meterAgents.length ? meterAgents : agents
+tokens.tailReserve = Math.max(0, ...tailAgents.map(agent => Math.max(agent.tokens, agent.C))) + 16384
 tokens.effectiveTotal = tokens.total + tokens.tailReserve
 const output = {
   ok: true,

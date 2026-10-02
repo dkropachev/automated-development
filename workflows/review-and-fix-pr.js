@@ -5485,6 +5485,8 @@ function buildReconstructionContext(sourceRefs) {
   const catalogHeads = []
   const rawLocations = new Map()
   const derivedFollowUps = []
+  const sourceEvidence = []
+  const sourceEvidenceIndex = new Map()
   let repositoryIdentity = null
   const reviewSources = reconstructReviewSourceState(sourceRefs, resumedArtifacts,
     resumedArtifactRecords, stateClaim.run)
@@ -5492,6 +5494,10 @@ function buildReconstructionContext(sourceRefs) {
   const addFinding = (finding, headSha) => {
     const key = reconstructionFindingKey(finding)
     if (!key) return -1
+    if (typeof finding.evidence === 'string' && !sourceEvidenceIndex.has(finding.evidence)) {
+      sourceEvidenceIndex.set(finding.evidence, sourceEvidence.length)
+      sourceEvidence.push(finding.evidence)
+    }
     const headKey = String(headSha || 'unknown') + '\0' + key
     if (!catalogByHeadKey.has(headKey)) {
       catalogByHeadKey.set(headKey, catalog.length)
@@ -5549,7 +5555,7 @@ function buildReconstructionContext(sourceRefs) {
     }
   }
   return { catalog, catalogByKey, catalogByHeadKey, catalogHeads,
-    rawLocations, derivedFollowUps, reviewSources }
+    rawLocations, derivedFollowUps, reviewSources, sourceEvidence, sourceEvidenceIndex }
 }
 
 function restoreSnapshotAudit(snapshot) {
@@ -5626,8 +5632,11 @@ function resolveRawLocator(locator, sourceRefs, context, cycle,
     if (!source || !finding || !cycleMatch || !/^[a-f0-9]{40}$/.test(source.headSha || '')) return null
     const rawSource = source.kind === 'lens' ? 'lens:' + source.resultId :
       (source.kind === 'gap' ? 'gap:' + String(source.resultId).replace(/^gap-/, '') : null)
-    return rawSource ? stableRawCandidateId(Number(cycleMatch[1]), source.headSha,
-      rawSource, locator[2], finding) : null
+    const occurrenceIndexes = stableFindingOccurrenceIndexes(source.result.findings || [])
+    const occurrenceIndex = occurrenceIndexes[locator[2]]
+    return rawSource && Number.isSafeInteger(occurrenceIndex)
+      ? stableRawCandidateId(Number(cycleMatch[1]), source.headSha,
+        rawSource, occurrenceIndex, finding) : null
   }
   if (locator[0] === 'c' && Number.isSafeInteger(locator[1]) &&
       ['recovery', 'pending-fix'].includes(locator[2]) && /^[a-f0-9]{40}$/.test(locator[3] || '')) {
@@ -5658,10 +5667,33 @@ function compactFindingStateDelta(base, finding) {
   return { set, unset }
 }
 
-function applyCompactFindingStateDelta(base, delta) {
+function sourceBackedFindingStateDelta(base, finding, sourceEvidenceIndex = null) {
+  const delta = compactFindingStateDelta(base, finding)
+  if (Object.prototype.hasOwnProperty.call(delta.set, 'supportingEvidence') &&
+      Array.isArray(finding && finding.supportingEvidence) && finding.supportingEvidence.length === 1 &&
+      finding.supportingEvidence[0] === (base && base.evidence) && sourceEvidenceIndex &&
+      sourceEvidenceIndex.has(base.evidence)) {
+    delta.set.supportingEvidence = { e: sourceEvidenceIndex.get(base.evidence) }
+  }
+  return delta
+}
+
+function sourceBackedReason(base, reason) {
+  return base && typeof base.reason === 'string' && base.reason === reason ? null : reason
+}
+
+function applyCompactFindingStateDelta(base, delta, sourceBacked = false, sourceEvidence = null) {
   if (!base || !delta || !delta.set || !Array.isArray(delta.unset) ||
       Object.keys(delta.set).some(field => !COMPACT_FINDING_STATE_FIELDS.includes(field))) return null
-  const finding = Object.assign({}, base, delta.set)
+  const set = Object.assign({}, delta.set)
+  if (sourceBacked && set.supportingEvidence && !Array.isArray(set.supportingEvidence)) {
+    const marker = set.supportingEvidence
+    if (!marker || Object.keys(marker).length !== 1 || !Number.isSafeInteger(marker.e) || marker.e < 0 ||
+        !Array.isArray(sourceEvidence) || typeof sourceEvidence[marker.e] !== 'string') return null
+    const baseEvidence = sourceEvidence[marker.e]
+    set.supportingEvidence = [baseEvidence]
+  }
+  const finding = Object.assign({}, base, set)
   for (const field of delta.unset) {
     if (!COMPACT_FINDING_STATE_FIELDS.includes(field)) return null
     delete finding[field]
@@ -5850,7 +5882,8 @@ function resolveDispositionChain(latestName) {
     const record = resumedArtifactRecords.get(name)
     if (!record || (expected && (record.sha256 !== expected.sha256 || record.bytes !== expected.bytes))) return null
     const snapshot = dispositionSnapshotValue(name, resumedArtifacts.get(name))
-    if (!snapshot || snapshot.snapshotVersion !== 3 || !Array.isArray(snapshot.sourceArtifacts)) return null
+    if (!snapshot || ![3, 4].includes(snapshot.snapshotVersion) ||
+        !Array.isArray(snapshot.sourceArtifacts)) return null
     nodes.push({ name, record, snapshot })
     expected = snapshot.previousDisposition || null
     if (expected === null) break
@@ -5888,8 +5921,11 @@ function decodeCompactDispositionSnapshot(snapshot, context, artifactValues, exp
   const findingAt = (index, expectedHead, delta) => {
     if (!Number.isSafeInteger(index) || index < 0 || index >= context.catalog.length ||
         context.catalogHeads[index] !== expectedHead) return null
-    return applyCompactFindingStateDelta(context.catalog[index], delta)
+    return applyCompactFindingStateDelta(context.catalog[index], delta, snapshot.snapshotVersion >= 4,
+      context.sourceEvidence)
   }
+  const restoredReason = (finding, encoded) => encoded === null && snapshot.snapshotVersion >= 4
+    ? (typeof finding.reason === 'string' ? finding.reason : null) : encoded
   const decodeRows = (rows, decode) => {
     const out = []
     for (const row of rows || []) {
@@ -5902,13 +5938,16 @@ function decodeCompactDispositionSnapshot(snapshot, context, artifactValues, exp
   const decoded = { live: {}, cumulative: {}, rawDispositions: [],
     reviewSources: context.reviewSources }
   decoded.live.rejected = decodeRows(snapshot.live.rejected, row => {
-    const finding = findingAt(row[0], row[2], row[3]); return finding && { finding, reason: row[1] }
+    const finding = findingAt(row[0], row[2], row[3]); const reason = finding && restoredReason(finding, row[1])
+    return finding && typeof reason === 'string' ? { finding, reason } : null
   })
   decoded.live.rejectedHints = decodeRows(snapshot.live.rejectedHints, row => {
-    const finding = findingAt(row[0], row[2], row[3]); return finding && { finding, reason: row[1] }
+    const finding = findingAt(row[0], row[2], row[3]); const reason = finding && restoredReason(finding, row[1])
+    return finding && typeof reason === 'string' ? { finding, reason } : null
   })
   decoded.live.setAside = decodeRows(snapshot.live.setAside, row => {
-    const finding = findingAt(row[0], row[2], row[3]); return finding && { finding, reason: row[1] }
+    const finding = findingAt(row[0], row[2], row[3]); const reason = finding && restoredReason(finding, row[1])
+    return finding && typeof reason === 'string' ? { finding, reason } : null
   })
   decoded.live.deferred = decodeRows(snapshot.live.deferred, row => {
     const finding = findingAt(row[0], row[3], row[4]);
@@ -6029,7 +6068,7 @@ let previousDispositionMaterialized = emptyDispositionMaterialized()
 let previousDispositionSources = []
 if (latestDisposition) {
   let snapshot = latestDisposition.snapshot
-  if (snapshot.snapshotVersion === 3) {
+  if ([3, 4].includes(snapshot.snapshotVersion)) {
     const chain = resolveDispositionChain(latestDisposition.name)
     if (!chain) {
       statePersistenceFailed = true
@@ -6063,7 +6102,7 @@ if (latestDisposition) {
     statePersistenceFailed = true
     for (const commit of ownedCommits) replayReceipt(commit)
   } else {
-    if (snapshot.snapshotVersion === 3) {
+    if ([3, 4].includes(snapshot.snapshotVersion)) {
       if (!restoreCompactDispositionSnapshot(snapshot, cursor)) {
         statePersistenceFailed = true
         knownFixed.clear(); knownDeferred.clear(); knownRejected.clear(); rejectedHints.clear();
@@ -6754,7 +6793,7 @@ if (RESOLVED_MODE === 'full') {
       if (!Number.isSafeInteger(index)) return null
       const base = context.catalog[index]
       const exact = finding ? Object.assign({}, base, finding) : base
-      const delta = compactFindingStateDelta(base, exact)
+      const delta = sourceBackedFindingStateDelta(base, exact, context.sourceEvidenceIndex)
       for (const field of omit) {
         delete delta.set[field]
         delta.unset = delta.unset.filter(item => item !== field)
@@ -6771,13 +6810,16 @@ if (RESOLVED_MODE === 'full') {
       return rows
     }
     const rejected = requireRows([...knownRejected], ([key, reason]) => {
-      const ref = stateRef(null, key); return ref && [ref[0], reason, ref[1], ref[2]]
+      const ref = stateRef(null, key); return ref && [ref[0],
+        sourceBackedReason(context.catalog[ref[0]], reason), ref[1], ref[2]]
     })
     const hints = requireRows([...rejectedHints], ([key, reason]) => {
-      const ref = stateRef(null, key); return ref && [ref[0], reason, ref[1], ref[2]]
+      const ref = stateRef(null, key); return ref && [ref[0],
+        sourceBackedReason(context.catalog[ref[0]], reason), ref[1], ref[2]]
     })
     const asideRows = requireRows([...setAside], ([key, finding]) => {
-      const ref = stateRef(finding, key); return ref && [ref[0], finding && finding.reason, ref[1], ref[2]]
+      const ref = stateRef(finding, key); return ref && [ref[0],
+        sourceBackedReason(context.catalog[ref[0]], finding && finding.reason), ref[1], ref[2]]
     })
     const deferred = requireRows([...knownDeferred], ([key, reason]) => {
       const ref = stateRef(deferDetail.get(key), key)
@@ -6852,7 +6894,7 @@ if (RESOLVED_MODE === 'full') {
     pendingDispositionMaterialized = materialized
     pendingDispositionSources = sourceArtifacts
     return {
-      snapshotVersion: 3, headSha: scope.headSha, keyHash: stateClaim.keyHash, lineageCursor,
+      snapshotVersion: 4, headSha: scope.headSha, keyHash: stateClaim.keyHash, lineageCursor,
       fixWindow: fixWindowValue || 0, previousDisposition: previousDispositionRef,
       sourceArtifacts: sourceDelta.map(ref => [ref.name, ref.sha256, ref.bytes]),
       delta: dispositionDelta(previousDispositionMaterialized, materialized),

@@ -59,7 +59,7 @@ test('workflow meter resolves a unique cwd and counts every transcript token cla
   assert.equal(report.workflowDir, workflow)
   assert.deepEqual(report.tokens, {
     input: 13, output: 22, cacheRead: 22, cacheCreation: 26, total: 83,
-    tailReserve: 8239, effectiveTotal: 8322,
+    tailReserve: 16467, effectiveTotal: 16550,
   })
   assert.deepEqual(report.totals, { agents: 1, requests: 2, output: 22, ite: 158 })
   assert.equal(Object.hasOwn(report, 'agents'), false)
@@ -67,6 +67,17 @@ test('workflow meter resolves a unique cwd and counts every transcript token cla
   const detailed = spawnSync(process.execPath, [METER, '--dir', workflow], { encoding: 'utf8' })
   assert.equal(detailed.status, 0, detailed.stderr)
   assert.equal(JSON.parse(detailed.stdout).agents[0].tokens, 83)
+
+  fs.writeFileSync(path.join(workflow, 'agent-a.meta.json'), JSON.stringify({
+    description: 'completed setup helper', workflowPhase: 'Setup',
+  }))
+  const firstMeter = spawnSync(process.execPath, [METER, '--cwd', cwd, '--summary-only'], {
+    encoding: 'utf8', env: { ...process.env, CLAUDE_CONFIG_DIR: config },
+  })
+  assert.equal(firstMeter.status, 0, firstMeter.stderr)
+  const firstReport = JSON.parse(firstMeter.stdout)
+  assert.equal(firstReport.tokens.tailReserve, 16467)
+  assert.ok(firstReport.tokens.tailReserve > 0)
 })
 
 test('workflow source refreshes transcript totals before every paid agent wave and fails closed', () => {

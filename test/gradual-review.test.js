@@ -162,6 +162,32 @@ test('raw candidate IDs and dispositions remain stable and identity-bound', () =
   }])
 })
 
+test('raw source locators replay canonical occurrence ranks instead of physical order', () => {
+  const head = 'a'.repeat(40)
+  const first = finding('low', { title: 'z-last', evidence: 'src/a.js:9 z' })
+  const second = finding('low', { title: 'a-first', evidence: 'src/a.js:1 a' })
+  const name = 'cycle-1/lenses/correctness.json'
+  const value = { importVersion: 1, binding: { run: 'run-1', headSha: head,
+    kind: 'lens', resultId: 'correctness', artifactName: name },
+  result: { lens: 'correctness', findings: [first, second] } }
+  const source = [
+    "const norm = s => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9:.\\/]+/g, '-').replace(/^-+|-+$/g, '')",
+    extractFn('canonicalJson'), extractFn('identityHex'), extractFn('normalizedFingerprint'),
+    extractFn('stableRawCandidateId'), extractFn('stableFindingOccurrenceIndexes'),
+    extractFn('normalizeSourceArtifactRef'), extractFn('sourceResultRecord'), extractFn('resolveRawLocator'),
+    `const name = ${JSON.stringify(name)}, value = ${JSON.stringify(value)}`,
+    "const refs = [{ name, sha256: 'b'.repeat(64), bytes: 1 }]",
+    'const artifacts = new Map([[name, value]])',
+    `const context = { catalog: ${JSON.stringify([first, second])} }`,
+    'const ranks = stableFindingOccurrenceIndexes(value.result.findings)',
+    ";({ actual: resolveRawLocator(['s', 0, 0], refs, context, 1, artifacts, 'run-1'),",
+    "expected: stableRawCandidateId(1, value.binding.headSha, 'lens:correctness', ranks[0], value.result.findings[0]), ranks })",
+  ].join('\n')
+  const result = vm.runInNewContext(source)
+  assert.notEqual(result.ranks[0], 0)
+  assert.equal(result.actual, result.expected)
+})
+
 test('double verification needs two rejections and makes disagreement unresolved', () => {
   const h = helpers()
   const candidate = finding('high', { candidateId: 'cluster-1', rawCandidateIds: ['raw-1'] })
@@ -357,7 +383,7 @@ test('resume revalidates restored discovery and atomically records fixer follow-
   assert.match(WF, /const candidatesForVerification = candidates\s/)
   assert.doesNotMatch(WF, /candidates\.filter\(candidate => !candidate\.resumedCandidate\)/)
   assert.match(WF, /followUps: expanded\.followUps \|\| \[\]/)
-  assert.match(WF, /snapshotVersion: 3[\s\S]*lineageCursor/)
+  assert.match(WF, /snapshotVersion: 4[\s\S]*lineageCursor/)
   assert.match(WF, /sourceArtifacts/)
   assert.match(WF, /sha256: record\.sha256/)
   assert.match(WF, /fixWindow: fixWindowValue/)
@@ -541,7 +567,7 @@ test('v3 reconstruction reproduces imported review evidence and compact disposit
     extractFn('stableFindingOccurrenceIndexes'),
     extractFn('reconstructionFindingKey'), extractFn('sourceResultRecord'), extractFn('normalizeSourceArtifactRef'),
     extractFn('reconstructReviewSourceState'), extractFn('resolveRawLocator'),
-    extractFn('canonicalJson'),
+    extractFn('canonicalJson'), extractFn('sha256Utf8'),
     `const COMPACT_FINDING_STATE_FIELDS = ${JSON.stringify([
       'title', 'detail', 'primaryFile', 'files', 'symbol', 'defectClass', 'evidence', 'supportingEvidence',
       'trigger', 'mechanism', 'observableImpact', 'baseVsHead', 'coverageUnitIds', 'severity', 'confidence',
@@ -671,7 +697,7 @@ test('v3 disposition deltas remain under the relay cap across 20 findings and cy
   assert.match(WF, /record\.sha256 !== expected\.sha256 \|\| record\.bytes !== expected\.bytes/)
 })
 
-test('v3 disposition chain resolves oldest-to-newest and rejects hash mismatches or cycles', () => {
+test('mixed v3/v4 disposition chain resolves oldest-to-newest and rejects hash mismatches or cycles', () => {
   const rootName = 'cycle-1/dispositions.json', nextName = 'cycle-2/dispositions.json'
   const rootRef = { name: rootName, sha256: 'a'.repeat(64), bytes: 300 }
   const sourceOne = { name: 'cycle-1/lenses/a.json', sha256: 'c'.repeat(64), bytes: 100 }
@@ -679,7 +705,7 @@ test('v3 disposition chain resolves oldest-to-newest and rejects hash mismatches
   const emptyDelta = { h: [], ls: [], ld: [], cs: [], r: [], rr: 0, fs: [], fd: [] }
   const root = { snapshotVersion: 3, sourceArtifacts: [sourceOne], previousDisposition: null,
     delta: { ...emptyDelta, fs: [{ title: 'first' }] } }
-  const next = { snapshotVersion: 3, sourceArtifacts: [sourceTwo], previousDisposition: rootRef,
+  const next = { snapshotVersion: 4, sourceArtifacts: [sourceTwo], previousDisposition: rootRef,
     delta: { ...emptyDelta, fs: [{ title: 'second' }] } }
   const run = (rootValue, nextValue) => vm.runInNewContext([
     `const resumedArtifacts = new Map(${JSON.stringify([[rootName, { value: rootValue }],
@@ -1012,6 +1038,63 @@ test('compact v2 fix receipts expand exactly and fail closed on missing, ambiguo
   assert.deepEqual(Array.from(result.latestExpanded.stillOpen[0].files), ['src/a.js', 'src/new-helper.js'])
   assert.equal(result.latestExpanded.stillOpen[0].severity, 'low')
   assert.equal(result.latestExpanded.stillOpen[0].evidence, 'src/new-helper.js:9 current')
+})
+
+test('v4 disposition overlays source-backed prose and retain genuine overrides under the relay cap', () => {
+  const base = finding('low', { evidence: 'src/a.js:1 ' + 'e'.repeat(240),
+    reason: 'source rejection ' + 'r'.repeat(320) })
+  const source = [
+    extractFn('canonicalJson'), extractFn('sha256Utf8'),
+    `const COMPACT_FINDING_STATE_FIELDS = ${JSON.stringify([
+      'title', 'detail', 'primaryFile', 'files', 'symbol', 'defectClass', 'evidence',
+      'supportingEvidence', 'trigger', 'mechanism', 'observableImpact', 'baseVsHead',
+      'coverageUnitIds', 'severity', 'confidence', 'fixSize', 'defer', 'deferReason',
+      'releaseBlocker', 'blockerReason', 'scopeLabel', 'deferralQuote', 'validationStatus',
+      'validationReason', 'whyStillHere',
+    ])}`,
+    extractFn('compactFindingStateDelta'), extractFn('sourceBackedFindingStateDelta'),
+    extractFn('sourceBackedReason'), extractFn('applyCompactFindingStateDelta'),
+    `const base = ${JSON.stringify(base)}`,
+    "const exact = { ...base, supportingEvidence: [base.evidence], validationReason: 'discovery did not complete' }",
+    'const sourceEvidenceIndex = new Map([[base.evidence, 0]])',
+    'const compact = sourceBackedFindingStateDelta(base, exact, sourceEvidenceIndex)',
+    'const sourceEvidence = [base.evidence]',
+    'const restored = applyCompactFindingStateDelta(base, compact, true, sourceEvidence)',
+    "const laterBase = { ...base, evidence: 'later and longer evidence' }",
+    'const restoredAfterLaterSource = applyCompactFindingStateDelta(laterBase, compact, true, sourceEvidence)',
+    "const override = sourceBackedFindingStateDelta(base, { ...exact, supportingEvidence: [base.evidence, 'other'] })",
+    ';({ base, compact, restored, restoredAfterLaterSource, override, derivedReason: sourceBackedReason(base, base.reason),',
+    "  overrideReason: sourceBackedReason(base, 'different reason') })",
+  ].join('\n')
+  const result = vm.runInNewContext(source)
+  assert.equal(result.compact.set.supportingEvidence.e, 0)
+  assert.deepEqual(Array.from(result.restored.supportingEvidence), [base.evidence])
+  assert.deepEqual(Array.from(result.restoredAfterLaterSource.supportingEvidence), [base.evidence])
+  assert.deepEqual(Array.from(result.override.set.supportingEvidence), [base.evidence, 'other'])
+  assert.equal(result.derivedReason, null)
+  assert.equal(result.overrideReason, 'different reason')
+
+  const head = 'a'.repeat(40)
+  const emptyDelta = { set: {}, unset: [] }
+  const live = {
+    rejected: Array.from({ length: 8 }, (_, index) => [index, null, head, emptyDelta]),
+    rejectedHints: [], setAside: [], deferred: [], stillPresent: [], open: [],
+    unresolved: Array.from({ length: 13 }, (_, index) => [index,
+      'discovery did not complete, so validation was not started', head,
+      { set: { supportingEvidence: { e: index } }, unset: [] }]),
+    outOfScope: [],
+  }
+  const rows = Array.from({ length: 13 }, (_, index) => [index, 'low', 'likely', 'logic', 'in', 0, 0])
+  const snapshot = { snapshotVersion: 4, headSha: head, keyHash: 'b'.repeat(64), lineageCursor: 0,
+    fixWindow: 1, previousDisposition: null,
+    sourceArtifacts: Array.from({ length: 3 }, (_, index) => [
+      `cycle-1/lenses/l${index}.json`, 'c'.repeat(64), 20000 + index]),
+    delta: { h: [head], ls: Object.entries(live).flatMap(([bucket, values]) =>
+      values.map(row => [bucket, row])), ld: [], cs: rows.map(row => [row, null, null]),
+    r: rows.map((row, index) => [['s', index % 3, index], 'unresolved', 1,
+      'cluster-' + String(index).padStart(64, '0')]), rr: 0, fs: [], fd: [] } }
+  const encodedSnapshotBytes = Buffer.from(JSON.stringify(snapshot)).toString('base64').length
+  assert.ok(encodedSnapshotBytes <= 8192, 'encoded v4 disposition bytes: ' + encodedSnapshotBytes)
 })
 
 test('lineage receipt replay requires an explicit valid v1 or v2 discriminator', () => {

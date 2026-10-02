@@ -57,6 +57,8 @@ test('review-and-fix-pr is a local review-only experimental benchmark tool', () 
   assert.doesNotMatch(tool.prompt, /(?:model|stopAt)\s*:/)
   assert.match(tool.prompt, /Wait for the workflow result/)
   assert.match(tool.prompt, /relay that result exactly and in full/)
+  assert.match(tool.prompt, /make that relay your final response immediately/)
+  assert.match(tool.prompt, /do not run another tool/)
   assert.match(tool.prompt, /REVIEW_AND_FIX_PR_RESULT_JSON=/)
 })
 

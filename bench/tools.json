@@ -112,7 +112,7 @@
       "cohortOnly": true,
       "requiresPluginDir": true,
       "resultContract": "review-and-fix-pr-v1",
-      "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill to review pull request #{pr}.\n\n{context}\n\nInvoke its workflow exactly once in review-only mode with `pr: \"{pr}\"` and `fix: false`. Do not pass a workflow `model` or `stopAt`; inherit the benchmark's pinned outer model and run the complete coverage protocol. Wait for the workflow result before ending your turn, then relay that result exactly and in full, including its final `REVIEW_AND_FIX_PR_RESULT_JSON=` line. Do not rewrite, summarize, or omit any part of the workflow result."
+      "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill to review pull request #{pr}.\n\n{context}\n\nInvoke its workflow exactly once in review-only mode with `pr: \"{pr}\"` and `fix: false`. Do not pass a workflow `model` or `stopAt`; inherit the benchmark's pinned outer model and run the complete coverage protocol. Wait for the workflow result before ending your turn, then relay that result exactly and in full, including its final `REVIEW_AND_FIX_PR_RESULT_JSON=` line. Once the result arrives, make that relay your final response immediately: do not run another tool, send another progress message, stop a monitor, or add any later text. Do not rewrite, summarize, or omit any part of the workflow result."
     }
   ]
 }
