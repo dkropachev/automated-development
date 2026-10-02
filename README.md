@@ -186,32 +186,74 @@ or the repo's own commits carry them.
 
 ### `review-and-fix-pr`
 
-Reviews a whole PR with either its built-in method or any compatible loaded review skill, then
-optionally fixes what survives. One read-only reviewer covers complete diff; separate fixer agents
-validate and commit findings serially. Nothing is pushed or reverted: a batch whose build fails
-leaves its edits in tree for inspection.
+Reviews a frozen whole-PR scope through independent mandatory lenses, audits their coverage, runs
+one targeted gap round, and independently verifies candidate findings. Optional loaded review
+skills add specialist lenses; they never replace native correctness, spec, standards, or risk
+review. Nothing is pushed, posted, reverted, or reset.
 
 ```
 /review-and-fix-pr 1234
 ```
 
-To choose review expertise, name loaded skill in request, for example: “review and fix PR 1234 using
-`trailofbits:differential-review`.” Workflow invokes exact skill through Skill tool. Missing,
-user-only, or write-owning skills stop run as NOT REVIEWED instead of silently falling back.
+Native lenses run in read-only waves of three without seeing one another's findings:
 
-Every reviewer and every fixer is walked through its work one step at a time by
-`bin/review-and-fix-pr-driver.js`, which holds the decisions an agent should not make for itself:
-what changed is measured with `git status` rather than taken from the agent's word, `COMMIT` is never
-printed while the build is failing, and a review cannot stop looking until two passes in a row find
-nothing — with the agent never told how close it is, so it cannot aim for the exit.
+```text
+correctness -> spec -> standards -> security -> reliability -> contracts
+-> testing -> performance -> comments -> maintainability
+```
+
+To add review expertise, name loaded skills in the request, for example: “review PR 1234 using
+`trailofbits:differential-review` and `code-review`.” The workflow invokes exact names before native
+lenses. Missing, user-only, recursive, or write-owning skills remain failed lenses and prevent a
+complete coverage result instead of silently falling back.
+
+Ordinary configuration is deliberately small:
+
+```js
+{
+  pr: 1234,
+  fix: false,
+  extraReviewSkills: ['trailofbits:differential-review'],
+  stopAt: {
+    count: 20,
+    score: { code: 30, other: 10 },
+    tokens: 5_000_000,
+  },
+  severityWeights: {
+    code:  { critical: 10, high: 5, medium: 2, low: 1 },
+    other: { critical: 10, high: 5, medium: 2, low: 1 },
+  },
+  verification: 'double',
+  model: 'claude-opus-4-1', // required when stopAt is present, so partial work can resume
+}
+```
+
+Omit `stopAt` for the complete coverage protocol; empty `stopAt` or `score` objects are rejected. A
+stop threshold is an OR condition and produces a partial, resumable review. Count spans all
+qualified findings; code and other severity scores are independent. Simultaneous hits in one
+drained wave are all reported. `double` verification is default and uses fresh challenges for
+rejects, unresolved claims, and confirmed critical/high findings.
+
+Coverage is tracked from changed hunks, requirements, contracts, tests, documentation, and
+repository rules. A fresh auditor sees receipts rather than finding prose, requests one targeted gap
+round, then re-audits. `coverage: complete` means this protocol closed; it never claims the PR is
+bug-free or that every possible defect was found. Exact hunk hashes and zero-hunk paths are
+independently inventoried and cross-checked before discovery starts.
 
 Scope is a label, not a filter. A defect this PR did not cause is reported and marked out-of-scope
 rather than suppressed, so you can tell "you broke this" from "this was already broken". With
-`detailedReview: true` reviewers may leave the hunk, trace callers, and *run* experiments in a
-throwaway clone — which is what finds caller-side defects that reading past them does not.
+`fix: true`, verified findings are fixed in serial batches and committed locally. Every successful
+fix changes the review target, so the workflow rebuilds its manifest and restarts all mandatory
+lenses. Failed work stays in the tree for inspection.
 
-Review skill controls methodology only. Workflow keeps whole-PR scope, read-only review permissions,
-finding schema, fix batching, validation, commits, and reporting.
+Runs checkpoint outside the repository. Runs with an explicit `model` automatically resume only when
+PR lineage, scope-source fingerprint, workflow schema, model, and ordered lens configuration still match;
+inherited-model runs start fresh (except for recovery of a transaction-proven local fix commit)
+because the Workflow API cannot identify that model safely. Changed stop limits, score weights,
+verification strength, or `fix` authority are allowed on resume. See
+`skills/review-and-fix-pr/reference.md` for the exact API, status axes, and migration from removed
+arguments. Fix commits carry a write-ahead transaction proof, allowing a crash after `git commit`
+but before orchestration returns to recover conservatively on the next invocation.
 
 ## Layout
 
@@ -220,8 +262,10 @@ agents/                  subagents the skills spawn, typed automated-development
                          :pr-style-verifier, :issue-style-builder, :issue-style-verifier,
                          :commit-style-builder, :commit-style-verifier (plugin name is part of the type)
 bin/promptgen-driver.js  the CLI: the two state machines and the orchestrator's verbs, --domain pr|issue|commit
-bin/review-and-fix-pr-*.js   review helpers: -driver (fix and review state machines), -reviewed
-                         (clean verdicts); dormant chunker/repofp remain for compatibility
+bin/review-and-fix-pr-*.js   review helpers: -driver (fix/review state machines), -state (durable
+                         checkpoints), -chunker/-diff (trusted coverage inventory), -scope
+                         (GitHub/source identity and merge-base proof), and -reviewed
+                         (legacy clean verdicts); repofp remains for compatibility
 workflows/               Workflow scripts, run by scriptPath; not linted (see eslint.config.js)
 lib/domains.js           everything that differs between the three domains: paths, keys, source files,
                          which checks apply, and every instruction that talks about "the diff" or "the maintainer"

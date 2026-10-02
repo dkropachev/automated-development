@@ -15,10 +15,9 @@
 // for one chunk is split across several, so a file-name filter either hands back chunks the run
 // already paid for or drops hunks it never saw.
 
-const { execFileSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
-const crypto = require('crypto')
+const { changedEntries, diffInventory, fileDiff: readFileDiff, sha256: sha, splitHunks } = require('./review-and-fix-pr-diff')
 
 function argv(name, dflt) {
   const i = process.argv.indexOf('--' + name)
@@ -65,8 +64,6 @@ for (const [stage, cap] of Object.entries(CAPS)) {
   if (!Number.isSafeInteger(cap) || cap <= 0) { console.error('chunker: cap for ' + stage + ' must be a positive integer'); process.exit(2) }
 }
 if (!STAGES.length || STAGES.some(s => !/^[a-z][a-z0-9-]*$/.test(s))) { console.error('chunker: --stages must be comma-separated slugs'); process.exit(2) }
-
-const git = (...a) => execFileSync('git', ['-C', ROOT, ...a], { encoding: 'utf8', maxBuffer: 1 << 30 })
 
 // ---------------------------------------------------------------- isolation --
 // "."        -> {up:0}    the file itself
@@ -164,44 +161,28 @@ for (const f of EXCLUDE_HASH_FILES) {
 }
 
 // --------------------------------------------------------------------- diff --
-const sha = s => crypto.createHash('sha256').update(s).digest('hex')
-
-function fileDiff(file) {
-  return git('diff', `${BASE}...${HEAD}`, '--', file)
-}
-
-// Split a single file's diff into {header, hunks[]}. The header is everything before
-// the first "@@ " line (diff --git / index / --- / +++ / new file mode / similarity...).
-function splitHunks(text) {
-  const marks = []
-  const re = /^@@ /gm
-  let m
-  while ((m = re.exec(text)) !== null) marks.push(m.index)
-  if (!marks.length) return { header: text, hunks: [] }
-  const header = text.slice(0, marks[0])
-  const hunks = marks.map((start, i) => text.slice(start, i + 1 < marks.length ? marks[i + 1] : text.length))
-  return { header, hunks }
+function fileDiff(file, source) {
+  return readFileDiff(ROOT, BASE, HEAD, file, source)
 }
 
 const isoExpr = parseIsolation(ISO)
-const nameStatus = git('diff', '--name-status', '-z', `${BASE}...${HEAD}`).split('\0').filter(Boolean)
+const nameStatus = changedEntries(ROOT, BASE, HEAD)
 
 const skipped = { notReviewable: [], inLedger: 0, inLedgerBytes: 0, cleanFiles: [], excluded: 0 }
 const totalHunksPerFile = new Map()
 const groups = new Map()   // "stage\u0000lockKey" -> {stage, lockKey, files: Map(file -> {header, hunks:[{body,hash,bytes}]})}
+const changedFiles = []
 
-for (let i = 0; i < nameStatus.length; i++) {
-  const status = nameStatus[i]
-  const renamed = /^[RC]/.test(status)
-  if (i + 1 >= nameStatus.length) { skipped.notReviewable.push({ file: '(unknown)', reason: 'malformed git --name-status output' }); break }
-  const source = nameStatus[++i]
-  const file = renamed && i + 1 < nameStatus.length ? nameStatus[++i] : source
+for (const entry of nameStatus) {
+  const status = entry.rawStatus
+  const file = entry.path
+  changedFiles.push({ path: file, status: entry.status })
   const verdict = classify(file, status) || {}
   if (!verdict.reviewable) { skipped.notReviewable.push({ file, reason: verdict.reason || 'classifier said no' }); continue }
   const stage = verdict.category || 'other'
   if (!STAGES.includes(stage)) { skipped.notReviewable.push({ file, reason: `stage "${stage}" not in --stages` }); continue }
 
-  const fileText = fileDiff(file)
+  const fileText = fileDiff(file, entry.source)
   const { header, hunks } = splitHunks(fileText)
   // No "@@" at all: a pure rename, a mode change, or a binary file. There is nothing to read, but
   // it must not vanish silently - "nothing disappears without saying so" is the whole point of the
@@ -306,9 +287,21 @@ for (const g of orderedGroups) {
   flush()
 }
 
+const coverageUnits = manifest.flatMap(chunk => fs.readFileSync(chunk.hashFile, 'utf8').trim().split('\n')
+  .filter(Boolean)
+  .map(line => {
+    const [hash, file] = line.split('\t')
+    return { id: `hunk:${file}:${hash}`, type: 'hunk', path: file, symbol: 'file-level', hash,
+      summary: 'changed diff hunk' }
+  }))
+const structuralUnits = diffInventory(ROOT, BASE, HEAD).structuralUnits
+
 process.stdout.write(JSON.stringify({
   base: BASE, head: HEAD, isolation: ISO, caps: CAPS,
+  changedFiles,
   chunks: manifest,
+  coverageUnits,
+  structuralUnits,
   skipped: { notReviewable: skipped.notReviewable, hunksInLedger: skipped.inLedger, bytesInLedger: skipped.inLedgerBytes,
              hunksExcluded: skipped.excluded },
   totals: {

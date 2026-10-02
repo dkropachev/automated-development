@@ -1,30 +1,19 @@
 ---
 name: review-and-fix-pr
-description: Review an entire PR with either the built-in method or any loaded user, project, or plugin review skill, then optionally fix verified findings in serial validated commits. Use when asked to review and fix a PR, review PR 1234 with a named skill, apply a security or domain-specific review skill to a PR, or iterate until review findings are handled.
+description: Review a complete pull request with mandatory independent code, spec, standards, and risk lenses, coverage auditing, optional additive review skills, independent finding verification, and optional fix commits. Use when asked to review a PR, review and fix a PR, maximize review completeness, add specialist review expertise, or iterate until verified findings are handled.
 ---
 
 # Review and fix a whole PR
 
-Run the `review-and-fix-pr` workflow. Read-only whole-PR discovery lenses run sequentially until the
-bounded finding budget is reached. When the user names a loaded review skill, it runs first;
-otherwise native correctness runs first. Applicable native risk lenses follow. The workflow
-normalizes, deduplicates, scores, and validates results before any fix begins.
+Run the `review-and-fix-pr` workflow. It reviews a frozen PR scope through independent mandatory
+lenses, audits what those lenses covered, investigates uncovered areas once, and verifies candidate
+findings before any authorized fix. A `complete` coverage result means the protocol closed; it is
+not a claim that every possible defect was found.
 
-If fixing is enabled, fresh fixer agents take at most 10 findings each, one at a time. Each fixer
-re-reads its changes, validates them, and commits only after the driver confirms the checks passed.
-Nothing is pushed, posted, or reverted.
-
-The selected skill controls review expertise. The workflow always controls:
-
-- whole-PR scope and author intent;
-- read-only review permissions;
-- structured findings and evidence;
-- fix batching, validation, and commits;
-- final reporting.
-
-Not every loaded skill is compatible. It must be model-invocable and able to guide a read-only
-whole-PR review. If it is missing, user-only, or requires owning edits/comments/workflow execution,
-the run stops as NOT REVIEWED instead of silently substituting another method.
+The workflow is review-only unless `fix: true`. Fixers work in serial batches, validate, and commit
+locally. After a successful fix commit, the workflow rebuilds the coverage manifest from the new
+`HEAD` and reruns the complete review protocol. Nothing is
+pushed, posted, reverted, or reset.
 
 `$1` is an optional PR number or URL. With no argument, use the PR for the checked-out branch.
 
@@ -41,25 +30,28 @@ gh api user --jq .login
 Omit `$1` from `gh pr view` when no PR argument was supplied. Refuse when:
 
 - working tree is dirty;
-- `HEAD` differs from PR `headRefOid`;
+- `HEAD` differs from both the PR head and a resumable workflow-owned fix commit;
 - GitHub authentication or PR resolution fails.
 
-Confirm `${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-driver.js` and
-`${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-reviewed.js` exist. Workflow repeats every gate.
+Confirm `${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-driver.js`,
+`${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-reviewed.js`, and
+`${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-state.js`,
+`${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-chunker.js`,
+`${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-diff.js`, and
+`${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-scope.js` exist. Workflow repeats every gate.
 
-## Choose review method and write authority
+## Configure and run
 
-If user named a skill, pass its exact loaded name as `reviewSkill`, including plugin namespace such
-as `vendor:security-review`. Do not guess or shorten names. If user named none, omit `reviewSkill`;
-the built-in review method runs.
+Use `fix: true` only when the user asked to change the branch; otherwise use `fix: false`. When the
+user names loaded review skills, pass their exact names in order as `extraReviewSkills`. They add
+methodology to the mandatory native lenses; they never replace correctness or another native lens.
+Missing, user-only, or write-owning extra skills make coverage incomplete instead of causing silent
+fallback.
 
-Always ask whether to fix or review only. Default from authorship, but offer both:
-
-- Own PR: **Review and fix (Recommended)**.
-- Someone else's PR, or unknown author: **Review only (Recommended)**; explain that fixing creates
-  commits on checked-out branch.
-
-Pass answer explicitly as `fix: true` or `fix: false`. Omission is deliberately review-only.
+Do not invent a stopping limit. Omitted `stopAt` runs the complete coverage protocol. Translate an
+explicit count, separate code/other score, or token limit into `stopAt`; an early stop is always
+reported as partial. Read `reference.md` for the exact API, scoring, verification modes, resume
+rules, and status model.
 
 ```js
 Workflow({
@@ -67,26 +59,25 @@ Workflow({
   args: {
     pr: '<number-or-url>',
     pluginRoot: '${CLAUDE_PLUGIN_ROOT}',
-    reviewSkill: '<exact-loaded-skill-name>', // omit for built-in review
-    fix: true | false,
+    fix: false,
+    extraReviewSkills: ['<exact-loaded-skill-name>'], // omit when none were requested
   },
 })
 ```
 
-Pass `repoRoot` when session working directory is outside repository. Read `reference.md` only for
-advanced arguments, driver behavior, or diagnosing a run.
+Pass `repoRoot` only when the session working directory is outside the repository. Pass explicit
+advanced arguments unchanged; never recreate removed legacy controls.
 
 ## Report result
 
-Relay workflow summary. Lead with:
+Relay the workflow summary and distinguish coverage, verification, and fix status. Lead with:
 
-1. release blockers;
-2. findings still present after fixes;
-3. deferred findings;
-4. open follow-ups;
-5. validation failures and uncommitted edits;
-6. NOT REVIEWED, especially selected-skill incompatibility.
+1. release blockers and confirmed findings still present;
+2. unresolved findings and deferred findings;
+3. uncovered units, failed lenses, and stop trigger;
+4. validation failures, failed fixes, and uncommitted edits;
+5. saved local commits and whether the run can resume.
 
-When uncommitted edits remain, inspect `git status` and `git diff`, summarize what fixer attempted,
-and offer to commit worthwhile finished work. Never offer `git reset --hard`; nothing in workflow
-reverts user or agent work.
+Never describe `coverage: complete` as exhaustive or bug-free. When uncommitted edits remain,
+inspect `git status` and `git diff`, summarize what the fixer attempted, and offer to commit useful
+finished work. Never offer destructive cleanup.

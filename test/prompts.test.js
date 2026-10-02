@@ -50,41 +50,51 @@ test('the learn loop lives outside the skills, so none of them carries a second 
   }
 })
 
-test('review-and-fix-pr passes the whole-PR skill contract and documents advanced arguments', () => {
+test('review-and-fix-pr passes the small public API and documents its clean break', () => {
   const skill = rd('skills/review-and-fix-pr/SKILL.md')
   const ref = rd('skills/review-and-fix-pr/reference.md')
-  for (const arg of ['pr', 'pluginRoot', 'reviewSkill', 'fix']) {
+  for (const arg of ['pr', 'pluginRoot', 'fix', 'extraReviewSkills']) {
     assert.match(skill, new RegExp('^\\s+' + arg + ':', 'm'), `SKILL.md no longer passes ${arg}`)
   }
   assert.match(skill, /`reference\.md`/, 'SKILL.md does not point at reference.md')
-  for (const arg of ['detailedReview', 'maxTokens', 'maxAgents', 'maxFixBatch', 'reviewMode',
-                     'maxFindings', 'maxMajorFindings', 'maxSeverityScore', 'severityWeights', 'validation']) {
-    assert.match(ref, new RegExp('\\| `' + arg + '` \\|'), `reference.md does not document ${arg}`)
-    assert.doesNotMatch(skill, new RegExp('\\| `' + arg + '` \\|'), `SKILL.md still carries the ${arg} row`)
+  for (const arg of ['pr', 'fix', 'extraReviewSkills', 'stopAt.count', 'stopAt.score.code',
+                     'stopAt.score.other', 'stopAt.tokens', 'severityWeights.code',
+                     'severityWeights.other', 'verification', 'model']) {
+    assert.match(ref, new RegExp('\\| `' + arg.replaceAll('.', '\\.') + '` \\|'),
+                 `reference.md does not document ${arg}`)
   }
+  for (const arg of ['reviewSkill', 'reviewMode', 'maxFindings', 'maxMajorFindings',
+                     'maxSeverityScore', 'validation', 'maxTokens', 'maxFixBatch', 'maxAgents',
+                     'detailedReview']) {
+    assert.match(ref, new RegExp('\\| `' + arg + '`'),
+                 `reference.md does not give a migration for removed ${arg}`)
+    assert.doesNotMatch(skill, new RegExp('^\\s+' + arg + ':', 'm'),
+                        `SKILL.md still passes removed ${arg}`)
+  }
+  assert.match(ref, /Omitted `stopAt` means run the coverage protocol to closure/)
+  assert.match(ref, /`coverage: complete`[\s\S]*never means all bugs[\s\S]*were found/)
 })
 
-test('review-and-fix-pr uses sequential read-only lenses and fails closed on selected skills', () => {
+test('review-and-fix-pr defines every mandatory lens and keeps discovery read-only', () => {
   const wf = rd('workflows/review-and-fix-pr.js')
   assert.match(wf, /const RESOLVED_MODE = 'full'/)
-  assert.match(wf, /const REVIEW_SKILL =/)
-  assert.match(wf, /Invoke the exact loaded skill .* through the Skill tool/)
+  assert.match(wf, /correctness[\s\S]*spec[\s\S]*standards[\s\S]*security[\s\S]*reliability[\s\S]*contracts[\s\S]*testing[\s\S]*performance[\s\S]*comments[\s\S]*maintainability/)
+  assert.match(wf, /extraReviewSkills/)
   assert.match(wf, /bashCommandClamp: discoveryBashClamp\(scope, lensSpec\.lens, DETAILED\)/)
   assert.match(wf, /disallowedTools: DENY_READONLY,\s+bashCommandClamp:/)
-  assert.match(wf, /Every experimental shell command must begin:/)
+  assert.match(wf, /Executable probes are disabled/)
+  assert.doesNotMatch(wf, /Bash\(cd .* && \*\)/,
+                      'cwd-prefixed wildcard commands can escape and mutate the reviewed repository')
   assert.match(wf, /required read-only tool scope is unavailable - refusing to launch this agent/)
-  assert.match(wf, /review-skill-unavailable/)
-  assert.match(wf, /Never substitute a built-in lens/)
-  assert.match(wf, /for \(let li = 0; li < lensPlan\.length; li\+\+\)/)
-  assert.match(wf, /provisionalScore = scoreFindings\(\[\.\.\.candidateMap\.values\(\)\]\)/)
-  assert.match(wf, /findingStopTrigger = thresholdTrigger\(provisionalScore\)/)
+  assert.match(wf, /scopeFingerprint/)
+  assert.match(wf, /semanticManifestPrompt/)
   assert.doesNotMatch(wf, /Bash\((?:git|gh|node|sed) \*\)/,
                       'the reviewer shell clamp must not admit a whole write-capable command family')
 })
 
 test('native lens prompt assets exist and stay methodology-only', () => {
-  const lenses = ['correctness', 'security', 'reliability', 'contracts', 'testing',
-                  'performance', 'comments', 'maintainability']
+  const lenses = ['correctness', 'spec', 'standards', 'security', 'reliability', 'contracts',
+                  'testing', 'performance', 'comments', 'maintainability']
   for (const lens of lenses) {
     const text = rd(`skills/review-and-fix-pr/lenses/${lens}.md`)
     assert.match(text, new RegExp('^# ', 'm'), `${lens} has no heading`)
