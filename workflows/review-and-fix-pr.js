@@ -3463,8 +3463,9 @@ if (!initialScopeProof || !initialScopeProof.ok || !initialScopeProof.sourceJson
       ((initialScopeProof && initialScopeProof.error) || '') + '\n\nNothing was changed.',
     'scope-error')
 }
+const scopeSourceLabel = 'rafp-source:scope:v1:fingerprint=' + initialScopeProof.scopeFingerprint
 const scope = await agentSafe(scopePrompt(trustedRepoRoot, initialScopeProof.sourceJson, initialScopeProof), {
-  schema: SCOPE_SCHEMA, label: 'scope', effort: 'high',
+  schema: SCOPE_SCHEMA, phase: 'Scope', label: scopeSourceLabel, effort: 'high',
   disallowedTools: DENY_READONLY.concat(['Bash']), requireToolScope: true,
 })
 if (!scope) {
@@ -3509,6 +3510,7 @@ if (scope.prNumber !== scopeProof.prNumber) scopeProofMismatches.push('PR number
 if (scope.baseRef !== scopeProof.baseRef) scopeProofMismatches.push('base ref')
 if (String(scope.headSha).toLowerCase() !== scopeProof.prHead) scopeProofMismatches.push('PR head')
 if (String(scope.mergeBaseSha).toLowerCase() !== scopeProof.mergeBase) scopeProofMismatches.push('merge base')
+if (scope.scopeFingerprint !== scopeProof.scopeFingerprint) scopeProofMismatches.push('scope fingerprint')
 if (scopeProof.scopeFingerprint !== initialScopeProof.scopeFingerprint) scopeProofMismatches.push('scope sources changed during setup')
 if (!stableTrustedSourcePayload(scopeProof.sourceJson) ||
     stableTrustedSourcePayload(scopeProof.sourceJson) !== stableTrustedSourcePayload(initialScopeProof.sourceJson)) {
@@ -3565,6 +3567,11 @@ if (!scope.treeClean) {
     'your own, and it has no way to tell which edits are yours.\n\n' +
     'Commit or stash your changes, then run it again. Nothing was changed.', 'dirty-tree')
 }
+// The scope agent is the only source of its semantic interpretation. Preserve its exact completed
+// result before setup adds transient paths or replaces semantic-only coverage with the combined
+// deterministic manifest. The large immutable value is imported from the Workflow journal later;
+// it must never be relayed through a base64 control command.
+const frozenScopeSourceResult = JSON.parse(JSON.stringify(scope))
 phase('Setup')
 const setup = scope
 if (!setup.binOk) {
@@ -3820,6 +3827,22 @@ function semanticArtifactResult(value, headSha) {
     ? { coverageUnits: value.coverageUnits } : null
 }
 
+function frozenScopeArtifactResult(name, value) {
+  if (!/^scope-[a-f0-9]{64}\.json$/.test(name)) return null
+  if (value && value.importVersion === 1) {
+    const result = importedArtifactResult(value, { headSha: canonicalInitialHead, kind: 'scope',
+      resultId: stateKey.scopeFingerprint, sourcePhase: 'Scope' })
+    return result && result.repo === stateKey.repo && result.prNumber === stateKey.pr &&
+      result.mergeBaseSha === stateKey.base && result.headSha === stateKey.prHead &&
+      result.startSha === canonicalInitialHead && result.scopeFingerprint === stateKey.scopeFingerprint
+      ? result : null
+  }
+  return value && value.scope && value.stateKey &&
+    value.stateKey.scopeFingerprint === stateKey.scopeFingerprint &&
+    value.stateKey.base === stateKey.base && value.stateKey.prHead === stateKey.prHead
+    ? value.scope : null
+}
+
 function selectFrozenSemanticCoverage(savedScope, savedHeadUnits, freshUnits, headSha) {
   const savedMatchesHead = !!savedScope && savedScope.headSha === headSha
   const initialUnits = savedScope && Array.isArray(savedScope.coverageUnits)
@@ -3834,12 +3857,18 @@ function selectFrozenSemanticCoverage(savedScope, savedHeadUnits, freshUnits, he
       unit && ['requirement', 'repository-rule'].includes(unit.type)),
   }
 }
-const savedScopeArtifact = [...resumedArtifacts].find(([name, value]) =>
-  /^scope-[a-f0-9]{64}\.json$/.test(name) && value && value.scope && value.stateKey &&
-  value.stateKey.scopeFingerprint === stateKey.scopeFingerprint &&
-  value.stateKey.base === stateKey.base && value.stateKey.prHead === stateKey.prHead)
+const savedScopeArtifact = [...resumedArtifacts]
+  .map(([name, value]) => [name, frozenScopeArtifactResult(name, value)])
+  .find(([, value]) => value)
 if (savedScopeArtifact) {
-  const frozenScope = savedScopeArtifact[1].scope
+  const frozenScope = savedScopeArtifact[1]
+  if (JSON.stringify(frozenScope.outOfScope || []) !== JSON.stringify(scopeProof.verifiedDeferrals || [])) {
+    await unlockStateClaim('release state with stale frozen scope deferrals')
+    return terminalReviewResult(
+      'review-and-fix-pr stopped: saved author deferrals no longer matched the trusted PR sources.\n\n' +
+        'Nothing was changed.',
+      'state-checkpoint-failed')
+  }
   for (const field of ['title', 'url', 'intent', 'intentSource', 'bodyQuality', 'inScope', 'outOfScope',
     'acceptanceCriteria', 'primaryLanguages', 'applicableLenses']) {
     if (frozenScope[field] !== undefined) scope[field] = frozenScope[field]
@@ -3912,7 +3941,7 @@ const savedHeadSemantic = [...resumedArtifacts].filter(([name, value]) =>
   right.localeCompare(left))[0]
 const savedSemanticResult = savedHeadSemantic && semanticArtifactResult(savedHeadSemantic[1], scope.headSha)
 const frozenSemanticCoverage = selectFrozenSemanticCoverage(
-  savedScopeArtifact && savedScopeArtifact[1].scope,
+  savedScopeArtifact && savedScopeArtifact[1],
   savedSemanticResult && savedSemanticResult.coverageUnits,
   semanticUnits, scope.headSha)
 if (frozenSemanticCoverage.error) {
@@ -4065,7 +4094,7 @@ function reserveArtifactName(name) {
   return artifactName
 }
 
-function planJournalImport(name, kind, resultId, sourcePhase, cycle, pass) {
+function planJournalImport(name, kind, resultId, sourcePhase, cycle, pass, completedSourceLabel = null) {
   const artifactName = reserveArtifactName(name)
   if (!artifactName) return null
   const sequence = ++journalImportSequence
@@ -4077,7 +4106,7 @@ function planJournalImport(name, kind, resultId, sourcePhase, cycle, pass) {
     ':artifact=' + boundedArtifact
   return {
     name: artifactName, kind, resultId, sourcePhase,
-    sourceLabel: 'rafp-source:v1:' + qualifier,
+    sourceLabel: completedSourceLabel || 'rafp-source:v1:' + qualifier,
     callerLabel: 'rafp-import:v1:' + qualifier,
   }
 }
@@ -4134,7 +4163,7 @@ async function checkpointControlState(name, value, nameAlreadyReserved = false,
   }
   const encodedValue = utf8Base64(JSON.stringify(value))
   if (encodedValue.length > MAX_CONTROL_BASE64_BYTES) {
-    log('disposition control exceeded ' + MAX_CONTROL_BASE64_BYTES + ' encoded bytes: ' + name)
+    log('control payload exceeded ' + MAX_CONTROL_BASE64_BYTES + ' encoded bytes: ' + name)
     statePersistenceFailed = true
     return false
   }
@@ -4356,21 +4385,15 @@ async function assertCurrentRepository(purpose) {
   return stateLifecycle(command, purpose)
 }
 // Scope is rediscovered on every invocation, so its explanatory prose can vary even when the
-// hash-bound run key is identical. Keep the original immutable scope artifact; resumed work uses
-// the freshly safety-checked scope in memory and restores only deterministic cycle artifacts.
+// hash-bound run key is identical. Import the completed Scope agent result directly from the
+// Workflow journal: semantic units and intent can legitimately exceed the compact-control command
+// limit, and regenerating them would make resume nondeterministic. Resumed work still restores only
+// the semantic whitelist above; transient repository and authentication facts stay fresh.
 if (!stateClaim.resumed || (!savedScopeArtifact && resumeLineage.ownedCommits.length === 0 &&
     resumedArtifacts.size === 0)) {
-  const scopeProofAudit = Object.assign({}, scopeProof)
-  delete scopeProofAudit.sourceJson
-  const frozenScopeFields = ['title', 'url', 'intent', 'intentSource', 'bodyQuality', 'inScope',
-    'outOfScope', 'acceptanceCriteria', 'primaryLanguages', 'applicableLenses']
-  const compactFrozenScope = Object.fromEntries(frozenScopeFields.map(field => [field, scope[field]]))
-  compactFrozenScope.headSha = scope.headSha
-  compactFrozenScope.coverageUnits = (scope.coverageUnits || [])
-    .filter(unit => unit && !['hunk', 'non-text'].includes(unit.type))
-  if (!await checkpointState('scope-' + stateClaim.keyHash + '.json', {
-    scope: compactFrozenScope, stateKey, scopeProof: scopeProofAudit,
-  })) {
+  const frozenScopeImport = planJournalImport('scope-' + stateClaim.keyHash + '.json', 'scope',
+    stateKey.scopeFingerprint, 'Scope', 0, 0, scopeSourceLabel)
+  if (!await importJournalArtifact(frozenScopeImport, frozenScopeSourceResult)) {
     await unlockStateClaim('release state after frozen scope checkpoint failure')
     return terminalReviewResult(
       'review-and-fix-pr stopped: frozen scope could not be checkpointed.\n\nNothing was changed.',
@@ -5360,7 +5383,9 @@ function sourceArtifactRefs() {
       /^cycle-\d+\/coverage\/(?:initial|final)-audit(?:-attempt-\d+)?\.json$/.test(name) ||
       /^cycle-\d+\/verification\/(?:first|challenge)(?:-attempt-\d+)?\.json$/.test(name) ||
       /^scope-semantic-[a-f0-9]{40}(?:-attempt-\d+)?\.json$/.test(name)
-    if (!(value && value.importVersion === 1 && value.binding && value.result) && !legacySource) continue
+    const importedReviewSource = value && value.importVersion === 1 && value.binding && value.result &&
+      ['lens', 'gap', 'coverage-audit', 'verification', 'semantic-manifest'].includes(value.binding.kind)
+    if (!importedReviewSource && !legacySource) continue
     const record = resumedArtifactRecords.get(name)
     if (!record || !/^[a-f0-9]{64}$/.test(record.sha256 || '') ||
         !Number.isSafeInteger(record.bytes) || record.bytes < 1) continue

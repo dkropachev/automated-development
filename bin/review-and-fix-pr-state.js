@@ -49,7 +49,7 @@ const MAX_LEASE_SECONDS = 7 * 24 * 60 * 60
 const MAX_JOURNAL_BYTES = 64 * 1024 * 1024
 const MAX_TRANSCRIPT_BYTES = 128 * 1024 * 1024
 const MAX_META_BYTES = 1024 * 1024
-const IMPORT_KINDS = new Set(['lens', 'gap', 'coverage-audit', 'verification', 'semantic-manifest'])
+const IMPORT_KINDS = new Set(['scope', 'lens', 'gap', 'coverage-audit', 'verification', 'semantic-manifest'])
 const STATE_CLAIM_LABELS = new Set([
   'claim review state', 'recover state claim', 'reclaim advanced state', 'verify advanced claim',
 ])
@@ -1116,6 +1116,24 @@ function requireStringArrayField(value, field, label) {
   }
 }
 
+function requireSchemaStringField(value, field, label) {
+  if (typeof value[field] !== 'string') {
+    throw new StateError('state: imported ' + label + '.' + field + ' must be a string', 3)
+  }
+}
+
+function requireSchemaStringArrayField(value, field, label) {
+  if (!Array.isArray(value[field]) || value[field].some(item => typeof item !== 'string')) {
+    throw new StateError('state: imported ' + label + '.' + field + ' must be an array of strings', 3)
+  }
+}
+
+function requireNonnegativeIntegerField(value, field, label) {
+  if (!Number.isSafeInteger(value[field]) || value[field] < 0) {
+    throw new StateError('state: imported ' + label + '.' + field + ' must be a nonnegative safe integer', 3)
+  }
+}
+
 const FINDING_STRING_FIELDS = ['fingerprint', 'title', 'detail', 'primaryFile', 'symbol', 'defectClass',
   'evidence', 'trigger', 'mechanism', 'observableImpact', 'baseVsHead', 'severity', 'confidence',
   'fixSize', 'deferReason', 'blockerReason', 'scopeLabel', 'deferralQuote']
@@ -1131,6 +1149,108 @@ const FIX_SIZES = new Set(['trivial', 'small', 'medium', 'large'])
 const SCOPE_LABELS = new Set(['in', 'deferred', 'out'])
 const NATIVE_LENSES = new Set(['correctness', 'spec', 'standards', 'security', 'reliability', 'contracts',
   'testing', 'performance', 'comments', 'maintainability'])
+
+function validateScopeResult(result, expectedId, identity) {
+  const label = 'scope result'
+  requireObject(result, label)
+  if (!isObject(identity)) throw new StateError('state: scope import identity is unavailable', 3)
+
+  const stringFields = ['repo', 'slug', 'baseRef', 'mergeBaseSha', 'headSha', 'startBranch',
+    'startSha', 'repoRoot', 'intent', 'scopeFingerprint', 'intentSource', 'bodyQuality', 'prAuthor', 'ghUser',
+    'blocker', 'classifyPath', 'classifyAction', 'fingerprint', 'ledgerPath', 'runDir', 'chunkerStderr', 'notes']
+  for (const field of stringFields) requireSchemaStringField(result, field, label)
+  for (const field of ['title', 'url']) {
+    if (result[field] !== undefined) requireSchemaStringField(result, field, label)
+  }
+  for (const field of ['treeClean', 'headMatchesPr', 'authoredByMe', 'binOk']) {
+    requireBooleanField(result, field, label)
+  }
+  for (const field of ['inScope', 'outOfScope', 'acceptanceCriteria', 'primaryLanguages', 'notReviewable']) {
+    requireSchemaStringArrayField(result, field, label)
+  }
+  if (!Number.isSafeInteger(result.prNumber) || result.prNumber < 1) {
+    throw new StateError('state: imported ' + label + '.prNumber must be a positive safe integer', 3)
+  }
+  for (const field of ['ledgerEntries', 'hunksInLedger']) requireNonnegativeIntegerField(result, field, label)
+  if (!['body', 'commits', 'linked-issue', 'inferred-from-diff'].includes(result.intentSource)) {
+    throw new StateError('state: imported ' + label + '.intentSource has an unsupported value', 3)
+  }
+  if (!['good', 'thin', 'empty'].includes(result.bodyQuality)) {
+    throw new StateError('state: imported ' + label + '.bodyQuality has an unsupported value', 3)
+  }
+  if (!['unused', 'reused', 'needs-generation', 'failed'].includes(result.classifyAction)) {
+    throw new StateError('state: imported ' + label + '.classifyAction has an unsupported value', 3)
+  }
+
+  if (!Array.isArray(result.changedFiles)) {
+    throw new StateError('state: imported ' + label + '.changedFiles must be an array', 3)
+  }
+  result.changedFiles.forEach((file, index) => {
+    const fileLabel = label + '.changedFiles[' + index + ']'
+    requireObject(file, fileLabel)
+    requireSchemaStringField(file, 'path', fileLabel)
+    requireSchemaStringField(file, 'status', fileLabel)
+    if (!['added', 'modified', 'deleted', 'renamed'].includes(file.status)) {
+      throw new StateError('state: imported ' + fileLabel + '.status has an unsupported value', 3)
+    }
+  })
+
+  if (!Array.isArray(result.coverageUnits)) {
+    throw new StateError('state: imported ' + label + '.coverageUnits must be an array', 3)
+  }
+  // This is the frozen Scope-agent result, before deterministic hunk/non-text units are merged in.
+  const coverageTypes = new Set(['requirement', 'contract', 'test-obligation', 'documentation-claim',
+    'repository-rule'])
+  result.coverageUnits.forEach((unit, index) => {
+    const unitLabel = label + '.coverageUnits[' + index + ']'
+    requireObject(unit, unitLabel)
+    for (const field of ['id', 'type', 'path', 'symbol', 'hash', 'summary']) {
+      requireSchemaStringField(unit, field, unitLabel)
+    }
+    if (!coverageTypes.has(unit.type)) {
+      throw new StateError('state: imported ' + unitLabel + '.type has an unsupported value', 3)
+    }
+  })
+
+  if (!Array.isArray(result.chunks)) {
+    throw new StateError('state: imported ' + label + '.chunks must be an array', 3)
+  }
+  result.chunks.forEach((chunk, index) => {
+    const chunkLabel = label + '.chunks[' + index + ']'
+    requireObject(chunk, chunkLabel)
+    for (const field of ['id', 'stage', 'lockKey', 'path']) requireSchemaStringField(chunk, field, chunkLabel)
+    if (chunk.hashFile !== undefined) requireSchemaStringField(chunk, 'hashFile', chunkLabel)
+    for (const field of ['files', 'wholeFiles']) requireSchemaStringArrayField(chunk, field, chunkLabel)
+    for (const field of ['bytes', 'hunkCount']) requireNonnegativeIntegerField(chunk, field, chunkLabel)
+  })
+
+  if (!Array.isArray(result.applicableLenses)) {
+    throw new StateError('state: imported ' + label + '.applicableLenses must be an array', 3)
+  }
+  result.applicableLenses.forEach((lens, index) => {
+    const lensLabel = label + '.applicableLenses[' + index + ']'
+    requireObject(lens, lensLabel)
+    requireSchemaStringField(lens, 'lens', lensLabel)
+    requireSchemaStringField(lens, 'reason', lensLabel)
+    if (!NATIVE_LENSES.has(lens.lens)) {
+      throw new StateError('state: imported ' + lensLabel + '.lens has an unsupported value', 3)
+    }
+  })
+
+  const mismatches = []
+  if (result.repo !== identity.repo) mismatches.push('repo')
+  if (result.prNumber !== identity.prNumber) mismatches.push('prNumber')
+  if (result.mergeBaseSha !== identity.mergeBaseSha) mismatches.push('mergeBaseSha')
+  if (result.headSha !== identity.prHeadSha) mismatches.push('headSha')
+  if (result.startSha !== identity.currentHeadSha) mismatches.push('startSha')
+  if (result.scopeFingerprint !== identity.scopeFingerprint || result.scopeFingerprint !== expectedId) {
+    mismatches.push('scopeFingerprint')
+  }
+  if (mismatches.length) {
+    throw new StateError('state: imported ' + label + ' does not match the active checkpoint: ' +
+      mismatches.join(', '), 3)
+  }
+}
 
 function validateFinding(finding, label) {
   requireObject(finding, label)
@@ -1262,8 +1382,9 @@ function validateSemanticManifestResult(result) {
   validateReadOnlyResult(result, 'refreshed', label)
 }
 
-function validateImportedResult(kind, result, expectedId, expectedSkillStatus) {
-  if (kind === 'lens' || kind === 'gap') validateLensResult(result, expectedId, expectedSkillStatus, kind)
+function validateImportedResult(kind, result, expectedId, expectedSkillStatus, scopeIdentity) {
+  if (kind === 'scope') validateScopeResult(result, expectedId, scopeIdentity)
+  else if (kind === 'lens' || kind === 'gap') validateLensResult(result, expectedId, expectedSkillStatus, kind)
   else if (kind === 'coverage-audit') validateCoverageAuditResult(result)
   else if (kind === 'verification') validateVerificationResult(result)
   else if (kind === 'semantic-manifest') validateSemanticManifestResult(result)
@@ -1294,7 +1415,8 @@ function validateStoredImportEnvelope(bytes, label, state, expected) {
       !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(binding.sessionId)) {
     throw new StateError('state: ' + label + ' has unsafe Workflow provenance', 3)
   }
-  validateImportedResult(expected.kind, envelope.result, expected.resultId, expected.expectedSkillStatus)
+  validateImportedResult(expected.kind, envelope.result, expected.resultId, expected.expectedSkillStatus,
+    expected.scopeIdentity)
   const canonicalBytes = Buffer.from(JSON.stringify(envelope, null, 2) + '\n')
   if (!canonicalBytes.equals(bytes)) {
     throw new StateError('state: ' + label + ' does not use the immutable import encoding', 3)
@@ -1644,7 +1766,15 @@ function importJournalArtifact() {
         repositoryAfterRead.head !== expectedHead) {
       throw new StateError('state: repository changed while the Workflow result was imported', 3)
     }
-    validateImportedResult(kind, imported.result, expectedId, expectedSkillStatus)
+    const scopeIdentity = kind === 'scope' ? {
+      repo: state.key.repo,
+      prNumber: state.key.pr,
+      mergeBaseSha: state.key.base,
+      prHeadSha: state.key.prHead,
+      currentHeadSha: expectedHead,
+      scopeFingerprint: state.key.scopeFingerprint,
+    } : undefined
+    validateImportedResult(kind, imported.result, expectedId, expectedSkillStatus, scopeIdentity)
     const binding = {
       run: state.run,
       keyHash: state.keyHash,
@@ -1664,7 +1794,7 @@ function importJournalArtifact() {
     const envelope = { importVersion: 1, binding, result: imported.result }
     const bytes = Buffer.from(JSON.stringify(envelope, null, 2) + '\n')
     const storedExpected = { headSha: expectedHead, kind, resultId: expectedId, artifactName: name,
-      sourcePhase, projectCwd, expectedSkillStatus }
+      sourcePhase, projectCwd, expectedSkillStatus, scopeIdentity }
     if (state.artifacts[name]) {
       const existing = readStableRegularFile(artifactPath(run, name), 'artifact ' + name,
         MAX_JOURNAL_BYTES + MAX_META_BYTES)

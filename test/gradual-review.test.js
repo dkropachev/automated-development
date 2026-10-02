@@ -386,6 +386,10 @@ test('resume revalidates restored discovery and atomically records fixer follow-
   assert.match(WF, /semanticRecoveryImport = planJournalImport/)
   assert.match(WF, /importJournalArtifact\(semanticRefreshImport, semanticManifest\)/)
   assert.match(WF, /snapshot\.immutableSemanticUnits[\s\S]{0,120}immutableSemanticUnits =/)
+  assert.match(WF, /const frozenScopeImport = planJournalImport\([\s\S]{0,240}'scope'/)
+  assert.match(WF, /importJournalArtifact\(frozenScopeImport, frozenScopeSourceResult\)/)
+  assert.doesNotMatch(WF, /checkpointState\('scope-' \+ stateClaim\.keyHash/)
+  assert.match(WF, /importedReviewSource[\s\S]{0,180}'semantic-manifest'/)
   assert.match(WF, /claim-result --store/)
   assert.match(WF, /transactionId\.slice\(0, 16\)/)
   assert.match(WF, /--allowed-files-base64/)
@@ -403,7 +407,9 @@ test('resume revalidates restored discovery and atomically records fixer follow-
   assert.ok(WF.lastIndexOf("refreshTranscriptTokens(scope, 'terminal exit')") < WF.indexOf('const sealable ='))
   assert.ok(WF.indexOf('const sealable =') < WF.lastIndexOf("' complete --store '"))
   assert.doesNotMatch(WF.slice(WF.lastIndexOf("' complete --store '")), /refreshTranscriptTokens\(scope, 'terminal exit'\)/)
-  assert.match(WF, /compactFrozenScope\.coverageUnits = [\s\S]{0,180}!\['hunk', 'non-text'\]/)
+  assert.match(WF, /const frozenScopeSourceResult = JSON\.parse\(JSON\.stringify\(scope\)\)/)
+  assert.match(WF, /scope\.scopeFingerprint !== scopeProof\.scopeFingerprint/)
+  assert.match(WF, /frozenScope\.outOfScope[\s\S]{0,160}scopeProof\.verifiedDeferrals/)
   assert.match(WF, /baseline-unavailable[\s\S]{0,500}No fixer ran and nothing was committed/)
   assert.doesNotMatch(WF, /baseline agent returned nothing - continuing UNVALIDATED/)
   assert.match(WF, /const cumulativeUnverified = new Map\(\)/)
@@ -455,6 +461,42 @@ test('control envelopes unwrap only with exact repository and lineage bindings',
   assert.equal(result.valid.base.mode, 'none')
   assert.equal(result.wrongName, null)
   assert.equal(result.wrongRepo, null)
+})
+
+test('frozen scope restores source-backed and legacy semantics without accepting wrong identity', () => {
+  const head = 'a'.repeat(40), fingerprint = 'b'.repeat(64)
+  const scope = {
+    repo: 'owner/repo', prNumber: 7, mergeBaseSha: 'c'.repeat(40), headSha: head, startSha: head,
+    scopeFingerprint: fingerprint, intent: 'original semantic interpretation',
+    coverageUnits: [{ id: 'requirement:1', type: 'requirement', path: 'none', symbol: 'file-level',
+      hash: 'none', summary: 'original requirement' }],
+  }
+  const imported = { importVersion: 1, binding: { headSha: head, kind: 'scope',
+    resultId: fingerprint, sourcePhase: 'Scope' }, result: scope }
+  const legacy = { scope, stateKey: { scopeFingerprint: fingerprint, base: scope.mergeBaseSha, prHead: head } }
+  const source = [
+    `const canonicalInitialHead = ${JSON.stringify(head)}`,
+    `const stateKey = ${JSON.stringify({ repo: scope.repo, pr: scope.prNumber, base: scope.mergeBaseSha,
+      prHead: head, scopeFingerprint: fingerprint })}`,
+    'const importedArtifactResult = (value, expected) => value && value.importVersion === 1 && value.binding &&',
+    '  value.binding.headSha === expected.headSha && value.binding.kind === expected.kind &&',
+    '  value.binding.resultId === expected.resultId && value.binding.sourcePhase === expected.sourcePhase',
+    '    ? value.result : null',
+    extractFn('frozenScopeArtifactResult'),
+    `const imported = ${JSON.stringify(imported)}, legacy = ${JSON.stringify(legacy)}`,
+    `;({ imported: frozenScopeArtifactResult('scope-${'d'.repeat(64)}.json', imported),`,
+    `legacy: frozenScopeArtifactResult('scope-${'e'.repeat(64)}.json', legacy),`,
+    `wrongHead: frozenScopeArtifactResult('scope-${'f'.repeat(64)}.json',`,
+    "  { ...imported, binding: { ...imported.binding, headSha: '9'.repeat(40) } }),",
+    "wrongFingerprint: frozenScopeArtifactResult('scope-' + '1'.repeat(64) + '.json',",
+    "  { ...imported, result: { ...imported.result, scopeFingerprint: '8'.repeat(64) } }) })",
+  ].join('\n')
+  const result = vm.runInNewContext(source)
+  assert.equal(result.imported.intent, scope.intent)
+  assert.equal(result.imported.coverageUnits[0].summary, 'original requirement')
+  assert.equal(result.legacy.intent, scope.intent)
+  assert.equal(result.wrongHead, null)
+  assert.equal(result.wrongFingerprint, null)
 })
 
 test('v3 reconstruction reproduces imported review evidence and compact dispositions', () => {

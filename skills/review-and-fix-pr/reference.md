@@ -172,8 +172,8 @@ Unrelated commits, dirty edits, state hash mismatch, or changed identity inputs 
 ordered lenses) invalidate resume. Identical concurrent runs are locked; abandoned incomplete
 checkpoints expire after seven days. Completed checkpoints remain audit records. Cached lens and gap
 results skip repeated discovery, but their candidates are verified again unless a later complete
-disposition is safely reconstructed. Completed lens, gap, coverage-audit, verification, and semantic
-results are imported directly from the current Workflow journal by one short, exact helper command.
+disposition is safely reconstructed. Completed scope, lens, gap, coverage-audit, verification, and
+semantic results are imported directly from the current Workflow journal by one short, exact helper command.
 The helper requires one matching completed source in the same Workflow as the active importer and
 state claim, validates its schema plus repository/HEAD binding, and atomically copies one immutable
 hash-bound artifact. It never sends large result bytes through checkpoint prompts or creates

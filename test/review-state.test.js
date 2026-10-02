@@ -36,6 +36,10 @@ test('trusted journal import stores one large resumable envelope and rejects unb
   git('add', 'tracked.txt')
   git('commit', '-qm', 'base')
   const head = git('rev-parse', 'HEAD')
+  const scopeFingerprint = 'a'.repeat(64)
+  const stateKey = {
+    repo: 'example/review-target', pr: 41, base: head, prHead: head, head, scopeFingerprint,
+  }
   const projectName = fs.realpathSync(repo).replace(/[^A-Za-z0-9]/g, '-')
   const projectDir = path.join(config, 'projects', projectName)
   const sessionId = '11111111-2222-4333-8444-555555555555'
@@ -64,7 +68,7 @@ test('trusted journal import stores one large resumable envelope and rejects unb
     assert.match(result.json.error, pattern)
     return result.json
   }
-  const key = Buffer.from(JSON.stringify({ head, repo: 'journal-import' })).toString('base64')
+  const key = Buffer.from(JSON.stringify(stateKey)).toString('base64')
   const claim = succeeds(['claim', '--key-base64', key, '--root', repo])
   const sourceLabel = 'review correctness import-nonce'
   const callerLabel = 'import cycle-1 correctness import-nonce'
@@ -267,6 +271,127 @@ test('trusted journal import stores one large resumable envelope and rejects unb
   resetWorkflows(); writeWorkflow('wf_malformed', completeEvents(malformed), malformed)
   fails(importArgs, /coverageReceipts/)
 
+  const scopeSourceStart = {
+    type: 'started', key: 'v2:scope-source', agentId: 'ascope',
+    label: 'capture immutable scope import-nonce', phase: 'Scope',
+  }
+  const scopeCallerStart = {
+    type: 'started', key: 'v2:scope-caller', agentId: 'ascopecaller',
+    label: 'import immutable scope import-nonce', phase: 'Setup',
+  }
+  const scopeResult = {
+    repo: stateKey.repo,
+    slug: 'example__review-target',
+    prNumber: stateKey.pr,
+    title: 'Exercise trusted scope journal import',
+    url: 'https://example.test/example/review-target/pull/41',
+    baseRef: 'main',
+    mergeBaseSha: stateKey.base,
+    headSha: stateKey.prHead,
+    startBranch: 'main',
+    startSha: stateKey.head,
+    repoRoot: fs.realpathSync(repo),
+    treeClean: true,
+    headMatchesPr: true,
+    intent: 'Persist the exact model-produced scope without relaying it through command arguments.',
+    scopeFingerprint,
+    intentSource: 'body',
+    bodyQuality: 'good',
+    inScope: ['trusted journal import'],
+    outOfScope: [],
+    acceptanceCriteria: ['scope remains hash-bound'],
+    primaryLanguages: ['JavaScript'],
+    changedFiles: [{ path: 'tracked.txt', status: 'modified' }],
+    coverageUnits: [{ id: 'requirement:scope-import', type: 'requirement', path: 'none',
+      symbol: 'file-level', hash: 'none', summary: 'Import the immutable scope result.' }],
+    prAuthor: 'review-author',
+    ghUser: 'review-author',
+    authoredByMe: true,
+    blocker: 'none',
+    binOk: true,
+    classifyPath: 'none',
+    classifyAction: 'unused',
+    fingerprint: 'b'.repeat(64),
+    ledgerPath: 'none',
+    ledgerEntries: 0,
+    runDir: '/tmp/review-and-fix-pr-scope-test',
+    chunks: [],
+    hunksInLedger: 0,
+    notReviewable: [],
+    chunkerStderr: 'none',
+    applicableLenses: [{ lens: 'correctness', reason: 'Import binding is correctness-sensitive.' }],
+    notes: 'large-scope-result-' + 's'.repeat(9000),
+  }
+  const scopeEvents = result => [
+    { type: 'launched' }, claimStart,
+    { type: 'result', key: claimStart.key, agentId: claimStart.agentId, result: claimResult },
+    scopeSourceStart,
+    { type: 'result', key: scopeSourceStart.key, agentId: scopeSourceStart.agentId, result },
+    scopeCallerStart,
+  ]
+  const writeScopeWorkflow = (workflowId, result) => {
+    resetWorkflows()
+    const dir = path.join(workflowsDir, workflowId)
+    fs.mkdirSync(dir)
+    writeJsonl(path.join(dir, 'journal.jsonl'), scopeEvents(result))
+    writeAgent(dir, claimStart, claimResult)
+    writeAgent(dir, scopeSourceStart, result)
+    writeAgent(dir, scopeCallerStart)
+  }
+  const scopeName = 'scope-' + scopeFingerprint + '.json'
+  const scopeImportArgs = ['import-journal', '--run', claim.run, '--lock-token', claim.lockToken, '--root', repo,
+    '--name', scopeName, '--source-label', scopeSourceStart.label, '--caller-label', scopeCallerStart.label,
+    '--kind', 'scope', '--expected-id', scopeFingerprint, '--expected-head', head,
+    '--source-phase', 'Scope', '--project-cwd', repo]
+  writeScopeWorkflow('wf_scope_valid', scopeResult)
+  const scopeImported = succeeds(scopeImportArgs)
+  assert.equal(scopeImported.idempotent, false)
+  assert.ok(scopeImported.bytes > 8192)
+  const scopeRead = succeeds(['get', '--run', claim.run, '--name', scopeName, '--base64'])
+  const scopeEnvelope = JSON.parse(Buffer.from(scopeRead.base64, 'base64'))
+  assert.equal(scopeEnvelope.importVersion, 1)
+  assert.equal(scopeEnvelope.binding.kind, 'scope')
+  assert.equal(scopeEnvelope.binding.resultId, scopeFingerprint)
+  assert.deepEqual(scopeEnvelope.result, scopeResult)
+  assert.equal(succeeds(['list', '--run', claim.run]).artifacts.filter(item => item.name === scopeName).length, 1)
+  assert.equal(succeeds(['list', '--run', claim.run]).artifacts.some(item =>
+    item.name.includes('checkpoint-parts')), false)
+
+  const scopeWithoutOptionalDisplayFields = Object.assign({}, scopeResult)
+  delete scopeWithoutOptionalDisplayFields.title
+  delete scopeWithoutOptionalDisplayFields.url
+  writeScopeWorkflow('wf_scope_optional_display', scopeWithoutOptionalDisplayFields)
+  const optionalScopeArgs = scopeImportArgs.slice()
+  optionalScopeArgs[optionalScopeArgs.indexOf('--name') + 1] = 'scope-optional-display.json'
+  assert.equal(succeeds(optionalScopeArgs).idempotent, false)
+
+  const rejectScope = (workflowId, patch, pattern) => {
+    const result = Object.assign({}, scopeResult, patch)
+    writeScopeWorkflow(workflowId, result)
+    fails(scopeImportArgs, pattern)
+  }
+  rejectScope('wf_scope_wrong_repo', { repo: 'wrong/repository' }, /scope result.*repo/)
+  rejectScope('wf_scope_wrong_pr', { prNumber: stateKey.pr + 1 }, /scope result.*prNumber/)
+  rejectScope('wf_scope_wrong_pr_head', { headSha: '1'.repeat(40) }, /scope result.*headSha/)
+  rejectScope('wf_scope_wrong_current_head', { startSha: '2'.repeat(40) }, /scope result.*startSha/)
+  rejectScope('wf_scope_wrong_base', { mergeBaseSha: '3'.repeat(40) }, /scope result.*mergeBaseSha/)
+  rejectScope('wf_scope_wrong_fingerprint', { scopeFingerprint: '4'.repeat(64) },
+    /scope result.*scopeFingerprint/)
+  rejectScope('wf_scope_bad_coverage', { coverageUnits: [{ id: 'hunk:not-yet-trusted', type: 'hunk',
+    path: 'tracked.txt', symbol: '@@ -1 +1 @@', hash: '5'.repeat(64),
+    summary: 'Deterministic units do not belong in the Scope-agent source result.' }] },
+    /coverageUnits\[0\]\.type/)
+
+  const badStoredScopeName = 'scope-stored-invalid.json'
+  const badStoredScopeEnvelope = JSON.parse(JSON.stringify(scopeEnvelope))
+  badStoredScopeEnvelope.binding.artifactName = badStoredScopeName
+  badStoredScopeEnvelope.result.repo = 'wrong/stored-repository'
+  writeOrphanEnvelope(badStoredScopeName, badStoredScopeEnvelope)
+  const badStoredScopeArgs = scopeImportArgs.slice()
+  badStoredScopeArgs[badStoredScopeArgs.indexOf('--name') + 1] = badStoredScopeName
+  writeScopeWorkflow('wf_scope_stored_validation', scopeResult)
+  fails(badStoredScopeArgs, /conflicting orphan.*scope result.*repo/)
+
   resetWorkflows(); writeWorkflow('wf_meta_link', completeEvents(largeResult), largeResult, 'meta')
   fails(importArgs, /non-symlink|cannot read source agent metadata/)
   resetWorkflows(); writeWorkflow('wf_transcript_link', completeEvents(largeResult), largeResult, 'transcript')
@@ -374,7 +499,7 @@ test('trusted journal import stores one large resumable envelope and rejects unb
   wrongRootArgs[wrongRootArgs.indexOf('--root') + 1] = otherRepo
   fails(wrongRootArgs, /identity|HEAD does not match/)
 
-  assert.equal(succeeds(['validate', '--run', claim.run, '--root', repo]).validatedArtifacts, 3)
+  assert.equal(succeeds(['validate', '--run', claim.run, '--root', repo]).validatedArtifacts, 5)
   succeeds(['unlock', '--run', claim.run, '--lock-token', claim.lockToken])
 })
 
