@@ -204,7 +204,7 @@ function stableStatEqual(left, right) {
     left.mtimeNs === right.mtimeNs && left.ctimeNs === right.ctimeNs
 }
 
-function readStableRegularFile(file, label, maxBytes, requireNewline = false) {
+function readStableRegularFileSnapshot(file, label, maxBytes, requireNewline = false) {
   let fd
   try {
     const flags = fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0)
@@ -224,7 +224,7 @@ function readStableRegularFile(file, label, maxBytes, requireNewline = false) {
     if (requireNewline && (!bytes.length || bytes[bytes.length - 1] !== 0x0a)) {
       throw new StateError('state: ' + label + ' must be newline-terminated', 3)
     }
-    return bytes
+    return { bytes, dev: before.dev, ino: before.ino }
   } catch (error) {
     if (error instanceof StateError) throw error
     if (error && error.code === 'ELOOP') {
@@ -234,6 +234,10 @@ function readStableRegularFile(file, label, maxBytes, requireNewline = false) {
   } finally {
     if (fd !== undefined) try { fs.closeSync(fd) } catch {}
   }
+}
+
+function readStableRegularFile(file, label, maxBytes, requireNewline = false) {
+  return readStableRegularFileSnapshot(file, label, maxBytes, requireNewline).bytes
 }
 
 function parseJsonLines(bytes, label) {
@@ -1507,9 +1511,11 @@ function structuredOutputValue(input, label) {
   return requireObject(input, label)
 }
 
-function validateAgentTranscript(workflowDir, started, sessionId, projectCwd, expectedResult, role) {
+function validateAgentTranscript(workflowDir, started, sessionId, projectCwd, expectedResult, role,
+  options = {}) {
   const file = path.join(workflowDir, 'agent-' + started.agentId + '.jsonl')
-  const bytes = readStableRegularFile(file, role + ' agent transcript', MAX_TRANSCRIPT_BYTES, true)
+  const snapshot = readStableRegularFileSnapshot(file, role + ' agent transcript', MAX_TRANSCRIPT_BYTES, true)
+  const bytes = snapshot.bytes
   const entries = parseJsonLines(bytes, role + ' agent transcript')
   let sawBinding = false
   let lastStructured
@@ -1537,7 +1543,7 @@ function validateAgentTranscript(workflowDir, started, sessionId, projectCwd, ex
       throw new StateError('state: ' + role + ' transcript StructuredOutput does not match the journal result', 3)
     }
   }
-  return sha256(bytes)
+  return options.returnSnapshot ? snapshot : sha256(bytes)
 }
 
 function safeDirectoryEntries(directory, label) {
@@ -1628,8 +1634,8 @@ function workflowJournalCandidates(state, options) {
       }
       assertPinnedDirectories(directoryPins)
       const callerMetaHash = validateAgentMeta(workflowDir, caller, 'caller')
-      const callerTranscriptHash = validateAgentTranscript(workflowDir, caller, sessionEntry.name,
-        options.projectCwd, undefined, 'caller')
+      const callerTranscriptPrefix = validateAgentTranscript(workflowDir, caller, sessionEntry.name,
+        options.projectCwd, undefined, 'caller', { returnSnapshot: true })
       const sourceMetaHash = validateAgentMeta(workflowDir, source, 'source')
       const sourceTranscriptHash = validateAgentTranscript(workflowDir, source, sessionEntry.name, options.projectCwd,
         sourcePaired.results[0].result, 'source')
@@ -1637,10 +1643,20 @@ function workflowJournalCandidates(state, options) {
       const claimTranscriptHashes = exactClaimResults.map(claim => validateAgentTranscript(workflowDir,
         claim.start, sessionEntry.name, options.projectCwd, claim.result, 'state claim'))
       const journalAgain = readStableRegularFile(journalPath, 'Workflow journal', MAX_JOURNAL_BYTES, true)
+      // The importer caller is the one process executing this helper, so its JSONL can append a
+      // completed tool-use row while the evidence files are checked. Its captured prefix and inode
+      // are immutable; only a fully parsed suffix may grow. Sources and claim proofs are terminal
+      // agents and remain byte-for-byte immutable below.
+      const callerTranscriptAgain = validateAgentTranscript(workflowDir, caller, sessionEntry.name,
+        options.projectCwd, undefined, 'caller', { returnSnapshot: true })
+      const callerTranscriptAppendedOnly = callerTranscriptAgain.dev === callerTranscriptPrefix.dev &&
+        callerTranscriptAgain.ino === callerTranscriptPrefix.ino &&
+        callerTranscriptAgain.bytes.length >= callerTranscriptPrefix.bytes.length &&
+        callerTranscriptAgain.bytes.subarray(0, callerTranscriptPrefix.bytes.length)
+          .equals(callerTranscriptPrefix.bytes)
       if (!journalAgain.equals(journalBytes) ||
           validateAgentMeta(workflowDir, caller, 'caller') !== callerMetaHash ||
-          validateAgentTranscript(workflowDir, caller, sessionEntry.name, options.projectCwd,
-            undefined, 'caller') !== callerTranscriptHash ||
+          !callerTranscriptAppendedOnly ||
           validateAgentMeta(workflowDir, source, 'source') !== sourceMetaHash ||
           validateAgentTranscript(workflowDir, source, sessionEntry.name, options.projectCwd,
             sourcePaired.results[0].result, 'source') !== sourceTranscriptHash ||

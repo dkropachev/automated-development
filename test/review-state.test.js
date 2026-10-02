@@ -392,6 +392,79 @@ test('trusted journal import stores one large resumable envelope and rejects unb
   writeScopeWorkflow('wf_scope_stored_validation', scopeResult)
   fails(badStoredScopeArgs, /conflicting orphan.*scope result.*repo/)
 
+  const appendTranscriptPreload = path.join(temp, 'append-active-transcript-preload.js')
+  fs.writeFileSync(appendTranscriptPreload, [
+    "'use strict'",
+    "const fs = require('fs')",
+    'const opened = new Map()',
+    'const openSync = fs.openSync',
+    'const closeSync = fs.closeSync',
+    'let changed = false',
+    'fs.openSync = function (file, ...rest) {',
+    '  const fd = openSync.call(this, file, ...rest)',
+    '  opened.set(fd, String(file))',
+    '  return fd',
+    '}',
+    'fs.closeSync = function (fd) {',
+    '  const file = opened.get(fd)',
+    '  opened.delete(fd)',
+    '  const result = closeSync.call(this, fd)',
+    '  if (!changed && file === process.env.REVIEW_STATE_APPEND_FILE) {',
+    '    changed = true',
+    "    if (process.env.REVIEW_STATE_APPEND_MODE === 'rewrite') {",
+    "      const text = fs.readFileSync(file, 'utf8')",
+    "      fs.writeFileSync(file, text.replace('\\\"type\\\":\\\"assistant\\\"', '\\\"type\\\":\\\"Assistant\\\"'))",
+    '    } else {',
+    "      fs.appendFileSync(file, Buffer.from(process.env.REVIEW_STATE_APPEND_BASE64, 'base64'))",
+    '    }',
+    '  }',
+    '  return result',
+    '}',
+    '',
+  ].join('\n'))
+  const mutationOptions = (file, row, mode = 'append') => ({ preload: appendTranscriptPreload, env: {
+    REVIEW_STATE_APPEND_FILE: file,
+    REVIEW_STATE_APPEND_MODE: mode,
+    REVIEW_STATE_APPEND_BASE64: Buffer.from(JSON.stringify(row) + '\n').toString('base64'),
+  } })
+
+  resetWorkflows()
+  const callerAppendDir = writeWorkflow('wf_caller_append', completeEvents(largeResult))
+  const callerAppendArgs = importArgs.slice()
+  callerAppendArgs[callerAppendArgs.indexOf('--name') + 1] = 'cycle-1/lenses/caller-append.json'
+  const callerAppend = runCli(callerAppendArgs, mutationOptions(
+    path.join(callerAppendDir, `agent-${callerStart.agentId}.jsonl`), transcriptRow(callerStart.agentId)))
+  assert.equal(callerAppend.status, 0, callerAppend.stderr || JSON.stringify(callerAppend.json))
+  assert.equal(callerAppend.json.ok, true)
+
+  resetWorkflows()
+  const callerRewriteDir = writeWorkflow('wf_caller_rewrite', completeEvents(largeResult))
+  const callerRewriteArgs = importArgs.slice()
+  callerRewriteArgs[callerRewriteArgs.indexOf('--name') + 1] = 'cycle-1/lenses/caller-rewrite.json'
+  fails(callerRewriteArgs, /changed during import/, mutationOptions(
+    path.join(callerRewriteDir, `agent-${callerStart.agentId}.jsonl`), {}, 'rewrite'))
+
+  resetWorkflows()
+  const sourceAppendDir = writeWorkflow('wf_source_append', completeEvents(largeResult))
+  const sourceAppendArgs = importArgs.slice()
+  sourceAppendArgs[sourceAppendArgs.indexOf('--name') + 1] = 'cycle-1/lenses/source-append.json'
+  fails(sourceAppendArgs, /changed during import/, mutationOptions(
+    path.join(sourceAppendDir, `agent-${sourceStart.agentId}.jsonl`), transcriptRow(sourceStart.agentId)))
+
+  resetWorkflows()
+  const claimAppendDir = writeWorkflow('wf_claim_append', completeEvents(largeResult))
+  const claimAppendArgs = importArgs.slice()
+  claimAppendArgs[claimAppendArgs.indexOf('--name') + 1] = 'cycle-1/lenses/claim-append.json'
+  fails(claimAppendArgs, /changed during import/, mutationOptions(
+    path.join(claimAppendDir, `agent-${claimStart.agentId}.jsonl`), transcriptRow(claimStart.agentId)))
+
+  resetWorkflows()
+  const journalAppendDir = writeWorkflow('wf_journal_append', completeEvents(largeResult))
+  const journalAppendArgs = importArgs.slice()
+  journalAppendArgs[journalAppendArgs.indexOf('--name') + 1] = 'cycle-1/lenses/journal-append.json'
+  fails(journalAppendArgs, /changed during import/, mutationOptions(
+    path.join(journalAppendDir, 'journal.jsonl'), { type: 'launched' }))
+
   resetWorkflows(); writeWorkflow('wf_meta_link', completeEvents(largeResult), largeResult, 'meta')
   fails(importArgs, /non-symlink|cannot read source agent metadata/)
   resetWorkflows(); writeWorkflow('wf_transcript_link', completeEvents(largeResult), largeResult, 'transcript')
@@ -499,7 +572,7 @@ test('trusted journal import stores one large resumable envelope and rejects unb
   wrongRootArgs[wrongRootArgs.indexOf('--root') + 1] = otherRepo
   fails(wrongRootArgs, /identity|HEAD does not match/)
 
-  assert.equal(succeeds(['validate', '--run', claim.run, '--root', repo]).validatedArtifacts, 5)
+  assert.equal(succeeds(['validate', '--run', claim.run, '--root', repo]).validatedArtifacts, 6)
   succeeds(['unlock', '--run', claim.run, '--lock-token', claim.lockToken])
 })
 
