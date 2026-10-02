@@ -3721,9 +3721,11 @@ const restoredArtifactItems = []
 let artifactAfter = 'none'
 let stateExportOk = true
 let expectedArtifactCount = null
+const RESUME_PAGE_BYTES = 24576
 if (stateClaim.resumed) for (let pageNo = 0; pageNo < 1000; pageNo++) {
   const exportCommand = 'node ' + shq(HOME_BIN + '/review-and-fix-pr-state.js') + ' resume-json --store ' +
-    shq(stateStore) + ' --run ' + shq(stateClaim.run) + ' --after ' + shq(artifactAfter) + ' --max-bytes 196608'
+    shq(stateStore) + ' --run ' + shq(stateClaim.run) + ' --after ' + shq(artifactAfter) +
+    ' --max-bytes ' + RESUME_PAGE_BYTES
   const page = await agentSafe(exactStatePrompt(exportCommand, 'restore review checkpoint page ' + (pageNo + 1)), {
     schema: STATE_EXPORT_SCHEMA, phase: 'Setup', label: 'restore state page ' + (pageNo + 1), effort: 'low',
     disallowedTools: DENY_READONLY, bashCommandClamp: ['Bash(' + exportCommand + ')'], requireToolScope: true,

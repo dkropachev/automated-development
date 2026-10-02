@@ -2131,8 +2131,8 @@ function resumeJsonArtifacts() {
   const run = validateRunId(requireArg('run'))
   const after = args.after && args.after !== 'none' ? validateArtifactName(args.after) : ''
   const maxBytes = Number(args['max-bytes'] || 196608)
-  if (!Number.isSafeInteger(maxBytes) || maxBytes < 32768 || maxBytes > 524288) {
-    throw new StateError('state: --max-bytes must be from 32768 to 524288')
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 16384 || maxBytes > 524288) {
+    throw new StateError('state: --max-bytes must be from 16384 to 524288')
   }
   const state = loadState(run)
   const jsonNames = Object.keys(state.artifacts).filter(name => name.endsWith('.json'))
@@ -2257,15 +2257,19 @@ function resumeJsonArtifacts() {
     (latestDisposition && name === latestDisposition.name) || sourceClosure.has(name)).sort()
   const remaining = selected.filter(name => name > after)
   const artifacts = []
-  let bytes = 0
   for (const name of remaining) {
     const verified = verifyArtifact(state, name)
     const value = parseJsonBuffer(verified.bytes, 'artifact ' + name)
     const artifact = { name, sha256: verified.record.sha256, bytes: verified.record.bytes, value }
-    const size = Buffer.byteLength(JSON.stringify(artifact))
-    if (artifacts.length && bytes + size > maxBytes) break
+    const candidate = artifacts.concat(artifact)
+    const responseBytes = Buffer.byteLength(JSON.stringify({ ok: true, run, maxCycle,
+      artifacts: candidate, nextAfter: name, selected: selected.length })) + 1
+    if (!artifacts.length && responseBytes > maxBytes) {
+      throw new StateError('state: resume artifact exceeds the bounded page size: ' + name, 3,
+        { artifact: name, responseBytes, maxBytes })
+    }
+    if (artifacts.length && responseBytes > maxBytes) break
     artifacts.push(artifact)
-    bytes += size
   }
   const last = artifacts.length ? artifacts[artifacts.length - 1].name : after
   const hasMore = remaining.some(name => name > last)
@@ -2897,7 +2901,7 @@ function output(value) {
     rendered = Object.assign({}, value, { responseId: validateResponseId(args['response-id']) })
     atomicWrite(claimResponsePath(args['response-id']), Buffer.from(JSON.stringify(rendered, null, 2) + '\n'))
   }
-  process.stdout.write(JSON.stringify(rendered, null, 2) + '\n')
+  process.stdout.write(JSON.stringify(rendered, null, COMMAND === 'resume-json' ? 0 : 2) + '\n')
 }
 
 try {

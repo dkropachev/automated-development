@@ -899,6 +899,13 @@ test('resume export is bounded to scope, latest cycle, and latest disposition', 
   put('summary/cycle-2-completed-8-4.json', { stopReason: 'completed' })
   put('summary/cycle-2-expected-artifacts.json', { artifacts: ['cycle-2/lenses/a.json'] })
 
+  const oversizedPage = spawnSync(process.execPath, [CLI, 'resume-json', '--run', claim.run,
+    '--after', 'none', '--max-bytes', '32768', '--store', store], { encoding: 'utf8' })
+  assert.notEqual(oversizedPage.status, 0)
+  const oversizedError = JSON.parse(oversizedPage.stdout)
+  assert.match(oversizedError.error, /resume artifact exceeds the bounded page size/)
+  assert.equal(oversizedError.details.responseBytes > oversizedError.details.maxBytes, true)
+
   const names = []
   let after = 'none'
   for (let pages = 0; pages < 10; pages++) {
@@ -906,6 +913,7 @@ test('resume export is bounded to scope, latest cycle, and latest disposition', 
     assert.ok(page.artifacts.length <= 1 || Buffer.byteLength(JSON.stringify(page)) <= 90000)
     names.push(...page.artifacts.map(item => item.name))
     if (page.nextAfter === 'none') break
+    assert.notEqual(page.nextAfter, after)
     after = page.nextAfter
   }
   assert.deepEqual(names.sort(), [
@@ -920,6 +928,46 @@ test('resume export is bounded to scope, latest cycle, and latest disposition', 
     '--after', 'none', '--store', store], { encoding: 'utf8' })
   assert.notEqual(invalidClosure.status, 0)
   assert.match(JSON.parse(invalidClosure.stdout).error, /previousDisposition does not match/)
+  invoke(['unlock', '--run', claim.run, '--lock-token', claim.lockToken])
+})
+
+test('resume export pages live-sized artifacts below the workflow relay budget', { timeout: 120000 }, t => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'review-state-live-pages-'))
+  const store = path.join(temp, 'store')
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }))
+  const key = Buffer.from(JSON.stringify({ head: 'a'.repeat(40), repo: 'live-pages' })).toString('base64')
+  const invoke = (args, input) => {
+    const result = spawnSync(process.execPath, [CLI, ...args, '--store', store], { encoding: 'utf8', input })
+    assert.equal(result.status, 0, result.stderr || result.stdout)
+    return { parsed: JSON.parse(result.stdout), renderedBytes: Buffer.byteLength(result.stdout) }
+  }
+  const claim = invoke(['claim', '--key-base64', key]).parsed
+  const put = (name, bytes) => invoke(['put', '--run', claim.run, '--lock-token', claim.lockToken,
+    '--name', name, '--stdin'], JSON.stringify({ payload: 'x'.repeat(bytes) })).parsed
+  const scopeName = 'scope-' + 'b'.repeat(64) + '.json'
+  put(scopeName, 13000)
+  put('cycle-1/lenses/correctness.json', 19000)
+  put('cycle-1/lenses/spec.json', 23000)
+  put('cycle-1/lenses/standards.json', 16500)
+  put('cycle-1/coverage/unresolved.json', 400)
+  put('summary/cycle-1-token-cap.json', 1400)
+
+  const names = []
+  let after = 'none'
+  for (let pages = 0; pages < 10; pages++) {
+    const { parsed: page, renderedBytes } = invoke([
+      'resume-json', '--run', claim.run, '--after', after, '--max-bytes', '24576',
+    ])
+    assert.ok(renderedBytes < 28672, `rendered resume page was ${renderedBytes} bytes`)
+    names.push(...page.artifacts.map(item => item.name))
+    if (page.nextAfter === 'none') break
+    after = page.nextAfter
+  }
+  assert.deepEqual(names.sort(), [
+    'cycle-1/coverage/unresolved.json', 'cycle-1/lenses/correctness.json',
+    'cycle-1/lenses/spec.json', 'cycle-1/lenses/standards.json', scopeName,
+    'summary/cycle-1-token-cap.json',
+  ].sort())
   invoke(['unlock', '--run', claim.run, '--lock-token', claim.lockToken])
 })
 
