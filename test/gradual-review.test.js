@@ -436,7 +436,7 @@ test('resume revalidates restored discovery and atomically records fixer follow-
   assert.doesNotMatch(WF.slice(WF.lastIndexOf("' complete --store '")), /refreshTranscriptTokens\(scope, 'terminal exit'\)/)
   assert.match(WF, /const frozenScopeSourceResult = JSON\.parse\(JSON\.stringify\(scope\)\)/)
   assert.match(WF, /scope\.scopeFingerprint !== scopeProof\.scopeFingerprint/)
-  assert.match(WF, /frozenScope\.outOfScope[\s\S]{0,160}scopeProof\.verifiedDeferrals/)
+  assert.match(WF, /trustedSourceContainsDeferrals\(scopeProof\.sourceJson, frozenScope\.outOfScope/)
   assert.match(WF, /baseline-unavailable[\s\S]{0,500}No fixer ran and nothing was committed/)
   assert.doesNotMatch(WF, /baseline agent returned nothing - continuing UNVALIDATED/)
   assert.match(WF, /const cumulativeUnverified = new Map\(\)/)
@@ -524,6 +524,20 @@ test('frozen scope restores source-backed and legacy semantics without accepting
   assert.equal(result.legacy.intent, scope.intent)
   assert.equal(result.wrongHead, null)
   assert.equal(result.wrongFingerprint, null)
+})
+
+test('saved deferrals are revalidated against authoritative text, not a fresh model selection', () => {
+  const helper = vm.runInNewContext([
+    extractFn('trustedSourceContainsDeferrals'),
+    'trustedSourceContainsDeferrals',
+  ].join('\n'))
+  const quote = 'Only the first two commits are needed for a backport.'
+  const sourceJson = JSON.stringify({ pr: { title: 'PR', body: `Details\n\n${quote}`,
+    commits: [{ messageBody: 'implementation' }] }, issues: [] })
+  assert.equal(helper(sourceJson, []), true)
+  assert.equal(helper(sourceJson, [quote]), true)
+  assert.equal(helper(sourceJson, ['not written by the author']), false)
+  assert.equal(helper('{bad', [quote]), false)
 })
 
 test('v3 reconstruction reproduces imported review evidence and compact dispositions', () => {

@@ -103,6 +103,8 @@ test('scope capture retains unavailable linked issues without inventing source t
   assert.match(workflow, /otherwise set blocker to explain that the[\s\S]*authoritative scope is insufficient/)
   assert.match(workflow, /WORKFLOW_STATE_VERSION = '0\.5\.0-completeness-contract-v1'/)
   assert.match(workflow, /function stableTrustedSourcePayload/)
+  assert.match(workflow, /function trustedSourceContainsDeferrals/)
+  assert.match(workflow, /authorText\.includes\(quote\)/)
   assert.match(workflow, /delete payload\.ghUser/)
   assert.match(workflow, /authenticated GitHub user changed during setup/)
 })

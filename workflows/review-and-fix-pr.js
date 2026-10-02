@@ -1232,6 +1232,19 @@ function stableTrustedSourcePayload(sourceJson) {
 function trustedSourceGhUser(sourceJson) {
   try { return JSON.parse(sourceJson).ghUser || 'unknown' } catch { return 'unknown' }
 }
+function trustedSourceContainsDeferrals(sourceJson, deferrals) {
+  try {
+    const payload = JSON.parse(sourceJson)
+    if (!Array.isArray(deferrals) || deferrals.some(quote => typeof quote !== 'string' || !quote)) return false
+    const pr = payload.pr || {}
+    const issues = Array.isArray(payload.issues) ? payload.issues : []
+    const authorText = [pr.title || '', pr.body || '', JSON.stringify(pr.commits || []),
+      ...issues.flatMap(issue => [issue && issue.title || '', issue && issue.body || ''])].join('\n')
+    return deferrals.every(quote => authorText.includes(quote))
+  } catch {
+    return false
+  }
+}
 
 // One place that answers "must we stop now?". Checked before every wave, not once per stage.
 function mustStop() {
@@ -3864,7 +3877,7 @@ const savedScopeArtifact = [...resumedArtifacts]
   .find(([, value]) => value)
 if (savedScopeArtifact) {
   const frozenScope = savedScopeArtifact[1]
-  if (JSON.stringify(frozenScope.outOfScope || []) !== JSON.stringify(scopeProof.verifiedDeferrals || [])) {
+  if (!trustedSourceContainsDeferrals(scopeProof.sourceJson, frozenScope.outOfScope || [])) {
     await unlockStateClaim('release state with stale frozen scope deferrals')
     return terminalReviewResult(
       'review-and-fix-pr stopped: saved author deferrals no longer matched the trusted PR sources.\n\n' +
