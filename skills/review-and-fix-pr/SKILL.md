@@ -60,11 +60,16 @@ Keep this scope in the active session. Do not narrow it merely because a path lo
 ## 2. Route, then discover in parallel
 
 Read all ten methodology files under `${CLAUDE_PLUGIN_ROOT}/skills/review-and-fix-pr/lenses/` and
-map them to the six lanes as specified in `reference.md`. Launch one read-only lane controller. It
-receives the inventory and PR intent, returns a risk map,
-focus areas for each core lane, and any optional specialists worth adding. It cannot suppress,
-combine, replace, or skip any of these six mandatory independent lanes. It routes questions and
-intersections, not predicted findings; its focus list is a priority hint, never a scope boundary:
+map them to the six lanes as specified in `reference.md`. Before any discovery agent, invoke
+exactly one `automated-development:review-lane-controller` per review cycle. Give it the frozen PR
+intent, acceptance criteria, canonical diff inventory, missing-source indicators, and the exact
+ten-methodology-to-lane mapping; validate that package before invocation. Accept only the routing
+schema in `reference.md`. If this typed
+agent is unavailable or its response is malformed, fail the review with `lane-error`; do not use a
+generic agent, retry with another controller, or route the lanes yourself. The controller has only
+Read, Grep, and Glob. It cannot suppress, combine, replace, or skip any mandatory core lane. It
+routes focus, interactions, optional specialists, and additive subsystem shards—not findings or
+verdicts. Focus is a priority hint, never a scope boundary:
 
 1. Root-cause / fix-completeness — reconstruct the original defect and decide whether every relevant path is
    fixed and directly proven by regression tests.
@@ -129,7 +134,8 @@ in-scope findings. Group dependent changes, make the
 smallest coherent edits, run repository-native validation, and commit locally with a repository-
 appropriate message. Leave unsafe, ambiguous, or out-of-scope findings unresolved with an
 explanation. After a successful fix commit, rebuild the inventory from the new `HEAD` and rerun
-the complete protocol. A local fix may advance `reviewTargetHead` only to a commit created by this
+the complete protocol. This is a new review cycle, so invoke exactly one fresh typed controller
+before its discovery. A local fix may advance `reviewTargetHead` only to a commit created by this
 invocation and descended from `originalPrHead`; this is not a PR-head mismatch. Keep the immutable
 PR scope, inventory `mergeBase...reviewTargetHead`, and record each local commit. If a fix fails,
 preserve useful edits and report the exact failure; never clean them destructively.

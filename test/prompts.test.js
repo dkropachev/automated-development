@@ -81,12 +81,244 @@ test('review-and-fix-pr is a stateless parent-session procedure with direct pref
   }
 })
 
+test('review-and-fix-pr uses one dedicated structurally read-only lane controller', () => {
+  const skill = rd('skills/review-and-fix-pr/SKILL.md')
+  const ref = rd('skills/review-and-fix-pr/reference.md')
+  const readme = rd('README.md')
+  const agent = rd('agents/review-lane-controller.md')
+  const frontmatter = /^---\n([\s\S]*?)\n---\n/.exec(agent)
+  assert.ok(frontmatter, 'review-lane-controller agent has no frontmatter')
+
+  const field = (name) => {
+    const match = new RegExp(`^${name}:\\s*(.+)$`, 'm').exec(frontmatter[1])
+    assert.ok(match, `review-lane-controller frontmatter has no ${name}`)
+    return match[1].trim()
+  }
+  const csv = (name) => field(name).split(',').map((value) => value.trim())
+
+  assert.equal(field('name'), 'review-lane-controller')
+  assert.deepEqual(csv('tools'), ['Read', 'Grep', 'Glob'],
+    'controller must have only structural read/search tools')
+  assert.deepEqual(csv('disallowedTools'),
+    ['Bash', 'Write', 'Edit', 'NotebookEdit', 'Agent', 'WebFetch', 'WebSearch'],
+    'controller must explicitly deny execution, writes, nested agents, and web access')
+
+  const agentType = 'automated-development:review-lane-controller'
+  for (const [name, text] of [['SKILL.md', skill], ['reference.md', ref], ['README.md', readme]]) {
+    const occurrences = text.split(agentType).length - 1
+    assert.equal(occurrences, 1,
+      `${name} must name the exact typed controller exactly once, found ${occurrences}`)
+  }
+  const skillInvocation =
+    /Before any discovery agent, invoke\s+exactly one `automated-development:review-lane-controller` per review cycle/i
+  const refInvocation =
+    /At the start of every review cycle, after freezing scope and building the canonical inventory but\s+before discovery, invoke exactly one agent of type\s+`automated-development:review-lane-controller`/i
+  assert.equal((skill.match(new RegExp(skillInvocation.source, 'gi')) || []).length, 1,
+    'SKILL.md must invoke the typed controller exactly once per cycle and before discovery')
+  assert.equal((ref.match(new RegExp(refInvocation.source, 'gi')) || []).length, 1,
+    'reference.md must place one typed controller after inventory and before discovery')
+  assert.ok(skill.indexOf('## 1. Preflight and inventory') < skill.search(skillInvocation) &&
+    skill.search(skillInvocation) < skill.indexOf('## 3. Audit coverage'),
+    'SKILL.md must order inventory, controller routing, then discovery coverage audit')
+  assert.match(skill,
+    /This is a new review cycle, so invoke exactly one fresh typed controller\s+before its discovery/i,
+    'a post-fix rerun must start a new cycle with exactly one fresh controller')
+
+  const skillRoute = skill.slice(skill.indexOf('## 2. Route, then discover in parallel'),
+    skill.indexOf('## 3. Audit coverage'))
+  const refRoute = ref.slice(ref.indexOf('## Lane controller'),
+    ref.indexOf('## Core lane instructions'))
+  const failureRules = [
+    ['SKILL.md', skill, skillRoute,
+      /If this typed\s+agent is unavailable or its response is malformed, fail the review with `lane-error`; do not use a\s+generic agent, retry with another controller, or route the lanes yourself\./gi],
+    ['reference.md', ref, refRoute,
+      /If the typed agent is unavailable or its response is malformed, stop the\s+review with `lane-error`; never fall back to a generic agent, a second controller invocation, or\s+parent-authored routing\./gi],
+    ['README.md', readme, readme,
+      /a missing or malformed response fails the review instead of\s+falling back to a generic agent\./gi],
+    ['review-lane-controller.md', agent, agent,
+      /Missing or malformed input is a controller failure;\s+return exactly `CONTROLLER_INPUT_ERROR` so the parent rejects the response as malformed\. Never\s+invent missing input, recommend a generic agent, or imply a degraded review\./gi],
+  ]
+  const contradictions = [
+    ['generic-agent fallback', /\b(?:generic|general-purpose|default) agent\b/i],
+    ['fallback', /\bfall\s+back\b|\bfallback\b/i],
+    ['controller retry', /\b(?:retry|re-?invoke|try)\b[^\n]{0,80}\bcontroller\b/i],
+    ['an extra controller', /\b(?:another|second|additional|extra) controller\b/i],
+    ['a repeated controller',
+      /\b(?:invoke|launch|run|call)\b[^\n]{0,80}\bcontroller\b[^\n]{0,30}\bagain\b/i],
+    ['a second controller invocation', /\b(?:another|second) controller invocation\b/i],
+    ['a degraded review', /\bdegraded review\b/i],
+    ['parent-authored routing', /\broute the lanes yourself\b|\bparent[- ]authored routing\b/i],
+    ['synthesized routing',
+      /\b(?:synthesi[sz]\w*|author|build|compose|create|generate|invent)\b[^\n]{0,60}\b(?:routing|route|lane map)\b/i],
+  ]
+  for (const [name, document, section, failureRule] of failureRules) {
+    const rules = [...section.matchAll(failureRule)]
+    assert.equal(rules.length, 1,
+      `${name} must have exactly one complete fail-closed controller rule`)
+    const residual = document.replace(failureRule, '')
+    for (const [kind, pattern] of contradictions) {
+      assert.doesNotMatch(residual, pattern, `${name} permits ${kind}`)
+    }
+  }
+})
+
+test('review lane controller requires the complete frozen routing input', () => {
+  const prompts = [
+    ['SKILL.md', rd('skills/review-and-fix-pr/SKILL.md')],
+    ['reference.md', rd('skills/review-and-fix-pr/reference.md')],
+    ['review-lane-controller.md', rd('agents/review-lane-controller.md')],
+  ]
+  const inputs = [
+    ['frozen PR intent', /frozen PR\s+intent/i],
+    ['acceptance criteria', /acceptance criteria/i],
+    ['canonical diff inventory', /canonical\s+(?:diff\s+)?inventory/i],
+    ['missing-source indicators', /missing-source\s+(?:indicators?|counters?)/i],
+    ['ten methodology mappings',
+      /(?:(?:exact|all)\s+)?ten[- ]methodolog(?:y|ies)(?:-to-lane)?(?:\s+to the six\s+mandatory lanes)?\s+mappings?/i],
+  ]
+  for (const [name, text] of prompts) {
+    for (const [input, pattern] of inputs) {
+      assert.match(text, pattern, `${name} does not require ${input}`)
+    }
+  }
+})
+
+test('controller input failure stops before discovery and projects onto schema v1', () => {
+  const ref = rd('skills/review-and-fix-pr/reference.md')
+  const agent = rd('agents/review-lane-controller.md')
+  const section = ref.slice(ref.indexOf('## Lane controller'),
+    ref.indexOf('## Core lane instructions'))
+
+  assert.match(section,
+    /before discovery, invoke exactly one agent of type\s+`automated-development:review-lane-controller`/i,
+    'the parent must make only one controller invocation before discovery')
+  assert.match(section,
+    /Validate the complete controller input package before invocation\./,
+    'the parent must validate the complete input package before that invocation')
+
+  for (const [name, text] of [['reference.md', section], ['review-lane-controller.md', agent]]) {
+    assert.equal(text.split('CONTROLLER_INPUT_ERROR').length - 1, 1,
+      `${name} must name the input-error sentinel exactly once`)
+  }
+  assert.match(agent,
+    /Missing or malformed input is a controller failure;\s+return exactly `CONTROLLER_INPUT_ERROR` so the parent rejects the response as malformed\. Never\s+invent missing input/i,
+    'the controller must return only the sentinel for invalid input and the parent must reject it')
+  assert.match(section,
+    /missing or malformed input, it returns `CONTROLLER_INPUT_ERROR`; this deliberately fails the route\s+schema and takes the same `lane-error` path instead of synthesizing missing evidence\./i,
+    'the sentinel must fail routing closed without synthesized evidence')
+  const projection =
+    /On controller failure, discovery does not begin\. Report `coverage: incomplete-lens`,\s+`verification: none`, `stopReason: lane-error`, empty `completedLenses` and `failedLenses`, and\s+`skippedLenses: \[([^\]]+)\]` in the unchanged schema-v1 result contract\./.exec(section)
+  assert.ok(projection, 'controller failure must retain the exact schema-v1 failure projection')
+  assert.deepEqual(projection[1].replace(/\s+/g, ' ').split(', '),
+    ['correctness', 'spec', 'standards', 'security', 'reliability', 'contracts', 'testing',
+      'performance', 'comments', 'maintainability'],
+    'controller failure must skip all ten stable methodology IDs')
+})
+
+test('review lane controller emits only the exact routing schema and methodology assignments', () => {
+  const sources = [
+    ['reference.md', rd('skills/review-and-fix-pr/reference.md'),
+      'The controller returns exactly one YAML mapping'],
+    ['review-lane-controller.md', rd('agents/review-lane-controller.md'),
+      'Return routing only'],
+  ]
+  const expectedKeys = ['intent', 'risk_map', 'lane_focus', 'optional_specialists', 'cross_cutting']
+  const mappings = [
+    ['root-cause / fix-completeness', ['spec']],
+    ['correctness / dataflow', ['correctness']],
+    ['lifecycle / concurrency / reliability', ['reliability']],
+    ['tests / reproduction', ['testing']],
+    ['contracts / compatibility / risk', ['security', 'contracts', 'performance']],
+    ['standards / docs / maintainability', ['standards', 'comments', 'maintainability']],
+  ]
+
+  for (const [name, text, anchor] of sources) {
+    const start = text.indexOf(anchor)
+    assert.notEqual(start, -1, `${name} has no routing-schema introduction`)
+    const fence = /```yaml\n([\s\S]*?)\n```/.exec(text.slice(start))
+    assert.ok(fence, `${name} has no routing YAML schema`)
+    const yaml = fence[1]
+    const lines = yaml.split('\n')
+    const shape = lines.map((line) => {
+      const match = /^(\s*)(-\s+)?([^:{}]+?):(?:\s*(.*))?$/.exec(line)
+      if (!match) return false
+      const value = (match[4] || '').trim()
+      const kind = value === '' ? 'mapping'
+        : value.startsWith('[') ? 'sequence'
+          : value.startsWith('{') ? 'inline-mapping' : 'scalar'
+      return [match[1].length, Boolean(match[2]), match[3], kind]
+    }).filter(Boolean)
+    const field = (indent, key, kind = 'mapping', list = false) =>
+      [indent, list, key, kind]
+    const expectedShape = [
+      field(0, expectedKeys[0]),
+      field(2, 'claimed_problem', 'scalar'),
+      field(2, 'acceptance_criteria', 'sequence'),
+      field(0, expectedKeys[1]),
+      field(2, 'surface', 'scalar', true),
+      field(4, 'risks', 'sequence'),
+      field(0, expectedKeys[2]),
+      ...mappings.map(([lane]) => field(2, lane, 'inline-mapping')),
+      field(0, expectedKeys[3]),
+      field(2, 'specialist', 'scalar', true),
+      field(4, 'reason', 'scalar'),
+      field(4, 'surface', 'scalar'),
+      field(0, expectedKeys[4]),
+      field(2, 'interactions', 'sequence'),
+      field(2, 'subsystem_shards'),
+      field(4, 'lane', 'scalar', true),
+      field(6, 'subsystem', 'scalar'),
+      field(6, 'reason', 'scalar'),
+    ]
+    assert.deepEqual(shape, expectedShape,
+      `${name} routing schema must retain every exact nested field and no extras`)
+    assert.match(yaml,
+      /^ {2}# Optional; omit when no additive subsystem shard is useful\.\n {2}subsystem_shards:/m,
+      `${name} must keep subsystem shards optional while retaining their schema`)
+
+    for (const [lane, methodologies] of mappings) {
+      const prefix = `  ${lane}: `
+      const laneLine = lines.find((line) => line.startsWith(prefix))
+      assert.ok(laneLine, `${name} is missing the ${lane} lane`)
+      const assignment = /^\{methodologies: \[([^\]]*)\], priorities: \[[^\]]*\]\}$/
+        .exec(laneLine.slice(prefix.length))
+      assert.ok(assignment,
+        `${name} must give ${lane} exactly methodologies and priorities`)
+      assert.deepEqual(assignment[1].split(', '), methodologies,
+        `${name} changed the methodology assignment for ${lane}`)
+    }
+  }
+})
+
+test('review lane controller can add depth but cannot review or narrow coverage', () => {
+  const prompts = [
+    ['reference.md', rd('skills/review-and-fix-pr/reference.md')],
+    ['review-lane-controller.md', rd('agents/review-lane-controller.md')],
+  ]
+  for (const [name, text] of prompts) {
+    assert.match(text,
+      /(?:optional specialists and subsystem shards|specialist or shard)[\s\S]{0,60}additive/i,
+      `${name} does not make specialists and shards additive-only`)
+    assert.match(text, /(?:must not|do not)[\s\S]{0,80}(?:emit|produce)[\s\S]{0,100}findings/i,
+      `${name} lets the controller produce findings`)
+    assert.match(text, /(?:must not|do not)[\s\S]{0,80}(?:emit|produce)[\s\S]{0,180}verdicts/i,
+      `${name} lets the controller produce verdicts`)
+    assert.match(text, /(?:(?:do not|must not)[\s\S]{0,100}suppress|reject[\s\S]{0,320}suppresses)/i,
+      `${name} lets the controller suppress a mandatory lane`)
+    assert.match(text, /(?:(?:do not|must not)[\s\S]{0,120}replace|reject[\s\S]{0,340}replaces)/i,
+      `${name} lets the controller replace a mandatory lane`)
+    assert.match(text, /(?:(?:do not|must not)[\s\S]{0,160}narrow|reject[\s\S]{0,380}narrows)/i,
+      `${name} lets the controller narrow mandatory coverage`)
+  }
+})
+
 test('review-and-fix-pr controller routes optional work without skipping core lanes', () => {
   const procedure = rd('skills/review-and-fix-pr/SKILL.md') + '\n' +
     rd('skills/review-and-fix-pr/reference.md')
 
   assert.match(procedure, /(?:lane|review) controller/i)
-  assert.match(procedure, /(?:cannot|must not|never) skip[\s\S]{0,200}(?:mandatory|core) (?:lane|review)/i)
+  assert.match(procedure,
+    /(?:cannot|must not|never)[^\n]{0,100}skip[^\n]{0,100}(?:mandatory|core) (?:lane|review)/i)
   const coreLanes = [
     /root[ -]cause\s*\/\s*fix[ -]completeness/i,
     /correctness\s*\/\s*dataflow/i,

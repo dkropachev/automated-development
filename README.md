@@ -194,9 +194,12 @@ or internal finding/token budget. Nothing is pushed, posted, reverted, or reset.
 /review-and-fix-pr 1234
 ```
 
-One routing controller reads the PR context and assigns focus areas, important intersections, and
-optional specialists. It cannot predict findings or omit any core lane. These six core lanes always
-run independently and read-only, without seeing one another's findings:
+Exactly once per review cycle and before discovery, the typed
+`automated-development:review-lane-controller` reads the frozen PR context and assigns focus areas,
+important intersections, and optional specialists. It has only Read, Grep, and Glob, cannot predict
+findings or omit any core lane, and a missing or malformed response fails the review instead of
+falling back to a generic agent. These six core lanes always run independently and read-only,
+without seeing one another's findings:
 
 ```text
 root-cause/fix-completeness
@@ -208,9 +211,10 @@ standards/docs/maintainability
 ```
 
 The ten files under `skills/review-and-fix-pr/lenses/` are review methods, not ten separately
-metered agents. The controller maps them across the core lanes and may add loaded review skills or
-domain specialists when the change warrants it; additions never replace core coverage. Missing or
-unsafe optional skills are reported instead of silently weakening the review.
+metered agents. The parent supplies their fixed mapping to the core lanes; the controller assigns
+focus within that mapping and may add loaded review skills or domain specialists when the change
+warrants it. Additions never replace core coverage. Missing or unsafe optional skills are reported
+instead of silently weakening the review.
 
 The parent session freezes the PR identity and source material, then inventories exact changed
 paths, hunks, and non-text changes with deterministic helpers. Coverage also tracks stated
@@ -230,7 +234,8 @@ rejections, disagreements, and high-impact claims receive an independent challen
 ```
 agents/                  subagents the skills spawn, typed automated-development:pr-style-builder,
                          :pr-style-verifier, :issue-style-builder, :issue-style-verifier,
-                         :commit-style-builder, :commit-style-verifier (plugin name is part of the type)
+                         :commit-style-builder, :commit-style-verifier, and
+                         :review-lane-controller (plugin name is part of the type)
 bin/promptgen-driver.js  the CLI: the two state machines and the orchestrator's verbs, --domain pr|issue|commit
 bin/review-and-fix-pr-scope.js   exact GitHub/source identity and merge-base preflight
 bin/review-and-fix-pr-diff.js    deterministic changed-path, hunk, and non-text inventory

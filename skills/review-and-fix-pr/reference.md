@@ -52,24 +52,65 @@ author; unrelated deferral language does not suppress a finding.
 
 ## Lane controller
 
-The controller adapts emphasis, not coverage. Its output is:
+At the start of every review cycle, after freezing scope and building the canonical inventory but
+before discovery, invoke exactly one agent of type
+`automated-development:review-lane-controller`. Give it, as delimited evidence, the frozen PR
+intent, acceptance criteria, complete canonical diff inventory, every missing-source counter or
+instruction omission, and the ten methodology mappings below. Its frontmatter permits exactly
+Read, Grep, and Glob and denies Bash, writes, nested agents, and web access.
 
-```text
-intent: claimed problem and acceptance criteria
-risk_map: changed subsystems, trust boundaries, lifecycle edges, compatibility surfaces
-lane_focus: core lane -> paths/symbols/questions to prioritize
-optional_specialists: specialist -> concrete reason and assigned surface
-cross_cutting: interactions every relevant lane should trace
+The controller returns exactly one YAML mapping with these keys and no prose or fence:
+
+```yaml
+intent:
+  claimed_problem: <summary grounded in the supplied evidence>
+  acceptance_criteria: [<criterion>]
+risk_map:
+  - surface: <changed subsystem, trust boundary, lifecycle edge, or compatibility surface>
+    risks: [<questions requiring review>]
+lane_focus:
+  root-cause / fix-completeness: {methodologies: [spec], priorities: [<path, symbol, or question>]}
+  correctness / dataflow: {methodologies: [correctness], priorities: [<path, symbol, or question>]}
+  lifecycle / concurrency / reliability: {methodologies: [reliability], priorities: [<path, symbol, or question>]}
+  tests / reproduction: {methodologies: [testing], priorities: [<path, symbol, or question>]}
+  contracts / compatibility / risk: {methodologies: [security, contracts, performance], priorities: [<path, symbol, or question>]}
+  standards / docs / maintainability: {methodologies: [standards, comments, maintainability], priorities: [<path, symbol, or question>]}
+optional_specialists:
+  - specialist: <specialist identifier>
+    reason: <why core-lane execution benefits from added depth>
+    surface: <assigned paths, symbols, or questions>
+cross_cutting:
+  interactions: [<interaction every relevant lane should trace>]
+  # Optional; omit when no additive subsystem shard is useful.
+  subsystem_shards:
+    - lane: <one mandatory lane>
+      subsystem: <additional review surface>
+      reason: <why an additive shard is needed>
 ```
 
-It cannot skip any mandatory core lane. It must route all six execution lanes at least once:
-root-cause / fix-completeness, correctness / dataflow, lifecycle / concurrency / reliability,
-tests / reproduction, contracts / compatibility / risk, and standards / docs / maintainability. Optional
-specialists are additive. It must not propose candidate defects or tell a lane what conclusion to
-reach. Focus is prioritization, not narrowing: every core lane remains accountable for the whole PR
-through its methodology. A large subsystem may receive an additional shard of the same lane; all
-shards are required inputs to that lane's final receipt. Do not select specialists merely to
-restate a core lane.
+All six `lane_focus` entries and their exact methodology assignments are mandatory; empty
+`priorities` is valid. `optional_specialists` is an explicit list, which may be empty.
+`cross_cutting.interactions` is mandatory; `cross_cutting.subsystem_shards` is optional. Every
+specialist or shard is additive to—not a substitute for—the six whole-PR lanes. Reject the response as malformed
+if a top-level key, mandatory lane, or methodology assignment is missing or changed, or if it
+suppresses, combines, replaces, skips, or narrows a lane. The controller routes only. It must not
+emit findings, candidate defects, severities, dispositions, conclusions, or verdicts, including a
+fix-completeness verdict. If the typed agent is unavailable or its response is malformed, stop the
+review with `lane-error`; never fall back to a generic agent, a second controller invocation, or
+parent-authored routing.
+Validate the complete controller input package before invocation. If the controller receives
+missing or malformed input, it returns `CONTROLLER_INPUT_ERROR`; this deliberately fails the route
+schema and takes the same `lane-error` path instead of synthesizing missing evidence.
+
+On controller failure, discovery does not begin. Report `coverage: incomplete-lens`,
+`verification: none`, `stopReason: lane-error`, empty `completedLenses` and `failedLenses`, and
+`skippedLenses: [correctness, spec, standards, security, reliability, contracts, testing,
+performance, comments, maintainability]` in the unchanged schema-v1 result contract.
+
+The controller adapts emphasis, not coverage. Focus is prioritization, not narrowing: every core
+lane remains accountable for the whole PR through its methodology. A large subsystem may receive
+an additional shard of the same lane; all shards are required inputs to that lane's final receipt.
+Do not select specialists merely to restate a core lane.
 
 Useful routing signals include authentication or parsing boundaries for security; hot loops,
 allocation, or I/O changes for performance; schemas and persisted state for data/migration; and
