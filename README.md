@@ -1,8 +1,8 @@
 # automated-development
 
 A Claude Code plugin of development skills that learn a repository's own conventions before they
-act on it. Three drafting skills — a PR description, an issue, a commit message — sharing one
-driver, plus a PR review-and-fix pipeline; the layout expects more.
+act on it. Three drafting skills — a PR description, an issue, a commit message — share one
+driver, alongside a direct PR review-and-fix protocol; the layout expects more.
 
 The [`Review Bench`](docs/index.html) compares installed review skills by verified quality, cost,
 requested model, language, and target. Benchmark runs are kept as immutable model cohorts, so a new
@@ -95,12 +95,11 @@ the plausible version instead of the true one. It runs under the same driver.
 | `~/.claude/draft-issue-description/state/` | the issue skill's driver state |
 | `~/.claude/commit-style-cache/<host>/<owner>/<repo>.md` (+ `.work.<batch>`, `.attempt`) | the same three, for the commit skill |
 | `~/.claude/draft-commit-message/state/` | the commit skill's driver state |
-| `~/.claude/review-and-fix-pr/state/` | one file per live review or fix conversation, pruned after 7 days |
-| `~/.claude/review-and-fix-pr/<owner>__<repo>/reviewed.json` | files a whole-PR reviewer recorded clean, keyed on content |
-| `~/.claude/review-and-fix-pr/<owner>__<repo>/runs/<sha>-<suffix>/` | isolated run identity and scratch state |
 
-Nothing else. It does not write to your repository, beyond a depth-limited `git fetch` when the base
-branch is genuinely absent from the clone.
+The drafting skills write only those cache and state paths. The review skill keeps no private
+state. In review-only mode it does not write to the repository, apart from fetching the exact PR
+base and head when they are absent. With explicit fix authority it may edit and commit locally; it
+never pushes, posts, reverts, or resets.
 
 #### Configuring what a description must contain
 
@@ -186,78 +185,45 @@ or the repo's own commits carry them.
 
 ### `review-and-fix-pr`
 
-Reviews a frozen whole-PR scope through independent mandatory lenses, audits their coverage, runs
-one targeted gap round, and independently verifies candidate findings. Optional loaded review
-skills add specialist lenses; they never replace native correctness, spec, standards, or risk
-review. Nothing is pushed, posted, reverted, or reset.
+Reviews a frozen whole-PR scope through independent mandatory lanes, audits their coverage, runs
+one targeted gap round, and independently verifies candidate findings. It runs directly in the
+parent session: there is no nested Workflow, checkpoint store, resume machinery, transcript meter,
+or internal finding/token budget. Nothing is pushed, posted, reverted, or reset.
 
 ```
 /review-and-fix-pr 1234
 ```
 
-Native lenses run in read-only waves of three without seeing one another's findings:
+One routing controller reads the PR context and assigns focus areas, important intersections, and
+optional specialists. It cannot predict findings or omit any core lane. These six core lanes always
+run independently and read-only, without seeing one another's findings:
 
 ```text
-correctness -> spec -> standards -> security -> reliability -> contracts
--> testing -> performance -> comments -> maintainability
+root-cause/fix-completeness
+correctness/dataflow
+lifecycle/concurrency/reliability
+tests/reproduction
+contracts/compatibility/risk (including security and performance)
+standards/docs/maintainability
 ```
 
-To add review expertise, name loaded skills in the request, for example: “review PR 1234 using
-`trailofbits:differential-review` and `code-review`.” The workflow invokes exact names before native
-lenses. Missing, user-only, recursive, or write-owning skills remain failed lenses and prevent a
-complete coverage result instead of silently falling back.
+The ten files under `skills/review-and-fix-pr/lenses/` are review methods, not ten separately
+metered agents. The controller maps them across the core lanes and may add loaded review skills or
+domain specialists when the change warrants it; additions never replace core coverage. Missing or
+unsafe optional skills are reported instead of silently weakening the review.
 
-Ordinary configuration is deliberately small:
-
-```js
-{
-  pr: 1234,
-  fix: false,
-  extraReviewSkills: ['trailofbits:differential-review'],
-  stopAt: {
-    count: 20,
-    score: { code: 30, other: 10 },
-    tokens: 5_000_000,
-  },
-  severityWeights: {
-    code:  { critical: 10, high: 5, medium: 2, low: 1 },
-    other: { critical: 10, high: 5, medium: 2, low: 1 },
-  },
-  verification: 'double',
-  model: 'claude-opus-4-1', // required when stopAt is present, so partial work can resume
-}
-```
-
-Omit `stopAt` for the complete coverage protocol; empty `stopAt` or `score` objects are rejected. A
-stop threshold is an OR condition and produces a partial, resumable review. Count spans all
-qualified findings; code and other severity scores are independent. Simultaneous hits in one
-drained wave are all reported. `double` verification is default and uses fresh challenges for
-rejects, unresolved claims, and confirmed critical/high findings.
-
-Coverage is tracked from changed hunks, requirements, contracts, tests, documentation, and
-repository rules. A fresh auditor sees receipts rather than finding prose, requests one targeted gap
-round, then re-audits. `coverage: complete` means this protocol closed; it never claims the PR is
-bug-free or that every possible defect was found. Exact hunk hashes and zero-hunk paths are
-independently inventoried and cross-checked before discovery starts.
+The parent session freezes the PR identity and source material, then inventories exact changed
+paths, hunks, and non-text changes with deterministic helpers. Coverage also tracks stated
+requirements, contracts, tests, documentation, and repository rules. A blind auditor sees that
+inventory plus review receipts—not finding prose—requests at most one targeted gap round, then
+re-audits. `coverage: complete` means this protocol closed; it never claims the PR is bug-free.
 
 Scope is a label, not a filter. A defect this PR did not cause is reported and marked out-of-scope
 rather than suppressed, so you can tell "you broke this" from "this was already broken". With
-`fix: true`, verified findings are fixed in serial batches and committed locally. Every successful
-fix changes the review target, so the workflow rebuilds its manifest and restarts all mandatory
-lenses. Failed work stays in the tree for inspection.
-
-Runs checkpoint outside the repository. Runs with an explicit `model` automatically resume only when
-PR lineage, scope-source fingerprint, workflow schema, model, and ordered lens configuration still match;
-inherited-model runs start fresh (except for recovery of a transaction-proven local fix commit)
-because the Workflow API cannot identify that model safely. Changed stop limits, score weights,
-verification strength, or `fix` authority are allowed on resume. See
-`skills/review-and-fix-pr/reference.md` for the exact API, status axes, and migration from removed
-arguments. Fix commits carry a write-ahead transaction proof, allowing a crash after `git commit`
-but before orchestration returns to recover conservatively on the next invocation.
-Large agent results, including the frozen semantic scope, are copied directly from the runtime's
-completed Workflow journal into one immutable, hash-bound artifact. Compact derived checkpoints
-reconstruct from those sources on resume;
-unexpectedly large control records fail closed instead of spawning one model helper per byte chunk.
+explicit fix authority, verified findings are fixed in small serial batches, validated, and all six
+core lanes rerun against the changed tree. Without explicit fix authority the review remains
+read-only. Plausible leads are deduplicated conservatively, then a fresh verifier traces each one;
+rejections, disagreements, and high-impact claims receive an independent challenge.
 
 ## Layout
 
@@ -266,11 +232,8 @@ agents/                  subagents the skills spawn, typed automated-development
                          :pr-style-verifier, :issue-style-builder, :issue-style-verifier,
                          :commit-style-builder, :commit-style-verifier (plugin name is part of the type)
 bin/promptgen-driver.js  the CLI: the two state machines and the orchestrator's verbs, --domain pr|issue|commit
-bin/review-and-fix-pr-*.js   review helpers: -driver (fix/review state machines), -state (durable
-                         checkpoints), -chunker/-diff (trusted coverage inventory), -scope
-                         (GitHub/source identity and merge-base proof), and -reviewed
-                         (legacy clean verdicts); repofp remains for compatibility
-workflows/               Workflow scripts, run by scriptPath; not linted (see eslint.config.js)
+bin/review-and-fix-pr-scope.js   exact GitHub/source identity and merge-base preflight
+bin/review-and-fix-pr-diff.js    deterministic changed-path, hunk, and non-text inventory
 lib/domains.js           everything that differs between the three domains: paths, keys, source files,
                          which checks apply, and every instruction that talks about "the diff" or "the maintainer"
 lib/prompt-gate.js       coverage gate for a learned prompt, per kind where kinds exist; frontmatter helpers

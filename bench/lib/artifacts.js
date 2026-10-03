@@ -844,12 +844,18 @@ function validateReviewAndFixPrContract(contract) {
   const completed = new Set(contract.completedLenses)
   const missing = REVIEW_AND_FIX_PR_MANDATORY_LENSES.filter((lens) => !completed.has(lens))
   if (missing.length) throw new Error(`review-and-fix-pr result contract is missing mandatory lenses: ${missing.join(', ')}`)
+  const known = new Set(REVIEW_AND_FIX_PR_MANDATORY_LENSES)
+  const extra = contract.completedLenses.filter((lens) => !known.has(lens))
+  if (extra.length) throw new Error(`review-and-fix-pr result contract has unknown methodology IDs: ${extra.join(', ')}`)
   const findings = contract.findings
   const findingFields = ['confirmed', 'provisional', 'rejected', 'unresolved']
   if (!findings || typeof findings !== 'object' || Array.isArray(findings) ||
       JSON.stringify(Object.keys(findings).sort()) !== JSON.stringify(findingFields) ||
       !Object.values(findings).every((value) => Number.isSafeInteger(value) && value >= 0)) {
     throw new Error('review-and-fix-pr result contract findings are invalid')
+  }
+  if (findings.provisional !== findings.confirmed + findings.rejected + findings.unresolved) {
+    throw new Error('review-and-fix-pr result contract finding dispositions do not partition provisional findings')
   }
   return canonical(contract)
 }

@@ -14,7 +14,7 @@ BENCH_RUN_ARG = $(if $(strip $(RUN)),--run "$(RUN)")
 BENCH_NEXT_CALL_ARG = $(if $(strip $(NEXT_CALL)),--next-call "$(NEXT_CALL)")
 
 .PHONY: help install test lint check ci validate-plugin eval-parse validate eval release \
-	bench-prepare bench-quota bench-probe bench-pilot bench-run bench-extract bench-judge bench-report bench-dashboard \
+	bench-prepare bench-quota bench-probe bench-run bench-extract bench-judge bench-report bench-dashboard \
 	bench-publish bench-publish-check bench-reconcile dashboard-browser-check
 
 help:
@@ -59,9 +59,6 @@ bench-quota: ## record a standalone quota check; requires RUN and NEXT_CALL (or 
 
 bench-probe: ## quota-gate and record the exact Fable model for an initialized RUN
 	$(NODE) bench/probe.js $(BENCH_RUN_ARG) $(ARGS)
-
-bench-pilot: ## run one unpublishable pilot under a cumulative budget; pass all options in ARGS
-	$(NODE) bench/pilot.js $(ARGS)
 
 bench-run: ## run benchmark cohort; MODEL and RUN override its model and id
 	$(NODE) bench/run.js $(BENCH_MODEL_ARG) $(BENCH_RUN_ARG) $(ARGS)

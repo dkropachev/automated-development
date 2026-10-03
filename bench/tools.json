@@ -1,5 +1,5 @@
 {
-  "context": "You are reviewing pull request #{pr} of this repository ({fork}) - a {language} project. The PR branch `{head}` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view {pr}`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR. If you start a background workflow, do NOT write your final message until its result has arrived: a turn that ends while the workflow is still running kills it and loses the whole review. While you wait, keep making small tool calls (`git log -1`, `ls`) - the workflow's result is delivered to you between tool calls - and only then report its findings inline.",
+  "context": "You are reviewing pull request #{pr} of this repository ({fork}) - a {language} project. The PR branch `{head}` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view {pr}`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
   "tools": [
     {
       "id": "builtin-code-review",
@@ -112,7 +112,7 @@
       "cohortOnly": true,
       "requiresPluginDir": true,
       "resultContract": "review-and-fix-pr-v1",
-      "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill to review pull request #{pr}.\n\n{context}\n\nInvoke its workflow exactly once in review-only mode with `pr: \"{pr}\"` and `fix: false`. Do not pass a workflow `model` or `stopAt`; inherit the benchmark's pinned outer model and run the complete coverage protocol. Wait for the workflow result before ending your turn, then relay that result exactly and in full, including its final `REVIEW_AND_FIX_PR_RESULT_JSON=` line. Once the result arrives, make that relay your final response immediately: do not run another tool, send another progress message, stop a monitor, or add any later text. Do not rewrite, summarize, or omit any part of the workflow result."
+      "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill directly to review pull request #{pr}.\n\n{context}\n\nRun its complete stateless, review-only protocol to completion. Do not invoke a nested Workflow and do not fix the pull request. Complete every mandatory review lane, the coverage-gap audit, candidate deduplication, and independent verification. Return the human-readable review followed by exactly one valid `review-and-fix-pr-v1` contract line beginning `REVIEW_AND_FIX_PR_RESULT_JSON=`. That marker must be the final nonempty line of your response, and no earlier line may begin with that marker prefix."
     }
   ]
 }

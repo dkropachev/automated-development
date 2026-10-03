@@ -106,47 +106,28 @@ multi-command cohort, so inspect and report recorded usage after each cell.
 cells are publishable only when the final response ends with the structured
 `REVIEW_AND_FIX_PR_RESULT_JSON` marker and that contract proves all of the following:
 
-- coverage and finding verification are complete, with no remaining coverage gaps;
-- every mandatory lens completed, with no skipped or failed lenses;
+- the stateless coverage audit and finding verification are complete, with no remaining coverage
+  gaps;
+- all ten stable methodology IDs mapped from the six mandatory execution lanes completed, with no
+  skipped, failed, or unknown IDs;
 - fixing was not requested and the fix status is `not-requested`;
-- no stop trigger fired and the workflow reports normal completion; and
-- finding counts are present and non-negative (provisional counts are clustered, while final
-  disposition counts retain raw-candidate audit coverage).
+- the response reports normal completion; and
+- finding counts are present and non-negative; `provisional` counts canonical candidate clusters,
+  and confirmed, rejected, plus unresolved dispositions partition that same set.
 
 The runner rejects the response before writing a result if any part of that contract is absent,
 partial, or inconsistent. The dashboard visibly labels this tool experimental and self-authored in
 cohort-local views; those labels and a completed cohort do not make it part of canonical gold.
-The outer reviewer must relay the Workflow result as its immediate final response; any later tool or
-progress turn can replace the process result and discard the required final marker.
-Review processes also set `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`; the runner's own `--timeout`
-remains the authoritative wall limit, so Claude print mode cannot kill a still-running Workflow at
-its shorter background-task default and return a publishable-looking stub.
-
-A token-capped or budget-capped pilot is audit-only and unpublishable by design. Run such a pilot in
-a disposable worktree, retain its transcript and usage only for the checkpoint report, and stop for
-approval. A partial pilot must never be copied into `runs/<runId>/results/`, resumed as a final
-measurement, or passed to `bench-extract` or `bench-judge`, even if it returned useful findings. Its
-final measurements require a new run ID and completion without a workflow `stopAt` cap.
-
-Run paid pilot attempts only through `bench-pilot`, reusing one pilot ID for every retry:
-
-```
-make bench-pilot ARGS="--id opus-5-5-review-and-fix-pr-ironweave-2026-10-02 --cwd /absolute/disposable/ironweave --plugin-dir . --prompt-file /absolute/pilot-prompt.txt --model claude-opus-5-5 --effort medium --timeout 30 --budget-usd 20"
-```
-
-Its ignored ledger under `work/pilots/<id>/` freezes the prompt bytes, target Git pins, plugin
-fingerprint, model, effort, timeout, and total budget. Before spawning, it durably reserves all
-remaining budget and passes only that remainder to `--max-budget-usd`; after the call it charges the
-larger of reported and transcript-derived cost. A concurrent call, crash, unknown cost, malformed
-ledger, or unresolved reservation fails closed instead of granting a fresh process another $20.
-Pilot output never enters `runs/`, `results/`, `findings/`, `judgement/`, or `gold/`.
+The skill runs directly in the benchmark process: it must not invoke or relay a nested Workflow.
+Its human-readable report must contain exactly one contract marker, and that marker must be the
+final nonempty line. The benchmark parser enforces both conditions before admitting the result.
 
 ### Three-cell Opus 5.5 cohort
 
-The following commands, run from the repository root, create the final skill-only cohort and attempt
-one cell at a time. The omitted `--cohort-target` intentionally freezes all three eligible targets;
-`--only` limits just the current invocation. Stop after each command, confirm the cell was recorded,
-and report its usage before proceeding. A partial or rejected cell stops the sequence.
+The following commands, run from the repository root, create the skill-only cohort and attempt one
+cell at a time. The omitted `--cohort-target` intentionally freezes all three eligible targets;
+`--only` limits just the current invocation. A failed or contract-rejected cell is not recorded and
+can be retried under the cohort's append-only rules.
 
 ```
 make bench-run MODEL=claude-opus-5-5 RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--cohort-tool review-and-fix-pr --tool review-and-fix-pr --only ironweave --plugin-dir . --concurrency 1 --limit-retries 0 --timeout 120 --max-budget-usd 50"

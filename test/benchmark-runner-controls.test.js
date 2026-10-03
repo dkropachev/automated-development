@@ -79,7 +79,7 @@ function validContract() {
     skippedLenses: [],
     failedLenses: [],
     coverageGapCount: 0,
-    findings: { provisional: 2, confirmed: 1, rejected: 2, unresolved: 0 },
+    findings: { provisional: 3, confirmed: 1, rejected: 2, unresolved: 0 },
   }
 }
 

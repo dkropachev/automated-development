@@ -50,68 +50,84 @@ test('the learn loop lives outside the skills, so none of them carries a second 
   }
 })
 
-test('review-and-fix-pr passes the small public API and documents its clean break', () => {
+test('review-and-fix-pr is a stateless parent-session procedure with direct preflight', () => {
   const skill = rd('skills/review-and-fix-pr/SKILL.md')
   const ref = rd('skills/review-and-fix-pr/reference.md')
-  for (const arg of ['pr', 'pluginRoot', 'fix', 'extraReviewSkills']) {
-    assert.match(skill, new RegExp('^\\s+' + arg + ':', 'm'), `SKILL.md no longer passes ${arg}`)
+
+  assert.match(skill, /parent session/i)
+  for (const command of ['git rev-parse', 'git status --porcelain', 'git merge-base',
+                         'git log', 'gh pr view']) {
+    assert.match(skill, new RegExp(command.replaceAll(' ', '\\s+')),
+                 `SKILL.md does not run ${command} directly`)
   }
+  assert.match(skill, /^git [^\n]*\bdiff --no-color --no-ext-diff --no-textconv/m,
+    'SKILL.md does not run the canonical diff directly')
+  const scopeCall = skill.indexOf('review-and-fix-pr-scope.js')
+  const mergeBaseCall = skill.indexOf("git merge-base")
+  assert.ok(scopeCall >= 0 && scopeCall < mergeBaseCall,
+            'scope helper must fetch exact OIDs before the direct merge-base check')
+  assert.match(skill, /review-and-fix-pr-diff\.js/)
+  assert.match(skill, /originalPrHead[\s\S]{0,200}reviewTargetHead/)
+  assert.match(skill, /Before reporting[\s\S]{0,300}git status --porcelain/)
+  assert.match(skill, /untrusted review evidence/)
   assert.match(skill, /`reference\.md`/, 'SKILL.md does not point at reference.md')
-  for (const arg of ['pr', 'fix', 'extraReviewSkills', 'stopAt.count', 'stopAt.score.code',
-                     'stopAt.score.other', 'stopAt.tokens', 'severityWeights.code',
-                     'severityWeights.other', 'verification', 'model']) {
-    assert.match(ref, new RegExp('\\| `' + arg.replaceAll('.', '\\.') + '` \\|'),
-                 `reference.md does not document ${arg}`)
+
+  for (const text of [skill, ref]) {
+    assert.doesNotMatch(text, /Workflow\s*\(/, 'review still delegates orchestration to Workflow')
+    assert.doesNotMatch(text, /stopAt|severityWeights|maxTokens|token (?:limit|meter|budget)|budget control/i,
+                        'review still exposes internal budget controls')
+    assert.doesNotMatch(text, /review-and-fix-pr-state|\b(?:checkpoint|resume|nonce|lease)\b|journal import/i,
+                        'review still carries durable execution state')
   }
-  for (const arg of ['reviewSkill', 'reviewMode', 'maxFindings', 'maxMajorFindings',
-                     'maxSeverityScore', 'validation', 'maxTokens', 'maxFixBatch', 'maxAgents',
-                     'detailedReview']) {
-    assert.match(ref, new RegExp('\\| `' + arg + '`'),
-                 `reference.md does not give a migration for removed ${arg}`)
-    assert.doesNotMatch(skill, new RegExp('^\\s+' + arg + ':', 'm'),
-                        `SKILL.md still passes removed ${arg}`)
-  }
-  assert.match(ref, /Omitted `stopAt` means run the coverage protocol to closure/)
-  assert.match(ref, /`coverage: complete`[\s\S]*never means all bugs[\s\S]*were found/)
 })
 
-test('review-and-fix-pr defines every mandatory lens and keeps discovery read-only', () => {
-  const wf = rd('workflows/review-and-fix-pr.js')
-  assert.match(wf, /const RESOLVED_MODE = 'full'/)
-  assert.match(wf, /correctness[\s\S]*spec[\s\S]*standards[\s\S]*security[\s\S]*reliability[\s\S]*contracts[\s\S]*testing[\s\S]*performance[\s\S]*comments[\s\S]*maintainability/)
-  assert.match(wf, /extraReviewSkills/)
-  assert.match(wf, /bashCommandClamp: discoveryBashClamp\(scope, lensSpec\.lens, DETAILED\)/)
-  assert.match(wf, /disallowedTools: DENY_READONLY,\s+bashCommandClamp:/)
-  assert.match(wf, /Executable probes are disabled/)
-  assert.doesNotMatch(wf, /Bash\(cd .* && \*\)/,
-                      'cwd-prefixed wildcard commands can escape and mutate the reviewed repository')
-  assert.match(wf, /required read-only tool scope is unavailable - refusing to launch this agent/)
-  assert.match(wf, /scopeFingerprint/)
-  assert.match(wf, /semanticManifestPrompt/)
-  assert.doesNotMatch(wf, /Bash\((?:git|gh|node|sed) \*\)/,
-                      'the reviewer shell clamp must not admit a whole write-capable command family')
+test('review-and-fix-pr controller routes optional work without skipping core lanes', () => {
+  const procedure = rd('skills/review-and-fix-pr/SKILL.md') + '\n' +
+    rd('skills/review-and-fix-pr/reference.md')
+
+  assert.match(procedure, /(?:lane|review) controller/i)
+  assert.match(procedure, /(?:cannot|must not|never) skip[\s\S]{0,200}(?:mandatory|core) (?:lane|review)/i)
+  const coreLanes = [
+    /root[ -]cause\s*\/\s*fix[ -]completeness/i,
+    /correctness\s*\/\s*dataflow/i,
+    /lifecycle\s*\/\s*concurrency\s*\/\s*reliability/i,
+    /tests\s*\/\s*reproduction/i,
+    /contracts\s*\/\s*compatibility\s*\/\s*risk/i,
+    /standards\s*\/\s*docs\s*\/\s*maintainability/i,
+  ]
+  for (const lane of coreLanes) {
+    assert.match(procedure, lane, `mandatory ${lane} lane is missing`)
+  }
+  assert.match(procedure, /root cause/i)
+  assert.match(procedure, /(?:complete|partial|not-fixed|cannot-prove|new-regression)/i)
+  assert.match(procedure, /fix_completeness:[\s\S]{0,300}original_failure_or_obligation/)
+  assert.match(procedure, /(?:coverage audit|coverage auditor)/i)
+  assert.match(procedure, /(?:gap pass|gap review|gap wave|targeted gap)/i)
+  assert.match(procedure, /conservative(?:ly)? (?:cluster|deduplicat)|merge candidates only/i)
+  assert.match(procedure, /independent verif/i)
+  assert.match(procedure, /challenge[\s\S]{0,160}(?:reject|critical|high)|(?:reject|critical|high)[\s\S]{0,160}challenge/i)
 })
 
-test('scope capture retains unavailable linked issues without inventing source text', () => {
-  const helper = rd('bin/review-and-fix-pr-scope.js')
-  const workflow = rd('workflows/review-and-fix-pr.js')
-  assert.match(helper, /state: 'unavailable',[\s\S]*unavailable: true/)
-  assert.match(helper, /never invent issue text/)
-  assert.match(helper, /query=query \{ viewer \{ login \} \}/)
-  assert.doesNotMatch(helper, /linked issue .* could not be read/)
-  assert.match(workflow, /linked issue with state "unavailable" is an explicit missing source/)
-  assert.match(workflow, /otherwise set blocker to explain that the[\s\S]*authoritative scope is insufficient/)
-  assert.match(workflow, /WORKFLOW_STATE_VERSION = '0\.5\.0-completeness-contract-v1'/)
-  assert.match(workflow, /function stableTrustedSourcePayload/)
-  assert.match(workflow, /function trustedSourceContainsDeferrals/)
-  assert.match(workflow, /authorText\.includes\(quote\)/)
-  assert.match(workflow, /delete payload\.ghUser/)
-  assert.match(workflow, /authenticated GitHub user changed during setup/)
+test('review-and-fix-pr verifies candidates, can fix and rereview, and emits the exact marker', () => {
+  const procedure = rd('skills/review-and-fix-pr/SKILL.md') + '\n' +
+    rd('skills/review-and-fix-pr/reference.md')
+
+  assert.match(procedure, /fix(?:es|ing)? (?:are|is )?optional|only (?:edit|fix)[\s\S]{0,100}(?:asked|authorized)/i)
+  assert.match(procedure, /(?:after|following)[\s\S]{0,120}(?:fix|commit)[\s\S]{0,160}(?:rerun|re-run|rereview|re-review)/i)
+  assert.match(procedure, /REVIEW_AND_FIX_PR_RESULT_JSON=/)
+  assert.match(procedure, /exactly one/i)
+  assert.match(procedure, /(?:final|last) (?:non-empty )?line/i)
+  assert.match(procedure, /(?:compact|single-line|one-line) JSON/i)
+  assert.match(procedure,
+    /"completedLenses":\["correctness","spec","standards","security","reliability","contracts","testing","performance","comments","maintainability"\]/,
+    'benchmark v1 marker must retain ten methodology IDs rather than six execution-lane IDs')
 })
 
 test('native lens prompt assets exist and stay methodology-only', () => {
   const lenses = ['correctness', 'spec', 'standards', 'security', 'reliability', 'contracts',
                   'testing', 'performance', 'comments', 'maintainability']
+  assert.deepEqual(fs.readdirSync(path.join(ROOT, 'skills/review-and-fix-pr/lenses')).sort(),
+                   lenses.map(lens => `${lens}.md`).sort())
   for (const lens of lenses) {
     const text = rd(`skills/review-and-fix-pr/lenses/${lens}.md`)
     assert.match(text, new RegExp('^# ', 'm'), `${lens} has no heading`)
