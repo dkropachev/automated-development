@@ -435,6 +435,8 @@ test('timeout and nonzero Codex exits fail before producing an invocation', () =
 test('adjudication sends a unique new lead to a distinct fresh invocation and captures usage', () => {
   const fixture = adjudicationFixture()
   const calls = []
+  const candidateKeys = Object.keys(candidate()).sort()
+  const blindCandidateKeys = candidateKeys.filter((key) => key !== 'sourceIds')
   let clock = 0
   try {
     fixture.options.deadlineMs = 1000
@@ -443,6 +445,15 @@ test('adjudication sends a unique new lead to a distinct fresh invocation and ca
       nowMs: () => { clock += 100; return clock },
       runOneInvocation: (options) => {
         calls.push(options)
+        for (const entry of options.candidates) {
+          assert.deepEqual(Object.keys(entry).sort(), candidateKeys)
+        }
+        const prompt = runner.buildJudgePrompt(options.reviewContext, options.candidates)
+        const payloadText = prompt.match(/<BEGIN_REVIEW_EVIDENCE_JSON>\n(.+)\n<END_REVIEW_EVIDENCE_JSON>/s)[1]
+        const payload = JSON.parse(payloadText)
+        for (const entry of payload.candidates) {
+          assert.deepEqual(Object.keys(entry).sort(), blindCandidateKeys)
+        }
         const sequence = calls.length
         const output = judgeOutput(
           options.candidates.map((entry) => judgment(entry.id, sequence === 2 ? { severity: 'nit' } : {})),

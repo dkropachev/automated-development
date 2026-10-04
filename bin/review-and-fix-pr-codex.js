@@ -459,6 +459,13 @@ function expectedFromEnvironment(env) {
   return expected
 }
 
+function candidateForJudge(candidate) {
+  const judgeCandidate = { ...candidate }
+  delete judgeCandidate.claimHash
+  delete judgeCandidate.originInvocationId
+  return judgeCandidate
+}
+
 function runAdjudication(options, dependencies = {}) {
   const clockMs = dependencies.nowMs || Date.now
   const input = normalizeInput(options.input)
@@ -499,6 +506,7 @@ function runAdjudication(options, dependencies = {}) {
   while (pending.length || invocations.length === 0) {
     if (invocations.length >= MAX_INVOCATIONS) throw new Error('Codex new-lead adjudication did not reach a fixed point')
     const batch = pending.splice(0)
+    const judgeBatch = batch.map(candidateForJudge)
     let invocation
     try {
       const invocationTimeoutMs = options.deadlineMs == null
@@ -515,7 +523,7 @@ function runAdjudication(options, dependencies = {}) {
       timeoutMs: invocationTimeoutMs,
       env: options.env,
       reviewContext: input.reviewContext,
-      candidates: batch,
+      candidates: judgeBatch,
       }, dependencies)
     } catch (error) {
       const failureBase = `invocation-${String(invocations.length + 1).padStart(3, '0')}.failed`
