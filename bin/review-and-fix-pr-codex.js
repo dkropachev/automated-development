@@ -224,6 +224,8 @@ function buildJudgePrompt(reviewContext, candidates) {
     '- contracts/compatibility: a specific producer-consumer, version, schema, or API obligation that is broken;',
     '- performance: a plausible material cost or latency increase at the relevant scale.',
     'Use false_positive only with concrete disproof. Use unresolved when source inspection cannot decide.',
+    'For every verdict, including false_positive and unresolved, every sourceEvidence item must copy an exact path and line pair from that same candidate\'s supplied locations or evidence.',
+    'Never substitute a nearby or newly inspected path or line. Put the supporting, disproof, or uncertainty explanation in sourceEvidence.detail while preserving the copied path and line exactly.',
     'Severity is critical, high, medium, low, or nit; scope is in, deferred, or out.',
     'If inspection reveals a distinct atomic mechanism absent from the candidates, add it to newCandidates.',
     'A new candidate must have one mechanism, a specific defectClass, and a concrete consequence. Set duplicateOfCandidateId to an existing ID only for the same mechanism identity; otherwise use an empty string.',

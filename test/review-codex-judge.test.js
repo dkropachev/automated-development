@@ -291,6 +291,19 @@ test('judge prompt discloses providers while excluding lane, support, dispositio
   for (const secret of secretSources) assert.doesNotMatch(prompt, new RegExp(secret, 'i'))
 })
 
+test('judge prompt and schema bind every verdict sourceEvidence to its candidate locations', () => {
+  const prompt = runner.buildJudgePrompt(reviewContext(), [candidate()])
+  assert.match(prompt, /every verdict, including false_positive and unresolved/i)
+  assert.match(prompt, /exact path and line pair from that same candidate's supplied locations or evidence/i)
+  assert.match(prompt, /explanation in sourceEvidence\.detail while preserving the copied path and line exactly/i)
+
+  const schema = JSON.parse(fs.readFileSync(SCHEMA, 'utf8'))
+  const description = schema.properties.judgments.items.properties.sourceEvidence.description
+  assert.match(description, /every verdict, including false_positive and unresolved/i)
+  assert.match(description, /exact path and line pair from that same candidate's supplied locations or evidence/i)
+  assert.match(description, /explanation in detail/i)
+})
+
 test('trace parsing captures invocation and token usage without inventing USD cost', () => {
   const output = judgeOutput([judgment('C1')])
   const parsed = runner.parseTrace(trace('judge-1', output))

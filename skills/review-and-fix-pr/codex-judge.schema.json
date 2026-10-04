@@ -18,6 +18,7 @@
           "scope": { "type": "string", "enum": ["in", "deferred", "out"] },
           "reason": { "type": "string", "minLength": 1 },
           "sourceEvidence": {
+            "description": "For every verdict, including false_positive and unresolved, each item must reuse an exact path and line pair from that same candidate's supplied locations or evidence. Preserve path and line exactly; put the supporting, disproof, or uncertainty explanation in detail.",
             "type": "array",
             "minItems": 1,
             "items": { "$ref": "#/$defs/evidence" }
