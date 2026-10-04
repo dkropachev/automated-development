@@ -494,6 +494,8 @@ test('Codex helper runs in foreground and blocks finalization until stdout is pa
       `${name} permits finalization while work is pending`)
     assert.match(text, /parse\s+(?:its\s+)?stdout[\s\S]{0,50}`markerBinding`[\s\S]{0,30}`counts`[\s\S]{0,30}`usage`/i,
       `${name} does not parse required helper stdout`)
+    assert.match(text, /entire\s+(?:foreground\s+)?(?:Bash\s+)?command[\s\S]{0,100}no\s+prefix,\s+suffix,\s+pipe,\s+or\s+redirection/i,
+      `${name} permits wrapping or redirecting the helper command`)
   }
 })
 
@@ -591,7 +593,7 @@ test('a skill body stays under the size a whole invocation pays for it', () => {
   // context) and reference.md (read on demand). A rule that has to be stated belongs in one of
   // those unless it is needed on every run.
   for (const d of fs.readdirSync(path.join(ROOT, 'skills'))) {
-    const bytes = rd(path.join('skills', d, 'SKILL.md')).length
+    const bytes = Buffer.byteLength(rd(path.join('skills', d, 'SKILL.md')), 'utf8')
     assert.ok(bytes <= 13000, `skills/${d}/SKILL.md is ${bytes} bytes, over the 13000 ceiling`)
   }
 })

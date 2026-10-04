@@ -137,22 +137,22 @@ Preserve the union of admitted atomic candidates. Assign stable IDs and normaliz
 Merge only the same trigger or rule, mechanism, defect class, and consequence; retain all locations
 and evidence. Similar symptoms, compound claims, and multiple defects in one symbol stay separate.
 
-Require runner paths `REVIEW_AND_FIX_PR_CODEX_INPUT`, `REVIEW_AND_FIX_PR_CODEX_CONTEXT`, and
-`REVIEW_AND_FIX_PR_CODEX_RECEIPT`, plus `REVIEW_AND_FIX_PR_CODEX_EXPECTED_JSON`. Copy frozen context
-byte-for-byte into `reference.md`'s strict input; resolve evidence IDs, strip lane metadata, use the
-expected plugin fingerprint, then run this exact command:
+Require runner `REVIEW_AND_FIX_PR_CODEX_INPUT`, `REVIEW_AND_FIX_PR_CODEX_CONTEXT`,
+`REVIEW_AND_FIX_PR_CODEX_RECEIPT`, and exact `REVIEW_AND_FIX_PR_CODEX_EXPECTED_JSON`. Copy its context
+into `reference.md`'s strict input; resolve evidence IDs, strip lane metadata, use the expected
+fingerprint, then run:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-codex.js" --root '<repo-root>' --base '<base-sha>' --head '<review-target-head>' --input '<outside-target judge-input.json>' --receipt "$REVIEW_AND_FIX_PR_CODEX_RECEIPT"
 ```
 
-Candidates have exactly `id`, `claim`, `basisType`, `basis`, one-item `mechanisms`, `consequence`,
-`defectClass`, `category`, `locations`, `evidence`, and `sourceIds`. Helper strips source IDs
-and owns fixed-point closure; a new lead needs a later invocation. Invoke it via foreground
-Bash with `run_in_background: false` and `timeout: 600000` (maximum foreground timeout). Wait for
-exit; never respond or finalize while it or any background task is pending. Parse stdout
-`markerBinding`, `counts`, and `usage`; copy first two verbatim into v2, store `usage` separately,
-and never reconstruct them or read receipt prose.
+Candidate keys: `id`, `claim`, `basisType`, `basis`, one-item `mechanisms`, `consequence`,
+`defectClass`, `category`, `locations`, `evidence`, and `sourceIds`. Helper strips source IDs and owns
+fixed-point closure; new leads need later invocations. Run the block as the entire foreground
+Bash command with `run_in_background: false` and `timeout: 600000` (maximum foreground timeout); no
+prefix, suffix, pipe, or redirection. Wait for exit; never respond or finalize while helper or
+background task is pending. Parse stdout `markerBinding`, `counts`, and `usage`; copy the first two into
+v2, store `usage` separately, and never reconstruct them or read receipt prose.
 
 This is a required cross-provider stage: disclose that Claude performed discovery and OpenAI Codex
 performed adjudication. Missing or old CLI, authentication failure, malformed output, model drift,
