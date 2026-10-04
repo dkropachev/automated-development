@@ -11,7 +11,15 @@ const path = require('path')
 const ROOT = path.join(__dirname, '..')
 const DIFF = path.join(ROOT, 'bin', 'review-and-fix-pr-diff.js')
 const SCOPE = path.join(ROOT, 'bin', 'review-and-fix-pr-scope.js')
-const { collectIssueReferences, instructionApplies } = require('../bin/review-and-fix-pr-scope')
+const {
+  collectIssueReferences,
+  collectRemoteIdentity,
+  collectUpstreamIdentity,
+  instructionApplies,
+  normalizeRemoteIdentity,
+  normalizeUpstreamIdentity,
+  sanitizeRemoteUrl,
+} = require('../bin/review-and-fix-pr-scope')
 const { splitFileDiffs, splitHunks, wholeDiff } = require('../bin/review-and-fix-pr-diff')
 
 test('direct diff inventory covers exact hunks and genuine zero-hunk paths', { timeout: 120000 }, t => {
@@ -118,6 +126,74 @@ test('scope preflight selects root and changed-path ancestor instructions only',
   assert.equal(instructionApplies('.github/AGENTS.md', changed), false)
   assert.equal(instructionApplies('vendor/AGENTS.md', changed), false)
   assert.equal(instructionApplies('docs/CONTRIBUTING.md', changed), false)
+})
+
+test('scope preflight normalizes remote and upstream identity deterministically', () => {
+  assert.equal(sanitizeRemoteUrl('https://user:secret@github.com/owner/project.git'),
+    'https://github.com/owner/project.git')
+  assert.equal(sanitizeRemoteUrl('ssh://builder@github.com/owner/project.git'),
+    'ssh://github.com/owner/project.git')
+  assert.equal(sanitizeRemoteUrl('git@github.com:owner/project.git'),
+    'git@github.com:owner/project.git')
+  assert.equal(sanitizeRemoteUrl('../project.git'), '../project.git')
+  assert.deepEqual(normalizeRemoteIdentity([]), { remotes: [] })
+
+  assert.deepEqual(normalizeRemoteIdentity([
+    {
+      name: 'zeta',
+      fetchUrls: ['git@github.com:owner/project.git', 'https://user:secret@github.com/owner/project.git'],
+      pushUrls: ['ssh://builder:token@github.com/owner/project.git'],
+    },
+    { name: 'alpha', fetchUrls: [], pushUrls: [] },
+  ]), {
+    remotes: [
+      { name: 'alpha', fetchUrls: [], pushUrls: [] },
+      {
+        name: 'zeta',
+        fetchUrls: ['git@github.com:owner/project.git', 'https://github.com/owner/project.git'],
+        pushUrls: ['ssh://github.com/owner/project.git'],
+      },
+    ],
+  })
+  assert.deepEqual(normalizeUpstreamIdentity(null, null), { branch: null, sha: null })
+  assert.deepEqual(normalizeUpstreamIdentity('origin/main', 'a'.repeat(40)),
+    { branch: 'origin/main', sha: 'a'.repeat(40) })
+  assert.throws(() => normalizeUpstreamIdentity(null, 'a'.repeat(40)), /requires an upstream branch/)
+})
+
+test('scope preflight collects every configured remote URL and current upstream', t => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'review-scope-identity-'))
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }))
+  const git = (...args) => execFileSync('git', ['-C', temp, ...args], { encoding: 'utf8' }).trim()
+  git('init', '-q', '-b', 'main')
+  git('config', 'user.email', 'review-preflight@example.test')
+  git('config', 'user.name', 'Review Preflight Test')
+  fs.writeFileSync(path.join(temp, 'base.txt'), 'base\n')
+  git('add', '-A')
+  git('commit', '-qm', 'base')
+  const head = git('rev-parse', 'HEAD')
+  git('remote', 'add', 'zeta', 'https://user:secret@github.com/owner/project.git')
+  git('remote', 'set-url', '--add', 'zeta', 'git@github.com:owner/project.git')
+  git('remote', 'set-url', '--add', '--push', 'zeta', 'ssh://builder:token@github.com/owner/project.git')
+  git('remote', 'add', 'alpha', '../project.git')
+  git('update-ref', 'refs/remotes/zeta/main', head)
+  git('config', 'branch.main.remote', 'zeta')
+  git('config', 'branch.main.merge', 'refs/heads/main')
+
+  assert.deepEqual(collectRemoteIdentity(temp), {
+    remotes: [
+      { name: 'alpha', fetchUrls: ['../project.git'], pushUrls: [] },
+      {
+        name: 'zeta',
+        fetchUrls: ['git@github.com:owner/project.git', 'https://github.com/owner/project.git'],
+        pushUrls: ['ssh://github.com/owner/project.git'],
+      },
+    ],
+  })
+  assert.deepEqual(collectUpstreamIdentity(temp, 'main'), { branch: 'zeta/main', sha: head })
+
+  git('checkout', '--detach', '-q')
+  assert.deepEqual(collectUpstreamIdentity(temp, 'HEAD'), { branch: null, sha: null })
 })
 
 test('direct diff inventory rejects ambiguous revisions and non-root paths', () => {

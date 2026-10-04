@@ -112,11 +112,19 @@ cells are publishable only when the final response ends with the structured
   skipped, failed, or unknown IDs;
 - fixing was not requested and the fix status is `not-requested`;
 - the response reports normal completion; and
-- finding counts are present and non-negative; `provisional` counts canonical candidate clusters,
-  and confirmed, rejected, plus unresolved dispositions partition that same set.
+- finding counts are present and non-negative; `provisional` counts atomic candidates, including
+  unique Codex leads, and confirmed, rejected, plus unresolved dispositions partition that set;
+- the schema-v2 candidate ledger and new-lead mappings prove fixed-point closure, including that no
+  lead was judged by the Codex invocation which originated it; and
+- a hash-bound external receipt proves authenticated OpenAI Codex `gpt-5.6-sol` adjudication with
+  high reasoning, CLI 0.149.0 or newer, read-only execution, unchanged target/plugin identity, and
+  no pending work. Codex usage is stored separately from Claude cost and token accounting.
 
-The runner rejects the response before writing a result if any part of that contract is absent,
-partial, or inconsistent. The dashboard visibly labels this tool experimental and self-authored in
+The runner writes the receipt outside the reviewed target, rejects the response before writing a
+result if the marker and receipt are absent, partial, tampered, or inconsistent, and rechecks the
+external receipt before sealing. Completed snapshots retain its normalized hash, closure proof,
+and usage rather than depending on mutable trace paths. Historical schema-v1 manifests/results stay
+readable but new runs require v2. The dashboard visibly labels this tool experimental and self-authored in
 cohort-local views; those labels and a completed cohort do not make it part of canonical gold.
 The skill runs directly in the benchmark process: it must not invoke or relay a nested Workflow.
 Its human-readable report must contain exactly one contract marker, and that marker must be the

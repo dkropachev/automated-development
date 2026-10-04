@@ -301,7 +301,7 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
     reviewOnly: true,
     requiresPluginDir: true,
     cohortOnly: true,
-    resultContract: 'review-and-fix-pr-v1',
+    resultContract: 'review-and-fix-pr-v2',
   }])
   const legacyRuns = data.runs.filter((run) => run.cohortId === 'legacy')
   const legacyIssues = data.issues.filter((issue) => issue.cohortId === 'legacy')

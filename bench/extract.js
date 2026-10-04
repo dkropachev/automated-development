@@ -29,6 +29,10 @@ const CLAUDE = process.env.CLAUDE || 'claude'
 const EXTRACTOR_MODEL = 'claude-sonnet-5'
 const DEFAULT_TIMEOUT_MS = 120 * 60_000
 const TITLE_LIMIT = 90
+const MACHINE_REPORT_PREFIXES = Object.freeze([
+  'REVIEW_AND_FIX_PR_RESULT_JSON=',
+  'REVIEW_AND_FIX_PR_CODEX_RECEIPT_JSON=',
+])
 
 const INSTRUCTIONS = `You are given one code-review report. Extract every distinct finding it makes.
 
@@ -100,6 +104,16 @@ function extractorArgs(report, options = {}) {
   return args
 }
 
+// Structured review closure records are benchmark evidence, not review findings. Keep them out of
+// the model prompt even when a producer indents them or emits a receipt before the terminal marker.
+function sanitizeExtractionReport(report) {
+  if (typeof report !== 'string') return report
+  return report.split('\n').filter((line) => {
+    const content = line.trimStart()
+    return !MACHINE_REPORT_PREFIXES.some((prefix) => content.startsWith(prefix))
+  }).join('\n')
+}
+
 // Model output occasionally exceeds its requested title ceiling by a few characters. Titles are
 // display summaries, so shorten only that field mechanically; claims and all scoring fields stay
 // verbatim and still pass strict schema validation below.
@@ -128,7 +142,7 @@ function normalizeFindings(findings) {
 
 function extractOne(file, cwd, executable = CLAUDE, dependencies = {}, options = {}) {
   const record = JSON.parse(fs.readFileSync(file, 'utf8'))
-  const report = record.result || ''
+  const report = sanitizeExtractionReport(record.result || '')
   if (!report.trim()) return { ok: true, record, findings: [], extractError: null, modelUsage: null, sourceReportEmpty: true }
   const runExtractor = dependencies.spawnSync || spawnSync
   const result = runExtractor(executable, extractorArgs(report, options), {
@@ -194,9 +208,10 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
         continue
       }
       const source = JSON.parse(fs.readFileSync(input, 'utf8'))
+      const sourceReport = sanitizeExtractionReport(source.result || '')
       let executable = CLAUDE
       let authorization = null
-      if (manifest.requestedModel === 'claude-fable-5-1' && source.result.trim()) {
+      if (manifest.requestedModel === 'claude-fable-5-1' && sourceReport.trim()) {
         authorization = authorize(root, {
           runId: manifest.runId, stage: 'extract', target, tool,
           claudeVersion: manifest.claudeVersion,
@@ -257,7 +272,7 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
 
 module.exports = {
   DEFAULT_TIMEOUT_MS, EXTRACTOR_MODEL, TITLE_LIMIT, assertRecordCohort, extractOne, extractorArgs, main,
-  normalizeFindings, normalizeTitle, parseArgs,
+  normalizeFindings, normalizeTitle, parseArgs, sanitizeExtractionReport,
 }
 
 if (require.main === module) {

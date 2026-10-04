@@ -164,6 +164,72 @@ test('empty extraction sources do not launch a paid process even with controls',
   }
 })
 
+test('extractor removes v1/v2 result markers and Codex receipts from its prompt', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'machine-record-extraction-'))
+  try {
+    const file = path.join(root, 'result.json')
+    const prompts = []
+    for (const schemaVersion of [1, 2]) {
+      writeJson(file, {
+        result: [
+          'Concrete human finding about src/example.js.',
+          `  REVIEW_AND_FIX_PR_CODEX_RECEIPT_JSON={"receipt":"closure-ledger-v${schemaVersion}"}`,
+          `\tREVIEW_AND_FIX_PR_RESULT_JSON={"schemaVersion":${schemaVersion},"findingCount":1}`,
+        ].join('\n'),
+      })
+      const result = extractor.extractOne(file, root, '/fake/claude', {
+        spawnSync: (_executable, args) => {
+          prompts.push(args[args.indexOf('-p') + 1])
+          return {
+            status: 0,
+            signal: null,
+            error: null,
+            stdout: JSON.stringify(claudePayload(extractor.EXTRACTOR_MODEL, '[]')),
+            stderr: '',
+          }
+        },
+      })
+      assert.equal(result.ok, true)
+      assert.equal(result.sourceReportEmpty, undefined)
+    }
+
+    assert.equal(prompts.length, 2)
+    for (const [index, prompt] of prompts.entries()) {
+      assert.match(prompt, /Concrete human finding about src\/example\.js\./)
+      assert.doesNotMatch(prompt, /REVIEW_AND_FIX_PR_RESULT_JSON=/)
+      assert.doesNotMatch(prompt, /REVIEW_AND_FIX_PR_CODEX_RECEIPT_JSON=/)
+      assert.doesNotMatch(prompt, new RegExp(`closure-ledger-v${index + 1}`))
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('machine-only extraction sources do not launch a paid process', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'machine-only-extraction-'))
+  try {
+    const file = path.join(root, 'result.json')
+    writeJson(file, {
+      result: [
+        '',
+        '  REVIEW_AND_FIX_PR_CODEX_RECEIPT_JSON={"receipt":"receipt-only"}',
+        '\tREVIEW_AND_FIX_PR_RESULT_JSON={"schemaVersion":2}',
+        '',
+      ].join('\n'),
+    })
+    let calls = 0
+    const result = extractor.extractOne(file, root, '/fake/claude', {
+      spawnSync: () => { calls += 1; throw new Error('must not spawn') },
+    }, { maxBudgetUsd: 5, timeoutMs: 30_000 })
+    assert.equal(result.ok, true)
+    assert.equal(result.sourceReportEmpty, true)
+    assert.deepEqual(result.findings, [])
+    assert.equal(calls, 0)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('extractor forwards timeout and budget while failed calls publish no finding', () => {
   const { root, manifest } = fixture()
   try {

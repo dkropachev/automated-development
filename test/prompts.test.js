@@ -110,7 +110,7 @@ test('review-and-fix-pr uses one dedicated structurally read-only lane controlle
       `${name} must name the exact typed controller exactly once, found ${occurrences}`)
   }
   const skillInvocation =
-    /Before any discovery agent, invoke\s+exactly one `automated-development:review-lane-controller` per review cycle/i
+    /Before any discovery agent, invoke exactly one\s+`automated-development:review-lane-controller` per review cycle/i
   const refInvocation =
     /At the start of every review cycle, after freezing scope and building the canonical inventory but\s+before discovery, invoke exactly one agent of type\s+`automated-development:review-lane-controller`/i
   assert.equal((skill.match(new RegExp(skillInvocation.source, 'gi')) || []).length, 1,
@@ -121,21 +121,23 @@ test('review-and-fix-pr uses one dedicated structurally read-only lane controlle
     skill.search(skillInvocation) < skill.indexOf('## 3. Audit coverage'),
     'SKILL.md must order inventory, controller routing, then discovery coverage audit')
   assert.match(skill,
-    /This is a new review cycle, so invoke exactly one fresh typed controller\s+before its discovery/i,
+    /This is a new\s+review cycle, so invoke exactly one fresh typed controller before its discovery/i,
     'a post-fix rerun must start a new cycle with exactly one fresh controller')
 
   const skillRoute = skill.slice(skill.indexOf('## 2. Route, then discover in parallel'),
     skill.indexOf('## 3. Audit coverage'))
   const refRoute = ref.slice(ref.indexOf('## Lane controller'),
     ref.indexOf('## Core lane instructions'))
+  const readmeRoute = readme.slice(readme.indexOf('Exactly once per review cycle'),
+    readme.indexOf('These six core lanes'))
   const failureRules = [
-    ['SKILL.md', skill, skillRoute,
-      /If this typed\s+agent is unavailable or its response is malformed, fail the review with `lane-error`; do not use a\s+generic agent, retry with another controller, or route the lanes yourself\./gi],
-    ['reference.md', ref, refRoute,
+    ['SKILL.md', skillRoute,
+      /If this typed agent is unavailable or malformed, fail with\s+`lane-error`; do not use a generic agent, retry a controller, or route the lanes yourself\./gi],
+    ['reference.md', refRoute,
       /If the typed agent is unavailable or its response is malformed, stop the\s+review with `lane-error`; never fall back to a generic agent, a second controller invocation, or\s+parent-authored routing\./gi],
-    ['README.md', readme, readme,
+    ['README.md', readmeRoute,
       /a missing or malformed response fails the review instead of\s+falling back to a generic agent\./gi],
-    ['review-lane-controller.md', agent, agent,
+    ['review-lane-controller.md', agent,
       /Missing or malformed input is a controller failure;\s+return exactly `CONTROLLER_INPUT_ERROR` so the parent rejects the response as malformed\. Never\s+invent missing input, recommend a generic agent, or imply a degraded review\./gi],
   ]
   const contradictions = [
@@ -151,11 +153,11 @@ test('review-and-fix-pr uses one dedicated structurally read-only lane controlle
     ['synthesized routing',
       /\b(?:synthesi[sz]\w*|author|build|compose|create|generate|invent)\b[^\n]{0,60}\b(?:routing|route|lane map)\b/i],
   ]
-  for (const [name, document, section, failureRule] of failureRules) {
+  for (const [name, section, failureRule] of failureRules) {
     const rules = [...section.matchAll(failureRule)]
     assert.equal(rules.length, 1,
       `${name} must have exactly one complete fail-closed controller rule`)
-    const residual = document.replace(failureRule, '')
+    const residual = section.replace(failureRule, '')
     for (const [kind, pattern] of contradictions) {
       assert.doesNotMatch(residual, pattern, `${name} permits ${kind}`)
     }
@@ -183,7 +185,7 @@ test('review lane controller requires the complete frozen routing input', () => 
   }
 })
 
-test('controller input failure stops before discovery and projects onto schema v1', () => {
+test('controller input failure stops before discovery and projects onto schema v2', () => {
   const ref = rd('skills/review-and-fix-pr/reference.md')
   const agent = rd('agents/review-lane-controller.md')
   const section = ref.slice(ref.indexOf('## Lane controller'),
@@ -207,8 +209,8 @@ test('controller input failure stops before discovery and projects onto schema v
     /missing or malformed input, it returns `CONTROLLER_INPUT_ERROR`; this deliberately fails the route\s+schema and takes the same `lane-error` path instead of synthesizing missing evidence\./i,
     'the sentinel must fail routing closed without synthesized evidence')
   const projection =
-    /On controller failure, discovery does not begin\. Report `coverage: incomplete-lens`,\s+`verification: none`, `stopReason: lane-error`, empty `completedLenses` and `failedLenses`, and\s+`skippedLenses: \[([^\]]+)\]` in the unchanged schema-v1 result contract\./.exec(section)
-  assert.ok(projection, 'controller failure must retain the exact schema-v1 failure projection')
+    /On controller failure, discovery does not begin\. Report `coverage: incomplete-lens`,\s+`verification: none`, `stopReason: lane-error`, empty `completedLenses` and `failedLenses`, and\s+`skippedLenses: \[([^\]]+)\]` in the schema-v2 result contract\./.exec(section)
+  assert.ok(projection, 'controller failure must retain the exact schema-v2 failure projection')
   assert.deepEqual(projection[1].replace(/\s+/g, ' ').split(', '),
     ['correctness', 'spec', 'standards', 'security', 'reliability', 'contracts', 'testing',
       'performance', 'comments', 'maintainability'],
@@ -318,7 +320,7 @@ test('review-and-fix-pr controller routes optional work without skipping core la
 
   assert.match(procedure, /(?:lane|review) controller/i)
   assert.match(procedure,
-    /(?:cannot|must not|never)[^\n]{0,100}skip[^\n]{0,100}(?:mandatory|core) (?:lane|review)/i)
+    /(?:cannot|must not|never)[\s\S]{0,100}skip[\s\S]{0,100}(?:mandatory|core) (?:lane|review)/i)
   const coreLanes = [
     /root[ -]cause\s*\/\s*fix[ -]completeness/i,
     /correctness\s*\/\s*dataflow/i,
@@ -335,12 +337,12 @@ test('review-and-fix-pr controller routes optional work without skipping core la
   assert.match(procedure, /fix_completeness:[\s\S]{0,300}original_failure_or_obligation/)
   assert.match(procedure, /(?:coverage audit|coverage auditor)/i)
   assert.match(procedure, /(?:gap pass|gap review|gap wave|targeted gap)/i)
-  assert.match(procedure, /conservative(?:ly)? (?:cluster|deduplicat)|merge candidates only/i)
-  assert.match(procedure, /independent verif/i)
-  assert.match(procedure, /challenge[\s\S]{0,160}(?:reject|critical|high)|(?:reject|critical|high)[\s\S]{0,160}challenge/i)
+  assert.match(procedure, /form a canonical cluster only|merge only the same trigger or rule/i)
+  assert.match(procedure, /required Codex adjudication/i)
+  assert.match(procedure, /originating invocation cannot judge its own lead/i)
 })
 
-test('review-and-fix-pr verifies candidates, can fix and rereview, and emits the exact marker', () => {
+test('review-and-fix-pr adjudicates candidates, can fix and rereview, and emits the v2 marker', () => {
   const procedure = rd('skills/review-and-fix-pr/SKILL.md') + '\n' +
     rd('skills/review-and-fix-pr/reference.md')
 
@@ -352,7 +354,185 @@ test('review-and-fix-pr verifies candidates, can fix and rereview, and emits the
   assert.match(procedure, /(?:compact|single-line|one-line) JSON/i)
   assert.match(procedure,
     /"completedLenses":\["correctness","spec","standards","security","reliability","contracts","testing","performance","comments","maintainability"\]/,
-    'benchmark v1 marker must retain ten methodology IDs rather than six execution-lane IDs')
+    'benchmark v2 marker must retain ten methodology IDs rather than six execution-lane IDs')
+  assert.match(procedure, /"schemaVersion":2/)
+  assert.match(procedure, /"candidateLedger":\[\]/)
+  assert.match(procedure, /"newLeadResolutions":\[\]/)
+  assert.match(procedure, /"provider":"openai","model":"gpt-5\.6-sol","reasoningEffort":"high"/)
+  assert.match(procedure, /V1 manifests and result markers remain reader-compatible only/i)
+})
+
+test('every discovery lane receives exact delimited PR evidence instead of a summary', () => {
+  const skill = rd('skills/review-and-fix-pr/SKILL.md')
+  const ref = rd('skills/review-and-fix-pr/reference.md')
+  const controller = rd('agents/review-lane-controller.md')
+  for (const [name, text] of [['SKILL.md', skill], ['reference.md', ref],
+    ['review-lane-controller.md', controller]]) {
+    for (const [label, pattern] of [
+      ['exact package', /exact delimited evidence package/i],
+      ['PR title/body', /(?:verbatim )?PR\s+title(?:\/|,\s*)body|PR title\/body/i],
+      ['commit messages', /commit messages|commit subjects and\s+bodies/i],
+      ['repository identity', /repository\/remote\/upstream identity|repository identity[\s\S]{0,80}remote/i],
+      ['canonical diff', /canonical patch and inventory|canonical patch\/inventory|canonical diff inventory and patch/i],
+      ['base/head rules', /applicable (?:merge-)?base(?: and |\/)head rule/i],
+    ]) assert.match(text, pattern, `${name} omits exact ${label}`)
+  }
+  for (const [name, text] of [['SKILL.md', skill], ['reference.md', ref]]) {
+    assert.match(text, /every mandatory lane and gap assignee/i, `${name} does not preserve evidence per lane`)
+    assert.match(text, /summary[\s\S]{0,60}never\s+replace[\s\S]{0,40}(?:truncate|rewrite)/i,
+      `${name} permits lossy evidence summaries`)
+    assert.match(text, /Exclude other reviewers' output, benchmark judgments, and sealed\s+baseline\s+issues/i,
+      `${name} exposes benchmark answers to a review run`)
+  }
+})
+
+test('discovery admits atomic candidates and retains checked nonissues only in coverage', () => {
+  const procedure = rd('skills/review-and-fix-pr/SKILL.md') + '\n' +
+    rd('skills/review-and-fix-pr/reference.md')
+  for (const field of ['basisType', 'basis', 'mechanisms', 'consequence', 'defectClass', 'category',
+                       'locations', 'evidence', 'sourceIds']) {
+    assert.match(procedure, new RegExp(`\\b${field}:`), `candidate schema omits ${field}`)
+  }
+  assert.match(procedure, /`mechanisms` must contain exactly one item/i)
+  assert.match(procedure, /Split a mixed row before admission|Split mixed claims/i)
+  assert.match(procedure,
+    /Merge repeated\s+instances only when basis\/trigger, mechanism, defect class, and consequence are the same/i)
+  assert.match(procedure, /preserve\s+all locations, evidence, and source IDs/i)
+  assert.match(procedure, /checked_nonissues:/)
+  for (const kind of ['disproved', 'impact-free', 'inapplicable-rule', 'base-parity',
+                      'counterfactual-design']) assert.match(procedure, new RegExp(kind))
+  assert.match(procedure, /never enter paid Codex input|out of paid adjudication/i)
+})
+
+test('review category standards include nit and do not require runtime failure for semantic findings', () => {
+  const ref = rd('skills/review-and-fix-pr/reference.md')
+  assert.match(ref, /Severity is `critical\|high\|medium\|low\|nit`/)
+  for (const category of ['runtime and security', 'docs and comments', 'tests', 'standards',
+                          'maintainability']) {
+    assert.match(ref, new RegExp(`- ${category}:`, 'i'), `missing ${category} admission standard`)
+  }
+  assert.match(ref, /Do not require a runtime failure from docs, tests, standards, or maintainability/i)
+  for (const matrix of [
+    /exception origin[\s\S]{0,100}destruction owner/i,
+    /client\/server[\s\S]{0,100}close-before\/close-during\/close-after/i,
+    /supported API\/version/i,
+    /every touched line[\s\S]{0,100}casts/i,
+    /duplicated comment\/helper\/implementation/i,
+    /proliferating state/i,
+    /reference\/container invalidation/i,
+  ]) assert.match(ref, matrix)
+})
+
+test('controller optional routing is distinct, nonduplicative, and keeps its YAML shape', () => {
+  for (const [name, text] of [
+    ['reference.md', rd('skills/review-and-fix-pr/reference.md')],
+    ['review-lane-controller.md', rd('agents/review-lane-controller.md')],
+  ]) {
+    assert.match(text, /distinct inventory surface or (?:review )?question/i,
+      `${name} does not demand a distinct optional surface`)
+    assert.match(text, /ordinary lane priorit(?:y|ization) is insufficient/i,
+      `${name} permits avoidable specialist fan-out`)
+    assert.match(text, /Consolidate (?:overlapping optional work|related\s+optional work)/i,
+      `${name} does not consolidate duplicate routing`)
+  }
+})
+
+test('coverage work externalizes compact receipts and constrains Claude orchestration', () => {
+  const procedure = rd('skills/review-and-fix-pr/SKILL.md') + '\n' +
+    rd('skills/review-and-fix-pr/reference.md')
+  assert.match(procedure, /compact receipts outside the target tree/i)
+  assert.match(procedure, /only (?:candidate IDs,\s+coverage-unit IDs, and )?evidence references/i)
+  assert.match(procedure, /Consolidate related gaps into the fewest\s+fresh assignments/i)
+  assert.match(procedure, /no more than 15 Claude subagents/i)
+  assert.match(procedure, /root context (?:below|under) 100k tokens/i)
+  assert.match(procedure, /never finding, severity, confidence, or coverage cutoffs/i)
+})
+
+test('Codex adjudication is script-backed, blind, read-only, and reaches a fixed point', () => {
+  const skill = rd('skills/review-and-fix-pr/SKILL.md')
+  const ref = rd('skills/review-and-fix-pr/reference.md')
+  const procedure = skill + '\n' + ref
+  const command = 'node "${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-codex.js" --root ' +
+    "'<repo-root>' --base '<base-sha>' --head '<review-target-head>' --input " +
+    "'<outside-target judge-input.json>' --receipt \"$REVIEW_AND_FIX_PR_CODEX_RECEIPT\""
+  assert.equal(skill.includes(command), true, 'SKILL.md has the wrong Codex helper invocation')
+  assert.equal(ref.includes(command), true, 'reference.md has the wrong Codex helper invocation')
+  assert.match(ref, /`codex exec`/)
+  for (const option of ['--ephemeral', '--ignore-user-config', '--ignore-rules', '--json',
+                        '--output-schema']) assert.match(ref, new RegExp(option.replaceAll('-', '\\-')))
+  assert.match(ref, /read-only sandbox, approvals disabled, no web search/i)
+  assert.match(ref, /pinned to `gpt-5\.6-sol` with high reasoning/i)
+  assert.match(ref, /Codex CLI `0\.149\.0\+`/)
+  assert.match(ref, /successful authentication/i)
+  assert.match(procedure, /lane identity, support\s+count, Claude disposition/i)
+  assert.match(procedure, /Matt or other benchmark output, or sealed baseline issues/i)
+  assert.match(procedure, /originating invocation cannot judge its own lead/i)
+  assert.match(procedure, /Continue to a fixed point with no queued lead/i)
+  assert.match(procedure, /Always run at least one invocation, even with zero Claude candidates/i)
+  assert.match(procedure, /Never retry a failed invocation or fall back to Claude self-judgment/i)
+  assert.match(procedure, /Never fall back to Claude self-judgment/i)
+  assert.match(procedure, /Claude perform(?:ed|s) discovery[\s\S]{0,80}OpenAI Codex perform(?:ed|s) adjudication/i)
+})
+
+test('Codex helper input uses the runner paths, immutable identity, and exact strict schema', () => {
+  const ref = rd('skills/review-and-fix-pr/reference.md')
+  for (const name of ['REVIEW_AND_FIX_PR_CODEX_INPUT', 'REVIEW_AND_FIX_PR_CODEX_CONTEXT',
+                      'REVIEW_AND_FIX_PR_CODEX_RECEIPT',
+                      'REVIEW_AND_FIX_PR_CODEX_EXPECTED_JSON']) assert.match(ref, new RegExp(name))
+  const inputSection = ref.slice(ref.indexOf('Before invoking, serialize exactly'))
+  const fence = /```json\n([\s\S]*?)\n```/.exec(inputSection)
+  assert.ok(fence, 'reference.md has no strict helper-input example')
+  const input = JSON.parse(fence[1])
+  assert.deepEqual(Object.keys(input), [
+    'schemaVersion', 'contract', 'sourceDisclosure', 'target', 'pluginFingerprint',
+    'reviewContext', 'candidates',
+  ])
+  assert.equal(input.schemaVersion, 1)
+  assert.equal(input.contract, 'review-and-fix-pr-v2')
+  assert.deepEqual(input.sourceDisclosure,
+    { discovery: 'Anthropic Claude', adjudication: 'OpenAI Codex' })
+  assert.deepEqual(Object.keys(input.target), ['repository', 'baseSha', 'headSha'])
+  assert.deepEqual(Object.keys(input.reviewContext), [
+    'acceptanceCriteria', 'applicableBaseRules', 'applicableHeadRules',
+    'canonicalDiffInventory', 'commitMessages', 'linkedSources', 'missingSourceIndicators',
+    'prBody', 'prTitle', 'remoteIdentity', 'repositoryIdentity', 'upstreamIdentity',
+  ])
+  assert.deepEqual(Object.keys(input.candidates[0]), [
+    'id', 'claim', 'basisType', 'basis', 'mechanisms', 'consequence', 'defectClass', 'category',
+    'locations', 'evidence', 'sourceIds',
+  ])
+  assert.deepEqual(Object.keys(input.candidates[0].locations[0]), ['path', 'line'])
+  assert.deepEqual(Object.keys(input.candidates[0].evidence[0]), ['path', 'line', 'detail'])
+  assert.match(ref, /Resolve every discovery evidence fact ID[\s\S]{0,80}`\{path,line,detail\}`/i)
+  assert.match(ref, /strip lane-only title, severity, confidence, scope, and counterevidence/i)
+  assert.match(ref, /canonical diff\s+inventory is merge-base-derived[\s\S]{0,120}`target\.baseSha` and `--base` use the immutable base SHA/i)
+  assert.match(ref, /context file contains the independently fetched[\s\S]{0,220}broker rejects any difference/i)
+  assert.match(ref, /copy helper stdout `markerBinding\.candidateLedger`[\s\S]{0,320}Never manually reconstruct/i)
+  assert.match(ref, /copy\s+stdout `counts` verbatim as `findings`[\s\S]{0,100}stdout `usage` separately/i)
+})
+
+test('schema v2 binds every candidate and new lead to the external Codex receipt', () => {
+  const ref = rd('skills/review-and-fix-pr/reference.md')
+  const markerSection = ref.slice(ref.indexOf('## Exact schema-v2 result marker'))
+  const fence = /```json\n([^\n]+)\n```/.exec(markerSection)
+  assert.ok(fence, 'reference.md has no compact v2 marker example')
+  const marker = JSON.parse(fence[1])
+  assert.equal(marker.schemaVersion, 2)
+  assert.deepEqual(marker.candidateLedger, [])
+  assert.deepEqual(marker.newLeadResolutions, [])
+  assert.deepEqual(Object.keys(marker.codex),
+    ['provider', 'model', 'reasoningEffort', 'cliVersion', 'receiptSha256'])
+  assert.deepEqual(marker.codex.provider, 'openai')
+  assert.deepEqual(marker.codex.model, 'gpt-5.6-sol')
+  assert.deepEqual(marker.codex.reasoningEffort, 'high')
+  for (const field of ['candidateId', 'claimHash', 'originInvocationId', 'judgeInvocationId',
+                       'verdict', 'finalDisposition']) assert.match(markerSection, new RegExp(`\\b${field}\\b`))
+  for (const field of ['leadId', 'resolution']) assert.match(markerSection, new RegExp(`\\b${field}\\b`))
+  assert.match(markerSection, /`real\|false_positive\|unresolved`/)
+  assert.match(markerSection, /`confirmed\|rejected\|unresolved`/)
+  assert.match(markerSection, /`admitted\|duplicate`/)
+  assert.match(markerSection, /`codex` is null[\s\S]{0,100}intentionally\s+unpublishable/i)
+  assert.match(markerSection, /V1 manifests and result markers remain reader-compatible only/i)
 })
 
 test('native lens prompt assets exist and stay methodology-only', () => {

@@ -7,6 +7,7 @@ const os = require('node:os')
 const path = require('node:path')
 const artifacts = require('../bench/lib/artifacts')
 const runner = require('../bench/run')
+const codexContract = require('../lib/review-codex-contract')
 
 const BENCH_ROOT = path.join(__dirname, '..', 'bench')
 const BASE_SHA = 'a'.repeat(40)
@@ -96,6 +97,168 @@ function validUsage(model) {
       costUsd: 0.1, total: 2, sessions: 1, models: { [model]: 0.1 },
     },
   }
+}
+
+function frozenReviewContext() {
+  return {
+    repositoryIdentity: 'private/ironweave', remoteIdentity: {}, upstreamIdentity: {},
+    prTitle: 'Fixture review', prBody: '', acceptanceCriteria: [], commitMessages: [],
+    canonicalDiffInventory: {}, applicableBaseRules: [], applicableHeadRules: [],
+    linkedSources: [], missingSourceIndicators: {},
+  }
+}
+
+function codexJudgeIdentity() {
+  return {
+    provider: 'openai', model: 'gpt-5.6-sol', reasoningEffort: 'high', cliVersion: '0.149.0',
+    executableSha256: 'e'.repeat(64),
+    schemaSha256: artifacts.sha256File(path.join(__dirname, '..', 'skills', 'review-and-fix-pr', 'codex-judge.schema.json')),
+    authenticated: true,
+  }
+}
+
+function validCodexReceipt(target, pluginFingerprint, judge = codexJudgeIdentity()) {
+  const source = {
+    id: 'C1', claim: 'The changed branch returns the wrong value.', basisType: 'trigger',
+    basis: 'Calling changed() reaches the new return.', mechanisms: ['The new branch returns false.'],
+    consequence: 'Callers observe the wrong result.', category: 'correctness',
+    defectClass: 'wrong-return-value',
+    locations: [{ path: 'src/change.cc', line: 10 }],
+    evidence: [{ path: 'src/change.cc', line: 10, detail: 'The changed return is false.' }],
+    sourceIds: ['lane-correctness'],
+  }
+  const claimHash = codexContract.candidateClaimHash(source)
+  const invocation = {
+    id: 'judge-1', sequence: 1, candidateIds: ['C1'], model: 'gpt-5.6-sol',
+    promptSha256: '1'.repeat(64), traceSha256: '2'.repeat(64), resultSha256: '3'.repeat(64),
+    newLeadHashes: [],
+    usage: {
+      inputTokens: 10, cachedInputTokens: 2, cacheWriteInputTokens: 0,
+      outputTokens: 5, reasoningOutputTokens: 3, totalTokens: 15,
+    },
+    writeAttempted: false, webAttempted: false,
+  }
+  const receipt = {
+    schemaVersion: 1,
+    contract: 'review-and-fix-pr-v2',
+    status: 'complete',
+    sourceDisclosure: { discovery: 'Anthropic Claude', adjudication: 'OpenAI Codex' },
+    inputSha256: '0'.repeat(64),
+    target: { repository: target.fork, baseSha: BASE_SHA, headSha: HEAD_SHA },
+    pluginFingerprint,
+    judge: {
+      provider: 'OpenAI Codex', model: judge.model, reasoningEffort: judge.reasoningEffort,
+      cliVersion: judge.cliVersion, authenticated: true, executableSha256: judge.executableSha256,
+      schemaSha256: judge.schemaSha256,
+    },
+    invocations: [invocation],
+    candidates: [{
+      id: source.id, claim: source.claim, basisType: source.basisType, basis: source.basis,
+      mechanism: source.mechanisms[0], consequence: source.consequence, category: source.category,
+      defectClass: source.defectClass,
+      locations: source.locations, evidence: source.evidence, claimHash, originInvocationId: null,
+      judgmentInvocationId: 'judge-1', verdict: 'real', severity: 'medium', scope: 'in',
+      reason: 'The implementation confirms the adverse behavior.', sourceEvidence: source.evidence,
+      finalDisposition: 'confirmed',
+    }],
+    newLeadResolutions: [], pendingCandidateIds: [],
+    counts: { provisional: 1, confirmed: 1, rejected: 0, unresolved: 0 },
+    createdAt: '2026-10-03T00:00:00.000Z',
+  }
+  return codexContract.validateReceipt(receipt, {
+    target: receipt.target, pluginFingerprint, model: judge.model,
+    reasoningEffort: judge.reasoningEffort, cliVersion: judge.cliVersion,
+    schemaSha256: judge.schemaSha256,
+  })
+}
+
+function v2ContractForReceipt(receipt) {
+  const binding = codexContract.receiptResultBinding(receipt)
+  return {
+    ...validContract(), schemaVersion: 2, findings: binding.findings,
+    candidateLedger: binding.candidateLedger,
+    newLeadResolutions: binding.newLeadResolutions,
+    codex: binding.codex,
+  }
+}
+
+function createV2Manifest(root, pluginDir, runId) {
+  const { state, config } = stateAndConfig(root)
+  const target = state.targets.ironweave
+  const tool = { ...config.tools[1], resultContract: artifacts.REVIEW_AND_FIX_PR_CONTRACT_V2 }
+  const toolConfig = { ...config, tools: [tool] }
+  const pluginFingerprint = runner.resolvePluginDirectory(pluginDir).fingerprint
+  const manifest = artifacts.ensureManifest(root, {
+    runId, requestedModel: 'claude-opus-5-5', modelLabel: 'Claude Opus 5.5', claudeVersion: '9.9.9',
+    configSha256: runner.hashJson(toolConfig),
+    targets: { ironweave: { baseSha: BASE_SHA, headSha: HEAD_SHA } },
+    targetMetadata: artifacts.snapshotTargetMetadata({ ironweave: target }),
+    groundtruth: artifacts.snapshotGroundtruth(root, ['ironweave']),
+    expectedCells: [{ id: `${runId}/ironweave/review-and-fix-pr`, target: 'ironweave', tool: tool.id }],
+    toolConfig,
+    cohortScope: { tool: tool.id, target: 'ironweave' },
+    pluginFingerprint,
+    codexJudge: codexJudgeIdentity(),
+  })
+  const outFile = path.join(artifacts.cohortPaths(root, runId).results, 'ironweave', `${tool.id}.json`)
+  const options = runner.parseArgs(['--run', runId, '--plugin-dir', pluginDir], root)
+  return { manifest, options, outFile, pluginFingerprint, target, tool, toolConfig }
+}
+
+async function executeV2Cell(fixtureData, root, receiptMode = 'valid') {
+  const { manifest, options, outFile, pluginFingerprint, target, tool, toolConfig } = fixtureData
+  const receipt = validCodexReceipt(target, pluginFingerprint)
+  const contract = v2ContractForReceipt(receipt)
+  const checkout = path.join(root, `checkout-${manifest.runId}`)
+  fs.mkdirSync(checkout)
+  let receiptFile = null
+  const payload = {
+    is_error: false, api_error_status: null,
+    result: `Review report\n\nREVIEW_AND_FIX_PR_RESULT_JSON=${JSON.stringify(contract)}`,
+    total_cost_usd: 0.1,
+    usage: { input_tokens: 1, output_tokens: 1 },
+    modelUsage: validUsage(manifest.requestedModel).modelUsage,
+    subagent_stats: {
+      spawned: 9, completed: 9, failed: 0,
+      killed: { parent: 0, user: 0, system: 0 },
+      refused: { depth_limit: 0, concurrency_limit: 0, budget: 0 },
+      by_type: {
+        'automated-development:review-lane-controller': 1,
+        'general-purpose': 8,
+      },
+    },
+  }
+  await runner.execPair({ target, tool, outFile }, {
+    options, cohort: manifest, config: toolConfig, root, claudeExecutable: '/exact/claude',
+  }, {
+    checkoutPrepared: () => ({ repo: checkout, workspace: path.basename(checkout), baseSha: BASE_SHA, headSha: HEAD_SHA }),
+    discoverPluginIsolationSettings: () => ({ enabledPlugins: {} }),
+    preflightCodex: () => ({
+      executable: '/exact/codex', cliVersion: '0.149.0', executableSha256: 'e'.repeat(64), authenticated: true,
+    }),
+    startCodexBroker: async (brokerOptions) => ({
+      socketFile: brokerOptions.socketFile,
+      assertCompleted: () => fs.existsSync(brokerOptions.receiptFile) ? ({
+        proof: codexContract.normalizedReceiptProof(JSON.parse(fs.readFileSync(brokerOptions.receiptFile, 'utf8'))),
+      }) : ({}),
+      close: () => {},
+    }),
+    assertCheckoutUnchanged: () => {},
+    prepareCodexReviewContext: () => frozenReviewContext(),
+    claudeRun: async (_prompt, _cwd, _model, _timeout, _executable, runOptions) => {
+      receiptFile = runOptions.env.REVIEW_AND_FIX_PR_CODEX_RECEIPT
+      assert.ok(path.isAbsolute(receiptFile))
+      assert.ok(path.isAbsolute(runOptions.env.REVIEW_AND_FIX_PR_CODEX_INPUT))
+      assert.equal(receiptFile.startsWith(checkout + path.sep), false)
+      if (receiptMode !== 'missing') {
+        const value = receiptMode === 'changed' ? { ...receipt, createdAt: '2026-10-03T01:00:00.000Z' } : receipt
+        writeJson(receiptFile, value)
+      }
+      return { code: 0, signal: null, error: null, out: JSON.stringify(payload), err: '', wallMs: 1 }
+    },
+    totalsForCwd: () => validUsage(manifest.requestedModel).transcriptUsage,
+  })
+  return { receipt, contract, receiptFile }
 }
 
 test('cohort scope controls are distinct from invocation filters and defaults keep the full matrix', () => {
@@ -256,6 +419,50 @@ test('fresh scoped manifests freeze only selected targets, groundtruth, tool, an
       ).map((cell) => cell.target),
       ['ironweave'],
     )
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+    fs.rmSync(pluginDir, { recursive: true, force: true })
+  }
+})
+
+test('v2 scoped manifests freeze Codex identity and reject authentication or runtime drift', async () => {
+  const root = fixture()
+  const pluginDir = pluginFixture()
+  try {
+    const configFile = path.join(root, 'tools.json')
+    const config = JSON.parse(fs.readFileSync(configFile, 'utf8'))
+    config.tools[1].resultContract = artifacts.REVIEW_AND_FIX_PR_CONTRACT_V2
+    writeJson(configFile, config)
+    const identity = codexJudgeIdentity()
+    const preflight = (overrides = {}) => () => ({
+      executable: '/exact/codex', cliVersion: identity.cliVersion,
+      executableSha256: identity.executableSha256, authenticated: true, ...overrides,
+    })
+    await runner.main([
+      '--run', 'v2-frozen-codex', '--cohort-tool', 'review-and-fix-pr',
+      '--cohort-target', 'ironweave', '--plugin-dir', pluginDir, '--only', 'absent',
+    ], root, {
+      claudeVersion: () => '9.9.9',
+      resolveManifestTargets: (_root, scopedState) => pinsFor(scopedState),
+      preflightCodex: preflight(),
+    })
+    assert.deepEqual(artifacts.readManifest(root, 'v2-frozen-codex').codexJudge, identity)
+    await assert.rejects(runner.main([
+      '--run', 'v2-frozen-codex', '--plugin-dir', pluginDir, '--only', 'absent',
+    ], root, {
+      claudeVersion: () => '9.9.9',
+      preflightCodex: preflight({ cliVersion: '0.150.0' }),
+    }), /Codex judge identity changed/)
+
+    await assert.rejects(runner.main([
+      '--run', 'v2-auth-failure', '--cohort-tool', 'review-and-fix-pr',
+      '--cohort-target', 'ironweave', '--plugin-dir', pluginDir, '--only', 'absent',
+    ], root, {
+      claudeVersion: () => '9.9.9',
+      resolveManifestTargets: (_root, scopedState) => pinsFor(scopedState),
+      preflightCodex: preflight({ authenticated: false }),
+    }), /codexJudge identity is invalid/)
+    assert.equal(fs.existsSync(artifacts.cohortPaths(root, 'v2-auth-failure').manifest), false)
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
     fs.rmSync(pluginDir, { recursive: true, force: true })
@@ -561,6 +768,53 @@ test('review-and-fix-pr structured contract gates admission and is revalidated o
     assert.throws(() => artifacts.readResultRecord(file, manifest, targetId, 'review-and-fix-pr'), /does not match report marker/)
     assert.throws(() => artifacts.ensureSeal(root, runId), /does not match report marker/)
     assert.equal(fs.existsSync(artifacts.cohortPaths(root, runId).seal), false)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+    fs.rmSync(pluginDir, { recursive: true, force: true })
+  }
+})
+
+test('v2 admission requires an external hash-matched Codex receipt and writes no failed result', async () => {
+  for (const mode of ['missing', 'changed']) {
+    const root = fixture()
+    const pluginDir = pluginFixture()
+    try {
+      const data = createV2Manifest(root, pluginDir, `v2-${mode}-receipt`)
+      await assert.rejects(executeV2Cell(data, root, mode), /Codex receipt|produced no Codex receipt/i)
+      assert.equal(fs.existsSync(data.outFile), false)
+      assert.equal(fs.existsSync(`${data.outFile}.lock`), false)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+      fs.rmSync(pluginDir, { recursive: true, force: true })
+    }
+  }
+})
+
+test('v2 receipt tampering prevents sealing while the immutable embedded proof remains readable', async () => {
+  const root = fixture()
+  const pluginDir = pluginFixture()
+  try {
+    const data = createV2Manifest(root, pluginDir, 'v2-receipt-tamper')
+    const completed = await executeV2Cell(data, root)
+    const record = artifacts.readResultRecord(
+      data.outFile, data.manifest, data.target.id, data.tool.id,
+      { root, requireExternalReceipt: true },
+    )
+    assert.equal(record.codexReceiptId, path.basename(completed.receiptFile, '.json'))
+    assert.deepEqual(record.codexUsage, codexContract.receiptUsage(completed.receipt))
+    assert.equal(record.codexReceiptProof.receiptSha256, completed.contract.codex.receiptSha256)
+
+    writeJson(completed.receiptFile, {
+      ...completed.receipt, createdAt: '2026-10-03T02:00:00.000Z',
+    })
+    assert.throws(() => artifacts.ensureSeal(root, data.manifest.runId), /receipt proof or usage changed|does not match/)
+    assert.equal(fs.existsSync(artifacts.cohortPaths(root, data.manifest.runId).seal), false)
+
+    fs.unlinkSync(completed.receiptFile)
+    assert.doesNotThrow(() => artifacts.readResultRecord(
+      data.outFile, data.manifest, data.target.id, data.tool.id,
+    ))
+    assert.throws(() => artifacts.ensureSeal(root, data.manifest.runId), /receipt is missing/)
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
     fs.rmSync(pluginDir, { recursive: true, force: true })

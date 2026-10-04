@@ -17,14 +17,28 @@ const SCOPES = new Set(['in-scope', 'out-of-scope'])
 const EVALUATOR_MODEL = 'claude-sonnet-5'
 const FABLE_MODEL = 'claude-fable-5-1'
 const REPORTED_USAGE_NUMBER = /(?:^|_)(?:input_tokens|output_tokens|thinking_tokens|web_search_requests|web_fetch_requests)$/
-const REVIEW_AND_FIX_PR_CONTRACT = 'review-and-fix-pr-v1'
+const REVIEW_AND_FIX_PR_CONTRACT_V1 = 'review-and-fix-pr-v1'
+const REVIEW_AND_FIX_PR_CONTRACT_V2 = 'review-and-fix-pr-v2'
+// Retain the original export for callers and frozen fixtures which predate version dispatch.
+const REVIEW_AND_FIX_PR_CONTRACT = REVIEW_AND_FIX_PR_CONTRACT_V1
 const REVIEW_AND_FIX_PR_MARKER = 'REVIEW_AND_FIX_PR_RESULT_JSON='
+const REVIEW_INVOCATION_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/
+const RESERVED_FINDING_TEXT = Object.freeze([
+  REVIEW_AND_FIX_PR_MARKER,
+  'REVIEW_AND_FIX_PR_CODEX_RECEIPT_JSON=',
+])
 const REVIEW_AND_FIX_PR_MANDATORY_LENSES = Object.freeze([
   'correctness', 'spec', 'standards', 'security', 'reliability', 'contracts',
   'testing', 'performance', 'comments', 'maintainability',
 ])
 const ownedLocks = new Map()
 const MALFORMED_LOCK_GRACE_MS = 5 * 60_000
+
+function reviewCodexContract() {
+  // Load this only for v2 cells. Historical cohorts must remain readable even in installations
+  // which never ran the Codex-backed contract.
+  return require('../../lib/review-codex-contract')
+}
 
 function readJson(file) {
   assertExistingPathSafe(file)
@@ -148,6 +162,7 @@ function manifestMetadata(manifest) {
     configSha256: manifest.configSha256,
   }
   if (manifest.pluginFingerprint != null) metadata.pluginFingerprint = canonical(manifest.pluginFingerprint)
+  if (manifest.codexJudge != null) metadata.codexJudge = canonical(manifest.codexJudge)
   return metadata
 }
 
@@ -173,6 +188,40 @@ function normalizedPluginFingerprint(fingerprint) {
     gitCommit: fingerprint.gitCommit === null ? null : fingerprint.gitCommit.toLowerCase(),
     contentSha256: fingerprint.contentSha256.toLowerCase(),
   }
+}
+
+function validCodexCliVersion(version) {
+  if (typeof version !== 'string') return false
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(version)
+  if (!match) return false
+  const actual = match.slice(1).map(Number)
+  const minimum = [0, 149, 0]
+  for (let index = 0; index < minimum.length; index += 1) {
+    if (actual[index] !== minimum[index]) return actual[index] > minimum[index]
+  }
+  return true
+}
+
+function normalizedCodexJudgeIdentity(identity) {
+  if (!identity || typeof identity !== 'object' || Array.isArray(identity)) {
+    throw new Error('manifest codexJudge is invalid')
+  }
+  const normalized = {
+    provider: identity.provider || identity.judgeProvider,
+    model: identity.model,
+    reasoningEffort: identity.reasoningEffort || identity.effort,
+    cliVersion: identity.cliVersion,
+    executableSha256: identity.executableSha256,
+    schemaSha256: identity.schemaSha256,
+    authenticated: identity.authenticated,
+  }
+  if (normalized.provider !== 'openai' || normalized.model !== 'gpt-5.6-sol' ||
+      normalized.reasoningEffort !== 'high' || normalized.authenticated !== true ||
+      !validCodexCliVersion(normalized.cliVersion) ||
+      !FILE_HASH.test(normalized.executableSha256 || '') || !FILE_HASH.test(normalized.schemaSha256 || '')) {
+    throw new Error('manifest codexJudge identity is invalid')
+  }
+  return normalized
 }
 
 function normalizedCohortScope(scope) {
@@ -211,8 +260,28 @@ function normalizedToolConfig(config) {
     const id = assertSafeId(tool && tool.id, 'toolConfig tool id')
     if (ids.has(id) || typeof tool.prompt !== 'string') throw new Error(`manifest toolConfig entry is invalid: ${id}`)
     ids.add(id)
+    if (id === 'review-and-fix-pr' && tool.resultContract != null &&
+        ![REVIEW_AND_FIX_PR_CONTRACT_V1, REVIEW_AND_FIX_PR_CONTRACT_V2].includes(tool.resultContract)) {
+      throw new Error(`manifest toolConfig review contract is invalid: ${tool.resultContract}`)
+    }
   }
   return canonical(config)
+}
+
+function reviewAndFixPrContractForTool(manifest, toolId) {
+  const tools = manifest && manifest.toolConfig && manifest.toolConfig.tools
+  const tool = Array.isArray(tools) ? tools.find((entry) => entry && entry.id === toolId) : null
+  const declared = tool && tool.resultContract
+  if (declared === REVIEW_AND_FIX_PR_CONTRACT_V1 || declared === REVIEW_AND_FIX_PR_CONTRACT_V2) return declared
+  // The original tool was keyed by id before resultContract was frozen in manifests. Preserve that
+  // exact historical interpretation; a new undeclared contract must never silently become v2.
+  if (toolId === 'review-and-fix-pr' && declared == null) return REVIEW_AND_FIX_PR_CONTRACT_V1
+  return null
+}
+
+function manifestRequiresCodexJudge(manifest) {
+  return Array.isArray(manifest && manifest.expectedCells) &&
+    manifest.expectedCells.some((cell) => reviewAndFixPrContractForTool(manifest, cell.tool) === REVIEW_AND_FIX_PR_CONTRACT_V2)
 }
 
 function normalizedPins(targets) {
@@ -328,6 +397,11 @@ function validateManifest(manifest, expected = {}, options = {}) {
     if (manifest.pluginFingerprint != null) {
       manifest.pluginFingerprint = normalizedPluginFingerprint(manifest.pluginFingerprint)
     }
+    const requiresCodexJudge = manifestRequiresCodexJudge(manifest)
+    if (requiresCodexJudge && manifest.codexJudge == null) {
+      throw new Error('manifest review-and-fix-pr-v2 cells require codexJudge identity')
+    }
+    if (manifest.codexJudge != null) manifest.codexJudge = normalizedCodexJudgeIdentity(manifest.codexJudge)
   }
   for (const key of ['runId', 'requestedModel', 'modelLabel', 'claudeVersion', 'configSha256']) {
     if (expected[key] != null && manifest[key] !== expected[key]) {
@@ -364,6 +438,11 @@ function validateManifest(manifest, expected = {}, options = {}) {
     const actual = manifest.pluginFingerprint == null ? null : manifest.pluginFingerprint
     if (JSON.stringify(actual) !== JSON.stringify(wanted)) throw new Error(`cohort ${manifest.runId} plugin fingerprint mismatch`)
   }
+  if (Object.hasOwn(expected, 'codexJudge')) {
+    const wanted = expected.codexJudge == null ? null : normalizedCodexJudgeIdentity(expected.codexJudge)
+    const actual = manifest.codexJudge == null ? null : manifest.codexJudge
+    if (JSON.stringify(actual) !== JSON.stringify(wanted)) throw new Error(`cohort ${manifest.runId} Codex judge identity mismatch`)
+  }
   if (expected.targetIds) assertManifestTargets(manifest, expected.targetIds)
   return manifest
 }
@@ -387,6 +466,7 @@ function ensureManifest(root, metadata) {
   const toolConfig = normalizedToolConfig(metadata.toolConfig)
   const cohortScope = metadata.cohortScope == null ? null : normalizedCohortScope(metadata.cohortScope)
   const pluginFingerprint = metadata.pluginFingerprint == null ? null : normalizedPluginFingerprint(metadata.pluginFingerprint)
+  const codexJudge = metadata.codexJudge == null ? null : normalizedCodexJudgeIdentity(metadata.codexJudge)
   const paths = cohortPaths(root, metadata.runId)
   const manifest = {
     schemaVersion: 2,
@@ -402,6 +482,7 @@ function ensureManifest(root, metadata) {
     toolConfig,
     ...(cohortScope == null ? {} : { cohortScope }),
     ...(pluginFingerprint == null ? {} : { pluginFingerprint }),
+    ...(codexJudge == null ? {} : { codexJudge }),
     createdAt: metadata.createdAt || new Date().toISOString(),
   }
   validateManifest(manifest)
@@ -413,7 +494,7 @@ function ensureManifest(root, metadata) {
     if (error.code !== 'EEXIST') throw error
     return validateManifest(readJson(paths.manifest), {
       ...manifestMetadata(manifest), targets, targetMetadata, groundtruth, expectedCells, toolConfig,
-      cohortScope, pluginFingerprint,
+      cohortScope, pluginFingerprint, codexJudge,
     })
   }
 }
@@ -797,26 +878,20 @@ function validateClaudeResponse(response, parsed, requestedModel, options = {}) 
   return parsed
 }
 
-function toolRequiresReviewAndFixPrContract(manifest, toolId) {
-  if (toolId === 'review-and-fix-pr') return true
-  const tools = manifest && manifest.toolConfig && manifest.toolConfig.tools
-  const tool = Array.isArray(tools) ? tools.find((entry) => entry && entry.id === toolId) : null
-  return !!tool && tool.resultContract === REVIEW_AND_FIX_PR_CONTRACT
-}
-
-function validateReviewAndFixPrContract(contract) {
+function validateReviewAndFixPrBaseContract(contract, schemaVersion, extraFields = []) {
   if (!contract || typeof contract !== 'object' || Array.isArray(contract)) {
     throw new Error('review-and-fix-pr result contract must be an object')
   }
   const expectedFields = [
     'completedLenses', 'coverage', 'coverageGapCount', 'failedLenses', 'findings', 'fix',
     'fixRequested', 'schemaVersion', 'skippedLenses', 'stopReason', 'stopTrigger', 'verification',
+    ...extraFields,
   ].sort()
   if (JSON.stringify(Object.keys(contract).sort()) !== JSON.stringify(expectedFields)) {
     throw new Error('review-and-fix-pr result contract fields are invalid')
   }
   const requiredValues = {
-    schemaVersion: 1,
+    schemaVersion,
     coverage: 'complete',
     verification: 'complete',
     fix: 'not-requested',
@@ -857,10 +932,119 @@ function validateReviewAndFixPrContract(contract) {
   if (findings.provisional !== findings.confirmed + findings.rejected + findings.unresolved) {
     throw new Error('review-and-fix-pr result contract finding dispositions do not partition provisional findings')
   }
+  return contract
+}
+
+function validateReviewAndFixPrV1Contract(contract) {
+  return canonical(validateReviewAndFixPrBaseContract(contract, 1))
+}
+
+function validateReviewAndFixPrV2Contract(contract) {
+  validateReviewAndFixPrBaseContract(contract, 2, ['candidateLedger', 'codex', 'newLeadResolutions'])
+  if (!Array.isArray(contract.candidateLedger) || !Array.isArray(contract.newLeadResolutions)) {
+    throw new Error('review-and-fix-pr v2 closure ledger is invalid')
+  }
+  const candidateFields = [
+    'candidateId', 'claimHash', 'finalDisposition', 'judgeInvocationId', 'originInvocationId', 'verdict',
+  ]
+  const candidateIds = new Set()
+  const claimHashes = new Set()
+  const dispositionForVerdict = {
+    real: 'confirmed', false_positive: 'rejected', unresolved: 'unresolved',
+  }
+  for (const [index, candidate] of contract.candidateLedger.entries()) {
+    const label = `review-and-fix-pr v2 candidate ${index + 1}`
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate) ||
+        JSON.stringify(Object.keys(candidate).sort()) !== JSON.stringify(candidateFields)) {
+      throw new Error(`${label} fields are invalid`)
+    }
+    assertSafeId(candidate.candidateId, `${label} id`)
+    if (!FILE_HASH.test(candidate.claimHash || '')) throw new Error(`${label} claimHash is invalid`)
+    if (candidate.originInvocationId !== null && !REVIEW_INVOCATION_ID.test(candidate.originInvocationId)) {
+      throw new Error(`${label} origin invocation is invalid`)
+    }
+    if (!REVIEW_INVOCATION_ID.test(candidate.judgeInvocationId)) throw new Error(`${label} judge invocation is invalid`)
+    if (!Object.hasOwn(dispositionForVerdict, candidate.verdict) ||
+        candidate.finalDisposition !== dispositionForVerdict[candidate.verdict]) {
+      throw new Error(`${label} verdict and finalDisposition are inconsistent`)
+    }
+    if (candidate.originInvocationId === candidate.judgeInvocationId) {
+      throw new Error(`${label} cannot be judged by its originating invocation`)
+    }
+    if (candidateIds.has(candidate.candidateId) || claimHashes.has(candidate.claimHash)) {
+      throw new Error('review-and-fix-pr v2 candidates must have unique IDs and claim hashes')
+    }
+    candidateIds.add(candidate.candidateId)
+    claimHashes.add(candidate.claimHash)
+  }
+  const leadFields = ['candidateId', 'claimHash', 'leadId', 'originInvocationId', 'resolution']
+  const leadIds = new Set()
+  for (const [index, lead] of contract.newLeadResolutions.entries()) {
+    const label = `review-and-fix-pr v2 new lead ${index + 1}`
+    if (!lead || typeof lead !== 'object' || Array.isArray(lead) ||
+        JSON.stringify(Object.keys(lead).sort()) !== JSON.stringify(leadFields)) {
+      throw new Error(`${label} fields are invalid`)
+    }
+    assertSafeId(lead.leadId, `${label} id`)
+    if (!REVIEW_INVOCATION_ID.test(lead.originInvocationId)) throw new Error(`${label} origin invocation is invalid`)
+    assertSafeId(lead.candidateId, `${label} candidate`)
+    if (!FILE_HASH.test(lead.claimHash || '') || !['admitted', 'duplicate'].includes(lead.resolution)) {
+      throw new Error(`${label} resolution is invalid`)
+    }
+    if (leadIds.has(lead.leadId)) throw new Error('review-and-fix-pr v2 new lead IDs must be unique')
+    leadIds.add(lead.leadId)
+    const candidate = contract.candidateLedger.find((entry) => entry.candidateId === lead.candidateId)
+    if (!candidate) throw new Error(`${label} maps to a missing candidate`)
+    if (lead.resolution === 'admitted' &&
+        (candidate.originInvocationId !== lead.originInvocationId || candidate.claimHash !== lead.claimHash)) {
+      throw new Error(`${label} admitted mapping is inconsistent`)
+    }
+  }
+  for (const candidate of contract.candidateLedger.filter((entry) => entry.originInvocationId !== null)) {
+    const matches = contract.newLeadResolutions.filter((lead) => lead.resolution === 'admitted' &&
+      lead.candidateId === candidate.candidateId && lead.originInvocationId === candidate.originInvocationId &&
+      lead.claimHash === candidate.claimHash)
+    if (matches.length !== 1) {
+      throw new Error(`review-and-fix-pr v2 candidate ${candidate.candidateId} requires exactly one admitted new lead`)
+    }
+  }
+  const codexFields = ['cliVersion', 'model', 'provider', 'reasoningEffort', 'receiptSha256']
+  if (!contract.codex || typeof contract.codex !== 'object' || Array.isArray(contract.codex) ||
+      JSON.stringify(Object.keys(contract.codex).sort()) !== JSON.stringify(codexFields) ||
+      contract.codex.provider !== 'openai' || contract.codex.model !== 'gpt-5.6-sol' ||
+      contract.codex.reasoningEffort !== 'high' || !FILE_HASH.test(contract.codex.receiptSha256 || '') ||
+      !validCodexCliVersion(contract.codex.cliVersion)) {
+    throw new Error('review-and-fix-pr v2 Codex identity is invalid')
+  }
+  const dispositionCounts = { confirmed: 0, rejected: 0, unresolved: 0 }
+  for (const candidate of contract.candidateLedger) dispositionCounts[candidate.finalDisposition] += 1
+  if (contract.findings.provisional !== contract.candidateLedger.length ||
+      contract.findings.confirmed !== dispositionCounts.confirmed ||
+      contract.findings.rejected !== dispositionCounts.rejected ||
+      contract.findings.unresolved !== dispositionCounts.unresolved) {
+    throw new Error('review-and-fix-pr v2 finding counts do not match the closure ledger')
+  }
   return canonical(contract)
 }
 
-function parseReviewAndFixPrResultContract(result) {
+function validateReviewAndFixPrContract(contract, expectedContract = null) {
+  const inferred = contract && contract.schemaVersion === 2
+    ? REVIEW_AND_FIX_PR_CONTRACT_V2
+    : REVIEW_AND_FIX_PR_CONTRACT_V1
+  const selected = expectedContract || inferred
+  if (![REVIEW_AND_FIX_PR_CONTRACT_V1, REVIEW_AND_FIX_PR_CONTRACT_V2].includes(selected)) {
+    throw new Error(`unknown review-and-fix-pr result contract: ${JSON.stringify(selected)}`)
+  }
+  const expectedSchema = selected === REVIEW_AND_FIX_PR_CONTRACT_V2 ? 2 : 1
+  if (!contract || contract.schemaVersion !== expectedSchema) {
+    throw new Error(`review-and-fix-pr result contract schemaVersion must be ${expectedSchema}`)
+  }
+  return selected === REVIEW_AND_FIX_PR_CONTRACT_V2
+    ? validateReviewAndFixPrV2Contract(contract)
+    : validateReviewAndFixPrV1Contract(contract)
+}
+
+function parseReviewAndFixPrResultContract(result, expectedContract = null) {
   if (typeof result !== 'string') throw new Error('review-and-fix-pr result is not a string')
   const lines = result.replace(/\r\n/g, '\n').split('\n')
   const markers = []
@@ -877,7 +1061,107 @@ function parseReviewAndFixPrResultContract(result) {
   try { parsed = JSON.parse(marker.line.slice(REVIEW_AND_FIX_PR_MARKER.length)) } catch {
     throw new Error('review-and-fix-pr result contract JSON is invalid')
   }
-  return validateReviewAndFixPrContract(parsed)
+  return validateReviewAndFixPrContract(parsed, expectedContract)
+}
+
+function codexReceiptPath(root, runId, targetId, toolId, receiptId) {
+  for (const [value, label] of [
+    [runId, 'receipt run id'], [targetId, 'receipt target'], [toolId, 'receipt tool'], [receiptId, 'receipt id'],
+  ]) assertSafeId(value, label)
+  return path.join(root, 'work', 'codex-receipts', runId, targetId, toolId, `${receiptId}.json`)
+}
+
+function validateV2ControllerStats(record, label) {
+  const stats = record.subagentStats
+  const byType = stats && typeof stats === 'object' && !Array.isArray(stats) && stats.by_type
+  if (!byType || typeof byType !== 'object' || Array.isArray(byType)) {
+    throw new Error(`${label} is missing typed subagent statistics`)
+  }
+  if (byType['automated-development:review-lane-controller'] !== 1) {
+    throw new Error(`${label} must use exactly one review-lane-controller`)
+  }
+  if (!Number.isSafeInteger(stats.spawned) || stats.spawned < 9 || stats.spawned > 15) {
+    throw new Error(`${label} must use between 9 and 15 Claude subagents`)
+  }
+  if (!Object.values(byType).every((value) => Number.isSafeInteger(value) && value >= 0) ||
+      Object.values(byType).reduce((sum, value) => sum + value, 0) !== stats.spawned) {
+    throw new Error(`${label} typed subagent counts do not reconcile`)
+  }
+  if (stats.completed !== stats.spawned || stats.failed !== 0) {
+    throw new Error(`${label} has incomplete or failed Claude subagents`)
+  }
+  for (const field of ['killed', 'refused']) {
+    if (!stats[field] || typeof stats[field] !== 'object' || Array.isArray(stats[field]) ||
+        !Object.values(stats[field]).every((value) => Number.isSafeInteger(value) && value === 0)) {
+      throw new Error(`${label} has ${field} Claude subagents`)
+    }
+  }
+}
+
+function validateEmbeddedCodexReceipt(record, manifest, targetId, toolId, contract) {
+  const label = `result ${targetId}/${toolId}`
+  const proof = record.codexReceiptProof
+  const usage = record.codexUsage
+  if (!proof || typeof proof !== 'object' || Array.isArray(proof) ||
+      !usage || typeof usage !== 'object' || Array.isArray(usage)) {
+    throw new Error(`${label} is missing immutable Codex receipt proof or usage`)
+  }
+  assertSafeId(record.codexReceiptId, `${label} receipt id`)
+  if (proof.receiptSha256 !== contract.codex.receiptSha256 || proof.sourceProvider !== 'anthropic' ||
+      proof.judgeProvider !== contract.codex.provider || proof.judgeModel !== contract.codex.model ||
+      proof.reasoningEffort !== contract.codex.reasoningEffort || proof.cliVersion !== contract.codex.cliVersion ||
+      proof.candidateCount !== contract.candidateLedger.length ||
+      JSON.stringify(canonical(proof.usage)) !== JSON.stringify(canonical(usage))) {
+    throw new Error(`${label} Codex receipt proof does not match the v2 marker`)
+  }
+  const judge = normalizedCodexJudgeIdentity(manifest.codexJudge)
+  if (judge.provider !== proof.judgeProvider || judge.model !== proof.judgeModel ||
+      judge.reasoningEffort !== proof.reasoningEffort || judge.cliVersion !== proof.cliVersion ||
+      judge.executableSha256 !== proof.executableSha256 || judge.schemaSha256 !== proof.schemaSha256) {
+    throw new Error(`${label} Codex receipt proof does not match the cohort judge identity`)
+  }
+  return proof
+}
+
+function readAndValidateCodexReceipt(root, record, manifest, targetId, toolId, contract, options = {}) {
+  const { validateReceipt, hashReceipt, normalizedReceiptProof, receiptSummary, receiptUsage } = reviewCodexContract()
+  const proof = record.codexReceiptProof
+  if (!options.requireExternalReceipt) return null
+  const file = options.receiptPath || codexReceiptPath(root, manifest.runId, targetId, toolId, record.codexReceiptId)
+  if (!fs.existsSync(file)) {
+    throw new Error(`result ${targetId}/${toolId} Codex receipt is missing`)
+  }
+  const receipt = readJson(file)
+  const target = manifest.targetMetadata[targetId]
+  const expected = {
+    target: {
+      repository: target && target.fork,
+      baseSha: manifest.targets[targetId].baseSha,
+      headSha: manifest.targets[targetId].headSha,
+    },
+    pluginFingerprint: manifest.pluginFingerprint,
+    model: manifest.codexJudge.model,
+    reasoningEffort: manifest.codexJudge.reasoningEffort,
+    cliVersion: manifest.codexJudge.cliVersion,
+    executableSha256: manifest.codexJudge.executableSha256,
+    ...(manifest.codexJudge.schemaSha256 ? { schemaSha256: manifest.codexJudge.schemaSha256 } : {}),
+  }
+  const validated = validateReceipt(receipt, expected) || receipt
+  const summary = receiptSummary(validated)
+  const markerSummary = {
+    candidateLedger: contract.candidateLedger,
+    newLeadResolutions: contract.newLeadResolutions,
+    codex: contract.codex,
+  }
+  if (JSON.stringify(canonical(summary)) !== JSON.stringify(canonical(markerSummary))) {
+    throw new Error(`result ${targetId}/${toolId} Codex receipt does not match the v2 marker`)
+  }
+  if (hashReceipt(validated) !== contract.codex.receiptSha256 ||
+      JSON.stringify(canonical(normalizedReceiptProof(validated))) !== JSON.stringify(canonical(proof)) ||
+      JSON.stringify(canonical(receiptUsage(validated))) !== JSON.stringify(canonical(record.codexUsage))) {
+    throw new Error(`result ${targetId}/${toolId} Codex receipt proof or usage changed`)
+  }
+  return validated
 }
 
 function validateResultIdentity(record, manifest, targetId, toolId) {
@@ -892,7 +1176,7 @@ function validateResultIdentity(record, manifest, targetId, toolId) {
   return record
 }
 
-function validateResultRecord(record, manifest, targetId, toolId) {
+function validateResultRecord(record, manifest, targetId, toolId, options = {}) {
   validateResultIdentity(record, manifest, targetId, toolId)
   validateClaudeResponse({ code: record.exitCode, signal: record.signal }, {
     is_error: record.isError,
@@ -903,21 +1187,31 @@ function validateResultRecord(record, manifest, targetId, toolId) {
     modelUsage: record.modelUsage,
   }, manifest.requestedModel, { allowEmptyResult: true })
   validateTranscriptUsage(record.transcriptUsage, manifest.requestedModel)
-  if (toolRequiresReviewAndFixPrContract(manifest, toolId)) {
-    const parsedContract = parseReviewAndFixPrResultContract(record.result)
+  const expectedContract = reviewAndFixPrContractForTool(manifest, toolId)
+  if (expectedContract) {
+    const parsedContract = parseReviewAndFixPrResultContract(record.result, expectedContract)
     if (JSON.stringify(canonical(record.resultContract)) !== JSON.stringify(parsedContract)) {
       throw new Error(`result ${targetId}/${toolId} structured contract does not match report marker`)
+    }
+    if (expectedContract === REVIEW_AND_FIX_PR_CONTRACT_V2) {
+      validateV2ControllerStats(record, `result ${targetId}/${toolId}`)
+      validateEmbeddedCodexReceipt(record, manifest, targetId, toolId, parsedContract)
+      if (options.root) {
+        readAndValidateCodexReceipt(options.root, record, manifest, targetId, toolId, parsedContract, options)
+      } else if (options.requireExternalReceipt) {
+        throw new Error(`result ${targetId}/${toolId} cannot validate Codex receipt without benchmark root`)
+      }
     }
   }
   if (manifest.requestedModel === FABLE_MODEL) validateQuotaEvidence(record.quotaEvidence, `result ${targetId}/${toolId}`)
   return record
 }
 
-function readResultRecord(file, manifest, targetId, toolId) {
-  return validateResultRecord(readJson(file), manifest, targetId, toolId)
+function readResultRecord(file, manifest, targetId, toolId, options = {}) {
+  return validateResultRecord(readJson(file), manifest, targetId, toolId, options)
 }
 
-function listResultCells(root, manifest) {
+function listResultCells(root, manifest, options = {}) {
   const paths = cohortPaths(root, manifest.runId)
   if (!fs.existsSync(paths.results)) return []
   const cells = []
@@ -929,7 +1223,7 @@ function listResultCells(root, manifest) {
     for (const file of fs.readdirSync(dir).filter((name) => name.endsWith('.json')).sort()) {
       const tool = assertSafeId(file.slice(0, -5), 'result tool')
       const absolute = path.join(dir, file)
-      const record = validateResultRecord(readJson(absolute), manifest, target, tool)
+      const record = validateResultRecord(readJson(absolute), manifest, target, tool, { root, ...options })
       const relative = `results/${target}/${file}`
       cells.push({
         id: record.cellId,
@@ -980,7 +1274,9 @@ function readSeal(root, runId, targetIds = null) {
   const paths = cohortPaths(root, runId)
   if (!fs.existsSync(paths.seal)) throw new Error(`cohort ${runId} is not sealed; run bench/extract first`)
   const seal = validateSeal(readJson(paths.seal), manifest)
-  const actual = listResultCells(root, manifest)
+  // Before completion, v2 receipts remain live sealing inputs and must still be present and
+  // untampered. A completed snapshot is self-contained through its immutable result proof/hash.
+  const actual = listResultCells(root, manifest, { requireExternalReceipt: !fs.existsSync(paths.complete) })
   assertExpectedResults(actual, manifest)
   if (JSON.stringify(actual) !== JSON.stringify(seal.cells)) throw new Error(`sealed results changed for cohort ${runId}`)
   return { manifest, seal }
@@ -1021,7 +1317,7 @@ function ensureSeal(root, runId, targetIds = null) {
     if (fs.existsSync(paths.seal)) return readSeal(root, runId, targetIds)
     const active = activeResultLocks(paths.results)
     if (active.length) throw new Error(`cohort ${runId} has ${active.length} active result run(s); retry extraction later`)
-    const cells = listResultCells(root, manifest)
+    const cells = listResultCells(root, manifest, { requireExternalReceipt: true })
     assertExpectedResults(cells, manifest)
     const seal = { schemaVersion: 1, ...manifestMetadata(manifest), createdAt: new Date().toISOString(), cells }
     try { writeJsonExclusive(paths.seal, seal) } catch (error) {
@@ -1057,6 +1353,11 @@ function validateFinding(finding, label = 'finding') {
   if (!SEVERITIES.has(finding.severity)) throw new Error(`${label}.severity is invalid`)
   if (!FINDING_KINDS.has(finding.kind)) throw new Error(`${label}.kind is invalid`)
   assertString(finding.claim, `${label}.claim`)
+  for (const field of ['title', 'file', 'claim']) {
+    if (RESERVED_FINDING_TEXT.some((prefix) => finding[field].includes(prefix))) {
+      throw new Error(`${label}.${field} contains reserved machine receipt text`)
+    }
+  }
   if (finding.selfRejected != null && typeof finding.selfRejected !== 'boolean') throw new Error(`${label}.selfRejected must be boolean`)
   return finding
 }
@@ -1444,6 +1745,7 @@ module.exports = {
   assertRecordMetadata,
   assertSafeId,
   cellId,
+  codexReceiptPath,
   cohortPaths,
   defaultRunId,
   deriveRunId,
@@ -1458,6 +1760,7 @@ module.exports = {
   manifestMetadata,
   modelById,
   normalizedCohortScope,
+  normalizedCodexJudgeIdentity,
   normalizedPluginFingerprint,
   parseReviewAndFixPrResultContract,
   readManifest,
@@ -1472,6 +1775,7 @@ module.exports = {
   sha256File,
   snapshotGroundtruth,
   snapshotTargetMetadata,
+  reviewAndFixPrContractForTool,
   validateFindingRecord,
   validateFinding,
   validateIssues,
@@ -1489,5 +1793,7 @@ module.exports = {
   validateTranscriptUsage,
   writeJsonExclusive,
   REVIEW_AND_FIX_PR_CONTRACT,
+  REVIEW_AND_FIX_PR_CONTRACT_V1,
+  REVIEW_AND_FIX_PR_CONTRACT_V2,
   REVIEW_AND_FIX_PR_MANDATORY_LENSES,
 }

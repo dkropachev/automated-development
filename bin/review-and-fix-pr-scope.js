@@ -24,6 +24,89 @@ function utf8(bytes, label) {
   if (!Buffer.from(text, 'utf8').equals(bytes)) throw new Error(label + ' contains non-UTF-8 bytes')
   return text
 }
+function stableCompare(left, right) { return left < right ? -1 : left > right ? 1 : 0 }
+function sanitizeRemoteUrl(value) {
+  if (typeof value !== 'string') throw new Error('remote URL must be a string')
+  const scheme = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.exec(value)
+  if (!scheme) return value
+  const authorityStart = scheme[0].length
+  const suffixStart = value.slice(authorityStart).search(/[/?#]/)
+  const authorityEnd = suffixStart < 0 ? value.length : authorityStart + suffixStart
+  const authority = value.slice(authorityStart, authorityEnd)
+  const userinfoEnd = authority.lastIndexOf('@')
+  if (userinfoEnd < 0) return value
+  return value.slice(0, authorityStart) + authority.slice(userinfoEnd + 1) + value.slice(authorityEnd)
+}
+function normalizeRemoteIdentity(remotes) {
+  if (!Array.isArray(remotes)) throw new Error('remotes must be an array')
+  const names = new Set()
+  const normalized = remotes.map((remote, index) => {
+    if (!remote || typeof remote !== 'object' || Array.isArray(remote) ||
+        typeof remote.name !== 'string' || !remote.name || remote.name.includes('\0')) {
+      throw new Error(`remote ${index} has an invalid name`)
+    }
+    if (names.has(remote.name)) throw new Error(`duplicate remote name: ${remote.name}`)
+    names.add(remote.name)
+    const urls = (values, label) => {
+      if (!Array.isArray(values) || !values.every(value => typeof value === 'string')) {
+        throw new Error(`remote ${remote.name} ${label} URLs must be an array of strings`)
+      }
+      return values.map(sanitizeRemoteUrl).sort(stableCompare)
+    }
+    return {
+      name: remote.name,
+      fetchUrls: urls(remote.fetchUrls, 'fetch'),
+      pushUrls: urls(remote.pushUrls, 'push'),
+    }
+  }).sort((left, right) => stableCompare(left.name, right.name))
+  return { remotes: normalized }
+}
+function normalizeUpstreamIdentity(branch, sha) {
+  if (branch == null || branch === '') {
+    if (sha != null && sha !== '') throw new Error('upstream SHA requires an upstream branch')
+    return { branch: null, sha: null }
+  }
+  if (typeof branch !== 'string' || branch.includes('\0')) throw new Error('upstream branch is invalid')
+  if (!/^[a-f0-9]{40}$/.test(sha || '')) throw new Error('upstream SHA is invalid')
+  return { branch, sha }
+}
+function gitConfigValues(root, key) {
+  let bytes
+  try {
+    bytes = execFileSync('git', ['-C', root, 'config', '--null', '--get-all', key], {
+      maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (error) {
+    if (error.status === 1) return []
+    throw error
+  }
+  const text = utf8(bytes, `git config ${key}`)
+  if (!text) return []
+  const values = text.split('\0')
+  if (values.at(-1) !== '') throw new Error(`git config ${key} did not return NUL-delimited values`)
+  values.pop()
+  return values
+}
+function collectRemoteIdentity(root) {
+  const names = git(root, 'remote').split(/\r?\n/).filter(Boolean)
+  return normalizeRemoteIdentity(names.map(name => ({
+    name,
+    fetchUrls: gitConfigValues(root, `remote.${name}.url`),
+    pushUrls: gitConfigValues(root, `remote.${name}.pushurl`),
+  })))
+}
+function collectUpstreamIdentity(root, branch) {
+  if (branch === 'HEAD') return normalizeUpstreamIdentity(null, null)
+  const configuredRemote = gitConfigValues(root, `branch.${branch}.remote`)
+  const configuredMerge = gitConfigValues(root, `branch.${branch}.merge`)
+  if (!configuredRemote.length && !configuredMerge.length) return normalizeUpstreamIdentity(null, null)
+  if (configuredRemote.length !== 1 || configuredMerge.length !== 1) {
+    throw new Error(`branch ${branch} has incomplete or ambiguous upstream configuration`)
+  }
+  const upstreamBranch = git(root, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}')
+  const upstreamSha = git(root, 'rev-parse', '--verify', '@{upstream}^{commit}')
+  return normalizeUpstreamIdentity(upstreamBranch, upstreamSha)
+}
 function instructionApplies(file, changedPaths) {
   const directory = path.posix.dirname(file)
   const basename = path.posix.basename(file)
@@ -183,10 +266,13 @@ try {
   const startBranchRaw = git(root, 'rev-parse', '--abbrev-ref', 'HEAD')
   const startSha = git(root, 'rev-parse', '--verify', 'HEAD^{commit}')
   const clean = git(root, 'status', '--porcelain=v1', '-z') === ''
+  const remoteIdentity = collectRemoteIdentity(root)
+  const upstreamIdentity = collectUpstreamIdentity(root, startBranchRaw)
   process.stdout.write(JSON.stringify({ ok: true, repo, prNumber, baseRef: pr.baseRefName,
     baseSha: baseCommit, prHead: head, mergeBase,
     repoRoot: root, startBranch: startBranchRaw === 'HEAD' ? 'DETACHED' : startBranchRaw,
-    startSha, treeClean: clean, pr, issues, changedPaths, instructions, instructionOmissions,
+    startSha, treeClean: clean, remoteIdentity, upstreamIdentity,
+    pr, issues, changedPaths, instructions, instructionOmissions,
     issueCount: issues.length, unavailableIssueCount: issues.filter(issue => issue.unavailable).length,
     truncatedIssueCount: issues.filter(issue => issue.bodyTruncated).length,
     omittedIssueReferenceCount: issueReferenceSummary.omittedIssueReferenceCount,
@@ -201,4 +287,13 @@ try {
 
 if (require.main === module) main()
 
-module.exports = { collectIssueReferences, instructionApplies, main }
+module.exports = {
+  collectIssueReferences,
+  collectRemoteIdentity,
+  collectUpstreamIdentity,
+  instructionApplies,
+  main,
+  normalizeRemoteIdentity,
+  normalizeUpstreamIdentity,
+  sanitizeRemoteUrl,
+}

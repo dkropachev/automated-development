@@ -42,7 +42,7 @@ test('review-and-fix-pr is a local review-only experimental benchmark tool', () 
     reviewOnly: true,
     requiresPluginDir: true,
     cohortOnly: true,
-    resultContract: 'review-and-fix-pr-v1',
+    resultContract: 'review-and-fix-pr-v2',
   })
   assert.match(tool.description, /whole-pull-request review/i)
   assert.match(tool.install, /marketplace add dkropachev\/automated-development/)
@@ -54,10 +54,10 @@ test('review-and-fix-pr is a local review-only experimental benchmark tool', () 
   assert.match(tool.prompt, /skill directly/)
   assert.match(tool.prompt, /complete stateless, review-only protocol/)
   assert.match(tool.prompt, /every mandatory review lane/)
-  assert.match(tool.prompt, /coverage-gap audit/)
+  assert.match(tool.prompt, /both coverage audits/)
   assert.match(tool.prompt, /candidate deduplication/)
-  assert.match(tool.prompt, /independent verification/)
-  assert.match(tool.prompt, /exactly one valid `review-and-fix-pr-v1` contract line/)
+  assert.match(tool.prompt, /required Codex adjudication/)
+  assert.match(tool.prompt, /exactly one valid `review-and-fix-pr-v2` contract line/)
   assert.match(tool.prompt, /final nonempty line/)
   assert.doesNotMatch(tool.prompt, /Wait for the workflow result|relay that result|stopAt|workflow `model`/)
   assert.match(tool.prompt, /REVIEW_AND_FIX_PR_RESULT_JSON=/)
@@ -101,7 +101,7 @@ test('experimental metadata survives tool, run, and cohort dashboard snapshots',
     assert.equal(globalTool.selfAuthored, true)
     assert.equal(globalTool.reviewOnly, true)
     assert.equal(globalTool.requiresPluginDir, true)
-    assert.equal(globalTool.resultContract, 'review-and-fix-pr-v1')
+    assert.equal(globalTool.resultContract, 'review-and-fix-pr-v2')
 
     assert.equal(data.runs.length, 1)
     const run = data.runs[0]
@@ -109,7 +109,7 @@ test('experimental metadata survives tool, run, and cohort dashboard snapshots',
     assert.equal(run.experimental, true)
     assert.equal(run.selfAuthored, true)
     assert.equal(run.reviewOnly, true)
-    assert.equal(run.resultContract, 'review-and-fix-pr-v1')
+    assert.equal(run.resultContract, 'review-and-fix-pr-v2')
     assert.deepEqual(globalTool.snapshots.legacy, snapshot)
 
     assert.equal(data.cohorts.length, 1)

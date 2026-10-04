@@ -186,7 +186,7 @@ or the repo's own commits carry them.
 ### `review-and-fix-pr`
 
 Reviews a frozen whole-PR scope through independent mandatory lanes, audits their coverage, runs
-one targeted gap round, and independently verifies candidate findings. It runs directly in the
+one targeted gap round, and sends atomic candidates through required OpenAI Codex adjudication. It runs directly in the
 parent session: there is no nested Workflow, checkpoint store, resume machinery, transcript meter,
 or internal finding/token budget. Nothing is pushed, posted, reverted, or reset.
 
@@ -199,7 +199,8 @@ Exactly once per review cycle and before discovery, the typed
 important intersections, and optional specialists. It has only Read, Grep, and Glob, cannot predict
 findings or omit any core lane, and a missing or malformed response fails the review instead of
 falling back to a generic agent. These six core lanes always run independently and read-only,
-without seeing one another's findings:
+without seeing one another's findings. Optional specialists or shards must own a distinct inventory
+surface or question that ordinary lane prioritization does not adequately cover:
 
 ```text
 root-cause/fix-completeness
@@ -218,16 +219,28 @@ instead of silently weakening the review.
 
 The parent session freezes the PR identity and source material, then inventories exact changed
 paths, hunks, and non-text changes with deterministic helpers. Coverage also tracks stated
-requirements, contracts, tests, documentation, and repository rules. A blind auditor sees that
+requirements, contracts, tests, documentation, and repository rules. Every lane gets the same
+separately delimited, verbatim PR title/body, commit messages, remote/upstream identity, canonical
+patch/inventory, and applicable base/head rules; summaries never replace fetched evidence. A blind auditor sees that
 inventory plus review receipts—not finding prose—requests at most one targeted gap round, then
 re-audits. `coverage: complete` means this protocol closed; it never claims the PR is bug-free.
 
 Scope is a label, not a filter. A defect this PR did not cause is reported and marked out-of-scope
 rather than suppressed, so you can tell "you broke this" from "this was already broken". With
-explicit fix authority, verified findings are fixed in small serial batches, validated, and all six
+explicit fix authority, Codex-real findings are fixed in small serial batches, validated, and all six
 core lanes rerun against the changed tree. Without explicit fix authority the review remains
-read-only. Plausible leads are deduplicated conservatively, then a fresh verifier traces each one;
-rejections, disagreements, and high-impact claims receive an independent challenge.
+read-only. Discovery admits only atomic candidates with an exact claim/rule or reachable trigger,
+one mechanism, and a concrete consequence. Disproved, impact-free, inapplicable-rule, base-parity,
+and counterfactual observations remain in `checked_nonissues` coverage but skip paid judgment.
+
+The script-backed judge runs Codex CLI 0.149.0 or newer as fresh, ephemeral, read-only
+`gpt-5.6-sol` high-reasoning invocations with structured JSON output. Codex sees neither Claude lane
+identity/support/disposition nor benchmark answers. A Codex-proposed lead is deduplicated and judged
+by a different invocation until no lead remains. The receipt binds every candidate, invocation,
+verdict, new-lead resolution, target pin, model/version, and usage; a missing/tampered receipt,
+write attempt, or incomplete lead makes verification incomplete. There is no Claude self-judgment
+fallback. Reports disclose the provider boundary: Claude discovers and audits coverage; OpenAI
+Codex adjudicates. New runs emit schema-v2 markers; v1 remains readable only for historical results.
 
 ## Layout
 
@@ -239,6 +252,7 @@ agents/                  subagents the skills spawn, typed automated-development
 bin/promptgen-driver.js  the CLI: the two state machines and the orchestrator's verbs, --domain pr|issue|commit
 bin/review-and-fix-pr-scope.js   exact GitHub/source identity and merge-base preflight
 bin/review-and-fix-pr-diff.js    deterministic changed-path, hunk, and non-text inventory
+bin/review-and-fix-pr-codex.js   fixed-point read-only Codex adjudication and closure receipt
 lib/domains.js           everything that differs between the three domains: paths, keys, source files,
                          which checks apply, and every instruction that talks about "the diff" or "the maintainer"
 lib/prompt-gate.js       coverage gate for a learned prompt, per kind where kinds exist; frontmatter helpers
