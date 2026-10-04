@@ -294,6 +294,11 @@ input path; never substitute a target-tree file. Invoke exactly:
 node "${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-codex.js" --root '<repo-root>' --base '<base-sha>' --head '<review-target-head>' --input '<outside-target judge-input.json>' --receipt "$REVIEW_AND_FIX_PR_CODEX_RECEIPT"
 ```
 
+Invoke that exact command with the Bash tool in the foreground, setting `run_in_background: false`
+and `timeout: 600000`, the maximum foreground timeout. Wait for the helper process to exit. Never
+respond or finalize while the helper or any background task is pending. Only after exit parse its
+stdout `markerBinding`, `counts`, and `usage`; missing or malformed data fails verification.
+
 Before invoking, serialize exactly these top-level fields and no others to
 `REVIEW_AND_FIX_PR_CODEX_INPUT`:
 

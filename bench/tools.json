@@ -112,7 +112,7 @@
       "cohortOnly": true,
       "requiresPluginDir": true,
       "resultContract": "review-and-fix-pr-v2",
-      "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill directly to review pull request #{pr}.\n\n{context}\n\nRun its complete stateless, review-only protocol to completion. Do not invoke a nested Workflow and do not fix the pull request. Complete every mandatory review lane, both coverage audits, candidate deduplication, and required Codex adjudication to fixed-point closure. Return the human-readable review followed by exactly one valid `review-and-fix-pr-v2` contract line beginning `REVIEW_AND_FIX_PR_RESULT_JSON=`. That marker must be the final nonempty line of your response, and no earlier line may begin with that marker prefix."
+      "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill directly to review pull request #{pr}.\n\n{context}\n\nRun its complete stateless, review-only protocol to completion. Do not invoke a nested Workflow and do not fix the pull request. Complete every mandatory review lane, both coverage audits, candidate deduplication, and required Codex adjudication to fixed-point closure. Invoke the exact Codex helper with Bash tool parameters `run_in_background: false` and `timeout: 600000` (maximum foreground timeout), wait for its process to exit, then parse stdout `markerBinding`, `counts`, and `usage`. Never respond or finalize while that helper or any background task is pending. Return the human-readable review followed by exactly one valid `review-and-fix-pr-v2` contract line beginning `REVIEW_AND_FIX_PR_RESULT_JSON=`. That marker must be the final nonempty line of your response, and no earlier line may begin with that marker prefix."
     }
   ]
 }

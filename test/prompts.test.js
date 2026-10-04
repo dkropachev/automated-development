@@ -474,6 +474,29 @@ test('Codex adjudication is script-backed, blind, read-only, and reaches a fixed
   assert.match(procedure, /Claude perform(?:ed|s) discovery[\s\S]{0,80}OpenAI Codex perform(?:ed|s) adjudication/i)
 })
 
+test('Codex helper runs in foreground and blocks finalization until stdout is parsed', () => {
+  const tool = JSON.parse(rd('bench/tools.json')).tools.find(({ id }) => id === 'review-and-fix-pr')
+  assert.ok(tool, 'bench/tools.json has no review-and-fix-pr tool')
+  for (const [name, text] of [
+    ['SKILL.md', rd('skills/review-and-fix-pr/SKILL.md')],
+    ['reference.md', rd('skills/review-and-fix-pr/reference.md')],
+    ['benchmark prompt', tool.prompt],
+  ]) {
+    assert.match(text, /Bash[\s\S]{0,120}`run_in_background: false`/i,
+      `${name} does not require a foreground Bash invocation`)
+    assert.match(text, /foreground[\s\S]{0,120}`run_in_background: false`|`run_in_background: false`[\s\S]{0,120}foreground/i,
+      `${name} does not keep the Bash invocation in the foreground`)
+    assert.match(text, /`timeout: 600000`[\s\S]{0,50}maximum foreground timeout/i,
+      `${name} does not require the maximum foreground timeout`)
+    assert.match(text, /wait for\s+(?:the |its )?(?:(?:helper )?process (?:to )?)?exit/i,
+      `${name} does not wait for the helper process to exit`)
+    assert.match(text, /never\s+respond or finalize[\s\S]{0,80}(?:helper|background task)[\s\S]{0,40}pending/i,
+      `${name} permits finalization while work is pending`)
+    assert.match(text, /parse\s+(?:its\s+)?stdout[\s\S]{0,50}`markerBinding`[\s\S]{0,30}`counts`[\s\S]{0,30}`usage`/i,
+      `${name} does not parse required helper stdout`)
+  }
+})
+
 test('Codex helper input uses the runner paths, immutable identity, and exact strict schema', () => {
   const ref = rd('skills/review-and-fix-pr/reference.md')
   for (const name of ['REVIEW_AND_FIX_PR_CODEX_INPUT', 'REVIEW_AND_FIX_PR_CODEX_CONTEXT',
