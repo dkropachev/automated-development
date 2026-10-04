@@ -127,9 +127,9 @@ coverage-unit IDs, and evidence references in root context; never repeatedly pas
 
 Give a fresh auditor the frozen inventory and compact receipts, including checked-nonissue coverage,
 but no candidate prose or lane identities. It identifies semantic gaps and emits targeted tasks.
-Consolidate related gaps into the fewest fresh assignments that preserve distinct expertise, run
-them once in parallel, and externalize their receipts. A fresh final auditor checks closure. Do not
-loop until an agent says clean; report remaining gaps explicitly.
+Consolidate all gaps into at most one fresh assignment naming every needed expertise, run it once,
+and externalize its receipt. A fresh final auditor checks closure. Do not loop until an agent says
+clean; report remaining gaps explicitly.
 
 ## 4. Deduplicate and adjudicate with Codex
 

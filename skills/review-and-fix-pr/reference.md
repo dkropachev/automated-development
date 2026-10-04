@@ -268,9 +268,9 @@ severity, confidence, or coverage cutoff.
 
 The first coverage auditor sees the frozen inventory and all receipts, but no titles, candidate
 prose, severities, lane names, or finding counts. It identifies missing semantic coverage—not just
-whether a file was opened—and assigns precise gap tasks. Consolidate related gaps into the fewest
-fresh assignments and run one parallel gap wave. A fresh final
-auditor applies the same blind rule to the combined receipts. Any remaining required unit makes
+whether a file was opened—and assigns precise gap tasks. Consolidate all gaps into at most one fresh
+assignment naming every needed expertise and run it once. A fresh final auditor applies the same
+blind rule to the combined receipts. Any remaining required unit makes
 coverage `incomplete-gaps`; a missing or malformed core lane makes it `incomplete-lens`.
 
 ## Candidate union and required Codex adjudication
