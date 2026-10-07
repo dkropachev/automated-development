@@ -299,9 +299,9 @@ test('v3 questions reach Codex without screened dispositions or lane provenance'
     reviewQuestions: [question] }
   assert.equal(runner.normalizeInput(input).reviewQuestions.length, 1)
   const prompt = runner.buildJudgePrompt(input.reviewContext, input.candidates,
-    'review-and-fix-pr-v3', input.reviewQuestions, [], 'questions')
+    'review-and-fix-pr-v3', input.reviewQuestions)
   assert.match(prompt, /Two lifecycle flags can drift/)
-  assert.match(prompt, /Recheck every reviewQuestion and its counterevidence independently/)
+  assert.match(prompt, /Recheck both sides independently/)
   assert.doesNotMatch(prompt, /"source_id"|"checked_nonissues"|"class":"disproved"/)
   assert.throws(() => runner.normalizeInput({ ...input, reviewQuestions: [{ ...question,
     evidence: [{ ...question.evidence[0], path: '../outside' }] }] }))
@@ -533,67 +533,34 @@ test('v3 reviews neutral questions once and judges a promoted suggestion in a fr
       now: () => new Date('2026-10-07T12:00:00.000Z'),
       runOneInvocation: (options) => {
         calls += 1
-        assert.equal(options.wave, ['initial', 'questions', 'leads'][calls - 1])
-        assert.equal(options.reviewQuestions.length, calls === 2 ? 1 : 0)
+        assert.equal(options.reviewQuestions.length, calls === 1 ? 1 : 0)
         assert.equal(options.knownCandidates.length, calls === 1 ? 0 : 1)
         const prompt = runner.buildJudgePrompt(options.reviewContext, options.candidates,
-          options.contract, options.reviewQuestions, options.knownCandidates, options.wave)
-        if (calls === 2) {
-          assert.match(prompt, /dedicated discovery wave/)
-          assert.match(prompt, /"reviewQuestions":\[\{"counterevidence"/)
-        } else {
-          assert.match(prompt, /Judge only the pending candidates in this wave/)
-          assert.doesNotMatch(prompt, /dedicated discovery wave/)
-        }
-        if (calls > 1) {
+          options.contract, options.reviewQuestions, options.knownCandidates, options.firstWave)
+        if (calls === 1) assert.match(prompt, /Independently inspect every changed hunk/)
+        else {
+          assert.match(prompt, /Judge only the pending candidates; do not rescan/)
           assert.match(prompt, /"knownCandidates":\[\{"category"/)
+          assert.doesNotMatch(prompt, /Independently inspect every changed hunk/)
         }
         const lead = newCandidate({ claim: 'Two lifecycle flags can drift',
           basis: 'A later edit changes one flag only', mechanisms: ['duplicated lifecycle state'],
           consequence: 'A future send path accepts work after close', category: 'maintainability' })
         const judgments = options.candidates.map((entry) => ({
-          ...judgment(entry.id), verdict: calls === 3 ? 'suggestion' : 'real',
-          suggestedEdit: calls === 3 ? 'change one flag' : null,
-          suggestedConsequence: calls === 3 ? 'the other flag is missed' : null,
+          ...judgment(entry.id), verdict: calls === 1 ? 'real' : 'suggestion',
+          suggestedEdit: calls === 1 ? null : 'change one flag',
+          suggestedConsequence: calls === 1 ? null : 'the other flag is missed',
         }))
         return invocation(`J00${calls}`, options.candidates, {
           schemaVersion: 2, provider: 'OpenAI Codex', model: MODEL,
-          judgments, newCandidates: calls === 2 ? [lead] : [],
+          judgments, newCandidates: calls === 1 ? [lead] : [],
         }, calls)
       },
     })
-    assert.equal(calls, 3)
+    assert.equal(calls, 2)
     assert.equal(receipt.counts.confirmed, 1)
     assert.equal(receipt.counts.suggestion, 1)
-    assert.equal(receipt.candidates.find((entry) => entry.verdict === 'suggestion').originInvocationId, 'J002')
-  } finally { fs.rmSync(fixture.root, { recursive: true, force: true }) }
-})
-
-test('v3 reviews every neutral question in bounded batches without dropping candidates', () => {
-  const fixture = adjudicationFixture()
-  fixture.options.input = { ...fixture.options.input, schemaVersion: 2,
-    contract: 'review-and-fix-pr-v3', reviewQuestions: Array.from({ length: 9 }, (_, index) => ({
-      observation: `Question ${index}`, counterevidence: `Counterexample ${index}`,
-      evidence: [{ path: 'src/example.cc', line: 8, detail: `Fact ${index}` }],
-    })) }
-  const seen = []
-  try {
-    const receipt = runner.runAdjudication(fixture.options, {
-      now: () => new Date('2026-10-07T12:00:00.000Z'),
-      runOneInvocation: (options) => {
-        seen.push({ wave: options.wave, questions: options.reviewQuestions.length })
-        const judgments = options.candidates.map((entry) => ({ ...judgment(entry.id),
-          suggestedEdit: null, suggestedConsequence: null }))
-        return invocation(`J00${seen.length}`, options.candidates, {
-          schemaVersion: 2, provider: 'OpenAI Codex', model: MODEL,
-          judgments, newCandidates: [],
-        }, seen.length)
-      },
-    })
-    assert.deepEqual(seen, [{ wave: 'initial', questions: 0 },
-      { wave: 'questions', questions: 8 }, { wave: 'questions', questions: 1 }])
-    assert.equal(receipt.counts.provisional, 1)
-    assert.equal(receipt.invocations.length, 3)
+    assert.equal(receipt.candidates.find((entry) => entry.verdict === 'suggestion').originInvocationId, 'J001')
   } finally { fs.rmSync(fixture.root, { recursive: true, force: true }) }
 })
 
