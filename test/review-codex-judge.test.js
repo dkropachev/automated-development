@@ -288,7 +288,6 @@ test('judge prompt discloses providers while excluding lane, support, dispositio
   assert.match(prompt, /independently adjudicating/i)
   assert.match(prompt, /"id":"C1"/)
   assert.match(prompt, /stale reference/)
-  assert.match(prompt, /Independently inspect every changed hunk and literal PR\/test claim/)
   for (const secret of secretSources) assert.doesNotMatch(prompt, new RegExp(secret, 'i'))
 })
 
@@ -535,6 +534,15 @@ test('v3 reviews neutral questions once and judges a promoted suggestion in a fr
       runOneInvocation: (options) => {
         calls += 1
         assert.equal(options.reviewQuestions.length, calls === 1 ? 1 : 0)
+        assert.equal(options.knownCandidates.length, calls === 1 ? 0 : 1)
+        const prompt = runner.buildJudgePrompt(options.reviewContext, options.candidates,
+          options.contract, options.reviewQuestions, options.knownCandidates, options.firstWave)
+        if (calls === 1) assert.match(prompt, /Independently inspect every changed hunk/)
+        else {
+          assert.match(prompt, /Judge only the pending candidates; do not rescan/)
+          assert.match(prompt, /"knownCandidates":\[\{"category"/)
+          assert.doesNotMatch(prompt, /Independently inspect every changed hunk/)
+        }
         const lead = newCandidate({ claim: 'Two lifecycle flags can drift',
           basis: 'A later edit changes one flag only', mechanisms: ['duplicated lifecycle state'],
           consequence: 'A future send path accepts work after close', category: 'maintainability' })

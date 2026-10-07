@@ -404,6 +404,9 @@ before serialization to `{path,line,detail}`. Judge candidates have exactly `id`
 `reviewQuestions` contain checked observations and counterevidence, without lane IDs, dispositions,
 or support counts. Codex may promote only a distinct evidenced mechanism to `newCandidates`; that
 lead receives a separate fresh judgment invocation. Questions themselves are never reported claims.
+The broad hunk and question scan runs once. Later invocations see a blind catalogue of all known
+candidates and judge only pending leads; they do not rescan the whole diff or restate known
+mechanisms. New distinct leads still enter the fixed-point queue.
 
 The helper removes source IDs from Codex model input and must never expose lane identity, support
 count, Claude disposition, Matt or other benchmark output, or sealed baseline issues. It invokes the installed CLI
