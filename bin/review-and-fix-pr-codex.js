@@ -33,6 +33,7 @@ const CODEX = process.env.CODEX || 'codex'
 const DEFAULT_TIMEOUT_MS = 30 * 60_000
 const MAX_BUFFER = 1 << 30
 const MAX_INVOCATIONS = 64
+const REVIEW_QUESTION_BATCH_SIZE = 8
 const INPUT_KEYS = [
   'candidates', 'contract', 'pluginFingerprint', 'reviewContext', 'schemaVersion',
   'sourceDisclosure', 'target',
@@ -230,7 +231,7 @@ function normalizeReviewQuestions(questions) {
 }
 
 function buildJudgePrompt(reviewContext, candidates, contract = CONTRACT_V2, reviewQuestions = [],
-  knownCandidates = [], firstWave = true) {
+  knownCandidates = [], wave = 'initial') {
   const blindCandidates = candidates.map((candidate) => sanitizedCandidate(candidate))
   const known = knownCandidates.map((candidate) => ({ id: candidate.id, claim: candidate.claim,
     mechanism: candidate.mechanisms[0], consequence: candidate.consequence,
@@ -258,13 +259,13 @@ function buildJudgePrompt(reviewContext, candidates, contract = CONTRACT_V2, rev
     'For every verdict, including false_positive and unresolved, every sourceEvidence item must copy an exact path and line pair from that same candidate\'s supplied locations or evidence.',
     'Never substitute a nearby or newly inspected path or line. Put the supporting, disproof, or uncertainty explanation in sourceEvidence.detail while preserving the copied path and line exactly.',
     'Severity is critical, high, medium, low, or nit; scope is in, deferred, or out.',
-    contract === CONTRACT_V3 && firstWave
-      ? 'Independently inspect every changed hunk and literal PR/test claim once for omitted mechanisms. Check behavior variants, assertions, affected comments, duplicated guards/state/fixtures, fragile references, and unbounded waits. Emit only distinct evidenced leads, including concrete future-edit risks.'
+    contract === CONTRACT_V3 && wave === 'questions'
+      ? 'This dedicated discovery wave has no pending candidate judgments. Recheck every reviewQuestion and its counterevidence independently, then inspect changed hunks and literal PR/test claims once for omitted mechanisms. Emit one atomic newCandidate for each distinct surviving present defect or concrete future-edit risk.'
       : contract === CONTRACT_V3
-        ? 'This is a judgment wave for newly promoted leads. Judge only the pending candidates; do not rescan the full diff for new leads or restate any known mechanism.'
+        ? 'Judge only the pending candidates in this wave. Do not rescan the full diff for new leads or restate any known mechanism.'
         : 'If inspection reveals a distinct atomic mechanism absent from the candidates, add it to newCandidates.',
-    contract === CONTRACT_V3 && firstWave
-      ? 'reviewQuestions are neutral observations with counterevidence from an earlier screen. Recheck both sides independently. They are not reported findings or Claude verdicts. Promote only a distinct present defect or future-edit risk.'
+    contract === CONTRACT_V3 && wave === 'questions'
+      ? 'ReviewQuestions are neutral checked observations, not reported findings or Claude verdicts. Compare each against knownCandidates; do not promote a mechanism already known, even if wording or line differs.'
       : 'Do not emit a newCandidate for any mechanism already in knownCandidates or the pending batch, even if its wording, basis, or line differs.',
     'A new candidate must have one mechanism, a specific defectClass, and a concrete consequence. Omit semantic duplicates entirely. Set duplicateOfCandidateId only for a literally identical mechanism identity; otherwise use an empty string.',
     'Do not include lane identity, reporter/support counts, Claude dispositions, external reports, or benchmark baselines.',
@@ -438,7 +439,7 @@ function runOneInvocation(options, dependencies = {}) {
   const spawn = dependencies.spawnSync || spawnSync
   assertRepositoryState(options.root, options.head)
   const prompt = buildJudgePrompt(options.reviewContext, options.candidates, options.contract,
-    options.reviewQuestions || [], options.knownCandidates || [], options.firstWave !== false)
+    options.reviewQuestions || [], options.knownCandidates || [], options.wave || 'initial')
   let result
   try {
     result = checkedSpawn(options.executable, codexArgs(options.schemaFile, options.root), {
@@ -552,9 +553,19 @@ function runAdjudication(options, dependencies = {}) {
   const traceDirectory = options.traceDirectory
   fs.mkdirSync(traceDirectory, { recursive: false, mode: 0o700 })
   let nextLead = 1
-  while (pending.length || invocations.length === 0) {
+  let initialWavePending = true
+  const questionBatches = []
+  if (input.contract === CONTRACT_V3) {
+    for (let index = 0; index < input.reviewQuestions.length; index += REVIEW_QUESTION_BATCH_SIZE) {
+      questionBatches.push(input.reviewQuestions.slice(index, index + REVIEW_QUESTION_BATCH_SIZE))
+    }
+  }
+  while (pending.length || initialWavePending || questionBatches.length) {
     if (invocations.length >= MAX_INVOCATIONS) throw new Error('Codex new-lead adjudication did not reach a fixed point')
-    const batch = pending.splice(0)
+    const wave = initialWavePending ? 'initial' : questionBatches.length ? 'questions' : 'leads'
+    const batch = wave === 'questions' ? [] : pending.splice(0)
+    if (wave === 'initial') initialWavePending = false
+    const reviewQuestions = wave === 'questions' ? questionBatches.shift() : []
     const judgeBatch = batch.map(candidateForJudge)
     let invocation
     try {
@@ -574,9 +585,9 @@ function runAdjudication(options, dependencies = {}) {
       reviewContext: input.reviewContext,
       candidates: judgeBatch,
       contract: input.contract,
-      reviewQuestions: invocations.length === 0 ? input.reviewQuestions : [],
+      reviewQuestions,
       knownCandidates: allCandidates.filter((candidate) => !batch.some((entry) => entry.id === candidate.id)),
-      firstWave: invocations.length === 0,
+      wave,
       }, dependencies)
     } catch (error) {
       const failureBase = `invocation-${String(invocations.length + 1).padStart(3, '0')}.failed`
