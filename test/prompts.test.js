@@ -423,6 +423,18 @@ test('review category standards include nit and do not require runtime failure f
   ]) assert.match(ref, matrix)
 })
 
+test('standards and test lanes retain judgment-call discovery without routine nonissue prose', () => {
+  const standards = rd('skills/review-and-fix-pr/lenses/standards.md')
+  const testing = rd('skills/review-and-fix-pr/lenses/testing.md')
+  const reference = rd('skills/review-and-fix-pr/reference.md')
+  for (const smell of ['mysterious', 'duplicated', 'switches', 'wrappers']) {
+    assert.match(standards, new RegExp(smell))
+  }
+  assert.match(testing, /unbounded waits that hide failures/)
+  assert.match(reference, /routine\s+passing checks as short coverage-unit and evidence IDs/)
+  assert.match(reference, /Keep all screened lead reasons substantive/)
+})
+
 test('controller optional routing is distinct, nonduplicative, and keeps its YAML shape', () => {
   for (const [name, text] of [
     ['reference.md', rd('skills/review-and-fix-pr/reference.md')],

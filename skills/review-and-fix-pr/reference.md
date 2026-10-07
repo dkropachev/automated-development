@@ -276,6 +276,10 @@ eligible only when the PR changes its assumptions, worsens it, or claims to repa
 attach counterevidence but never makes a terminal disposition. Already-disproved, impact-free,
 inapplicable-rule, base-parity, and counterfactual-design observations go only in
 `checked_nonissues`; they remain auditable coverage and never enter paid Codex input.
+Use `checked_nonissues` for plausible leads actually investigated and disproved. Record routine
+passing checks as short coverage-unit and evidence IDs in the receipt; do not spend output tokens
+on a prose nonissue for every ordinary branch. This changes no candidate, severity, or coverage
+limit. Keep all screened lead reasons substantive.
 
 Leave lane receipts in their final agent transcripts. The parent retains only IDs and evidence
 references, reloading exact material as needed rather than relaying lane prose. Target

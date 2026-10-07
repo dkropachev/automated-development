@@ -12,3 +12,9 @@ the surrounding code makes it unambiguous and violation has a specific maintenan
 consequence.
 Check every touched line, including casts, against the applicable authoritative rule and strong
 local precedent. State which rule or precedent applies and the consequence of diverging from it.
+Independently apply a small code-smell baseline even when the repository has no rule: mysterious
+names, duplicated code, repeated type switches, speculative helpers, middle-man wrappers,
+scattered changes to one concept, and one module changed for unrelated reasons. A documented
+repository convention overrides the heuristic. Emit a concrete smell with the affected future
+edit and consequence as a maintainability candidate for Codex's `suggestion` judgment; do not
+silently screen it merely because current behavior passes.

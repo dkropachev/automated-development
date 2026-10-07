@@ -11,3 +11,6 @@ Compare every new helper and branch with adjacent code and existing helpers. Che
 duplicated classification logic, copied protocol rules, hand-built fixtures, extra lifecycle flags,
 and references into growable containers. For each lead, identify the two sources that can drift or
 the edit that would expose the hazard.
+Treat thin pass-through wrappers and duplicated explanatory comments as drift risks when a later
+signature or behavior edit would require changing both copies. For unclear names, name the actual
+role that a maintainer could confuse; send these as judgment-call candidates, not proven bugs.
