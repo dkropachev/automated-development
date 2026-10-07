@@ -342,7 +342,7 @@ test('review-and-fix-pr controller routes optional work without skipping core la
   assert.match(procedure, /originating invocation cannot judge its own lead/i)
 })
 
-test('review-and-fix-pr adjudicates candidates, can fix and rereview, and emits the v2 marker', () => {
+test('review-and-fix-pr adjudicates candidates, can fix and rereview, and emits the v3 marker', () => {
   const procedure = rd('skills/review-and-fix-pr/SKILL.md') + '\n' +
     rd('skills/review-and-fix-pr/reference.md')
 
@@ -354,12 +354,12 @@ test('review-and-fix-pr adjudicates candidates, can fix and rereview, and emits 
   assert.match(procedure, /(?:compact|single-line|one-line) JSON/i)
   assert.match(procedure,
     /"completedLenses":\["correctness","spec","standards","security","reliability","contracts","testing","performance","comments","maintainability"\]/,
-    'benchmark v2 marker must retain ten methodology IDs rather than six execution-lane IDs')
-  assert.match(procedure, /"schemaVersion":2/)
+    'benchmark v3 marker must retain ten methodology IDs rather than six execution-lane IDs')
+  assert.match(procedure, /"schemaVersion":3/)
   assert.match(procedure, /"candidateLedger":\[\]/)
   assert.match(procedure, /"newLeadResolutions":\[\]/)
   assert.match(procedure, /"provider":"openai","model":"gpt-5\.6-sol","reasoningEffort":"high"/)
-  assert.match(procedure, /V1 manifests and result markers remain reader-compatible only/i)
+  assert.match(procedure, /V1 and v2 manifests and result markers remain reader-compatible only/i)
 })
 
 test('every discovery lane receives exact delimited PR evidence instead of a summary', () => {
@@ -514,8 +514,8 @@ test('Codex helper input uses the runner paths, immutable identity, and exact st
     'schemaVersion', 'contract', 'sourceDisclosure', 'target', 'pluginFingerprint',
     'reviewContext', 'candidates',
   ])
-  assert.equal(input.schemaVersion, 1)
-  assert.equal(input.contract, 'review-and-fix-pr-v2')
+  assert.equal(input.schemaVersion, 2)
+  assert.equal(input.contract, 'review-and-fix-pr-v3')
   assert.deepEqual(input.sourceDisclosure,
     { discovery: 'Anthropic Claude', adjudication: 'OpenAI Codex' })
   assert.deepEqual(Object.keys(input.target), ['repository', 'baseSha', 'headSha'])
@@ -538,13 +538,13 @@ test('Codex helper input uses the runner paths, immutable identity, and exact st
   assert.match(ref, /copy\s+stdout `counts` verbatim as `findings`[\s\S]{0,100}stdout `usage` separately/i)
 })
 
-test('schema v2 binds every candidate and new lead to the external Codex receipt', () => {
+test('schema v3 binds every candidate and new lead to the external Codex receipt', () => {
   const ref = rd('skills/review-and-fix-pr/reference.md')
-  const markerSection = ref.slice(ref.indexOf('## Exact schema-v2 result marker'))
+  const markerSection = ref.slice(ref.indexOf('## Exact schema-v3 result marker'))
   const fence = /```json\n([^\n]+)\n```/.exec(markerSection)
-  assert.ok(fence, 'reference.md has no compact v2 marker example')
+  assert.ok(fence, 'reference.md has no compact v3 marker example')
   const marker = JSON.parse(fence[1])
-  assert.equal(marker.schemaVersion, 2)
+  assert.equal(marker.schemaVersion, 3)
   assert.deepEqual(marker.candidateLedger, [])
   assert.deepEqual(marker.newLeadResolutions, [])
   assert.deepEqual(Object.keys(marker.codex),
@@ -555,11 +555,11 @@ test('schema v2 binds every candidate and new lead to the external Codex receipt
   for (const field of ['candidateId', 'claimHash', 'originInvocationId', 'judgeInvocationId',
                        'verdict', 'finalDisposition']) assert.match(markerSection, new RegExp(`\\b${field}\\b`))
   for (const field of ['leadId', 'resolution']) assert.match(markerSection, new RegExp(`\\b${field}\\b`))
-  assert.match(markerSection, /`real\|false_positive\|unresolved`/)
-  assert.match(markerSection, /`confirmed\|rejected\|unresolved`/)
+  assert.match(markerSection, /`real\|suggestion\|false_positive\|unresolved`/)
+  assert.match(markerSection, /`confirmed\|suggestion\|rejected\|unresolved`/)
   assert.match(markerSection, /`admitted\|duplicate`/)
   assert.match(markerSection, /`codex` is null[\s\S]{0,100}intentionally\s+unpublishable/i)
-  assert.match(markerSection, /V1 manifests and result markers remain reader-compatible only/i)
+  assert.match(markerSection, /V1 and v2 manifests and result markers remain reader-compatible only/i)
 })
 
 test('native lens prompt assets exist and stay methodology-only', () => {

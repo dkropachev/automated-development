@@ -1,0 +1,873 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-coverage-2026-10-04",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.287 (Claude Code)",
+  "configSha256": "07f599dedc9dfca0994d0dd0600f3442ab4ea63ba185c97c60a04dd0cb083506",
+  "pluginFingerprint": {
+    "contentSha256": "a90f40eff423133b5f567b093794bb651e253e89f2e5c15a1bae56a0bf41e9cd",
+    "gitCommit": "0a5b76f5895a89d3b8f9bfa01e85b46cf9c60ad7",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7"
+  },
+  "cellId": "rafp-coverage-2026-10-04/ironweave/review-and-fix-pr",
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "tool": "review-and-fix-pr",
+  "label": "Automated Development review-and-fix-pr",
+  "source": "automated-development@inline",
+  "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill directly to review pull request #1.\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.\n\nRun its complete stateless, review-only protocol to completion. Do not invoke a nested Workflow and do not fix the pull request. Complete every mandatory review lane, both coverage audits, candidate deduplication, and required Codex adjudication to fixed-point closure. Use at most one consolidated gap-review subagent. Invoke the exact Codex helper with Bash tool parameters `run_in_background: false` and `timeout: 600000` (maximum foreground timeout), using the code block as the entire command with no prefix, suffix, pipe, or redirection. Wait for its process to exit, then parse stdout `markerBinding`, `counts`, and `usage`. Never respond or finalize while that helper or any background task is pending. Return the human-readable review followed by exactly one valid `review-and-fix-pr-v2` contract line beginning `REVIEW_AND_FIX_PR_RESULT_JSON=`. That marker must be the final nonempty line of your response, and no earlier line may begin with that marker prefix.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 960141,
+  "reportedCostUsd": 10.411535999999996,
+  "reportedUsage": {
+    "input_tokens": 24,
+    "cache_creation_input_tokens": 28568,
+    "cache_read_input_tokens": 1729040,
+    "output_tokens": 11020,
+    "output_tokens_details": {
+      "thinking_tokens": 847
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 28568,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 3929,
+        "cache_read_input_tokens": 156016,
+        "cache_creation_input_tokens": 298,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 298
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 310,
+      "outputTokens": 198033,
+      "cacheReadInputTokens": 9438820,
+      "cacheCreationInputTokens": 825003,
+      "webSearchRequests": 0,
+      "costUSD": 10.411535999999996,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 62587,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 12,
+  "subagentStats": {
+    "spawned": 10,
+    "requested": {
+      "background": 0,
+      "foreground": 4,
+      "unset": 6
+    },
+    "started_in_background": 6,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 10,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "automated-development:review-lane-controller": 1,
+      "general-purpose": 9
+    }
+  },
+  "sessionId": "16c1487a-b0e5-4ff3-ad37-f1cb5de0519d",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 310,
+    "output": 198033,
+    "thinking": 62587,
+    "cacheRead": 9438820,
+    "cacheCreation": 825003,
+    "costUsd": 10.411535999999996,
+    "sessions": 1,
+    "models": {
+      "claude-opus-5-5": 10.411535999999996
+    },
+    "bySession": {
+      "16c1487a-b0e5-4ff3-ad37-f1cb5de0519d": {
+        "costUsd": 10.411535999999996,
+        "startTime": 1791169702401,
+        "tokens": 10462166
+      }
+    },
+    "rawMessages": 254,
+    "rawOutput": 235593,
+    "rawCacheRead": 15870804,
+    "since": 0,
+    "subagentTranscripts": 10,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-ironweave-runs-rafp-coverage-2026-10-04-review-and-fix-pr-attempt-QBjIib-repo",
+    "total": 10462166
+  },
+  "result": "I found no merge-blocking defects in PR #1. Codex confirmed 9 of the 12 findings and rejected 3. Six of the confirmed ones are about tests or test comments, and three are about inaccurate docs or code comments. Claude found the issues and OpenAI Codex (`gpt-5.6-sol`, CLI 0.156.0) judged them. Nothing was edited, committed, pushed or posted. HEAD is still `69da8f5b` and the working tree is clean.\n\n**Is the fix complete?** It can't be proven: the linked issues #3663 and #3653 were unavailable and the Jira tickets weren't fetched. Reading the code, the fix closes the window on every path that goes through `send()`:\n- `_stream_closing` is set before `write_buf` is touched (`src/rpc/rpc.cc:554`), and the guard at `src/rpc/rpc.cc:293` makes `send()` fail with `closed_error`.\n- Frames accepted before the flag are written before `write_buf.close()`.\n- The shutdown order in `stop()`/`stop_send_loop()` is unchanged.\n- No other path writes to `write_buf` without going through `send()`.\n- Both close orders and the server side reach the same code, and it holds when sink and source live on another shard.\n\nReading the code (no test was run), the new test should fail without the fix and pass with it. The PR does not explain the unflushed frame it reports on the parent client connection. On a non-stream connection the code has no such window, so the cause may be in the unavailable issues.\n\n## Confirmed findings\n\nSeverities are the ones the review lanes assigned.\n\n1. **Medium** – `src/rpc/rpc.cc:562`, `tests/unit/rpc_test.cc:2010-2017` – **The drain half of the fix has no test.** The hook fires only after `data_sink::close()` is entered, when the flag is already set and the queue is empty. If the wait on `_outgoing_queue_ready` were removed, the test would still pass, and a frame queued just before the flag would again be written into the closed stream.\n2. **Low** – `tests/unit/rpc_test.cc:2016` – **The test doesn't check that the hook fails with `closed_error`.** The `try`/`catch` passes whether the hook succeeds or throws. Commit 5e25ebdb says \"With the fix the hook fails with closed_error\". A change that silently drops the frame and returns a ready future would still pass.\n3. **Low** – `doc/rpc-streaming.md:110-111` and `include/seastar/rpc/rpc_types.hh:386-387` – **The docs wrongly say a throw from reading closes the source.** If deserialization throws inside `process_one_buffer`, `close_source()` is never called, so `_source_closed` stays false. An application that stops reading at that throw, as the docs allow, never runs `stream_close()`.\n4. **Low** – `doc/rpc-streaming.md:115` – **\"Shut down only once both halves are closed\" is wrong.** The connection is also shut down on peer eof, on errors, and by `abort_all_streams()`. Line 49 of the same doc says closing the client aborts the stream.\n5. **Low** – `tests/unit/rpc_test.cc:1852-1854` – **The test's header comment describes the old behaviour in the present tense.** It says `send()` \"still accepts frames\" in the window, which is no longer true.\n6. **Low** – `tests/unit/rpc_test.cc:1883` – **The `put(std::span)` override has no `#if SEASTAR_API_LEVEL >= 9` guard.** Every other test sink in the tree has one, for example `tests/unit/loopback_socket.hh:144`. Without it, `rpc_test` doesn't compile at API levels 7 or 8.\n7. **Nit** – `src/rpc/rpc.cc:566` – **Wrong comment.** It says `_outgoing_queue_ready` \"is exceptional if an entry failed\". A failed entry still resolves with a value (`rpc.cc:338`); the future only becomes exceptional when negotiation is aborted.\n8. **Nit** – `tests/unit/rpc_test.cc:2021` – **Misleading comment.** \"Let the batch flush poller run\" is wrong: `yield()` only queues a task and doesn't make the reactor poll. The late write is actually caught during the later blocking `.get()` calls.\n9. **Nit** – `tests/unit/rpc_test.cc:1957` – **`const_cast` on `this` where the file uses `mutable`.** The existing compressor factory in the same file declares a `mutable` member instead (`rpc_test.cc:330`).\n\n## Rejected by Codex\n- The comment at `rpc.cc:559` about what still waits on `_outgoing_queue_ready`.\n- Adding `_stream_closing` alongside `_error` as duplicated state.\n- The `close_entered_cv` wait in the test having no timeout.\n\nI also dropped one lead before adjudication: the Claude `Co-Authored-By` trailers. That rule comes from your personal instructions for what I write, not from the repository, and the base history already has similar trailers.\n\n## Coverage and missing sources\nAll six review lanes ran, plus the routing step. The first coverage audit raised 4 gaps. The single gap review answered them, which produced finding 3, and the final audit found no remaining gaps. \"Complete\" here means the review process closed, not that the PR is bug-free. Missing sources: issues #3663 and #3653, and Jira CUSTOMER-666, CUSTOMER-678 and SCYLLADB-4034. There is no branch upstream. The discovery ledger is saved at `$REVIEW_AND_FIX_PR_DISCOVERY_LEDGER`.\n\nCodex usage: 1 invocation, 36,783 total tokens (29,681 input, of which 12,160 cached; 7,102 output, of which 4,795 reasoning).\n\nREVIEW_AND_FIX_PR_RESULT_JSON={\"schemaVersion\":2,\"coverage\":\"complete\",\"verification\":\"complete\",\"fix\":\"not-requested\",\"stopTrigger\":\"none\",\"stopReason\":\"completed\",\"fixRequested\":false,\"completedLenses\":[\"correctness\",\"spec\",\"standards\",\"security\",\"reliability\",\"contracts\",\"testing\",\"performance\",\"comments\",\"maintainability\"],\"skippedLenses\":[],\"failedLenses\":[],\"coverageGapCount\":0,\"findings\":{\"provisional\":12,\"confirmed\":9,\"rejected\":3,\"unresolved\":0},\"candidateLedger\":[{\"candidateId\":\"C1\",\"claimHash\":\"2c49983b007b54d5a984215d20205c957b9fba63c2bd520e5a06d2ec2992da9c\",\"originInvocationId\":null,\"judgeInvocationId\":\"01a10a14-bb8c-73a2-b35c-e6bce86136a6\",\"verdict\":\"real\",\"finalDisposition\":\"confirmed\"},{\"candidateId\":\"C2\",\"claimHash\":\"2e6741520cfe5b1cff2a0f466a233237818df94c382741a1fd8d36858178ad58\",\"originInvocationId\":null,\"judgeInvocationId\":\"01a10a14-bb8c-73a2-b35c-e6bce86136a6\",\"verdict\":\"real\",\"finalDisposition\":\"confirmed\"},{\"candidateId\":\"C3\",\"claimHash\":\"34605f8c0e0e3b23d63daba0574b26eed79f087175dccffe2779bf9484e4dcf4\",\"originInvocationId\":null,\"judgeInvocationId\":\"01a10a14-bb8c-73a2-b35c-e6bce86136a6\",\"verdict\":\"real\",\"finalDisposition\":\"confirmed\"},{\"candidateId\":\"C4\",\"claimHash\":\"4217117c3d4db23df15b249e836d550f447fd43a5207a47aac736ba90a7a772c\",\"originInvocationId\":null,\"judgeInvocationId\":\"01a10a14-bb8c-73a2-b35c-e6bce86136a6\",\"verdict\":\"real\",\"finalDisposition\":\"confirmed\"},{\"candidateId\":\"C5\",\"claimHash\":\"b9a4d7a8f52c4b0ba93fb99180662a72d269cb161cca75b1b6daa925c9fed3db\",\"originInvocationId\":null,\"judgeInvocationId\":\"01a10a14-bb8c-73a2-b35c-e6bce86136a6\",\"verdict\":\"real\",\"finalDisposition\":\"confirmed\"},{\"candidateId\":\"C6\",\"claimHash\":\"1cd98f1bf72c12bdd19d9a4a55140ef7605282742e366baac8f9f22b50166cff\",\"originInvocationId\":null,\"judgeInvocationId\":\"01a10a14-bb8c-73a2-b35c-e6bce86136a6\",\"verdict\":\"real\",\"finalDisposition\":\"confirmed\"},{\"candidateId\":\"C7\",\"claimHash\":\"c54e89b3ca96fa439f7aeae03b539cc0509d4263c822ec9aca0cd40ca89b78a7\",\"originInvocationId\":null,\"judgeInvocationId\":\"01a10a14-bb8c-73a2-b35c-e6bce86136a6\",\"verdict\":\"false_positive\",\"finalDisposition\":\"rejected\"},{\"candidateId\":\"C8\",\"claimHash\":\"468507e310089092527bcd6bfa0dc16f2b9107a6a994cdd97c5672483ba81e0a\",\"originInvocationId\":null,\"judgeInvocationId\":\"01a10a14-bb8c-73a2-b35c-e6bce86136a6\",\"verdict\":\"real\",\"finalDisposition\":\"confirmed\"},{\"candidateId\":\"C9\",\"claimHash\":\"a3e4dffa2f8eb30520d689c63c4dfd7847b454cb3aa74b30a79ea0fa89ed3898\",\"originInvocationId\":null,\"judgeInvocationId\":\"01a10a14-bb8c-73a2-b35c-e6bce86136a6\",\"verdict\":\"false_positive\",\"finalDisposition\":\"rejected\"},{\"candidateId\":\"C10\",\"claimHash\":\"a2d5a6cc35179e8fc70091116bb805d27bf2b6d8ea1248806d499d8bd89743fa\",\"originInvocationId\":null,\"judgeInvocationId\":\"01a10a14-bb8c-73a2-b35c-e6bce86136a6\",\"verdict\":\"real\",\"finalDisposition\":\"confirmed\"},{\"candidateId\":\"C11\",\"claimHash\":\"26a02f0c7c431234e2108f20f108233d465fbe5dde25ad132311b50e3e95a833\",\"originInvocationId\":null,\"judgeInvocationId\":\"01a10a14-bb8c-73a2-b35c-e6bce86136a6\",\"verdict\":\"real\",\"finalDisposition\":\"confirmed\"},{\"candidateId\":\"C12\",\"claimHash\":\"e3112e0b9f876bb4426395728fbdb1c867ead83bf95ff263457719a4d44aa73d\",\"originInvocationId\":null,\"judgeInvocationId\":\"01a10a14-bb8c-73a2-b35c-e6bce86136a6\",\"verdict\":\"false_positive\",\"finalDisposition\":\"rejected\"}],\"newLeadResolutions\":[],\"codex\":{\"provider\":\"openai\",\"model\":\"gpt-5.6-sol\",\"reasoningEffort\":\"high\",\"cliVersion\":\"0.156.0\",\"receiptSha256\":\"47b27ebf45ee44488ba272889236cb96076b62627cafa0a01a0ab6109699a47c\"}}",
+  "resultContract": {
+    "candidateLedger": [
+      {
+        "candidateId": "C1",
+        "claimHash": "2c49983b007b54d5a984215d20205c957b9fba63c2bd520e5a06d2ec2992da9c",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a14-bb8c-73a2-b35c-e6bce86136a6",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C2",
+        "claimHash": "2e6741520cfe5b1cff2a0f466a233237818df94c382741a1fd8d36858178ad58",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a14-bb8c-73a2-b35c-e6bce86136a6",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C3",
+        "claimHash": "34605f8c0e0e3b23d63daba0574b26eed79f087175dccffe2779bf9484e4dcf4",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a14-bb8c-73a2-b35c-e6bce86136a6",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C4",
+        "claimHash": "4217117c3d4db23df15b249e836d550f447fd43a5207a47aac736ba90a7a772c",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a14-bb8c-73a2-b35c-e6bce86136a6",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C5",
+        "claimHash": "b9a4d7a8f52c4b0ba93fb99180662a72d269cb161cca75b1b6daa925c9fed3db",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a14-bb8c-73a2-b35c-e6bce86136a6",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C6",
+        "claimHash": "1cd98f1bf72c12bdd19d9a4a55140ef7605282742e366baac8f9f22b50166cff",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a14-bb8c-73a2-b35c-e6bce86136a6",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C7",
+        "claimHash": "c54e89b3ca96fa439f7aeae03b539cc0509d4263c822ec9aca0cd40ca89b78a7",
+        "finalDisposition": "rejected",
+        "judgeInvocationId": "01a10a14-bb8c-73a2-b35c-e6bce86136a6",
+        "originInvocationId": null,
+        "verdict": "false_positive"
+      },
+      {
+        "candidateId": "C8",
+        "claimHash": "468507e310089092527bcd6bfa0dc16f2b9107a6a994cdd97c5672483ba81e0a",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a14-bb8c-73a2-b35c-e6bce86136a6",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C9",
+        "claimHash": "a3e4dffa2f8eb30520d689c63c4dfd7847b454cb3aa74b30a79ea0fa89ed3898",
+        "finalDisposition": "rejected",
+        "judgeInvocationId": "01a10a14-bb8c-73a2-b35c-e6bce86136a6",
+        "originInvocationId": null,
+        "verdict": "false_positive"
+      },
+      {
+        "candidateId": "C10",
+        "claimHash": "a2d5a6cc35179e8fc70091116bb805d27bf2b6d8ea1248806d499d8bd89743fa",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a14-bb8c-73a2-b35c-e6bce86136a6",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C11",
+        "claimHash": "26a02f0c7c431234e2108f20f108233d465fbe5dde25ad132311b50e3e95a833",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a14-bb8c-73a2-b35c-e6bce86136a6",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C12",
+        "claimHash": "e3112e0b9f876bb4426395728fbdb1c867ead83bf95ff263457719a4d44aa73d",
+        "finalDisposition": "rejected",
+        "judgeInvocationId": "01a10a14-bb8c-73a2-b35c-e6bce86136a6",
+        "originInvocationId": null,
+        "verdict": "false_positive"
+      }
+    ],
+    "codex": {
+      "cliVersion": "0.156.0",
+      "model": "gpt-5.6-sol",
+      "provider": "openai",
+      "reasoningEffort": "high",
+      "receiptSha256": "47b27ebf45ee44488ba272889236cb96076b62627cafa0a01a0ab6109699a47c"
+    },
+    "completedLenses": [
+      "correctness",
+      "spec",
+      "standards",
+      "security",
+      "reliability",
+      "contracts",
+      "testing",
+      "performance",
+      "comments",
+      "maintainability"
+    ],
+    "coverage": "complete",
+    "coverageGapCount": 0,
+    "failedLenses": [],
+    "findings": {
+      "confirmed": 9,
+      "provisional": 12,
+      "rejected": 3,
+      "unresolved": 0
+    },
+    "fix": "not-requested",
+    "fixRequested": false,
+    "newLeadResolutions": [],
+    "schemaVersion": 2,
+    "skippedLenses": [],
+    "stopReason": "completed",
+    "stopTrigger": "none",
+    "verification": "complete"
+  },
+  "codexReceiptId": "f2d5aa1c-a659-4675-ae9b-488017419fbb",
+  "codexReceiptProof": {
+    "candidateCount": 12,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "inputSha256": "c657717360ba7e489d8b82385c0b247bc9a6475725644989b9dc4a7261ae247f",
+    "invocationCount": 1,
+    "judgeModel": "gpt-5.6-sol",
+    "judgeProvider": "openai",
+    "reasoningEffort": "high",
+    "receiptSha256": "47b27ebf45ee44488ba272889236cb96076b62627cafa0a01a0ab6109699a47c",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7",
+    "schemaVersion": 1,
+    "sourceProvider": "anthropic",
+    "usage": {
+      "cacheWriteInputTokens": 0,
+      "cachedInputTokens": 12160,
+      "inputTokens": 29681,
+      "outputTokens": 7102,
+      "reasoningOutputTokens": 4795,
+      "totalTokens": 36783
+    }
+  },
+  "codexUsage": {
+    "inputTokens": 29681,
+    "cachedInputTokens": 12160,
+    "cacheWriteInputTokens": 0,
+    "outputTokens": 7102,
+    "reasoningOutputTokens": 4795,
+    "totalTokens": 36783
+  },
+  "discoveryLedger": {
+    "schemaVersion": 1,
+    "candidates": [
+      {
+        "sourceId": "L3-lifecycle",
+        "candidateId": "L3-lifecycle-1",
+        "claim": "The new test checks only that send() is refused after _stream_closing is set. Nothing exercises the second half of the fix, where stream_close() waits on _outgoing_queue_ready for entries that send() accepted before the flag was set. If that wait were removed or broken, the test would still pass.",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C1",
+        "canonicalId": "C1"
+      },
+      {
+        "sourceId": "L3-lifecycle",
+        "candidateId": "L3-lifecycle-2",
+        "claim": "The new comment says _outgoing_queue_ready is exceptional \"if an entry failed\". A failed entry does not make it exceptional. When send_entry() fails, abort() is called and p->done.set_value() still runs. The future is exceptional only when stop_send_loop() aborts _negotiated, either by setting the exception on the front entry's done while _negotiated is engaged, or because _outgoing_queue_ready is still the _negotiated shared future.",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C5",
+        "canonicalId": "C5"
+      },
+      {
+        "sourceId": "L2-correctness",
+        "candidateId": "L2-correctness-1",
+        "claim": "The new test only covers a send() that arrives after _stream_closing is set and gets refused. Nothing tests the second half of the fix, where stream_close() waits on the old _outgoing_queue_ready so that entries accepted before the flag are written before write_buf.close().",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C1",
+        "canonicalId": "C1"
+      },
+      {
+        "sourceId": "L2-correctness",
+        "candidateId": "L2-correctness-2",
+        "claim": "The new comment says _outgoing_queue_ready \"is exceptional if an entry failed\". A failed entry resolves its done promise with a value. The chain becomes exceptional only when negotiation fails or is aborted.",
+        "disposition": "admitted",
+        "reason": "reachable trigger/claim, single mechanism, concrete consequence",
+        "canonicalId": "C5"
+      },
+      {
+        "sourceId": "L2-correctness",
+        "candidateId": "L2-correctness-3",
+        "claim": "The test comment says the late hook call \"must be refused\", but the try/catch passes whether the hook throws closed_error or succeeds. Only the put_after_close flag is asserted.",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C2",
+        "canonicalId": "C2"
+      },
+      {
+        "sourceId": "L4-tests",
+        "candidateId": "L4-tests-1",
+        "claim": "The test accepts both a successful and a closed_error-failing hook call, so it never checks the refusal contract that commit f545c28a introduces (send() fails with closed_error once stream_close() has begun).",
+        "disposition": "admitted",
+        "reason": "reachable trigger/claim, single mechanism, concrete consequence",
+        "canonicalId": "C2"
+      },
+      {
+        "sourceId": "L4-tests",
+        "candidateId": "L4-tests-2",
+        "claim": "No test reaches stream_close() while _outgoing_queue still holds an entry, so the new drain step (std::exchange of _outgoing_queue_ready + then_wrapped before write_buf.close()) is unprotected.",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C1",
+        "canonicalId": "C1"
+      },
+      {
+        "sourceId": "L4-tests",
+        "candidateId": "L4-tests-3",
+        "claim": "test_data_sink_impl overrides put(std::span<temporary_buffer<char>>) and calls data_sink::put(span) with no API-level guard, although both exist only when SEASTAR_API_LEVEL >= 9.",
+        "disposition": "admitted",
+        "reason": "reachable trigger/claim, single mechanism, concrete consequence",
+        "canonicalId": "C10"
+      },
+      {
+        "sourceId": "L4-tests",
+        "candidateId": "L4-tests-4",
+        "claim": "The comment says ten yield().get() calls \"Let the batch flush poller run\", but seastar::yield() only schedules a task and does not make the reactor poll. While the yield chain keeps the task queue non-empty and nothing preempts, flush_tcp_batches() does not run.",
+        "disposition": "admitted",
+        "reason": "reachable trigger/claim, single mechanism, concrete consequence",
+        "canonicalId": "C11"
+      },
+      {
+        "sourceId": "L4-tests",
+        "candidateId": "L4-tests-5",
+        "claim": "st.close_entered_cv.wait(pred) has no timeout. If a future change stops stream_close() from closing the stream's write buffer through the wrapped sink, the test blocks until the harness timeout instead of failing with a diagnosable assertion.",
+        "disposition": "admitted",
+        "reason": "reachable trigger/claim, single mechanism, concrete consequence",
+        "canonicalId": "C12"
+      },
+      {
+        "sourceId": "L1-rootcause",
+        "candidateId": "L1-rootcause-1",
+        "claim": "The drain half of the fix (waiting for _outgoing_queue_ready before closing write_buf) has no test; removing it would leave the new test green.",
+        "disposition": "admitted",
+        "reason": "reachable trigger/claim, single mechanism, concrete consequence",
+        "canonicalId": "C1"
+      },
+      {
+        "sourceId": "L1-rootcause",
+        "candidateId": "L1-rootcause-2",
+        "claim": "The test tolerates the hook succeeding, though commit 5e25ebdb claims \"With the fix the hook fails with closed_error\".",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C2",
+        "canonicalId": "C2"
+      },
+      {
+        "sourceId": "L1-rootcause",
+        "candidateId": "L1-rootcause-3",
+        "claim": "The new doc says the stream connection is shut down only once both halves are closed, but it is also shut down by peer close/errors and by closing the parent client (abort_all_streams), which the same PR's doc text states.",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C3",
+        "canonicalId": "C3"
+      },
+      {
+        "sourceId": "L5-contracts",
+        "candidateId": "L5-contracts-1",
+        "claim": "The new source contract says any throw from reading an rpc::source closes it. A deserialization exception thrown by source_impl::operator() leaves _source_closed false, so the source is not closed.",
+        "disposition": "admitted",
+        "reason": "reachable trigger/claim, single mechanism, concrete consequence",
+        "canonicalId": "C4"
+      },
+      {
+        "sourceId": "L5-contracts",
+        "candidateId": "L5-contracts-2",
+        "claim": "The new doc says the stream connection is shut down only after both halves are closed. The connection is also shut down without the application closing either half, when the peer closes, on a read or write error, or when the parent client or server connection aborts its streams.",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C3",
+        "canonicalId": "C3"
+      },
+      {
+        "sourceId": "G-gap",
+        "candidateId": "G-gap-1",
+        "claim": "The new docs say an rpc::source is released by reading it until it throws (\"there is no other way to do it\"), but when unmarshall()/buffer copy throws in source_impl::operator() the source is not closed (close_source() is never called), so a throw does not release it.",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C4",
+        "canonicalId": "C4"
+      },
+      {
+        "sourceId": "L6-standards",
+        "candidateId": "L6-standards-1",
+        "claim": "doc/rpc-streaming.md and the rpc::source doxygen state that reading a source until it throws closes/releases it, but a throw from deserialization of a received buffer does not close the source.",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C4",
+        "canonicalId": "C4"
+      },
+      {
+        "sourceId": "L6-standards",
+        "candidateId": "L6-standards-2",
+        "claim": "The new doc section says the stream's connection is shut down only once both halves are closed, but the connection is also shut down whenever its loop ends on error, peer close, or parent client abort, whatever state the halves are in.",
+        "disposition": "admitted",
+        "reason": "reachable trigger/claim, single mechanism, concrete consequence",
+        "canonicalId": "C3"
+      },
+      {
+        "sourceId": "L6-standards",
+        "candidateId": "L6-standards-3",
+        "claim": "The regression test's header comment says, in the present tense, that connection::send() still accepts frames until stop() sets _error. After the first commit, send() refuses them as soon as stream_close() sets _stream_closing.",
+        "disposition": "admitted",
+        "reason": "reachable trigger/claim, single mechanism, concrete consequence",
+        "canonicalId": "C6"
+      },
+      {
+        "sourceId": "L6-standards",
+        "candidateId": "L6-standards-4",
+        "claim": "The new comment says nothing else waits for _outgoing_queue_ready and that stop_send_loop() waits for _sink_closed_future, but stop_send_loop() waits on both, through when_all(_outgoing_queue_ready, _sink_closed_future). After the exchange it waits on the ready placeholder.",
+        "disposition": "admitted",
+        "reason": "reachable trigger/claim, single mechanism, concrete consequence",
+        "canonicalId": "C7"
+      },
+      {
+        "sourceId": "L6-standards",
+        "candidateId": "L6-standards-5",
+        "claim": "The test factory mutates state from the const negotiate() via const_cast on this. The same file's precedent for state mutated in const negotiate() is a mutable member.",
+        "disposition": "admitted",
+        "reason": "reachable trigger/claim, single mechanism, concrete consequence",
+        "canonicalId": "C8"
+      },
+      {
+        "sourceId": "L6-standards",
+        "candidateId": "L6-standards-6",
+        "claim": "All three commits carry Co-Authored-By Claude trailers and the PR body ends with a \"Generated with Claude Code\" line, which the user's standing instructions forbid.",
+        "disposition": "screened",
+        "reason": "inapplicable rule: basis is the reviewing user's private assistant-authoring instruction, not an authoritative repository rule; base history already contains similar Co-Authored-By trailers, so no applicable rule is violated",
+        "canonicalId": null
+      },
+      {
+        "sourceId": "L6-standards",
+        "candidateId": "L6-standards-7",
+        "claim": "send() is now gated by _error && _stream_closing, while every other send-eligibility check on a stream connection still consults error() alone. A new path that checks error() would silently reopen the window this PR closes.",
+        "disposition": "admitted",
+        "reason": "reachable trigger/claim, single mechanism, concrete consequence",
+        "canonicalId": "C9"
+      }
+    ],
+    "checkedNonissues": [
+      {
+        "sourceId": "L3-lifecycle",
+        "observationId": "L3-lifecycle-NI-1",
+        "basis": "Whether stop_send_loop() can run concurrently while stream_close() waits on queue_drained, and whether write_buf is then closed twice",
+        "reason": "stop_send_loop() moves the replacement ready _outgoing_queue_ready and then waits in when_all on _sink_closed_future. stream_close() sets that future only in finally(), after write_buf.close() completes. stop_send_loop() then sees sink_closed==true and skips its own close. The queue chain stays intact through withdraw(), so the front entry finishing resolves queue_drained. Its in-flight write fails after shutdown_output(), and that failed write still reaches p->done.set_value(). So write_buf is closed exactly once, and only after the queue is idle."
+      },
+      {
+        "sourceId": "L3-lifecycle",
+        "observationId": "L3-lifecycle-NI-2",
+        "basis": "Whether stop_send_loop() could run before stream_close() and leave both waiting on the same moved future",
+        "reason": "stop_send_loop() is always preceded by _error=true in both loops, with no suspension point between the loop exit and that assignment. stream_close() enters its branch only when !error(), so the two orderings are mutually exclusive and each future is consumed once."
+      },
+      {
+        "sourceId": "L3-lifecycle",
+        "observationId": "L3-lifecycle-NI-3",
+        "basis": "Whether the new queue_drained wait can hang sink.close()/source eof and stop() where base did not",
+        "reason": "By the time close_sink() runs, sink_impl::close() has already waited for every sink entry (with_semaphore of all units) and for the eof frame's send(). The only entries left to drain are compressor empty frames, which are bounded. A drain that stalls on a blocked socket write would equally stall base's write_buf.close() flush, which also preceded stop(). Error or abort (abort_all_streams, peer reset, keepalive) calls shutdown_output(), which fails the write, resolves done and unblocks the drain."
+      },
+      {
+        "sourceId": "L3-lifecycle",
+        "observationId": "L3-lifecycle-NI-4",
+        "basis": "Lifetime of the `this` captures in the stream_close() continuations",
+        "reason": "stream_close() is reached only from close_sink() or close_source(). Their callers (sink_impl::close, source_impl::operator()) hold an xshard_connection_ptr and chain on the returned future. The connection loop's _stopped also cannot complete before _sink_closed_future resolves, so the connection outlives both continuations."
+      },
+      {
+        "sourceId": "L3-lifecycle",
+        "observationId": "L3-lifecycle-NI-5",
+        "basis": "Whether stop()'s shutdown_input()/shutdown_output() ordering and the eof marker delivery are preserved",
+        "reason": "_error is still set only by stop() via abort(), so shutdown_input() runs. shutdown_output() in stop_send_loop() still happens only after the loop exits and after _sink_closed_future, which means after write_buf.close() has flushed the batch containing the eof marker."
+      },
+      {
+        "sourceId": "L3-lifecycle",
+        "observationId": "L3-lifecycle-NI-6",
+        "basis": "Whether stream_close() can dereference a disengaged _connected when the queue drain fails because negotiation was aborted",
+        "reason": "In principle, if stream_close() ran before connect and connect then failed, the then_wrapped would call _connected->write_buf.close() on nullopt. Base dereferenced it immediately and unconditionally. Reaching it also needs both halves closed before negotiation, which the sink path cannot do: close_sink follows the eof send(), which fails with _error already set once connect fails."
+      },
+      {
+        "sourceId": "L3-lifecycle",
+        "observationId": "L3-lifecycle-NI-7",
+        "basis": "A second stream_close() during the drain (error() still false) would overwrite _sink_closed_future and close write_buf twice",
+        "reason": "This is reachable only through double close, which sink_impl::close (sink_closed check) and source_impl (_source_closed check) both reject. Base had the same unguarded shape."
+      },
+      {
+        "sourceId": "L3-lifecycle",
+        "observationId": "L3-lifecycle-NI-8",
+        "basis": "Whether stop() can be called twice (promise::get_future twice) because of the deferral",
+        "reason": "The deferral does not add any new stop() call. stream_close() still calls stop() exactly once, and abort() is idempotent."
+      },
+      {
+        "sourceId": "L2-correctness",
+        "observationId": "L2-correctness-NI-1",
+        "basis": "What send() returns when _stream_closing is set",
+        "reason": "The guard is in the if-condition, so the else branch returns make_exception_future<>(closed_error()), the same as the _error case. The compressor hook and sink callers get closed_error. The expired-timeout early return is inside the if-branch and is not reached while closing."
+      },
+      {
+        "sourceId": "L2-correctness",
+        "observationId": "L2-correctness-NI-2",
+        "basis": "Whether the exchanged _outgoing_queue_ready resolves only after the last accepted entry is written, including withdrawn, cancelled and timed-out entries",
+        "reason": "Each send() replaces _outgoing_queue_ready with the new entry's done future and chains its continuation on the previous one, so the old value at exchange time is the last accepted entry's done. withdraw() swaps the done promises with the predecessor, so the successor/ready future is still resolved by the predecessor after it finishes. Expired entries take send_entry's early return and still set done. A failed send_entry still calls set_value. So the chain covers every accepted entry, and when it resolves, the last write+flush (or batch registration) has completed before write_buf.close()."
+      },
+      {
+        "sourceId": "L2-correctness",
+        "observationId": "L2-correctness-NI-3",
+        "basis": "Whether anything reads or re-assigns _outgoing_queue_ready after stream_close's exchange",
+        "reason": "send() is refused, so nothing new chains. stop_send_loop moves the ready dummy into when_all, which is harmless, and still waits for _sink_closed_future, which resolves only after queue_drained and write_buf.close(), so it transitively waits for the drain. enqueue_zero_frame runs only from the client constructor. suspend_for_testing is test-only."
+      },
+      {
+        "sourceId": "L2-correctness",
+        "observationId": "L2-correctness-NI-4",
+        "basis": "Concurrent loop error / stop_send_loop while stream_close is waiting on the drain",
+        "reason": "stop_send_loop sets _error, calls shutdown_output, withdraws the non-front entries (the chain still resolves via the swap), and waits on _sink_closed_future. The front entry's write fails, abort() is a no-op, done is set, the drain resolves, close() runs (its failure is swallowed by finally), and p is set. No deadlock. The connection stays alive because _stopped is set only after stop_send_loop completes."
+      },
+      {
+        "sourceId": "L2-correctness",
+        "observationId": "L2-correctness-NI-5",
+        "basis": "Error already true at stream_close entry, or stream_close skipping",
+        "reason": "The behavior is unchanged from base. The !error() branch is skipped and stop() is called. _stream_closing is not set, but send() is already refused through _error."
+      },
+      {
+        "sourceId": "L2-correctness",
+        "observationId": "L2-correctness-NI-6",
+        "basis": "Whether the new guard refuses legitimate frames (eof marker, data frames, negotiation, parent connection)",
+        "reason": "sink_impl::close waits for the eof-marker send to finish before close_sink(), and data sends finish before close via _send_queue.stop() and the semaphore. The negotiation frame writes write_buf directly, not through send(). close_sink/close_source, the only callers of stream_close, are reached only through sink_impl/source_impl on stream connections, so parent and RPC connections never set the flag. Connections are not reused, so the flag never needs resetting."
+      },
+      {
+        "sourceId": "L2-correctness",
+        "observationId": "L2-correctness-NI-7",
+        "basis": "The drain may block stream_close indefinitely if the front entry's write is stuck on a peer that is not reading",
+        "reason": "In base, write_buf.close() would also block flushing behind the in-flight write, and stop() ran only after close in both versions. Waiting for negotiation (if still pending) is an improvement over base, which closed write_buf concurrently with send_negotiation_frame."
+      },
+      {
+        "sourceId": "L2-correctness",
+        "observationId": "L2-correctness-NI-8",
+        "basis": "The test's hooks.size()==2 relies on negotiation having completed",
+        "reason": "make_stream_sink waits for c->await_connection(), which waits for negotiation, so both client-side negotiate() calls have run before the check."
+      },
+      {
+        "sourceId": "L2-correctness",
+        "observationId": "L2-correctness-NI-9",
+        "basis": "Test lifetime of test_sink_state referenced by the wrapped socket",
+        "reason": "st is declared before sink and source in the same lambda, so it is destroyed after them. The stream client's loop finishes (deregister and _stopped) before sink_closed.get() returns, because stream_close awaits stop()."
+      },
+      {
+        "sourceId": "L4-tests",
+        "observationId": "L4-tests-NI-1",
+        "basis": "Whether test_stream_send_after_stream_close fails on base 5cc62de6 (without f545c28a)",
+        "reason": "On base, send() checks only !_error, which is false in the window, so the hook's frame is queued. send_entry() writes it into write_buf (buffered, since batch_flushes=true via connected_socket::output) and flush() registers it with the flush poller. When the reactor next polls (at the latest during sink_closed.get()), poll_flush -> do_flush -> _fd.put() runs after close_entered was set, so put_after_close=true and BOOST_REQUIRE_MESSAGE fails. The hook future resolves successfully on base, so the try/catch does not hide this. The failure is deterministic."
+      },
+      {
+        "sourceId": "L4-tests",
+        "observationId": "L4-tests-NI-2",
+        "basis": "Hook identification by client_factory.hooks.size()==2 / hooks.back() and negotiation ordering, including --smp 2",
+        "reason": "make_stream_sink() awaits the parent's await_connection() before it creates the stream client, then awaits the stream client's await_connection(), which completes only after client::negotiate() has pushed the hook. Parent negotiation therefore always comes before stream negotiation, and both finish before make_stream_sink() resolves. Client-side objects all live on the test's shard, so the order holds under --smp 2."
+      },
+      {
+        "sourceId": "L4-tests",
+        "observationId": "L4-tests-NI-3",
+        "basis": "server_factory is a single test-thread object shared through server_options by every shard of the sharded server; under --smp 2 a server connection on shard 1 does hooks.push_back into a vector owned by shard 0",
+        "reason": "The pushes are sequential (parent connection, then stream connection), ordered by smp message passing, the server hooks are never read, and Seastar's allocator handles cross-shard frees. test_compressor_empty_frames (tests/unit/rpc_test.cc:1821-1826) already shares a mutable tracker across shards the same way. Collecting server hooks is unused but harmless."
+      },
+      {
+        "sourceId": "L4-tests",
+        "observationId": "L4-tests-NI-4",
+        "basis": "Wrapper classes forward every pure virtual of net::connected_socket_impl, net::socket_impl and data_sink_impl",
+        "reason": "test_connected_socket_impl overrides all 16 pure virtuals in include/seastar/net/stack.hh:31-49. It does not override source(connected_socket_input_stream_config), whose default falls back to source() (src/net/stack.cc:170-173). test_socket_impl overrides all four pure virtuals; set_reuseaddr is a no-op, which matches rpc_socket_impl (tests/unit/rpc_test.cc:169-170). test_data_sink_impl forwards put/flush/close/allocate_buffer/can_batch_flushes/on_batch_flush_error. buffer_size() hard-codes 8192 because loopback_data_sink_impl does not override buffer_size(), so forwarding would hit the base SEASTAR_ASSERT. 8192 is also the size connected_socket::output() passes."
+      },
+      {
+        "sourceId": "L4-tests",
+        "observationId": "L4-tests-NI-5",
+        "basis": "Whether put() recording can produce false positives, and whether flush-only writes are ignored",
+        "reason": "Only put() sets put_after_close. data_sink::flush() is forwarded unrecorded, and do_flush() with no buffered bytes calls only _fd.flush(). The legitimate close path finishes all puts before _fd.close() sets close_entered, and loopback close() pushes eof straight to the buffer, not through put(). Any late frame has bytes, so it always reaches put()."
+      },
+      {
+        "sourceId": "L4-tests",
+        "observationId": "L4-tests-NI-6",
+        "basis": "Hang and lifetime safety of release_close / test_sink_state when an exception escapes before release_close.set_value()",
+        "reason": "If the hook throws something other than closed_error, or a BOOST_REQUIRE fires, st is destroyed. shared_promise's destructor breaks the waiting future, the .then([this]{ _inner.close(); }) continuation is skipped, stream_close()'s .finally still sets the _sink_closed_future promise and calls stop(), and stop_send_loop() is not blocked. The wrapper's destructor does not touch _st, and no put/close runs after the broken close. The failure surfaces as the escaping exception, not a hang. The one unbounded wait is reported as L4-tests-5."
+      },
+      {
+        "sourceId": "L4-tests",
+        "observationId": "L4-tests-NI-7",
+        "basis": "Exceptional _outgoing_queue_ready path in stream_close() (then_wrapped ignore_ready_future) is untested",
+        "reason": "While !error(), _outgoing_queue_ready cannot be exceptional. Entry done promises are set with a value in send() (src/rpc/rpc.cc:338) and in withdraw() from timeout/cancel deleters (ex == nullptr, src/rpc/rpc.cc:283-287). Exceptions come only from stop_send_loop()/_negotiated abort, which run after _error=true, and streams are already negotiated. The branch is defensive and there is no behavior to protect with a test."
+      },
+      {
+        "sourceId": "L4-tests",
+        "observationId": "L4-tests-NI-8",
+        "basis": "Server-side stream_close() refusal is not tested (only the client stream connection's hook is fired)",
+        "reason": "server::connection takes the same hook ([this]{ return send({}); }, src/rpc/rpc.cc:1103) and uses the same connection::send()/connection::stream_close(). The guard is in shared base-class code, so a server-only regression would need a server-specific change that this PR does not add."
+      },
+      {
+        "sourceId": "L4-tests",
+        "observationId": "L4-tests-NI-9",
+        "basis": "Duplication of socket/sink wrapper helpers with existing test infrastructure",
+        "reason": "loopback_error_injector (tests/unit/loopback_socket.hh) can inject errors and connect delays but cannot park data_sink::close() or record puts. The tls_test.cc wrappers are local to that file and tied to TLS. No existing helper fits, so a local wrapper is reasonable."
+      },
+      {
+        "sourceId": "L4-tests",
+        "observationId": "L4-tests-NI-10",
+        "basis": "Accuracy of the test's header comment and the inline comments about close order",
+        "reason": "Server closes its sink first (client source hits eof -> close_source with sink still open), and the client's sink.close() then sends eof and calls close_sink() -> stream_close() -> write_buf.close() -> parked _fd.close(). This matches the comments at tests/unit/rpc_test.cc:1979-1982 and 2007-2009. The closing remark about ~output_stream() asserting is labeled hypothetical (\"with the above write still in flight\"), which matches commit 5e25ebdb."
+      },
+      {
+        "sourceId": "L1-rootcause",
+        "observationId": "L1-rootcause-NI-1",
+        "basis": "Whether flag+drain leaves any send()-path write after write_buf.close() begins on a stream connection",
+        "reason": "Flag is set synchronously before the drain/close chain; all later send() calls (sinks, hook, eof marker) are refused; earlier entries are drained first; _stream_closing is never cleared."
+      },
+      {
+        "sourceId": "L1-rootcause",
+        "observationId": "L1-rootcause-NI-2",
+        "basis": "Writers to write_buf that bypass send()",
+        "reason": "Only send_entry (via send), send_negotiation_frame (pre-negotiation) and stop_send_loop/stream_close closes touch write_buf; negotiation completes before a sink close can reach stream_close because the eof marker send waits behind the client's zero frame until negotiation."
+      },
+      {
+        "sourceId": "L1-rootcause",
+        "observationId": "L1-rootcause-NI-3",
+        "basis": "Parent client connection where the PR says the same frame sat unflushed",
+        "reason": "Non-stream connections close write_buf only in stop_send_loop after _error=true, and send() is refused once _error is set; no window exists there, and the PR does not change the parent. The parent frame is plausibly just in-flight on a live connection; the unavailable issue may say more, which is part of why status is cannot-prove."
+      },
+      {
+        "sourceId": "L1-rootcause",
+        "observationId": "L1-rootcause-NI-4",
+        "basis": "Reasoning for not setting _error in stream_close vs stop()/stop_send_loop()",
+        "reason": "abort() only shuts input when !_error, so setting _error first would skip waking the receive loop; eof marker is only registered in a batch flush when sink close's send resolves, so an early shutdown_output from stop_send_loop could drop it. Reasoning is consistent with the code."
+      },
+      {
+        "sourceId": "L1-rootcause",
+        "observationId": "L1-rootcause-NI-5",
+        "basis": "Invalid _outgoing_queue_ready future if stop_send_loop moved it before stream_close exchanges it",
+        "reason": "stop_send_loop sets _error before moving, and stream_close only touches the future when !error()."
+      },
+      {
+        "sourceId": "L1-rootcause",
+        "observationId": "L1-rootcause-NI-6",
+        "basis": "Drain could delay stop() if the front entry's write blocks on a non-reading peer",
+        "reason": "Base write_buf.close() also waited on the in-flight batch flush (_in_batch) before closing the fd, so a stuck peer stalled base stream_close as well."
+      },
+      {
+        "sourceId": "L1-rootcause",
+        "observationId": "L1-rootcause-NI-7",
+        "basis": "Test comment \"Let the batch flush poller run\" over 10 yield() calls; yield() does not force a poll",
+        "reason": "The later blocking sink_closed.get()/server_done.get() run the reactor pollers before put_after_close is checked, so a base write is still recorded."
+      },
+      {
+        "sourceId": "L5-contracts",
+        "observationId": "L5-contracts-NI-1",
+        "basis": "Contract change for compressors. send_empty_frame can now return closed_error during the stream_close window.",
+        "reason": "send() already returned make_exception_future(closed_error()) once _error was set, and stop() sets _error right after the window. Compressors therefore already had to handle closed_error from the hook. The PR only moves that point slightly earlier, and the base behaviour in the window (writing to a closed stream) was the crash."
+      },
+      {
+        "sourceId": "L5-contracts",
+        "observationId": "L5-contracts-NI-2",
+        "basis": "ABI/layout effect of the new private bool _stream_closing in rpc::connection (public header) and backport safety.",
+        "reason": "Seastar has no stable ABI. Consumers such as Scylla build it from source as a submodule, and connection is an internal type used by inline templates that are recompiled. The member is appended among the other private fields. Commit 1 is self-contained (rpc.hh plus rpc.cc), so a backport of commits 1 and 2 is consistent."
+      },
+      {
+        "sourceId": "L5-contracts",
+        "observationId": "L5-contracts-NI-3",
+        "basis": "Latency of stream_close waiting for _outgoing_queue to drain.",
+        "reason": "sink_impl::close() calls close_sink() only after the eof frame's send() future resolves, and that happens after send_entry. Sink frames are therefore never queued when stream_close starts. Only compressor control frames accepted before the flag can be pending, so the wait is bounded by one small write. stop() was already sequenced after write_buf.close() in base."
+      },
+      {
+        "sourceId": "L5-contracts",
+        "observationId": "L5-contracts-NI-4",
+        "basis": "stream_close exchanging _outgoing_queue_ready while stop_send_loop moves it in when_all, which could use a moved-from future.",
+        "reason": "stream_close only runs when !error(). Both loops set _error=true before calling stop_send_loop. If stop_send_loop runs later, it gets the ready future stream_close left behind and still serializes on _sink_closed_future. Entries that stop_send_loop withdraws resolve the chain through the swapped done promises, and failures are handled by then_wrapped/ignore_ready_future."
+      },
+      {
+        "sourceId": "L5-contracts",
+        "observationId": "L5-contracts-NI-5",
+        "basis": "Use-after-free from the [this] capture in the new then_wrapped continuation in stream_close.",
+        "reason": "Base already captured this in f.finally([this]{ return stop(); }). The caller keeps the connection alive while waiting on sink.close() or the source read, and the doc and test require waiting. No new lifetime is introduced."
+      },
+      {
+        "sourceId": "L5-contracts",
+        "observationId": "L5-contracts-NI-6",
+        "basis": "Doc claim \"Dropping an unclosed sink is an error\" and rpc_types.hh \"even if the stream has failed\".",
+        "reason": "~sink_impl unconditionally SEASTAR_ASSERTs sink_closed(). On error, close() still reaches close_sink() through finally, so closing a failed sink works and is required."
+      },
+      {
+        "sourceId": "L5-contracts",
+        "observationId": "L5-contracts-NI-7",
+        "basis": "Doc claim \"closing the client aborts any stream still open on it\" (doc/rpc-streaming.md:49).",
+        "reason": "client::loop calls abort_all_streams() on exit, and that abort()s every registered stream connection. A stream that is not yet closed is aborted, not closed, which matches the doc."
+      },
+      {
+        "sourceId": "L5-contracts",
+        "observationId": "L5-contracts-NI-8",
+        "basis": "Security lens. A peer-triggered compressor control frame (for example a dictionary announcement) racing stream_close.",
+        "reason": "There is no trust-boundary change. The PR turns a reachable assertion or UAF during stream close into a refused send, which reduces risk."
+      },
+      {
+        "sourceId": "L5-contracts",
+        "observationId": "L5-contracts-NI-9",
+        "basis": "Hot-path cost of the extra condition in connection::send().",
+        "reason": "It adds one predictable bool load per send. Not material."
+      },
+      {
+        "sourceId": "L5-contracts",
+        "observationId": "L5-contracts-NI-10",
+        "basis": "The rpc::compressor::factory doc for send_empty_frame (rpc_types.hh:318-321) was not updated to mention failure.",
+        "reason": "The doc never promised success, and failure with closed_error was already possible after _error. This is a gap that predates the PR, not one it introduced."
+      },
+      {
+        "sourceId": "G-gap",
+        "observationId": "G-gap-NI-1",
+        "basis": "G1 — stream_receive failure path and exception_future(stream_closed()) paths in source_impl::operator()",
+        "reason": "stream_receive failure (queue aborted with stream_closed when the loop ends) calls close_source() before propagating; the early stream_closed() return happens only when _source_closed is already true, so the source is already closed. Only the unmarshall/copy throw path (G-gap-1) misses close_source()."
+      },
+      {
+        "sourceId": "G-gap",
+        "observationId": "G-gap-NI-2",
+        "basis": "G2 — cross-shard sink/source use vs. _stream_closing and _outgoing_queue_ready exchange",
+        "reason": "Every path into connection::send() and stream_close() for a stream connection runs on the connection owner shard. sink_impl::send_buffer runs via _send_queue bound to get_owner_shard(); sink_impl::close() and source_impl::operator() hop with smp::submit_to(get_owner_shard()) before touching the connection, so close_sink()/close_source()->stream_close() (which sets _stream_closing and exchanges _outgoing_queue_ready) execute on the owner shard. The compressor and its send_empty_frame hook are created in negotiate() on the connection's own shard and capture `this`; send() is single-shard state. Parent-driven abort_all_streams also hops to the owner shard. No cross-shard access to the new state."
+      },
+      {
+        "sourceId": "G-gap",
+        "observationId": "G-gap-NI-3",
+        "basis": "G3 — source closes last (close_source() inside source_impl::operator() triggers stream_close()); can the new drain wait stall the reader where base did not; is refusal identical",
+        "reason": "Refusal is identical in either order because _stream_closing is set synchronously at the top of stream_close() regardless of which half triggered it. For the drain, the sink half closing first already waited for its eof-marker send to complete (sink close chains close_sink() after the send future), so only frames accepted afterwards (compressor hook frames) can be queued. Draining them needs only send_entry's write+flush, i.e. socket writability -- the same dependency base already had, since base write_buf.close() waited for the pending batch flush of the eof marker on the same socket before stop(). The peer's receive loop reads frames independently of its application (bounded queue), and per the documented contract the peer drains its source, so no new cross-dependency on this side's read is introduced; this side has already observed eof when the wait starts. Extra wait is at most a few tiny frames. If the connection has errored, stream_close skips the drain entirely and stop_send_loop withdraws/fails queued entries."
+      },
+      {
+        "sourceId": "G-gap",
+        "observationId": "G-gap-NI-4",
+        "basis": "G4 — in-tree forwarding/consumers of send_empty_frame (multi_algo_compressor_factory::negotiate, lz4, lz4_fragmented; snappy)",
+        "reason": "multi_algo_compressor_factory only forwards the std::function by value to sub-factories and never invokes it. lz4 and lz4_fragmented implement only the 2-arg negotiate() and never receive or call the hook. There is no in-tree snappy compressor. No in-tree code (outside tests) calls send_empty_frame, so none can discard its exceptional future. send() already returned make_exception_future(closed_error()) in base once _error was set, so external callers already had to handle it; the PR only widens the window in which that same error is returned."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-1",
+        "basis": "doc/contributing.md DCO Signed-off-by requirement vs the three PR commits (none has Signed-off-by)",
+        "reason": "The rule sits under \"Sending Patches\" to seastar-dev via git send-email. CONTRIBUTING.md offers GitHub PRs as an alternative with no sign-off requirement, and base history uses Signed-off-by inconsistently (45 of the last 200 non-merge commits). Record it as unmet but not required for the GitHub path."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-2",
+        "basis": "Commit subject prefixes \"rpc:\", \"rpc_test:\", \"rpc:\" vs doc/contributing.md area-tag guidance and local precedent",
+        "reason": "All subjects are area-tagged. \"rpc_test:\" has 14 precedents in base history."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-3",
+        "basis": "Anchor link [Closing a stream](#closing-a-stream)",
+        "reason": "The heading \"### Closing a stream\" exists, and the GitHub slug is closing-a-stream."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-4",
+        "basis": "Corrected sentence \"closing the client aborts any stream still open on it. Aborting a stream this way is not a substitute for closing it\"",
+        "reason": "client loop end calls abort_all_streams(), which aborts each registered stream connection. ~sink_impl still asserts sink_closed(), so aborting does not replace close()."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-5",
+        "basis": "sink doxygen \"close() must be called, and its future waited for, before the last reference to a sink goes away, even if the stream has failed\" and doc \"Dropping an unclosed sink is an error\"",
+        "reason": "Matches the ~sink_impl assertion. sink_impl::close() still calls close_sink() on the error paths (f.finally)."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-6",
+        "basis": "Doxygen block placed above the legacy `// send data Out...` / `// receive data In...` comments in rpc_types.hh",
+        "reason": "Doxygen ignores plain // comments between a doc block and its declaration, so the block still attaches to the class. The file already uses /// doxygen with \\addtogroup, so the style matches .claude/CLAUDE.md. The leftover legacy line is redundant but harmless."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-7",
+        "basis": "Hard-coded `buffer_size() { return 8192; }` in test_data_sink_impl",
+        "reason": "rpc builds write_buf via connected_socket::output(size_t buffer_size = 8192), which passes the size explicitly, so data_sink_impl::buffer_size() is not consulted. Forwarding to _inner would reach the base implementation, which asserts because posix sinks do not override it."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-8",
+        "basis": "`negotiate(sstring, bool) const override { abort(); }` in the test factory",
+        "reason": "Identical to the existing precedent in test_compressor_empty_frames."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-9",
+        "basis": "rpc.hh comment \"From then on send() refuses new frames\" — what does send() return",
+        "reason": "send() returns make_exception_future<>(closed_error()), the same refusal as when _error is set, which the commit message and the test's catch of rpc::closed_error describe."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-10",
+        "basis": "Duplication of the bug narrative between the test header comment, the commit message and the PR body",
+        "reason": "Rationale in a commit message plus a test comment is customary. The concrete problem (stale present tense) is filed separately as L6-standards-3."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-11",
+        "basis": "C++20 minimum / use of C++20 API (.claude/CLAUDE.md)",
+        "reason": "New code uses std::exchange, std::span (data_sink_impl::put signature) and lambdas. Nothing requires a newer standard, and no pre-C++20 replacement for an available C++20 facility was introduced."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-12",
+        "basis": "Line length",
+        "reason": "No authoritative line-length rule in CONTRIBUTING.md, doc/contributing.md or .claude/CLAUDE.md. Long one-line overrides follow nearby test code, and the long doc line at doc/rpc-streaming.md:51 carries over the base line's tail."
+      },
+      {
+        "sourceId": "L6-standards",
+        "observationId": "L6-standards-NI-13",
+        "basis": "Doc \"closing the client aborts any stream\" relies on abort; doc \"This applies on error too ... still have to be made\"",
+        "reason": "Consistent with the code. Both sink close and source read must still be performed after errors to set the half flags."
+      }
+    ]
+  },
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/ironweave/runs/rafp-coverage-2026-10-04/review-and-fix-pr/attempt-QBjIib/repo",
+  "finishedAt": "2026-10-05T03:24:22.931Z"
+}

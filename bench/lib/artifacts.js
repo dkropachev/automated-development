@@ -19,6 +19,7 @@ const FABLE_MODEL = 'claude-fable-5-1'
 const REPORTED_USAGE_NUMBER = /(?:^|_)(?:input_tokens|output_tokens|thinking_tokens|web_search_requests|web_fetch_requests)$/
 const REVIEW_AND_FIX_PR_CONTRACT_V1 = 'review-and-fix-pr-v1'
 const REVIEW_AND_FIX_PR_CONTRACT_V2 = 'review-and-fix-pr-v2'
+const REVIEW_AND_FIX_PR_CONTRACT_V3 = 'review-and-fix-pr-v3'
 // Retain the original export for callers and frozen fixtures which predate version dispatch.
 const REVIEW_AND_FIX_PR_CONTRACT = REVIEW_AND_FIX_PR_CONTRACT_V1
 const REVIEW_AND_FIX_PR_MARKER = 'REVIEW_AND_FIX_PR_RESULT_JSON='
@@ -261,7 +262,7 @@ function normalizedToolConfig(config) {
     if (ids.has(id) || typeof tool.prompt !== 'string') throw new Error(`manifest toolConfig entry is invalid: ${id}`)
     ids.add(id)
     if (id === 'review-and-fix-pr' && tool.resultContract != null &&
-        ![REVIEW_AND_FIX_PR_CONTRACT_V1, REVIEW_AND_FIX_PR_CONTRACT_V2].includes(tool.resultContract)) {
+        ![REVIEW_AND_FIX_PR_CONTRACT_V1, REVIEW_AND_FIX_PR_CONTRACT_V2, REVIEW_AND_FIX_PR_CONTRACT_V3].includes(tool.resultContract)) {
       throw new Error(`manifest toolConfig review contract is invalid: ${tool.resultContract}`)
     }
   }
@@ -272,7 +273,7 @@ function reviewAndFixPrContractForTool(manifest, toolId) {
   const tools = manifest && manifest.toolConfig && manifest.toolConfig.tools
   const tool = Array.isArray(tools) ? tools.find((entry) => entry && entry.id === toolId) : null
   const declared = tool && tool.resultContract
-  if (declared === REVIEW_AND_FIX_PR_CONTRACT_V1 || declared === REVIEW_AND_FIX_PR_CONTRACT_V2) return declared
+  if ([REVIEW_AND_FIX_PR_CONTRACT_V1, REVIEW_AND_FIX_PR_CONTRACT_V2, REVIEW_AND_FIX_PR_CONTRACT_V3].includes(declared)) return declared
   // The original tool was keyed by id before resultContract was frozen in manifests. Preserve that
   // exact historical interpretation; a new undeclared contract must never silently become v2.
   if (toolId === 'review-and-fix-pr' && declared == null) return REVIEW_AND_FIX_PR_CONTRACT_V1
@@ -281,7 +282,8 @@ function reviewAndFixPrContractForTool(manifest, toolId) {
 
 function manifestRequiresCodexJudge(manifest) {
   return Array.isArray(manifest && manifest.expectedCells) &&
-    manifest.expectedCells.some((cell) => reviewAndFixPrContractForTool(manifest, cell.tool) === REVIEW_AND_FIX_PR_CONTRACT_V2)
+    manifest.expectedCells.some((cell) => [REVIEW_AND_FIX_PR_CONTRACT_V2, REVIEW_AND_FIX_PR_CONTRACT_V3]
+      .includes(reviewAndFixPrContractForTool(manifest, cell.tool)))
 }
 
 function normalizedPins(targets) {
@@ -923,13 +925,14 @@ function validateReviewAndFixPrBaseContract(contract, schemaVersion, extraFields
   const extra = contract.completedLenses.filter((lens) => !known.has(lens))
   if (extra.length) throw new Error(`review-and-fix-pr result contract has unknown methodology IDs: ${extra.join(', ')}`)
   const findings = contract.findings
-  const findingFields = ['confirmed', 'provisional', 'rejected', 'unresolved']
+  const findingFields = ['confirmed', 'provisional', 'rejected', 'unresolved',
+    ...(schemaVersion === 3 ? ['suggestion'] : [])].sort()
   if (!findings || typeof findings !== 'object' || Array.isArray(findings) ||
       JSON.stringify(Object.keys(findings).sort()) !== JSON.stringify(findingFields) ||
       !Object.values(findings).every((value) => Number.isSafeInteger(value) && value >= 0)) {
     throw new Error('review-and-fix-pr result contract findings are invalid')
   }
-  if (findings.provisional !== findings.confirmed + findings.rejected + findings.unresolved) {
+  if (findings.provisional !== findings.confirmed + findings.rejected + findings.unresolved + (findings.suggestion || 0)) {
     throw new Error('review-and-fix-pr result contract finding dispositions do not partition provisional findings')
   }
   return contract
@@ -939,8 +942,8 @@ function validateReviewAndFixPrV1Contract(contract) {
   return canonical(validateReviewAndFixPrBaseContract(contract, 1))
 }
 
-function validateReviewAndFixPrV2Contract(contract) {
-  validateReviewAndFixPrBaseContract(contract, 2, ['candidateLedger', 'codex', 'newLeadResolutions'])
+function validateReviewAndFixPrV2Contract(contract, schemaVersion = 2) {
+  validateReviewAndFixPrBaseContract(contract, schemaVersion, ['candidateLedger', 'codex', 'newLeadResolutions'])
   if (!Array.isArray(contract.candidateLedger) || !Array.isArray(contract.newLeadResolutions)) {
     throw new Error('review-and-fix-pr v2 closure ledger is invalid')
   }
@@ -951,6 +954,7 @@ function validateReviewAndFixPrV2Contract(contract) {
   const claimHashes = new Set()
   const dispositionForVerdict = {
     real: 'confirmed', false_positive: 'rejected', unresolved: 'unresolved',
+    ...(schemaVersion === 3 ? { suggestion: 'suggestion' } : {}),
   }
   for (const [index, candidate] of contract.candidateLedger.entries()) {
     const label = `review-and-fix-pr v2 candidate ${index + 1}`
@@ -1016,31 +1020,34 @@ function validateReviewAndFixPrV2Contract(contract) {
       !validCodexCliVersion(contract.codex.cliVersion)) {
     throw new Error('review-and-fix-pr v2 Codex identity is invalid')
   }
-  const dispositionCounts = { confirmed: 0, rejected: 0, unresolved: 0 }
+  const dispositionCounts = { confirmed: 0, rejected: 0, unresolved: 0,
+    ...(schemaVersion === 3 ? { suggestion: 0 } : {}) }
   for (const candidate of contract.candidateLedger) dispositionCounts[candidate.finalDisposition] += 1
   if (contract.findings.provisional !== contract.candidateLedger.length ||
       contract.findings.confirmed !== dispositionCounts.confirmed ||
       contract.findings.rejected !== dispositionCounts.rejected ||
-      contract.findings.unresolved !== dispositionCounts.unresolved) {
+      contract.findings.unresolved !== dispositionCounts.unresolved ||
+      (schemaVersion === 3 && contract.findings.suggestion !== dispositionCounts.suggestion)) {
     throw new Error('review-and-fix-pr v2 finding counts do not match the closure ledger')
   }
   return canonical(contract)
 }
 
 function validateReviewAndFixPrContract(contract, expectedContract = null) {
-  const inferred = contract && contract.schemaVersion === 2
-    ? REVIEW_AND_FIX_PR_CONTRACT_V2
-    : REVIEW_AND_FIX_PR_CONTRACT_V1
+  const inferred = contract && contract.schemaVersion === 3 ? REVIEW_AND_FIX_PR_CONTRACT_V3
+    : contract && contract.schemaVersion === 2 ? REVIEW_AND_FIX_PR_CONTRACT_V2
+      : REVIEW_AND_FIX_PR_CONTRACT_V1
   const selected = expectedContract || inferred
-  if (![REVIEW_AND_FIX_PR_CONTRACT_V1, REVIEW_AND_FIX_PR_CONTRACT_V2].includes(selected)) {
+  if (![REVIEW_AND_FIX_PR_CONTRACT_V1, REVIEW_AND_FIX_PR_CONTRACT_V2, REVIEW_AND_FIX_PR_CONTRACT_V3].includes(selected)) {
     throw new Error(`unknown review-and-fix-pr result contract: ${JSON.stringify(selected)}`)
   }
-  const expectedSchema = selected === REVIEW_AND_FIX_PR_CONTRACT_V2 ? 2 : 1
+  const expectedSchema = selected === REVIEW_AND_FIX_PR_CONTRACT_V3 ? 3
+    : selected === REVIEW_AND_FIX_PR_CONTRACT_V2 ? 2 : 1
   if (!contract || contract.schemaVersion !== expectedSchema) {
     throw new Error(`review-and-fix-pr result contract schemaVersion must be ${expectedSchema}`)
   }
-  return selected === REVIEW_AND_FIX_PR_CONTRACT_V2
-    ? validateReviewAndFixPrV2Contract(contract)
+  return selected !== REVIEW_AND_FIX_PR_CONTRACT_V1
+    ? validateReviewAndFixPrV2Contract(contract, expectedSchema)
     : validateReviewAndFixPrV1Contract(contract)
 }
 
@@ -1193,7 +1200,17 @@ function validateResultRecord(record, manifest, targetId, toolId, options = {}) 
     if (JSON.stringify(canonical(record.resultContract)) !== JSON.stringify(parsedContract)) {
       throw new Error(`result ${targetId}/${toolId} structured contract does not match report marker`)
     }
-    if (expectedContract === REVIEW_AND_FIX_PR_CONTRACT_V2) {
+    if ([REVIEW_AND_FIX_PR_CONTRACT_V2, REVIEW_AND_FIX_PR_CONTRACT_V3].includes(expectedContract)) {
+      const tool = manifest.toolConfig && manifest.toolConfig.tools.find((entry) => entry.id === toolId)
+      if (tool && tool.requiresDiscoveryLedger) {
+        require('../../lib/review-discovery-ledger').validateDiscoveryLedger(
+          record.discoveryLedger, parsedContract.candidateLedger,
+          { schemaVersion: tool.discoveryLedgerSchemaVersion || 1 },
+        )
+      }
+      if (tool && tool.requiresDiscoveryReceipts) {
+        require('../../lib/review-discovery-receipts').validateDiscoveryReceipts(record.discoveryReceipts)
+      }
       validateV2ControllerStats(record, `result ${targetId}/${toolId}`)
       validateEmbeddedCodexReceipt(record, manifest, targetId, toolId, parsedContract)
       if (options.root) {
@@ -1359,6 +1376,9 @@ function validateFinding(finding, label = 'finding') {
     }
   }
   if (finding.selfRejected != null && typeof finding.selfRejected !== 'boolean') throw new Error(`${label}.selfRejected must be boolean`)
+  if (finding.reviewDisposition != null && !['confirmed', 'suggestion'].includes(finding.reviewDisposition)) {
+    throw new Error(`${label}.reviewDisposition is invalid`)
+  }
   return finding
 }
 
@@ -1381,6 +1401,12 @@ function validateFindingRecord(record, manifest, cell) {
     }
     if (manifest.requestedModel === FABLE_MODEL && record.quotaEvidence !== null) {
       throw new Error(`empty-source finding quota evidence must be null: ${cell.id}`)
+    }
+  } else if (record.extractionSkippedReason === 'structured-codex-receipt') {
+    if (reviewAndFixPrContractForTool(manifest, cell.tool) !== REVIEW_AND_FIX_PR_CONTRACT_V3 ||
+        record.extractorRequestedModel !== null || record.extractorModelUsage !== null ||
+        record.findings.some((finding) => !['confirmed', 'suggestion'].includes(finding.reviewDisposition))) {
+      throw new Error(`structured receipt finding provenance is invalid: ${cell.id}`)
     }
   } else {
     if (record.extractorRequestedModel !== EVALUATOR_MODEL || record.extractionSkippedReason !== null) {
@@ -1795,5 +1821,6 @@ module.exports = {
   REVIEW_AND_FIX_PR_CONTRACT,
   REVIEW_AND_FIX_PR_CONTRACT_V1,
   REVIEW_AND_FIX_PR_CONTRACT_V2,
+  REVIEW_AND_FIX_PR_CONTRACT_V3,
   REVIEW_AND_FIX_PR_MANDATORY_LENSES,
 }

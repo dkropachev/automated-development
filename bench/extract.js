@@ -21,7 +21,10 @@ const {
   validateFinding,
   validateFindingRecord,
   writeJsonExclusive,
+  codexReceiptPath,
+  REVIEW_AND_FIX_PR_CONTRACT_V3,
 } = require('./lib/artifacts')
+const { validateReceipt, hashReceipt } = require('../lib/review-codex-contract')
 const quota = require('./quota')
 
 const ROOT = __dirname
@@ -172,6 +175,35 @@ function extractOne(file, cwd, executable = CLAUDE, dependencies = {}, options =
   }
 }
 
+function structuredV3Findings(source, root, manifest, target, tool) {
+  const file = codexReceiptPath(root, manifest.runId, target, tool, source.codexReceiptId)
+  const receipt = validateReceipt(JSON.parse(fs.readFileSync(file, 'utf8')), {
+    target: { repository: manifest.targetMetadata[target].fork,
+      baseSha: manifest.targets[target].baseSha, headSha: manifest.targets[target].headSha },
+    pluginFingerprint: manifest.pluginFingerprint,
+    schemaSha256: manifest.codexJudge.schemaSha256,
+  })
+  if (receipt.contract !== REVIEW_AND_FIX_PR_CONTRACT_V3 ||
+      hashReceipt(receipt) !== source.resultContract.codex.receiptSha256) {
+    throw new Error('structured Codex receipt does not match sealed result')
+  }
+  return receipt.candidates.filter((candidate) =>
+    ['confirmed', 'suggestion'].includes(candidate.finalDisposition)).map((candidate) => {
+    const location = candidate.locations[0]
+    const kind = { tests: 'test-gap', docs: 'docs', comments: 'docs', performance: 'perf',
+      security: 'security', standards: 'style', maintainability: 'design' }[candidate.category] || 'bug'
+    return {
+      title: normalizeTitle(candidate.claim.split(/[.!?]/, 1)[0]),
+      file: location.path.startsWith('@') ? '' : location.path,
+      line: location.line || 0,
+      severity: candidate.severity === 'critical' ? 'blocker' : candidate.severity,
+      kind, claim: candidate.claim, selfRejected: false,
+      reviewDisposition: candidate.finalDisposition,
+      candidateId: candidate.id, claimHash: candidate.claimHash,
+    }
+  })
+}
+
 function assertRecordCohort(record, manifest) {
   return assertRecordMetadata(record, manifest, `${record.target || 'result'}/${record.tool || 'unknown'}`)
 }
@@ -218,7 +250,11 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
         }, dependencies)
         executable = authorization.executable
       }
-      const extracted = runExtract(input, cwd, executable, dependencies, options)
+      const structured = source.resultContract && source.resultContract.schemaVersion === 3
+      const extracted = structured
+        ? { ok: true, record: source, findings: structuredV3Findings(source, root, manifest, target, tool),
+            sourceReportEmpty: false, modelUsage: null }
+        : runExtract(input, cwd, executable, dependencies, options)
       if (!extracted.ok) {
         console.error(`FAIL ${target}/${tool}: ${extracted.error}`)
         return failures + 1
@@ -243,9 +279,10 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
         findings: extracted.findings,
         extractError: null,
         sourceReportEmpty: Boolean(extracted.sourceReportEmpty),
-        extractorRequestedModel: extracted.sourceReportEmpty ? null : EXTRACTOR_MODEL,
+        extractorRequestedModel: extracted.sourceReportEmpty || structured ? null : EXTRACTOR_MODEL,
         extractorModelUsage: extracted.modelUsage,
-        extractionSkippedReason: extracted.sourceReportEmpty ? 'empty-source-report' : null,
+        extractionSkippedReason: extracted.sourceReportEmpty ? 'empty-source-report'
+          : structured ? 'structured-codex-receipt' : null,
         ...(manifest.requestedModel === 'claude-fable-5-1'
           ? { quotaEvidence: extracted.sourceReportEmpty ? null : authorization && authorization.quotaEvidence }
           : {}),
@@ -272,7 +309,7 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
 
 module.exports = {
   DEFAULT_TIMEOUT_MS, EXTRACTOR_MODEL, TITLE_LIMIT, assertRecordCohort, extractOne, extractorArgs, main,
-  normalizeFindings, normalizeTitle, parseArgs, sanitizeExtractionReport,
+  normalizeFindings, normalizeTitle, parseArgs, sanitizeExtractionReport, structuredV3Findings,
 }
 
 if (require.main === module) {

@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-baseline-2026-10-04",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.287 (Claude Code)",
+  "configSha256": "be1b75e1d14f4260ee00d9cacd7ebf08c8efeef09bcb2e801445190d0552439c",
+  "pluginFingerprint": {
+    "contentSha256": "658ad96e8ceece33ba914c3304a34755f15bd44947661450da95696ed5a61c97",
+    "gitCommit": "0a5b76f5895a89d3b8f9bfa01e85b46cf9c60ad7",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7"
+  },
+  "target": "tidepool",
+  "language": "Go",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "rawFindings": 6,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Float fast-path exact-length checks no longer exercised by any too-long-payload test",
+      "file": "marshal.go",
+      "line": 1012,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The pre-existing wrong_data_len tests (marshal_vector_test.go:369-386) send 10 bytes for a 3-dimension vector; the new bound at marshal.go:998-1003 (len(data)/elemMin < Dimensions) now rejects that before reaching the fast-path's own len(data)!=expected check at marshal.go:1012/1023, so only too-long payloads would still exercise those lines and no such test exists.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new bound this PR adds is what shadows the existing test and removes its coverage of the fast-path check.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Fast-path exact-length checks for *[]float64/*[]float32 now untested"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr": "The fast-path exact-length checks at marshal.go:1012 and marshal.go:1023 are now covered only by accident: existing wrong_data_len tests send too-short payloads that the new bound rejects first, so no test exercises these checks on too-long payloads; if the checks were loosened, extra bytes would be silently accepted."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "Empty non-NULL payload with dimensions > 0 now errors, change is untested",
+      "file": "marshal.go",
+      "line": 998,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Verified pre-PR behavior: for data=[]byte{} (non-nil) with Dimensions>0 and a fixed-size element, the old generic path computed elemSize=len(data)/Dimensions=0 and decoded zero values rather than erroring; the new bound at marshal.go:998-1003 now rejects this case. The only existing empty-payload test, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType (marshal_vector_test.go:936-954), uses VectorType{} i.e. Dimensions=0, not >0, so this behavior change is untested.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The behavior change is a direct, intended effect of this PR's new bound and has no covering test.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Empty non-NULL payload with dimensions > 0 erroring is an untested behavior change"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr": "The PR-declared behavior change where an empty non-NULL payload with dimensions above 0 now errors (marshal.go:998) has no test; every short-payload case uses 2 bytes and every []byte{} case uses dimension 0 (marshal_vector_test.go:641), so reverting the guard from len(data) > 0 to data != nil would silently reintroduce zero-value decoding without any test failing."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "vectorElemMinSize recomputes isVectorVariableLengthType at every recursion level,…",
+      "file": "marshal.go",
+      "line": 1125,
+      "kind": "perf",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "vectorElemMinSize (marshal.go:1125) calls isVectorVariableLengthType(elemType) (line 1130), which itself recurses through all remaining nested-vector levels, then recurses into vectorElemMinSize(vec.SubType) (line 1135) one level down, repeating the full isVectorVariableLengthType walk there too; a microbenchmark against synthetic nested VectorTypes (depth 100/200/400/800) showed call cost growing much faster than linearly, confirming the quadratic claim. Nested vector types are a real feature (helpers.go asVectorType recurses with no depth cap), so this is reachable from a crafted or malicious schema, though only a CPU-burn concern, not a crash.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize is new code added by this PR; the quadratic behavior did not exist before it.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "vectorElemMinSize recomputes isVectorVariableLengthType recursively, causing quadratic complexity"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr": "vectorElemMinSize (marshal.go:1130, marshal.go:1135) calls the recursive isVectorVariableLengthType at every level of its own recursion, making decode cost depth² instead of depth for deeply nested vector types, repeated per inner element; a malicious peer could use this to burn CPU, though it cannot crash the driver."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "New top-of-function comment wrongly claims every path allocates, but the array path does…",
+      "file": "marshal.go",
+      "line": 986,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Confirmed in the generic path (marshal.go:1078-1081): when k == reflect.Array, the code only validates rv.Len() against Dimensions and indexes into the caller-provided array; there is no make/reflect.MakeSlice call, contradicting the comment's claim that 'every path below turns it into an allocation'.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The inaccurate comment is new text added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "New comment incorrectly claims every path below allocates"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr": "The new comment at marshal.go:986 says \"every path below turns it into an allocation,\" but the array path allocates nothing and instead computes element size as len(data)/Dimensions, decoding a short payload as zeros; a reader trusting the comment could wrongly exempt the array path from the new bound."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Pre-existing comment about empty/dim=0 falling through to the generic path is now stale",
+      "file": "marshal.go",
+      "line": 1006,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The comment at marshal.go:1006 predates this PR but is now inaccurate: the new bound added just above it (marshal.go:998-1003) intercepts an empty non-nil payload with Dimensions>0 and returns an error before any fall-through to the generic path occurs, which the comment no longer reflects.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment was accurate before this PR; this PR's new bound is what made it stale.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Stale comment about nil/empty and dim=0 falling through to the generic path"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr": "The unchanged comment at marshal.go:1006 stating \"nil/empty and dim=0 fall through to the generic path\" is now stale, since the new bound rejects an empty non-nil payload with dimensions above 0 before reaching that point."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Claimed contradiction between commit message wording and the recursive minimum-size logic",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Commit 0276a66's message line 'Every element takes at least one byte on the wire' describes the floor vectorElemMinSize actually returns (it never returns less than 1, including for variable-length and degenerate nested-vector cases), so it is consistent with, not contradicted by, the recursive minimum-size logic the same commit adds.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The commit message in question is part of this PR's own history.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Commit message allegedly contradicts the recursive minimum-size logic it introduces"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr": "A claim that commit 0276a66's message (\"every element takes at least one byte\") contradicts the recursive minimum-size logic the same commit adds was raised and judged a false positive by Codex."
+      }
+    }
+  ],
+  "judgeCostUsd": 0.7385326,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 54,
+      "outputTokens": 15651,
+      "cacheReadInputTokens": 1665433,
+      "cacheCreationInputTokens": 62207,
+      "webSearchRequests": 0,
+      "costUSD": 0.7385326,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 7630,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/tidepool/runs/rafp-baseline-2026-10-04/_judge/attempt-yz4sUt/repo",
+  "judgedAt": "2026-10-05T02:57:29.909Z"
+}

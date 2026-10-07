@@ -3,6 +3,10 @@
 Check changed code against applicable repository instructions, contributing documentation, coding
 standards, enforced configuration, and stable local conventions. Look for concrete violations in
 API shape, structure, naming, error handling, compatibility, generated files, or required process.
+Make an explicit checklist of every applicable rule, including changelog, commit format and
+trailers, test setup, per-commit validity, and PR description requirements. Record where each is
+satisfied, violated, or cannot be checked. Inspect nearby declarations and new code for a strong
+local pattern in wording, helper use, and naming; name the maintenance consequence when it differs.
 Distinguish documented rules from personal preference. Report an undocumented convention only when
 the surrounding code makes it unambiguous and violation has a specific maintenance or correctness
 consequence.

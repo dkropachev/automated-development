@@ -5,7 +5,7 @@ const globals = {
   Buffer: 'readonly', console: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly',
 }
 module.exports = [
-  { ignores: ['node_modules/**', 'evals/results/**'] },
+  { ignores: ['node_modules/**', 'evals/results/**', 'bench/work/**'] },
   js.configs.recommended,
   {
     files: ['**/*.js'],

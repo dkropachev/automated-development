@@ -1,0 +1,889 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-coverage-2026-10-04",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.287 (Claude Code)",
+  "configSha256": "07f599dedc9dfca0994d0dd0600f3442ab4ea63ba185c97c60a04dd0cb083506",
+  "pluginFingerprint": {
+    "contentSha256": "a90f40eff423133b5f567b093794bb651e253e89f2e5c15a1bae56a0bf41e9cd",
+    "gitCommit": "0a5b76f5895a89d3b8f9bfa01e85b46cf9c60ad7",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7"
+  },
+  "cellId": "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr",
+  "target": "tidepool",
+  "language": "Go",
+  "fork": "dkropachev/tidepool",
+  "pr": 1,
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "tool": "review-and-fix-pr",
+  "label": "Automated Development review-and-fix-pr",
+  "source": "automated-development@inline",
+  "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill directly to review pull request #1.\n\nYou are reviewing pull request #1 of this repository (dkropachev/tidepool) - a Go project. The PR branch `bound-vector-dimensions` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.\n\nRun its complete stateless, review-only protocol to completion. Do not invoke a nested Workflow and do not fix the pull request. Complete every mandatory review lane, both coverage audits, candidate deduplication, and required Codex adjudication to fixed-point closure. Use at most one consolidated gap-review subagent. Invoke the exact Codex helper with Bash tool parameters `run_in_background: false` and `timeout: 600000` (maximum foreground timeout), using the code block as the entire command with no prefix, suffix, pipe, or redirection. Wait for its process to exit, then parse stdout `markerBinding`, `counts`, and `usage`. Never respond or finalize while that helper or any background task is pending. Return the human-readable review followed by exactly one valid `review-and-fix-pr-v2` contract line beginning `REVIEW_AND_FIX_PR_RESULT_JSON=`. That marker must be the final nonempty line of your response, and no earlier line may begin with that marker prefix.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 907694,
+  "reportedCostUsd": 9.546145999999997,
+  "reportedUsage": {
+    "input_tokens": 16,
+    "cache_creation_input_tokens": 26397,
+    "cache_read_input_tokens": 1033591,
+    "output_tokens": 14787,
+    "output_tokens_details": {
+      "thinking_tokens": 704
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 26397,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 3178,
+        "cache_read_input_tokens": 141520,
+        "cache_creation_input_tokens": 228,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 228
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 346,
+      "outputTokens": 180856,
+      "cacheReadInputTokens": 9306715,
+      "cacheCreationInputTokens": 734628,
+      "webSearchRequests": 0,
+      "costUSD": 9.546145999999997,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 90497,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 9,
+  "subagentStats": {
+    "spawned": 10,
+    "requested": {
+      "background": 6,
+      "foreground": 4,
+      "unset": 0
+    },
+    "started_in_background": 6,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 10,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "automated-development:review-lane-controller": 1,
+      "general-purpose": 9
+    }
+  },
+  "sessionId": "af0671cb-5a10-43ff-9156-a91d246a7fb2",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 346,
+    "output": 180856,
+    "thinking": 90497,
+    "cacheRead": 9306715,
+    "cacheCreation": 734628,
+    "costUsd": 9.546145999999997,
+    "sessions": 1,
+    "models": {
+      "claude-opus-5-5": 9.546145999999997
+    },
+    "bySession": {
+      "af0671cb-5a10-43ff-9156-a91d246a7fb2": {
+        "costUsd": 9.546145999999997,
+        "startTime": 1791168771131,
+        "tokens": 10222545
+      }
+    },
+    "rawMessages": 299,
+    "rawOutput": 222852,
+    "rawCacheRead": 16769324,
+    "since": 0,
+    "subagentTranscripts": 10,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-tidepool-runs-rafp-coverage-2026-10-04-review-and-fix-pr-attempt-nQwigM-repo",
+    "total": 10222545
+  },
+  "result": "**Fix completeness: complete.** Both claimed crashes are fixed on every path I could find:\n\n- **Peer-supplied dimensions:** the bound runs before every consumer of `Dimensions` (both float fast paths, the generic slice, the array and `*any` paths, and each nested level when it re-enters `Unmarshal`).\n- **Element type with no Go type:** the nil `reflect.Type` guard sits on the only `reflect.TypeOf(info.Zero())` call in the package.\n\nErrors reach the caller through `Iter.Scan`/`Close` without leaving the connection in a bad state. No other vector decoder skips the bound.\n\nThe new rejection tests would fail on the base code. That was checked by reading the code, not by running them, because this review is read-only.\n\nThere are no merge blockers. Eight findings are confirmed, all minor and in scope:\n\n1. **`marshal.go:1130` — `vectorElemMinSize` is quadratic in nesting depth (low, performance).** At every level of its own recursion it calls the fully recursive `isVectorVariableLengthType`, and `unmarshalVector` runs the bound again at each nested level. A server can send a type nested roughly 1400 deep with a 4-byte value and make the client burn CPU on every cell. The work grows with the server's type metadata, not with the value size. It does not crash, but it undercuts the aim of bounding work by payload size.\n2. **`marshal.go:1136` — the MaxInt32 saturation branch has no test (low, tests).** The largest inner dimension any test uses is 4. If the saturation arithmetic broke (wrap, off-by-one, or 32-bit narrowing), nothing would catch it.\n3. **`marshal_vector_test.go:369`/`378` — the float fast paths' length-mismatch check is no longer tested (low, tests).** The existing wrong-length tests (10 bytes, 3 dimensions) are now rejected by the new bound first, and they only assert that some error occurred. Removing the fast-path `len(data) != expected` checks would pass every test. For example, 28 bytes into `*[]float64` with 3 dimensions would then decode without an error.\n4. **PR body — \"Every new test fails against pristine marshal.go/helpers.go\" is overstated (nit, docs).** These tests assert behaviour the base code already has:\n   - `TestUnmarshalVectorAcceptsWellFormedPayloads`\n   - `TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType` (`marshal_vector_test.go:937`)\n   - the two \"still decodes\" subtests\n5. **`marshal.go:986` — the bound's comment is inaccurate (nit, comments).** It says \"every path below turns it into an allocation\", but the `*[N]T` array path allocates nothing. The PR's own test comment at `marshal_vector_test.go:649` says so.\n6. **`marshal_vector_test.go:772` — a test comment gets a size wrong (nit, comments).** It says each inner `vector<text,3>` is \"eight bytes\". Each one is 4 bytes; 8 is the whole two-element payload.\n7. **`marshal_vector_test.go:692` — a stale rationale in a test doc comment (nit, comments).** It argues \"a vector of N elements is never encoded in fewer than N bytes\", but the bound is `Dimensions * vectorElemMinSize`, not N bytes.\n8. **`marshal_vector_test.go:557` — `makeVectorType` duplicates existing helpers (nit, maintainability).** `makeFloat32VectorType` and `makeDoubleVectorType` (lines 49 and 36) build the same values, and the new tests mix both styles. A change to the vector type's layout or name format now has to be repeated in several builders.\n\nTwo candidates were dropped:\n- Codex rejected the claim that commit `0276a66`'s message leaves out `vectorElemMinSize`.\n- I screened out an \"AI attribution trailer\" lead. It relied on a private user rule, not a repository rule, and `CONTRIBUTING.md` has no such rule.\n\n**Coverage and verification:** coverage is complete. All six lanes ran, both blind audits ran, and the one gap review left no remaining gaps. \"Complete\" means the review protocol finished, not that the PR is bug-free.\n\n**Gaps in what could be checked:**\n- The five linked issues (#1085, #1086, #1106, #1093, #1091) were unavailable.\n- Jira DRIVER-954 was not fetched.\n- No tests or builds were run.\n- No live-cluster checks were done.\n\nClaude did the discovery; OpenAI Codex (gpt-5.6-sol, CLI 0.156.0) did the adjudication in one call, with no new leads. The tree is clean at `78891dd`, and nothing was edited, committed, pushed or posted. The discovery ledger is at `$REVIEW_AND_FIX_PR_DISCOVERY_LEDGER`.\n\nREVIEW_AND_FIX_PR_RESULT_JSON={\"schemaVersion\":2,\"coverage\":\"complete\",\"verification\":\"complete\",\"fix\":\"not-requested\",\"stopTrigger\":\"none\",\"stopReason\":\"completed\",\"fixRequested\":false,\"completedLenses\":[\"correctness\",\"spec\",\"standards\",\"security\",\"reliability\",\"contracts\",\"testing\",\"performance\",\"comments\",\"maintainability\"],\"skippedLenses\":[],\"failedLenses\":[],\"coverageGapCount\":0,\"findings\":{\"confirmed\":8,\"provisional\":9,\"rejected\":1,\"unresolved\":0},\"candidateLedger\":[{\"candidateId\":\"C1\",\"claimHash\":\"e5652e42e23eebb2e18f5aaf48dbb856ca86af2362f29e71af5bd23464f6783f\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a10a06-53be-7c40-8aa5-12123c21cce2\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C2\",\"claimHash\":\"dd534256b1b7ffd56e91420da6af357ba8105271877c66e1c0acffc28afa6bee\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a10a06-53be-7c40-8aa5-12123c21cce2\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C3\",\"claimHash\":\"4c02a25824198821be9ca97d8307ec521fbe462857ed20ca6d7ac5d1efe42e4f\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a10a06-53be-7c40-8aa5-12123c21cce2\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C4\",\"claimHash\":\"9e3109fae219bc682628b317363b218eb64d951c7d0def513cd230ea5ee4b61a\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a10a06-53be-7c40-8aa5-12123c21cce2\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C5\",\"claimHash\":\"147911ab3613ef3c54e1a288cdcb789ae26c52d6694d272a2a9193085e7fdfbb\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a10a06-53be-7c40-8aa5-12123c21cce2\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C6\",\"claimHash\":\"5f7a48078f76a67a9577696704f1496d232c164bc8b7b2f11a76b1ea6218ced2\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a10a06-53be-7c40-8aa5-12123c21cce2\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C7\",\"claimHash\":\"fb74a157e6696ef1ea6003c95745fd2d141fa625111de34c191b43c5abb56c8f\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a10a06-53be-7c40-8aa5-12123c21cce2\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C8\",\"claimHash\":\"b55073d410a3dfaf2ff9e64988e0db77d7d3f88bccf9990af6ead22fbbd120f8\",\"finalDisposition\":\"rejected\",\"judgeInvocationId\":\"01a10a06-53be-7c40-8aa5-12123c21cce2\",\"originInvocationId\":null,\"verdict\":\"false_positive\"},{\"candidateId\":\"C9\",\"claimHash\":\"6ecdb9b4ced629c97fb0d028be8d0b70e51c8ff3ed83c66ac0e2887583c79f4c\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a10a06-53be-7c40-8aa5-12123c21cce2\",\"originInvocationId\":null,\"verdict\":\"real\"}],\"newLeadResolutions\":[],\"codex\":{\"provider\":\"openai\",\"model\":\"gpt-5.6-sol\",\"reasoningEffort\":\"high\",\"cliVersion\":\"0.156.0\",\"receiptSha256\":\"fc72c7efb41267a89c84439f80e9b0403ca5d3a9dcc26901ddee369957fcb0b2\"}}",
+  "resultContract": {
+    "candidateLedger": [
+      {
+        "candidateId": "C1",
+        "claimHash": "e5652e42e23eebb2e18f5aaf48dbb856ca86af2362f29e71af5bd23464f6783f",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a06-53be-7c40-8aa5-12123c21cce2",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C2",
+        "claimHash": "dd534256b1b7ffd56e91420da6af357ba8105271877c66e1c0acffc28afa6bee",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a06-53be-7c40-8aa5-12123c21cce2",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C3",
+        "claimHash": "4c02a25824198821be9ca97d8307ec521fbe462857ed20ca6d7ac5d1efe42e4f",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a06-53be-7c40-8aa5-12123c21cce2",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C4",
+        "claimHash": "9e3109fae219bc682628b317363b218eb64d951c7d0def513cd230ea5ee4b61a",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a06-53be-7c40-8aa5-12123c21cce2",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C5",
+        "claimHash": "147911ab3613ef3c54e1a288cdcb789ae26c52d6694d272a2a9193085e7fdfbb",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a06-53be-7c40-8aa5-12123c21cce2",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C6",
+        "claimHash": "5f7a48078f76a67a9577696704f1496d232c164bc8b7b2f11a76b1ea6218ced2",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a06-53be-7c40-8aa5-12123c21cce2",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C7",
+        "claimHash": "fb74a157e6696ef1ea6003c95745fd2d141fa625111de34c191b43c5abb56c8f",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a06-53be-7c40-8aa5-12123c21cce2",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C8",
+        "claimHash": "b55073d410a3dfaf2ff9e64988e0db77d7d3f88bccf9990af6ead22fbbd120f8",
+        "finalDisposition": "rejected",
+        "judgeInvocationId": "01a10a06-53be-7c40-8aa5-12123c21cce2",
+        "originInvocationId": null,
+        "verdict": "false_positive"
+      },
+      {
+        "candidateId": "C9",
+        "claimHash": "6ecdb9b4ced629c97fb0d028be8d0b70e51c8ff3ed83c66ac0e2887583c79f4c",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a10a06-53be-7c40-8aa5-12123c21cce2",
+        "originInvocationId": null,
+        "verdict": "real"
+      }
+    ],
+    "codex": {
+      "cliVersion": "0.156.0",
+      "model": "gpt-5.6-sol",
+      "provider": "openai",
+      "reasoningEffort": "high",
+      "receiptSha256": "fc72c7efb41267a89c84439f80e9b0403ca5d3a9dcc26901ddee369957fcb0b2"
+    },
+    "completedLenses": [
+      "correctness",
+      "spec",
+      "standards",
+      "security",
+      "reliability",
+      "contracts",
+      "testing",
+      "performance",
+      "comments",
+      "maintainability"
+    ],
+    "coverage": "complete",
+    "coverageGapCount": 0,
+    "failedLenses": [],
+    "findings": {
+      "confirmed": 8,
+      "provisional": 9,
+      "rejected": 1,
+      "unresolved": 0
+    },
+    "fix": "not-requested",
+    "fixRequested": false,
+    "newLeadResolutions": [],
+    "schemaVersion": 2,
+    "skippedLenses": [],
+    "stopReason": "completed",
+    "stopTrigger": "none",
+    "verification": "complete"
+  },
+  "codexReceiptId": "437b4389-5e31-4d47-9406-4abd71d0d0a2",
+  "codexReceiptProof": {
+    "candidateCount": 9,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "inputSha256": "f3dea6559fdb722dce191890373656115b9b89585f0c41dc66b2b79f23b14b16",
+    "invocationCount": 1,
+    "judgeModel": "gpt-5.6-sol",
+    "judgeProvider": "openai",
+    "reasoningEffort": "high",
+    "receiptSha256": "fc72c7efb41267a89c84439f80e9b0403ca5d3a9dcc26901ddee369957fcb0b2",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7",
+    "schemaVersion": 1,
+    "sourceProvider": "anthropic",
+    "usage": {
+      "cacheWriteInputTokens": 0,
+      "cachedInputTokens": 12160,
+      "inputTokens": 30344,
+      "outputTokens": 5151,
+      "reasoningOutputTokens": 3453,
+      "totalTokens": 35495
+    }
+  },
+  "codexUsage": {
+    "inputTokens": 30344,
+    "cachedInputTokens": 12160,
+    "cacheWriteInputTokens": 0,
+    "outputTokens": 5151,
+    "reasoningOutputTokens": 3453,
+    "totalTokens": 35495
+  },
+  "discoveryLedger": {
+    "schemaVersion": 1,
+    "candidates": [
+      {
+        "sourceId": "src-L4",
+        "candidateId": "L4-1",
+        "claim": "The MaxInt32 saturation branch in vectorElemMinSize has no test; TestVectorElemMinSize and the rejection tests only use inner dimensions of -3, 0, 3 and 4.",
+        "disposition": "admitted",
+        "reason": "exact claim/trigger, single mechanism, concrete consequence",
+        "canonicalId": "C1"
+      },
+      {
+        "sourceId": "src-L6",
+        "candidateId": "L6-08",
+        "claim": "The MaxInt32 saturation branch in vectorElemMinSize has no test; TestVectorElemMinSize and the rejection tests only use inner dimensions of -3, 0, 3 and 4.",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C1",
+        "canonicalId": "C1"
+      },
+      {
+        "sourceId": "src-L4",
+        "candidateId": "L4-2",
+        "claim": "The existing float32/float64 wrong-data-length tests (10 bytes, dim 3) are now rejected by the new dimension bound before they reach the fast path's `len(data) != expected` check, and they only assert err != nil, so the fast-path length-mismatch branches are no longer covered by any test.",
+        "disposition": "admitted",
+        "reason": "exact claim/trigger, single mechanism, concrete consequence",
+        "canonicalId": "C2"
+      },
+      {
+        "sourceId": "src-L4",
+        "candidateId": "L4-3",
+        "claim": "The new test helper makeVectorType(elem, elemName, dim) duplicates the existing makeFloat32VectorType and makeDoubleVectorType helpers in the same file, and the new tests mix both styles.",
+        "disposition": "admitted",
+        "reason": "exact claim/trigger, single mechanism, concrete consequence",
+        "canonicalId": "C3"
+      },
+      {
+        "sourceId": "src-L6",
+        "candidateId": "L6-07",
+        "claim": "The new test helper makeVectorType(elem, elemName, dim) duplicates the existing makeFloat32VectorType and makeDoubleVectorType helpers in the same file, and the new tests mix both styles.",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C3",
+        "canonicalId": "C3"
+      },
+      {
+        "sourceId": "src-L3",
+        "candidateId": "L3-F1",
+        "claim": "vectorElemMinSize calls the fully recursive isVectorVariableLengthType at each of its own recursion levels, so one call costs O(D^2) in nesting depth, and unmarshalVector re-runs it at every nested level it decodes, making per-cell CPU cost driven by peer type metadata rather than payload size.",
+        "disposition": "admitted",
+        "reason": "exact claim/trigger, single mechanism, concrete consequence",
+        "canonicalId": "C4"
+      },
+      {
+        "sourceId": "src-L6",
+        "candidateId": "L6-01",
+        "claim": "The new comment in unmarshalVector says every path below turns Dimensions into an allocation, but the *[N]T array destination path allocates nothing.",
+        "disposition": "admitted",
+        "reason": "exact claim/trigger, single mechanism, concrete consequence",
+        "canonicalId": "C5"
+      },
+      {
+        "sourceId": "src-L6",
+        "candidateId": "L6-02",
+        "claim": "The test comment says each inner vector<text,3> is \"a vint length followed by three vint lengths of zero: eight bytes\", but each inner vector encodes as 4 bytes; eight is the size of the whole two-element payload.",
+        "disposition": "admitted",
+        "reason": "exact claim/trigger, single mechanism, concrete consequence",
+        "canonicalId": "C6"
+      },
+      {
+        "sourceId": "src-L6",
+        "candidateId": "L6-03",
+        "claim": "The doc comment of TestUnmarshalVectorAcceptsWellFormedPayloads justifies non-narrowing by \"a vector of N elements is never encoded in fewer than N bytes\", but the bound is Dimensions*vectorElemMinSize(SubType), not N bytes.",
+        "disposition": "admitted",
+        "reason": "exact claim/trigger, single mechanism, concrete consequence",
+        "canonicalId": "C7"
+      },
+      {
+        "sourceId": "src-L6",
+        "candidateId": "L6-04",
+        "claim": "Commit 0276a66's message justifies the bound as \"Every element takes at least one byte on the wire\" and never mentions vectorElemMinSize, the recursive per-element minimum that the same commit introduces.",
+        "disposition": "admitted",
+        "reason": "exact claim/trigger, single mechanism, concrete consequence",
+        "canonicalId": "C8"
+      },
+      {
+        "sourceId": "src-L1",
+        "candidateId": "L1-01",
+        "claim": "The PR body claims \"Every new test fails against pristine marshal.go/helpers.go\", but several new tests (TestUnmarshalVectorAcceptsWellFormedPayloads, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType, and the 'still decodes' subtests) assert behaviour that base already has.",
+        "disposition": "admitted",
+        "reason": "exact claim/trigger, single mechanism, concrete consequence",
+        "canonicalId": "C9"
+      },
+      {
+        "sourceId": "src-L6",
+        "candidateId": "L6-05",
+        "claim": "The PR body claims \"Every new test fails against pristine marshal.go/helpers.go\", but several new tests (TestUnmarshalVectorAcceptsWellFormedPayloads, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType, and the 'still decodes' subtests) assert behaviour that base already has.",
+        "disposition": "merged",
+        "reason": "same basis, mechanism, defect class and consequence as C9",
+        "canonicalId": "C9"
+      },
+      {
+        "sourceId": "src-L6",
+        "candidateId": "L6-06",
+        "claim": "Co-Authored-By: Claude trailers in commits and 'Generated with Claude Code' footer in the PR body violate an attribution rule",
+        "disposition": "screened",
+        "reason": "inapplicable-rule: the cited rule is the reviewer's private ~/.claude/CLAUDE.md governing the reviewer's own authored text, not an authoritative merge-base repository rule; CONTRIBUTING.md has no attribution rule and base history carries the same trailer",
+        "canonicalId": null
+      }
+    ],
+    "checkedNonissues": [
+      {
+        "sourceId": "src-L1",
+        "observationId": "L1-N01",
+        "basis": "see lane receipt src-L1 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L1",
+        "observationId": "L1-N02",
+        "basis": "see lane receipt src-L1 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L1",
+        "observationId": "L1-N03",
+        "basis": "see lane receipt src-L1 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L1",
+        "observationId": "L1-N04",
+        "basis": "see lane receipt src-L1 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L1",
+        "observationId": "L1-N05",
+        "basis": "see lane receipt src-L1 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L1",
+        "observationId": "L1-N06",
+        "basis": "see lane receipt src-L1 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L1",
+        "observationId": "L1-N07",
+        "basis": "see lane receipt src-L1 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L1",
+        "observationId": "L1-N08",
+        "basis": "see lane receipt src-L1 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L1",
+        "observationId": "L1-N09",
+        "basis": "see lane receipt src-L1 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L1",
+        "observationId": "L1-N10",
+        "basis": "see lane receipt src-L1 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L1",
+        "observationId": "L1-N11",
+        "basis": "see lane receipt src-L1 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L1",
+        "observationId": "L1-N12",
+        "basis": "see lane receipt src-L1 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L2",
+        "observationId": "L2-N1",
+        "basis": "see lane receipt src-L2 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L2",
+        "observationId": "L2-N2",
+        "basis": "see lane receipt src-L2 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L2",
+        "observationId": "L2-N3",
+        "basis": "see lane receipt src-L2 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L2",
+        "observationId": "L2-N4",
+        "basis": "see lane receipt src-L2 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L2",
+        "observationId": "L2-N5",
+        "basis": "see lane receipt src-L2 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L2",
+        "observationId": "L2-N6",
+        "basis": "see lane receipt src-L2 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L2",
+        "observationId": "L2-N7",
+        "basis": "see lane receipt src-L2 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L2",
+        "observationId": "L2-N8",
+        "basis": "see lane receipt src-L2 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L2",
+        "observationId": "L2-N9",
+        "basis": "see lane receipt src-L2 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L2",
+        "observationId": "L2-N10",
+        "basis": "see lane receipt src-L2 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L2",
+        "observationId": "L2-N11",
+        "basis": "see lane receipt src-L2 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L2",
+        "observationId": "L2-N12",
+        "basis": "see lane receipt src-L2 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N1",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N2",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N3",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N4",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N5",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N6",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N7",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N8",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N9",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N10",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N11",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N12",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N13",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L3",
+        "observationId": "L3-N14",
+        "basis": "see lane receipt src-L3 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L4",
+        "observationId": "L4-N1",
+        "basis": "see lane receipt src-L4 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L4",
+        "observationId": "L4-N2",
+        "basis": "see lane receipt src-L4 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L4",
+        "observationId": "L4-N3",
+        "basis": "see lane receipt src-L4 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L4",
+        "observationId": "L4-N4",
+        "basis": "see lane receipt src-L4 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L4",
+        "observationId": "L4-N5",
+        "basis": "see lane receipt src-L4 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L4",
+        "observationId": "L4-N6",
+        "basis": "see lane receipt src-L4 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L4",
+        "observationId": "L4-N7",
+        "basis": "see lane receipt src-L4 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L5",
+        "observationId": "NI-L5-01",
+        "basis": "see lane receipt src-L5 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L5",
+        "observationId": "NI-L5-02",
+        "basis": "see lane receipt src-L5 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L5",
+        "observationId": "NI-L5-03",
+        "basis": "see lane receipt src-L5 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L5",
+        "observationId": "NI-L5-04",
+        "basis": "see lane receipt src-L5 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L5",
+        "observationId": "NI-L5-05",
+        "basis": "see lane receipt src-L5 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L5",
+        "observationId": "NI-L5-06",
+        "basis": "see lane receipt src-L5 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L5",
+        "observationId": "NI-L5-07",
+        "basis": "see lane receipt src-L5 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L5",
+        "observationId": "NI-L5-08",
+        "basis": "see lane receipt src-L5 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N01",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N02",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N03",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N04",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N05",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N06",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N07",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N08",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N09",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N10",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N11",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N12",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N13",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N14",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N15",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-L6",
+        "observationId": "L6-N16",
+        "basis": "see lane receipt src-L6 /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-GAP",
+        "observationId": "GAP-N1",
+        "basis": "see lane receipt src-GAP /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-GAP",
+        "observationId": "GAP-N2",
+        "basis": "see lane receipt src-GAP /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-GAP",
+        "observationId": "GAP-N3",
+        "basis": "see lane receipt src-GAP /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-GAP",
+        "observationId": "GAP-N4",
+        "basis": "see lane receipt src-GAP /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-GAP",
+        "observationId": "GAP-N5",
+        "basis": "see lane receipt src-GAP /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-GAP",
+        "observationId": "GAP-N6",
+        "basis": "see lane receipt src-GAP /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-GAP",
+        "observationId": "GAP-N7",
+        "basis": "see lane receipt src-GAP /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-GAP",
+        "observationId": "GAP-N8",
+        "basis": "see lane receipt src-GAP /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-GAP",
+        "observationId": "GAP-N9",
+        "basis": "see lane receipt src-GAP /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-GAP",
+        "observationId": "GAP-N10",
+        "basis": "see lane receipt src-GAP /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-GAP",
+        "observationId": "GAP-N11",
+        "basis": "see lane receipt src-GAP /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      },
+      {
+        "sourceId": "src-GAP",
+        "observationId": "GAP-N12",
+        "basis": "see lane receipt src-GAP /tmp/rafp-nQwigM-receipts.yaml",
+        "reason": "disproved, impact-free, base-parity, inapplicable-rule or counterfactual-design per lane classification"
+      }
+    ]
+  },
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/tidepool/runs/rafp-coverage-2026-10-04/review-and-fix-pr/attempt-nQwigM/repo",
+  "finishedAt": "2026-10-05T03:07:59.218Z"
+}

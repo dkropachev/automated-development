@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-baseline-2026-10-04",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.287 (Claude Code)",
+  "configSha256": "be1b75e1d14f4260ee00d9cacd7ebf08c8efeef09bcb2e801445190d0552439c",
+  "pluginFingerprint": {
+    "contentSha256": "658ad96e8ceece33ba914c3304a34755f15bd44947661450da95696ed5a61c97",
+    "gitCommit": "0a5b76f5895a89d3b8f9bfa01e85b46cf9c60ad7",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7"
+  },
+  "cellId": "rafp-baseline-2026-10-04/tidepool/review-and-fix-pr",
+  "target": "tidepool",
+  "tool": "review-and-fix-pr",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "8c7259bde218b06c63baf5294f18d41e609d99dee40782174fd45e6e26d71e2d",
+  "label": "Automated Development review-and-fix-pr",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 1012,
+      "title": "Fast-path exact-length checks for *[]float64/*[]float32 now untested",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The fast-path exact-length checks at marshal.go:1012 and marshal.go:1023 are now covered only by accident: existing wrong_data_len tests send too-short payloads that the new bound rejects first, so no test exercises these checks on too-long payloads; if the checks were loosened, extra bytes would be silently accepted.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 998,
+      "title": "Empty non-NULL payload with dimensions > 0 erroring is an untested behavior change",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The PR-declared behavior change where an empty non-NULL payload with dimensions above 0 now errors (marshal.go:998) has no test; every short-payload case uses 2 bytes and every []byte{} case uses dimension 0 (marshal_vector_test.go:641), so reverting the guard from len(data) > 0 to data != nil would silently reintroduce zero-value decoding without any test failing.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1130,
+      "title": "vectorElemMinSize recomputes isVectorVariableLengthType recursively, causing quadratic…",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "vectorElemMinSize (marshal.go:1130, marshal.go:1135) calls the recursive isVectorVariableLengthType at every level of its own recursion, making decode cost depth² instead of depth for deeply nested vector types, repeated per inner element; a malicious peer could use this to burn CPU, though it cannot crash the driver.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 986,
+      "title": "New comment incorrectly claims every path below allocates",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The new comment at marshal.go:986 says \"every path below turns it into an allocation,\" but the array path allocates nothing and instead computes element size as len(data)/Dimensions, decoding a short payload as zeros; a reader trusting the comment could wrongly exempt the array path from the new bound.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1006,
+      "title": "Stale comment about nil/empty and dim=0 falling through to the generic path",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The unchanged comment at marshal.go:1006 stating \"nil/empty and dim=0 fall through to the generic path\" is now stale, since the new bound rejects an empty non-nil payload with dimensions above 0 before reaching that point.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit message allegedly contradicts the recursive minimum-size logic it introduces",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "A claim that commit 0276a66's message (\"every element takes at least one byte\") contradicts the recursive minimum-size logic the same commit adds was raised and judged a false positive by Codex.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 1882,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 39367,
+      "webSearchRequests": 0,
+      "costUSD": 0.176292,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 688,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-05T02:39:07.712Z"
+}

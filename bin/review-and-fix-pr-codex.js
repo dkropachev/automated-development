@@ -12,6 +12,7 @@ const net = require('node:net')
 const path = require('node:path')
 const {
   CONTRACT_V2,
+  CONTRACT_V3,
   JUDGE_MODEL,
   JUDGE_REASONING_EFFORT,
   MIN_CODEX_CLI_VERSION,
@@ -174,7 +175,10 @@ function normalizeReviewContext(context) {
 
 function normalizeInput(input) {
   exactKeys(input, INPUT_KEYS, 'Codex judge input')
-  if (input.schemaVersion !== 1 || input.contract !== CONTRACT_V2) throw new Error('Codex judge input schema or contract is invalid')
+  if (!((input.schemaVersion === 1 && input.contract === CONTRACT_V2) ||
+      (input.schemaVersion === 2 && input.contract === CONTRACT_V3))) {
+    throw new Error('Codex judge input schema or contract is invalid')
+  }
   exactKeys(input.sourceDisclosure, ['adjudication', 'discovery'], 'Codex judge sourceDisclosure')
   if (input.sourceDisclosure.discovery !== 'Anthropic Claude' || input.sourceDisclosure.adjudication !== 'OpenAI Codex') {
     throw new Error('Codex judge input must disclose Anthropic Claude discovery and OpenAI Codex adjudication')
@@ -205,7 +209,7 @@ function normalizeInput(input) {
   return canonical({ ...input, candidates, reviewContext: normalizeReviewContext(input.reviewContext) })
 }
 
-function buildJudgePrompt(reviewContext, candidates) {
+function buildJudgePrompt(reviewContext, candidates, contract = CONTRACT_V2) {
   const blindCandidates = candidates.map((candidate) => sanitizedCandidate(candidate))
   const payload = canonical({ reviewContext, candidates: blindCandidates })
   return [
@@ -223,14 +227,16 @@ function buildJudgePrompt(reviewContext, candidates) {
     '- correctness: a concrete violated invariant or input-to-output mismatch;',
     '- contracts/compatibility: a specific producer-consumer, version, schema, or API obligation that is broken;',
     '- performance: a plausible material cost or latency increase at the relevant scale.',
-    'Use false_positive only with concrete disproof. Use unresolved when source inspection cannot decide.',
+    contract === CONTRACT_V3
+      ? 'Use suggestion only for a plausible future edit risk or strong convention concern supported by exact code evidence, without an established present defect. For suggestions name the affected edit and consequence. Real means verified defect, factual doc/test mismatch, or applicable rule violation. False_positive requires disproof; unresolved means evidence cannot decide.'
+      : 'Use false_positive only with concrete disproof. Use unresolved when source inspection cannot decide.',
     'For every verdict, including false_positive and unresolved, every sourceEvidence item must copy an exact path and line pair from that same candidate\'s supplied locations or evidence.',
     'Never substitute a nearby or newly inspected path or line. Put the supporting, disproof, or uncertainty explanation in sourceEvidence.detail while preserving the copied path and line exactly.',
     'Severity is critical, high, medium, low, or nit; scope is in, deferred, or out.',
     'If inspection reveals a distinct atomic mechanism absent from the candidates, add it to newCandidates.',
     'A new candidate must have one mechanism, a specific defectClass, and a concrete consequence. Set duplicateOfCandidateId to an existing ID only for the same mechanism identity; otherwise use an empty string.',
     'Do not include lane identity, reporter/support counts, Claude dispositions, external reports, or benchmark baselines.',
-    `Your top-level identity fields must be schemaVersion=1, provider="OpenAI Codex", model="${JUDGE_MODEL}".`,
+    `Your top-level identity fields must be schemaVersion=${contract === CONTRACT_V3 ? 2 : 1}, provider="OpenAI Codex", model="${JUDGE_MODEL}".`,
     '<BEGIN_REVIEW_EVIDENCE_JSON>',
     JSON.stringify(payload),
     '<END_REVIEW_EVIDENCE_JSON>',
@@ -299,9 +305,9 @@ function parseUsage(event) {
   return { inputTokens, cachedInputTokens, cacheWriteInputTokens, outputTokens, reasoningOutputTokens, totalTokens }
 }
 
-function validateJudgeOutput(output, expectedIds) {
+function validateJudgeOutput(output, expectedIds, contract = CONTRACT_V2) {
   exactKeys(output, ['judgments', 'model', 'newCandidates', 'provider', 'schemaVersion'], 'Codex structured output')
-  if (output.schemaVersion !== 1 || output.provider !== 'OpenAI Codex' || output.model !== JUDGE_MODEL) {
+  if (output.schemaVersion !== (contract === CONTRACT_V3 ? 2 : 1) || output.provider !== 'OpenAI Codex' || output.model !== JUDGE_MODEL) {
     throw new Error('Codex structured output identity or model drifted')
   }
   if (!Array.isArray(output.judgments) || !Array.isArray(output.newCandidates)) {
@@ -311,12 +317,20 @@ function validateJudgeOutput(output, expectedIds) {
   const seen = new Set()
   const judgments = output.judgments.map((judgment, index) => {
     const label = `Codex judgments[${index}]`
-    exactKeys(judgment, JUDGMENT_KEYS, label)
+    exactKeys(judgment, [...JUDGMENT_KEYS, ...(contract === CONTRACT_V3 ? ['suggestedEdit', 'suggestedConsequence'] : [])], label)
     if (!expected.has(judgment.candidateId) || seen.has(judgment.candidateId)) {
       throw new Error(`${label}.candidateId is missing, duplicate, or unexpected`)
     }
     seen.add(judgment.candidateId)
-    if (!['real', 'false_positive', 'unresolved'].includes(judgment.verdict)) throw new Error(`${label}.verdict is invalid`)
+    if (!['real', 'false_positive', 'unresolved', ...(contract === CONTRACT_V3 ? ['suggestion'] : [])].includes(judgment.verdict)) {
+      throw new Error(`${label}.verdict is invalid`)
+    }
+    if (contract === CONTRACT_V3) {
+      for (const field of ['suggestedEdit', 'suggestedConsequence']) {
+        if (judgment[field] !== null) requiredString(judgment[field], `${label}.${field}`)
+        if (judgment.verdict === 'suggestion') requiredString(judgment[field], `${label}.${field}`)
+      }
+    }
     if (!['critical', 'high', 'medium', 'low', 'nit'].includes(judgment.severity)) throw new Error(`${label}.severity is invalid`)
     if (!['in', 'deferred', 'out'].includes(judgment.scope)) throw new Error(`${label}.scope is invalid`)
     requiredString(judgment.reason, `${label}.reason`)
@@ -391,7 +405,7 @@ function assertRepositoryState(root, head) {
 function runOneInvocation(options, dependencies = {}) {
   const spawn = dependencies.spawnSync || spawnSync
   assertRepositoryState(options.root, options.head)
-  const prompt = buildJudgePrompt(options.reviewContext, options.candidates)
+  const prompt = buildJudgePrompt(options.reviewContext, options.candidates, options.contract)
   let result
   try {
     result = checkedSpawn(options.executable, codexArgs(options.schemaFile, options.root), {
@@ -412,7 +426,7 @@ function runOneInvocation(options, dependencies = {}) {
   let parsed, output
   try {
     parsed = parseTrace(result.stdout)
-    output = validateJudgeOutput(parsed.output, options.candidates.map((candidate) => candidate.id))
+    output = validateJudgeOutput(parsed.output, options.candidates.map((candidate) => candidate.id), options.contract)
   } catch (error) {
     error.traceText = String(result.stdout || '')
     error.stderrText = String(result.stderr || '')
@@ -526,6 +540,7 @@ function runAdjudication(options, dependencies = {}) {
       env: options.env,
       reviewContext: input.reviewContext,
       candidates: judgeBatch,
+      contract: input.contract,
       }, dependencies)
     } catch (error) {
       const failureBase = `invocation-${String(invocations.length + 1).padStart(3, '0')}.failed`
@@ -546,7 +561,8 @@ function runAdjudication(options, dependencies = {}) {
       }
       const judgment = judgments.get(candidate.id)
       const finalDisposition = judgment.verdict === 'real' ? 'confirmed'
-        : judgment.verdict === 'false_positive' ? 'rejected' : 'unresolved'
+        : judgment.verdict === 'false_positive' ? 'rejected'
+          : judgment.verdict === 'suggestion' ? 'suggestion' : 'unresolved'
       completed.push({
         id: candidate.id,
         claim: candidate.claim,
@@ -567,6 +583,10 @@ function runAdjudication(options, dependencies = {}) {
         reason: judgment.reason,
         sourceEvidence: judgment.sourceEvidence,
         finalDisposition,
+        ...(input.contract === CONTRACT_V3 ? {
+          suggestedEdit: judgment.suggestedEdit,
+          suggestedConsequence: judgment.suggestedConsequence,
+        } : {}),
       })
     }
     const newLeadHashes = []
@@ -648,13 +668,16 @@ function runAdjudication(options, dependencies = {}) {
     confirmed: completed.filter((candidate) => candidate.finalDisposition === 'confirmed').length,
     rejected: completed.filter((candidate) => candidate.finalDisposition === 'rejected').length,
     unresolved: completed.filter((candidate) => candidate.finalDisposition === 'unresolved').length,
+    ...(input.contract === CONTRACT_V3 ? {
+      suggestion: completed.filter((candidate) => candidate.finalDisposition === 'suggestion').length,
+    } : {}),
   }
   if (options.deadlineMs != null && clockMs() > options.deadlineMs) {
     throw new Error('Codex adjudication exceeded its fixed-point deadline')
   }
   const receipt = {
-    schemaVersion: 1,
-    contract: CONTRACT_V2,
+    schemaVersion: input.contract === CONTRACT_V3 ? 2 : 1,
+    contract: input.contract,
     status: 'complete',
     sourceDisclosure: input.sourceDisclosure,
     inputSha256: sha256(input),
@@ -863,8 +886,9 @@ function main(argv = process.argv.slice(2), dependencies = {}) {
   const paths = assertOutputPaths(root, inputFile, requestedReceipt)
   const timeoutMs = parsedOptions.timeoutMs
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1) throw new Error('--timeout-ms must be a positive integer')
-  const schemaFile = path.join(__dirname, '..', 'skills', 'review-and-fix-pr', 'codex-judge.schema.json')
   const input = safeJson(paths.inputReal, 'Codex judge input')
+  const schemaFile = path.join(__dirname, '..', 'skills', 'review-and-fix-pr',
+    input.contract === CONTRACT_V3 ? 'codex-judge-v3.schema.json' : 'codex-judge.schema.json')
   const preflight = preflightCodex({ executable: dependencies.executable || CODEX, env }, dependencies)
   const expected = expectedFromEnvironment(env)
   const traceDirectory = `${paths.receiptFile}.traces`

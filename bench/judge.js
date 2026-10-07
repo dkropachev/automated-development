@@ -163,10 +163,18 @@ function loadSealedFindings(root, manifest, seal) {
     if (!fs.existsSync(file)) throw new Error(`missing successful finding for sealed cell: ${sealedCell.id}`)
     const record = readFindingRecord(file, manifest, sealedCell)
     const blob = byTarget.get(sealedCell.target) || []
-    for (const finding of record.findings) blob.push({ ...finding, tool: sealedCell.tool, cellId: sealedCell.id })
+    for (const finding of record.findings) {
+      // Suggestions remain in the sealed finding record but cannot become confirmed issues.
+      if (!eligibleForCohortJudge(finding)) continue
+      blob.push({ ...finding, tool: sealedCell.tool, cellId: sealedCell.id })
+    }
     byTarget.set(sealedCell.target, blob)
   }
   return byTarget
+}
+
+function eligibleForCohortJudge(finding) {
+  return finding.reviewDisposition !== 'suggestion'
 }
 
 function judgeTarget(root, manifest, target, cells, blob, out, dependencies, options = {}) {
@@ -285,7 +293,7 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
 
 module.exports = {
   DEFAULT_TIMEOUT_MS, JUDGE_MODEL, SCHEMA, judgeArgs, judgeTarget, loadSealedFindings,
-  main, normalizeAttribution, parseArgs, prompt,
+  eligibleForCohortJudge, main, normalizeAttribution, parseArgs, prompt,
 }
 
 if (require.main === module) {

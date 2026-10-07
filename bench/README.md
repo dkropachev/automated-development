@@ -116,6 +116,9 @@ cells are publishable only when the final response ends with the structured
   unique Codex leads, and confirmed, rejected, plus unresolved dispositions partition that set;
 - the schema-v2 candidate ledger and new-lead mappings prove fixed-point closure, including that no
   lead was judged by the Codex invocation which originated it; and
+- the embedded discovery ledger retains admitted, merged, and screened lane leads with reasons,
+  and the runner snapshots final subagent receipts so every checked-nonissue observation stays
+  inspectable even if the compact ledger omits one; and
 - a hash-bound external receipt proves authenticated OpenAI Codex `gpt-5.6-sol` adjudication with
   high reasoning, CLI 0.149.0 or newer, read-only execution, unchanged target/plugin identity, and
   no pending work. Codex usage is stored separately from Claude cost and token accounting.

@@ -11,6 +11,7 @@
 // read-only legacy cohort. Recorded cells are immutable: an existing result is always skipped.
 const fs = require('node:fs')
 const crypto = require('node:crypto')
+const os = require('node:os')
 const path = require('node:path')
 const { spawn, spawnSync } = require('node:child_process')
 const { run, git, gitTry } = require('./lib/exec')
@@ -44,8 +45,11 @@ const {
   writeJsonExclusive,
   REVIEW_AND_FIX_PR_CONTRACT_V1,
   REVIEW_AND_FIX_PR_CONTRACT_V2,
+  REVIEW_AND_FIX_PR_CONTRACT_V3,
 } = require('./lib/artifacts')
 const quota = require('./quota')
+const { validateDiscoveryLedger } = require('../lib/review-discovery-ledger')
+const { captureDiscoveryReceipts } = require('../lib/review-discovery-receipts')
 
 const ROOT = __dirname
 const CLAUDE = process.env.CLAUDE || 'claude'
@@ -55,6 +59,9 @@ const PLUGIN_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/
 const PLUGIN_LIST_MAX_BUFFER = 16 * 1024 * 1024
 const PLUGIN_LIST_TIMEOUT_MS = 30_000
 const CODEX_JUDGE_SCHEMA = path.join(__dirname, '..', 'skills', 'review-and-fix-pr', 'codex-judge.schema.json')
+const CODEX_JUDGE_V3_SCHEMA = path.join(__dirname, '..', 'skills', 'review-and-fix-pr', 'codex-judge-v3.schema.json')
+const codexSchemaForContract = (contract) => contract === REVIEW_AND_FIX_PR_CONTRACT_V3
+  ? CODEX_JUDGE_V3_SCHEMA : CODEX_JUDGE_SCHEMA
 const PLUGIN_CONTENT_EXCLUDED = new Set([
   'bench/findings', 'bench/judgement', 'bench/logs', 'bench/results', 'bench/runs', 'bench/work',
 ])
@@ -285,7 +292,7 @@ function resolveExecutableFile(executable, env = process.env, dependencies = {})
   return fs.realpathSync(String(result.stdout).trim().split(/\r?\n/, 1)[0])
 }
 
-function normalizeCodexPreflight(preflight, env = process.env, dependencies = {}) {
+function normalizeCodexPreflight(preflight, env = process.env, dependencies = {}, contract = REVIEW_AND_FIX_PR_CONTRACT_V2) {
   if (!preflight || typeof preflight !== 'object' || Array.isArray(preflight)) {
     throw new Error('Codex preflight returned no identity')
   }
@@ -303,21 +310,24 @@ function normalizeCodexPreflight(preflight, env = process.env, dependencies = {}
     reasoningEffort: 'high',
     cliVersion: preflight.cliVersion,
     executableSha256,
-    schemaSha256: sha256File(CODEX_JUDGE_SCHEMA),
+    schemaSha256: sha256File(codexSchemaForContract(contract)),
     authenticated,
   }
 }
 
-function runCodexPreflight(root, env = process.env, dependencies = {}) {
+function runCodexPreflight(root, env = process.env, dependencies = {}, contract = REVIEW_AND_FIX_PR_CONTRACT_V2) {
   const preflight = dependencies.preflightCodex || codexRuntime().preflightCodex
   return normalizeCodexPreflight(preflight({
     executable: env.CODEX || 'codex', env, cwd: root,
-  }, dependencies), env, dependencies)
+  }, dependencies), env, dependencies, contract)
 }
 
 function assertCodexJudgeCurrent(root, manifest, env = process.env, dependencies = {}) {
   if (!manifest.codexJudge) throw new Error(`cohort ${manifest.runId} is missing its Codex judge identity`)
-  const current = runCodexPreflight(root, env, dependencies)
+  const contract = manifest.expectedCells.some((cell) =>
+    reviewAndFixPrContractForTool(manifest, cell.tool) === REVIEW_AND_FIX_PR_CONTRACT_V3)
+    ? REVIEW_AND_FIX_PR_CONTRACT_V3 : REVIEW_AND_FIX_PR_CONTRACT_V2
+  const current = runCodexPreflight(root, env, dependencies, contract)
   if (JSON.stringify(current) !== JSON.stringify(manifest.codexJudge)) {
     throw new Error(`cohort ${manifest.runId} Codex judge identity changed`)
   }
@@ -335,11 +345,18 @@ function allocateCodexReceipt(root, cohort, target, tool) {
   const file = codexReceiptPath(root, cohort.runId, target.id, tool.id, receiptId)
   const inputFile = file.slice(0, -'.json'.length) + '.input.json'
   const contextFile = file.slice(0, -'.json'.length) + '.context.json'
+  const discoveryFile = file.slice(0, -'.json'.length) + '.discovery.json'
   ensureDirectorySafe(path.dirname(file))
-  if (fs.existsSync(file) || fs.existsSync(inputFile) || fs.existsSync(contextFile)) {
+  if (fs.existsSync(file) || fs.existsSync(inputFile) || fs.existsSync(contextFile) || fs.existsSync(discoveryFile)) {
     throw new Error(`refusing existing Codex receipt/input/context path: ${file}`)
   }
-  return { receiptId, file, inputFile, contextFile }
+  // Unix domain socket addresses are much shorter than artifact paths on Linux.
+  // Keep the broker endpoint independent of the cohort/target directory depth.
+  const socketFile = path.join(os.tmpdir(), `rafp-${receiptId}.sock`)
+  if (Buffer.byteLength(socketFile) > 100 || fs.existsSync(socketFile)) {
+    throw new Error('cannot allocate a short, unused Codex broker socket path')
+  }
+  return { receiptId, file, inputFile, contextFile, discoveryFile, socketFile }
 }
 
 function jsonCommand(executable, args, cwd, label, dependencies = {}) {
@@ -794,7 +811,7 @@ function toolRequiresPluginDirectory(tool) {
 
 function toolRequiresStructuredResult(tool) {
   return !!tool && (tool.id === 'review-and-fix-pr' ||
-    [REVIEW_AND_FIX_PR_CONTRACT_V1, REVIEW_AND_FIX_PR_CONTRACT_V2].includes(tool.resultContract))
+    [REVIEW_AND_FIX_PR_CONTRACT_V1, REVIEW_AND_FIX_PR_CONTRACT_V2, REVIEW_AND_FIX_PR_CONTRACT_V3].includes(tool.resultContract))
 }
 
 async function execPair(pair, context, dependencies = {}) {
@@ -808,7 +825,7 @@ async function execPair(pair, context, dependencies = {}) {
   const discoverPluginSettings = dependencies.discoverPluginIsolationSettings || discoverPluginIsolationSettings
   const checkCheckout = dependencies.assertCheckoutUnchanged || assertCheckoutUnchanged
   const expectedContract = reviewAndFixPrContractForTool(cohort, tool.id)
-  const requiresCodex = expectedContract === REVIEW_AND_FIX_PR_CONTRACT_V2
+  const requiresCodex = [REVIEW_AND_FIX_PR_CONTRACT_V2, REVIEW_AND_FIX_PR_CONTRACT_V3].includes(expectedContract)
   const requireExternalReceipt = requiresCodex && !fs.existsSync(cohortPaths(root, cohort.runId).complete)
   if (fs.existsSync(outFile)) {
     readResultRecord(outFile, cohort, target.id, tool.id, {
@@ -866,7 +883,7 @@ async function execPair(pair, context, dependencies = {}) {
         }
         codexBrokerResult = null
         codexBroker = await startBroker({
-          socketFile: codexReceipt.file.slice(0, -'.json'.length) + '.sock',
+          socketFile: codexReceipt.socketFile,
           root: checkout.repo,
           base: checkout.baseSha,
           head: checkout.headSha,
@@ -884,7 +901,7 @@ async function execPair(pair, context, dependencies = {}) {
             schemaSha256: cohort.codexJudge.schemaSha256,
           },
           expectedReviewContext: frozenReviewContext,
-          schemaFile: CODEX_JUDGE_SCHEMA,
+          schemaFile: codexSchemaForContract(expectedContract),
           env: dependencies.env || process.env,
           executable: codexExecutable,
           cliVersion: judge.cliVersion,
@@ -895,6 +912,7 @@ async function execPair(pair, context, dependencies = {}) {
           REVIEW_AND_FIX_PR_CODEX_RECEIPT: codexReceipt.file,
           REVIEW_AND_FIX_PR_CODEX_INPUT: codexReceipt.inputFile,
           REVIEW_AND_FIX_PR_CODEX_CONTEXT: codexReceipt.contextFile,
+          REVIEW_AND_FIX_PR_DISCOVERY_LEDGER: codexReceipt.discoveryFile,
           REVIEW_AND_FIX_PR_CODEX_EXPECTED_JSON: JSON.stringify({
             target: { repository: target.fork, baseSha: checkout.baseSha, headSha: checkout.headSha },
             pluginFingerprint: cohort.pluginFingerprint,
@@ -951,8 +969,24 @@ async function execPair(pair, context, dependencies = {}) {
     const resultContract = toolRequiresStructuredResult(tool)
       ? parseReviewAndFixPrResultContract(parsed.result, expectedContract)
       : null
+    let discoveryLedger = null
+    if (tool.requiresDiscoveryLedger) {
+      if (!codexReceipt || !fs.existsSync(codexReceipt.discoveryFile)) {
+        throw new Error('review-and-fix-pr produced no discovery ledger')
+      }
+      const stat = fs.lstatSync(codexReceipt.discoveryFile)
+      if (stat.isSymbolicLink() || !stat.isFile()) throw new Error('unsafe discovery ledger path')
+      discoveryLedger = validateDiscoveryLedger(
+        JSON.parse(fs.readFileSync(codexReceipt.discoveryFile, 'utf8')),
+        resultContract.candidateLedger,
+        { schemaVersion: tool.discoveryLedgerSchemaVersion || 1 },
+      )
+    }
     const usage = readUsage(checkout.repo)
     assertTranscriptUsage(usage, cohort.requestedModel)
+    const discoveryReceipts = tool.requiresDiscoveryReceipts
+      ? captureDiscoveryReceipts(usage.transcriptDir, parsed.session_id)
+      : null
     let codexArtifacts = null
     if (requiresCodex) {
       if (!codexReceipt || !fs.existsSync(codexReceipt.file)) throw new Error('review-and-fix-pr-v2 produced no Codex receipt')
@@ -1011,6 +1045,8 @@ async function execPair(pair, context, dependencies = {}) {
       result: parsed ? parsed.result : null,
       ...(resultContract == null ? {} : { resultContract }),
       ...(codexArtifacts || {}),
+      ...(discoveryLedger == null ? {} : { discoveryLedger }),
+      ...(discoveryReceipts == null ? {} : { discoveryReceipts }),
       ...(cohort.requestedModel === FABLE_MODEL ? { quotaEvidence: authorization && authorization.quotaEvidence } : {}),
       stderrTail: response.err.slice(-4000),
       attempts,
@@ -1088,11 +1124,13 @@ async function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}
   const toolsById = new Map(toolConfig.tools.map((tool) => [tool.id, tool]))
   const requiresCodexJudge = expectedCells.some((cell) => {
     const tool = toolsById.get(cell.tool)
-    return tool && tool.resultContract === REVIEW_AND_FIX_PR_CONTRACT_V2
+    return tool && [REVIEW_AND_FIX_PR_CONTRACT_V2, REVIEW_AND_FIX_PR_CONTRACT_V3].includes(tool.resultContract)
   })
   let codexJudge = null
   if (requiresCodexJudge) {
-    codexJudge = runCodexPreflight(root, env, dependencies)
+    const contract = expectedCells.some((cell) => toolsById.get(cell.tool)?.resultContract === REVIEW_AND_FIX_PR_CONTRACT_V3)
+      ? REVIEW_AND_FIX_PR_CONTRACT_V3 : REVIEW_AND_FIX_PR_CONTRACT_V2
+    codexJudge = runCodexPreflight(root, env, dependencies, contract)
     if (cohort.codexJudge && JSON.stringify(codexJudge) !== JSON.stringify(cohort.codexJudge)) {
       throw new Error(`cohort ${cohort.runId} Codex judge identity changed`)
     }

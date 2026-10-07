@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-coverage-2026-10-04",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.287 (Claude Code)",
+  "configSha256": "07f599dedc9dfca0994d0dd0600f3442ab4ea63ba185c97c60a04dd0cb083506",
+  "pluginFingerprint": {
+    "contentSha256": "a90f40eff423133b5f567b093794bb651e253e89f2e5c15a1bae56a0bf41e9cd",
+    "gitCommit": "0a5b76f5895a89d3b8f9bfa01e85b46cf9c60ad7",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7"
+  },
+  "target": "tidepool",
+  "language": "Go",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "rawFindings": 10,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "vectorElemMinSize recursion is quadratic in vector nesting depth",
+      "file": "marshal.go",
+      "line": 1125,
+      "kind": "perf",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "vectorElemMinSize (marshal.go:1125) calls isVectorVariableLengthType, whose TypeCustom/VectorType case (marshal.go ~1180) recurses to the bottom of the nesting at every level, then vectorElemMinSize itself recurses into vec.SubType, so total work is sum(1..d) = O(d^2) for a type nested d levels deep; a server-controlled nested vector type string can make d arbitrarily large.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize and its recursive use of isVectorVariableLengthType are new code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "vectorElemMinSize is quadratic in nesting depth"
+      },
+      "reportedAsByRun": {
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr": "At every level of its own recursion vectorElemMinSize calls the fully recursive isVectorVariableLengthType, and unmarshalVector re-runs the bound at each nested level, so a deeply nested server-supplied type (~1400 levels) can make the client burn CPU regardless of actual value size."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "MaxInt32 saturation branch in dimension-bound math is untested",
+      "file": "marshal.go",
+      "line": 1136,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "TestVectorElemMinSize (marshal_vector_test.go:803-816) nests vector<vector<float,3>,4> at most; no test drives vec.Dimensions*per close to or past math.MaxInt32 to exercise the `int64(vec.Dimensions) > (math.MaxInt32-size)/per` saturation branch at marshal.go:1136.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The saturation arithmetic is new code added by this PR and ships without a test for its only nontrivial branch.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "MaxInt32 saturation branch in the bound arithmetic is untested"
+      },
+      "reportedAsByRun": {
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr": "No test exercises the saturation arithmetic beyond an inner dimension of 4, so a wrap, off-by-one, or 32-bit narrowing bug in that branch would go undetected."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Float fast-path length-mismatch check is no longer independently tested",
+      "file": "marshal_vector_test.go",
+      "line": 371,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Verified: for the existing float64_unmarshal_wrong_data_len test (10 bytes, 3 dims) the new dimension bound (3 > 10/8) already rejects before the fast path's own len(data)!=expected check runs; a case like 28 bytes/3 dims passes the bound (3 > 28/8=3 is false) and would only be caught by the fast-path check, which no test drives.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new bound check shadows the pre-existing fast-path length check in the only tests that exercised it, created by this PR's change.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Float fast-path length-mismatch check is no longer exercised by tests"
+      },
+      "reportedAsByRun": {
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr": "Existing wrong-length tests are now caught by the new bound first and only assert that some error occurred, so removing the fast-path len(data) != expected checks would still pass all tests (e.g. 28 bytes into *[]float64 with 3 dimensions would decode without error)."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "PR body claims every new test fails on pristine code; several already pass",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Verified by running the test file against base marshal.go/helpers.go (main, with a no-op vectorElemMinSize stub so it compiles): TestUnmarshalVectorAcceptsWellFormedPayloads, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType, and the 'nested vector into a concrete slice still decodes' / 'a resolvable element type into an interface still decodes' subtests all PASS unmodified, contradicting the PR body's claim that every new test fails against pristine code.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The overstatement is in this PR's own description of its own verification.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "PR body overstates that every new test fails against pristine code"
+      },
+      "reportedAsByRun": {
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr": "Several new tests (TestUnmarshalVectorAcceptsWellFormedPayloads, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType, and two 'still decodes' subtests) assert behaviour the base code already has, contradicting the claim that every new test fails against pristine marshal.go/helpers.go."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Bound's comment wrongly claims every path allocates",
+      "file": "marshal.go",
+      "line": 986,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "In unmarshalVector's reflect.Array branch (marshal.go ~1053-1067), the code checks rv.Len() against info.Dimensions and writes directly into the existing array via rv.Index(i) with no make/reflect.MakeSlice call, so the comment's claim that 'every path below turns it into an allocation' is incorrect for that path.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new, added alongside the bound in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Bound's comment inaccurately claims every path allocates"
+      },
+      "reportedAsByRun": {
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr": "The comment says 'every path below turns it into an allocation', but the *[N]T array path allocates nothing, which the PR's own test comment acknowledges."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Test comment misstates per-element byte size of nested text vector",
+      "file": "marshal_vector_test.go",
+      "line": 772,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The payload is two inner vector<text,3> elements, each a 1-byte outer vint length prefix plus three 1-byte zero-length vints = 4 bytes per inner vector, totaling 8 bytes for both (matching the test's len(data)==8 assertion); the comment's 'eight bytes' describes the whole two-element payload, not one inner vector as its phrasing implies.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new test documentation added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Test comment states wrong byte size for inner vector"
+      },
+      "reportedAsByRun": {
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr": "A comment says each inner vector<text,3> is 'eight bytes', but each one is actually 4 bytes; 8 is the size of the whole two-element payload."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Test comment's 'N bytes' rationale doesn't name the real per-type bound",
+      "file": "marshal_vector_test.go",
+      "line": 692,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The code's actual bound is info.Dimensions * vectorElemMinSize(SubType), which exceeds N bytes for any element type with a per-element minimum above 1 byte (e.g. 12 bytes for 3 floats, 48 for the nested-vector case in the same test); stating the floor as 'N bytes' describes a weaker, type-blind invariant rather than the bound the tests are actually pinned against.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new test documentation added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Stale rationale in test doc comment about minimum vector encoding size"
+      },
+      "reportedAsByRun": {
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr": "The comment argues 'a vector of N elements is never encoded in fewer than N bytes', but the actual bound is Dimensions * vectorElemMinSize, not N bytes."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "makeVectorType duplicates makeFloat32VectorType/makeDoubleVectorType",
+      "file": "marshal_vector_test.go",
+      "line": 557,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "makeVectorType(TypeFloat, \"FloatType\", dim) and makeVectorType(TypeDouble, \"DoubleType\", dim) build byte-for-byte the same VectorType as makeFloat32VectorType(dim) and makeDoubleVectorType(dim) (marshal_vector_test.go:36-61), and the new tests use both builder styles interchangeably.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "makeVectorType is a new test helper added by this PR alongside the pre-existing, now-duplicated ones.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "makeVectorType duplicates existing test helper functions"
+      },
+      "reportedAsByRun": {
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr": "makeVectorType duplicates what makeFloat32VectorType and makeDoubleVectorType already build, and the new tests mix both styles, meaning a change to the vector type's layout or name format must be repeated across multiple builders."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "Commit message not naming vectorElemMinSize is not a defect",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Commit 0276a66's message already explains the mechanism in plain terms ('Every element takes at least one byte on the wire, so a count the buffer cannot hold is rejected'); omitting the internal helper function's name is not an inaccuracy or missing requirement.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns this PR's own commit message, but asserts no actual inaccuracy.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Commit 0276a66's message omits mention of vectorElemMinSize"
+      },
+      "reportedAsByRun": {
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr": "A candidate claim that the commit message for 0276a66 leaves out vectorElemMinSize was raised but rejected by Codex during adjudication."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "AI attribution trailer claimed missing but is present in commit/PR body",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Both commits 0276a66 and 78891dd carry a 'Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>' trailer and the PR body ends with a 'Generated with Claude Code' line, so attribution is present; the repo also has no CONTRIBUTING.md rule requiring it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns this PR's own commits/description, but the asserted absence does not hold.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Missing AI attribution trailer"
+      },
+      "reportedAsByRun": {
+        "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr": "A lead claiming an AI attribution trailer was missing was screened out because it relied on a private user rule rather than a repository rule, and CONTRIBUTING.md has no such rule."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.1426958,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 80,
+      "outputTokens": 27228,
+      "cacheReadInputTokens": 2689299,
+      "cacheCreationInputTokens": 83099,
+      "webSearchRequests": 0,
+      "costUSD": 1.1426958,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 16094,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/tidepool/runs/rafp-coverage-2026-10-04/_judge/attempt-KHYsIN/repo",
+  "judgedAt": "2026-10-05T03:46:27.438Z"
+}
