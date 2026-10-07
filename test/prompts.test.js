@@ -378,8 +378,8 @@ test('every discovery lane receives exact delimited PR evidence instead of a sum
     ]) assert.match(text, pattern, `${name} omits exact ${label}`)
   }
   for (const [name, text] of [['SKILL.md', skill], ['reference.md', ref]]) {
-    assert.match(text, /every mandatory lane and gap assignee/i, `${name} does not preserve evidence per lane`)
-    assert.match(text, /summary[\s\S]{0,60}never\s+replace[\s\S]{0,40}(?:truncate|rewrite)/i,
+    assert.match(text, /every\s+mandatory lane and gap assignee/i, `${name} does not preserve evidence per lane`)
+    assert.match(text, /summary[\s\S]{0,60}never\s+replac(?:e|es)[\s\S]{0,40}(?:truncate|truncates|full evidence)/i,
       `${name} permits lossy evidence summaries`)
     assert.match(text, /Exclude other reviewers' output, benchmark judgments, and sealed\s+baseline\s+issues/i,
       `${name} exposes benchmark answers to a review run`)
@@ -391,14 +391,14 @@ test('discovery admits atomic candidates and retains checked nonissues only in c
     rd('skills/review-and-fix-pr/reference.md')
   for (const field of ['basisType', 'basis', 'mechanisms', 'consequence', 'defectClass', 'category',
                        'locations', 'evidence', 'sourceIds']) {
-    assert.match(procedure, new RegExp(`\\b${field}:`), `candidate schema omits ${field}`)
+    assert.match(procedure, new RegExp(`\\b${field}\\"?:`), `candidate schema omits ${field}`)
   }
   assert.match(procedure, /`mechanisms` must contain exactly one item/i)
   assert.match(procedure, /Split a mixed row before admission|Split mixed claims/i)
   assert.match(procedure,
     /Merge repeated\s+instances only when basis\/trigger, mechanism, defect class, and consequence are the same/i)
   assert.match(procedure, /preserve\s+all locations, evidence, and source IDs/i)
-  assert.match(procedure, /checked_nonissues:/)
+  assert.match(procedure, /checked_nonissues"?:/)
   for (const kind of ['disproved', 'impact-free', 'inapplicable-rule', 'base-parity',
                       'counterfactual-design']) assert.match(procedure, new RegExp(kind))
   assert.match(procedure, /never enter paid Codex input|out of paid adjudication/i)
@@ -440,8 +440,8 @@ test('controller optional routing is distinct, nonduplicative, and keeps its YAM
 test('coverage work externalizes compact receipts and constrains Claude orchestration', () => {
   const procedure = rd('skills/review-and-fix-pr/SKILL.md') + '\n' +
     rd('skills/review-and-fix-pr/reference.md')
-  assert.match(procedure, /compact receipts outside the target tree/i)
-  assert.match(procedure, /only (?:candidate IDs,\s+coverage-unit IDs, and )?evidence references/i)
+  assert.match(procedure, /compact receipts in agent transcripts/i)
+  assert.match(procedure, /only receipt IDs in root context|only IDs and evidence\s+references/i)
   assert.match(procedure, /Consolidate all gaps into at most one fresh\s+assignment/i)
   const tool = JSON.parse(rd('bench/tools.json')).tools.find(({ id }) => id === 'review-and-fix-pr')
   assert.match(tool.prompt, /at most one consolidated gap-review subagent/i)

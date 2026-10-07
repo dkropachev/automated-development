@@ -858,6 +858,24 @@ function validateTranscriptUsage(usage, requestedModel, label = 'claude transcri
   for (const [model, cost] of Object.entries(usage.models)) {
     if (!Number.isFinite(cost) || cost < 0) throw new Error(`${label} cost for ${model} must be finite and non-negative`)
   }
+  if (usage.byAgent != null) {
+    if (typeof usage.byAgent !== 'object' || Array.isArray(usage.byAgent)) {
+      throw new Error(`${label} byAgent is invalid`)
+    }
+    for (const [agent, tokens] of Object.entries(usage.byAgent)) {
+      if (!agent || !tokens || typeof tokens !== 'object' || Array.isArray(tokens)) {
+        throw new Error(`${label} byAgent entry is invalid`)
+      }
+      for (const field of ['input', 'output', 'cacheRead', 'cacheCreation', 'messages', 'total']) {
+        if (!Number.isSafeInteger(tokens[field]) || tokens[field] < 0) {
+          throw new Error(`${label} byAgent ${agent}.${field} is invalid`)
+        }
+      }
+      if (tokens.total !== tokens.input + tokens.output + tokens.cacheRead + tokens.cacheCreation) {
+        throw new Error(`${label} byAgent ${agent} total does not match token classes`)
+      }
+    }
+  }
   return usage
 }
 

@@ -8,6 +8,7 @@ const os = require('node:os')
 const path = require('node:path')
 const rewrite = require('../bench/lib/rewrite')
 const usage = require('../bench/lib/usage')
+const { validateTranscriptUsage } = require('../bench/lib/artifacts')
 
 const target = { upstream: 'scylladb/gocql', fork: 'dkropachev/tidepool', extraReplacements: { 'github.com/gocql/gocql': 'github.com/dkropachev/tidepool' } }
 
@@ -69,4 +70,20 @@ test('totalsForCwd follows a custom Claude config directory', () => {
   } finally {
     fs.rmSync(config, { recursive: true, force: true })
   }
+})
+
+test('agent usage records parent and agent tokens without double counting repeated message IDs', () => {
+  const event = (id, tokens) => ({ type: 'assistant', message: { id,
+    usage: { input_tokens: tokens, output_tokens: 2,
+      cache_read_input_tokens: 3, cache_creation_input_tokens: 4 } } })
+  const usageRows = usage.agentUsage([event('same', 10), event('same', 10), event('next', 5)])
+  assert.deepEqual(usageRows, {
+    input: 15, output: 4, cacheRead: 6, cacheCreation: 8, messages: 2, total: 33,
+  })
+  const result = { input: 15, output: 4, thinking: 0, cacheRead: 6, cacheCreation: 8,
+    total: 33, costUsd: 1, sessions: 1, models: { 'claude-opus-test': 1 },
+    byAgent: { parent: usageRows } }
+  assert.equal(validateTranscriptUsage(result, 'claude-opus-test'), result)
+  assert.throws(() => validateTranscriptUsage({ ...result,
+    byAgent: { parent: { ...usageRows, total: 34 } } }, 'claude-opus-test'))
 })

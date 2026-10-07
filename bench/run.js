@@ -50,6 +50,7 @@ const {
 const quota = require('./quota')
 const { validateDiscoveryLedger } = require('../lib/review-discovery-ledger')
 const { captureDiscoveryReceipts } = require('../lib/review-discovery-receipts')
+const { compactInventory } = require('../lib/review-inventory')
 
 const ROOT = __dirname
 const CLAUDE = process.env.CLAUDE || 'claude'
@@ -345,9 +346,11 @@ function allocateCodexReceipt(root, cohort, target, tool) {
   const file = codexReceiptPath(root, cohort.runId, target.id, tool.id, receiptId)
   const inputFile = file.slice(0, -'.json'.length) + '.input.json'
   const contextFile = file.slice(0, -'.json'.length) + '.context.json'
+  const inventoryFile = file.slice(0, -'.json'.length) + '.inventory.json'
   const discoveryFile = file.slice(0, -'.json'.length) + '.discovery.json'
   ensureDirectorySafe(path.dirname(file))
-  if (fs.existsSync(file) || fs.existsSync(inputFile) || fs.existsSync(contextFile) || fs.existsSync(discoveryFile)) {
+  if (fs.existsSync(file) || fs.existsSync(inputFile) || fs.existsSync(contextFile) ||
+      fs.existsSync(inventoryFile) || fs.existsSync(discoveryFile)) {
     throw new Error(`refusing existing Codex receipt/input/context path: ${file}`)
   }
   // Unix domain socket addresses are much shorter than artifact paths on Linux.
@@ -356,7 +359,7 @@ function allocateCodexReceipt(root, cohort, target, tool) {
   if (Buffer.byteLength(socketFile) > 100 || fs.existsSync(socketFile)) {
     throw new Error('cannot allocate a short, unused Codex broker socket path')
   }
-  return { receiptId, file, inputFile, contextFile, discoveryFile, socketFile }
+  return { receiptId, file, inputFile, contextFile, inventoryFile, discoveryFile, socketFile }
 }
 
 function jsonCommand(executable, args, cwd, label, dependencies = {}) {
@@ -873,6 +876,9 @@ async function execPair(pair, context, dependencies = {}) {
         const makeReviewContext = dependencies.prepareCodexReviewContext || prepareCodexReviewContext
         const frozenReviewContext = makeReviewContext(checkout, target, dependencies)
         writeJsonExclusive(codexReceipt.contextFile, frozenReviewContext)
+        if (expectedContract === REVIEW_AND_FIX_PR_CONTRACT_V3) {
+          writeJsonExclusive(codexReceipt.inventoryFile, compactInventory(frozenReviewContext))
+        }
         const startBroker = dependencies.startCodexBroker || codexRuntime().startCodexBroker
         let codexExecutable = (dependencies.env || process.env).CODEX || 'codex'
         if (!dependencies.startCodexBroker) {
@@ -912,6 +918,8 @@ async function execPair(pair, context, dependencies = {}) {
           REVIEW_AND_FIX_PR_CODEX_RECEIPT: codexReceipt.file,
           REVIEW_AND_FIX_PR_CODEX_INPUT: codexReceipt.inputFile,
           REVIEW_AND_FIX_PR_CODEX_CONTEXT: codexReceipt.contextFile,
+          ...(expectedContract === REVIEW_AND_FIX_PR_CONTRACT_V3
+            ? { REVIEW_AND_FIX_PR_INVENTORY: codexReceipt.inventoryFile } : {}),
           REVIEW_AND_FIX_PR_DISCOVERY_LEDGER: codexReceipt.discoveryFile,
           REVIEW_AND_FIX_PR_CODEX_EXPECTED_JSON: JSON.stringify({
             target: { repository: target.fork, baseSha: checkout.baseSha, headSha: checkout.headSha },
