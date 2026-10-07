@@ -19,8 +19,7 @@ function lanes() {
     lane: `lane-${index + 1}`, source_id: `S${index + 1}`,
     findings: index < 2 ? [finding(`S${index + 1}-1`)] : [],
     checked_nonissues: [{ observation_id: `N${index + 1}`, basis: 'base behavior',
-      reason: 'unchanged at the base revision',
-      evidence: [{ path: 'src/a.js', line: 3, detail: 'same code at base' }] }],
+      reason: 'unchanged at the base revision' }],
     receipt: { coverage_units: [`hunk-${index + 1}`], evidence_refs: ['src/a.js:3'],
       candidate_ids: [], checked_nonissue_ids: [`N${index + 1}`], not_examined: [] },
   }))
@@ -34,7 +33,6 @@ test('assembler merges exact mechanisms and keeps every source and checked reaso
   assert.deepEqual(result.ledger.candidates.map((row) => row.disposition), ['admitted', 'merged'])
   assert.equal(result.ledger.checkedNonissues.length, 6)
   assert.equal(result.ledger.checkedNonissues[0].reason, 'unchanged at the base revision')
-  assert.equal(result.input.reviewQuestions.length, 1)
 })
 
 test('assembler preserves distinct mechanisms and fails on missing core lanes', () => {

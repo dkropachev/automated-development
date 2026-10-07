@@ -20,7 +20,6 @@ const {
   candidateMechanismHash,
   canonical,
   normalizeCandidate,
-  normalizeEvidence,
   normalizedReceiptProof,
   receiptSummary,
   sameMechanism,
@@ -175,7 +174,7 @@ function normalizeReviewContext(context) {
 }
 
 function normalizeInput(input) {
-  exactKeys(input, [...INPUT_KEYS, ...(input.contract === CONTRACT_V3 ? ['reviewQuestions'] : [])], 'Codex judge input')
+  exactKeys(input, INPUT_KEYS, 'Codex judge input')
   if (!((input.schemaVersion === 1 && input.contract === CONTRACT_V2) ||
       (input.schemaVersion === 2 && input.contract === CONTRACT_V3))) {
     throw new Error('Codex judge input schema or contract is invalid')
@@ -194,8 +193,6 @@ function normalizeInput(input) {
   }
   const candidates = input.candidates.map((candidate, index) =>
     normalizeCandidate(candidate, `Codex judge candidates[${index}]`))
-  const reviewQuestions = input.contract === CONTRACT_V3
-    ? normalizeReviewQuestions(input.reviewQuestions) : undefined
   const ids = new Set(), hashes = new Set(), mechanismHashes = new Set()
   for (const candidate of candidates) {
     const hash = candidateClaimHash(candidate)
@@ -209,30 +206,12 @@ function normalizeInput(input) {
     hashes.add(hash)
     mechanismHashes.add(mechanismHash)
   }
-  return canonical({ ...input, candidates, reviewContext: normalizeReviewContext(input.reviewContext),
-    ...(reviewQuestions === undefined ? {} : { reviewQuestions }) })
+  return canonical({ ...input, candidates, reviewContext: normalizeReviewContext(input.reviewContext) })
 }
 
-function normalizeReviewQuestions(questions) {
-  if (!Array.isArray(questions)) throw new Error('Codex reviewQuestions must be an array')
-  return questions.map((question, index) => {
-    const label = `Codex reviewQuestions[${index}]`
-    exactKeys(question, ['observation', 'counterevidence', 'evidence'], label)
-    requiredString(question.observation, `${label}.observation`)
-    requiredString(question.counterevidence, `${label}.counterevidence`)
-    if (!Array.isArray(question.evidence) || !question.evidence.length) {
-      throw new Error(`${label}.evidence must be nonempty`)
-    }
-    return { observation: question.observation, counterevidence: question.counterevidence,
-      evidence: question.evidence.map((item, evidenceIndex) =>
-        normalizeEvidence(item, `${label}.evidence[${evidenceIndex}]`)) }
-  })
-}
-
-function buildJudgePrompt(reviewContext, candidates, contract = CONTRACT_V2, reviewQuestions = []) {
+function buildJudgePrompt(reviewContext, candidates, contract = CONTRACT_V2) {
   const blindCandidates = candidates.map((candidate) => sanitizedCandidate(candidate))
-  const payload = canonical({ reviewContext, candidates: blindCandidates,
-    ...(contract === CONTRACT_V3 ? { reviewQuestions } : {}) })
+  const payload = canonical({ reviewContext, candidates: blindCandidates })
   return [
     'You are OpenAI Codex independently adjudicating atomic pull-request findings discovered by Anthropic Claude.',
     'This explicit cross-provider disclosure is informational; judge only the supplied claims and source.',
@@ -256,7 +235,6 @@ function buildJudgePrompt(reviewContext, candidates, contract = CONTRACT_V2, rev
     'Severity is critical, high, medium, low, or nit; scope is in, deferred, or out.',
     'If inspection reveals a distinct atomic mechanism absent from the candidates, add it to newCandidates.',
     'Independently inspect every changed hunk and literal PR/test claim for omitted mechanisms after judging the supplied leads. Check behavior variants, assertions that cannot detect the promised result, comments affected by control flow, duplicated guards/state/fixtures, fragile references, and unbounded waits. Emit every distinct evidenced lead as a new candidate, including plausible future-edit risks for later suggestion judgment.',
-    'For v3, reviewQuestions are neutral observations with counterevidence from an earlier screen. Recheck both sides independently. They are not reported findings or Claude verdicts. If a distinct present defect or concrete future-edit risk survives, emit one atomic newCandidate; otherwise emit nothing for that question.',
     'A new candidate must have one mechanism, a specific defectClass, and a concrete consequence. Set duplicateOfCandidateId to an existing ID only for the same mechanism identity; otherwise use an empty string.',
     'Do not include lane identity, reporter/support counts, Claude dispositions, external reports, or benchmark baselines.',
     `Your top-level identity fields must be schemaVersion=${contract === CONTRACT_V3 ? 2 : 1}, provider="OpenAI Codex", model="${JUDGE_MODEL}".`,
@@ -428,8 +406,7 @@ function assertRepositoryState(root, head) {
 function runOneInvocation(options, dependencies = {}) {
   const spawn = dependencies.spawnSync || spawnSync
   assertRepositoryState(options.root, options.head)
-  const prompt = buildJudgePrompt(options.reviewContext, options.candidates, options.contract,
-    options.reviewQuestions || [])
+  const prompt = buildJudgePrompt(options.reviewContext, options.candidates, options.contract)
   let result
   try {
     result = checkedSpawn(options.executable, codexArgs(options.schemaFile, options.root), {
@@ -565,7 +542,6 @@ function runAdjudication(options, dependencies = {}) {
       reviewContext: input.reviewContext,
       candidates: judgeBatch,
       contract: input.contract,
-      reviewQuestions: invocations.length === 0 ? input.reviewQuestions : [],
       }, dependencies)
     } catch (error) {
       const failureBase = `invocation-${String(invocations.length + 1).padStart(3, '0')}.failed`
