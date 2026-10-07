@@ -346,7 +346,7 @@ respond or finalize while the helper or any background task is pending. Only aft
 stdout `markerBinding`, `counts`, and `usage`; missing or malformed data fails verification.
 The code block must be the entire Bash command: add no prefix, suffix, pipe, or redirection.
 
-Before invoking, serialize exactly these top-level fields and no others to
+Before invoking, the assembler must serialize exactly these top-level fields and no others to
 `REVIEW_AND_FIX_PR_CODEX_INPUT`:
 
 ```json
@@ -382,6 +382,11 @@ Before invoking, serialize exactly these top-level fields and no others to
     "locations": [{"path": "src/file", "line": 1}],
     "evidence": [{"path": "src/file", "line": 1, "detail": "<checked fact>"}],
     "sourceIds": ["<opaque source ID>"]
+  }],
+  "reviewQuestions": [{
+    "observation": "Neutral checked concern",
+    "counterevidence": "Evidence that appeared to limit it",
+    "evidence": [{"path": "src/file", "line": 1, "detail": "Exact checked fact"}]
   }]
 }
 ```
@@ -396,6 +401,9 @@ command arguments must exactly match that expected JSON. Resolve every discovery
 before serialization to `{path,line,detail}`. Judge candidates have exactly `id`, `claim`,
 `basisType`, `basis`, `mechanisms`, `consequence`, `defectClass`, `category`, `locations`, `evidence`, and
 `sourceIds`; strip lane-only title, severity, confidence, scope, and counterevidence.
+`reviewQuestions` contain checked observations and counterevidence, without lane IDs, dispositions,
+or support counts. Codex may promote only a distinct evidenced mechanism to `newCandidates`; that
+lead receives a separate fresh judgment invocation. Questions themselves are never reported claims.
 
 The helper removes source IDs from Codex model input and must never expose lane identity, support
 count, Claude disposition, Matt or other benchmark output, or sealed baseline issues. It invokes the installed CLI

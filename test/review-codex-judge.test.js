@@ -292,6 +292,22 @@ test('judge prompt discloses providers while excluding lane, support, dispositio
   for (const secret of secretSources) assert.doesNotMatch(prompt, new RegExp(secret, 'i'))
 })
 
+test('v3 questions reach Codex without screened dispositions or lane provenance', () => {
+  const question = { observation: 'Two lifecycle flags can drift',
+    counterevidence: 'Current paths set both consistently',
+    evidence: [{ path: 'src/example.cc', line: 8, detail: 'two flags gate send' }] }
+  const input = { ...judgeInput(), schemaVersion: 2, contract: 'review-and-fix-pr-v3',
+    reviewQuestions: [question] }
+  assert.equal(runner.normalizeInput(input).reviewQuestions.length, 1)
+  const prompt = runner.buildJudgePrompt(input.reviewContext, input.candidates,
+    'review-and-fix-pr-v3', input.reviewQuestions)
+  assert.match(prompt, /Two lifecycle flags can drift/)
+  assert.match(prompt, /Recheck both sides independently/)
+  assert.doesNotMatch(prompt, /"source_id"|"checked_nonissues"|"class":"disproved"/)
+  assert.throws(() => runner.normalizeInput({ ...input, reviewQuestions: [{ ...question,
+    evidence: [{ ...question.evidence[0], path: '../outside' }] }] }))
+})
+
 test('judge prompt and schema bind every verdict sourceEvidence to its candidate locations', () => {
   const prompt = runner.buildJudgePrompt(reviewContext(), [candidate()])
   assert.match(prompt, /every verdict, including false_positive and unresolved/i)
@@ -503,6 +519,41 @@ test('adjudication sends a unique new lead to a distinct fresh invocation and ca
   } finally {
     fs.rmSync(fixture.root, { recursive: true, force: true })
   }
+})
+
+test('v3 reviews neutral questions once and judges a promoted suggestion in a fresh invocation', () => {
+  const fixture = adjudicationFixture()
+  const question = { observation: 'Duplicated lifecycle flags may drift',
+    counterevidence: 'They agree on present paths',
+    evidence: [{ path: 'src/example.cc', line: 8, detail: 'both flags gate send' }] }
+  fixture.options.input = { ...fixture.options.input, schemaVersion: 2,
+    contract: 'review-and-fix-pr-v3', reviewQuestions: [question] }
+  let calls = 0
+  try {
+    const receipt = runner.runAdjudication(fixture.options, {
+      now: () => new Date('2026-10-07T12:00:00.000Z'),
+      runOneInvocation: (options) => {
+        calls += 1
+        assert.equal(options.reviewQuestions.length, calls === 1 ? 1 : 0)
+        const lead = newCandidate({ claim: 'Two lifecycle flags can drift',
+          basis: 'A later edit changes one flag only', mechanisms: ['duplicated lifecycle state'],
+          consequence: 'A future send path accepts work after close', category: 'maintainability' })
+        const judgments = options.candidates.map((entry) => ({
+          ...judgment(entry.id), verdict: calls === 1 ? 'real' : 'suggestion',
+          suggestedEdit: calls === 1 ? null : 'change one flag',
+          suggestedConsequence: calls === 1 ? null : 'the other flag is missed',
+        }))
+        return invocation(`J00${calls}`, options.candidates, {
+          schemaVersion: 2, provider: 'OpenAI Codex', model: MODEL,
+          judgments, newCandidates: calls === 1 ? [lead] : [],
+        }, calls)
+      },
+    })
+    assert.equal(calls, 2)
+    assert.equal(receipt.counts.confirmed, 1)
+    assert.equal(receipt.counts.suggestion, 1)
+    assert.equal(receipt.candidates.find((entry) => entry.verdict === 'suggestion').originInvocationId, 'J001')
+  } finally { fs.rmSync(fixture.root, { recursive: true, force: true }) }
 })
 
 test('a duplicate new lead maps to the existing mechanism without another invocation', () => {

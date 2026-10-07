@@ -506,13 +506,13 @@ test('Codex helper input uses the runner paths, immutable identity, and exact st
   for (const name of ['REVIEW_AND_FIX_PR_CODEX_INPUT', 'REVIEW_AND_FIX_PR_CODEX_CONTEXT',
                       'REVIEW_AND_FIX_PR_CODEX_RECEIPT',
                       'REVIEW_AND_FIX_PR_CODEX_EXPECTED_JSON']) assert.match(ref, new RegExp(name))
-  const inputSection = ref.slice(ref.indexOf('Before invoking, serialize exactly'))
+  const inputSection = ref.slice(ref.indexOf('Before invoking, the assembler must serialize exactly'))
   const fence = /```json\n([\s\S]*?)\n```/.exec(inputSection)
   assert.ok(fence, 'reference.md has no strict helper-input example')
   const input = JSON.parse(fence[1])
   assert.deepEqual(Object.keys(input), [
     'schemaVersion', 'contract', 'sourceDisclosure', 'target', 'pluginFingerprint',
-    'reviewContext', 'candidates',
+    'reviewContext', 'candidates', 'reviewQuestions',
   ])
   assert.equal(input.schemaVersion, 2)
   assert.equal(input.contract, 'review-and-fix-pr-v3')
