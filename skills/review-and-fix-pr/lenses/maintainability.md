@@ -11,5 +11,3 @@ Compare every new helper and branch with adjacent code and existing helpers. Che
 duplicated classification logic, copied protocol rules, hand-built fixtures, extra lifecycle flags,
 and references into growable containers. For each lead, identify the two sources that can drift or
 the edit that would expose the hazard.
-Keep a plausible future-edit risk as an atomic candidate with that edit and consequence, even when
-present behavior is correct; Codex may classify it as a suggestion.

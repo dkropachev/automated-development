@@ -6,5 +6,3 @@ stale parameter or return descriptions, misleading security claims, and examples
 unsafe or incompatible use. Ignore wording preferences that do not change meaning.
 An admissible finding names the literal statement and the implemented fact that contradicts it;
 misleading invariants and materially incomplete claims count even without a runtime failure.
-For each changed control-flow hunk, check adjacent old and new comments against the new branch
-behavior. Inspect PR, commit, and test prose as literal claims, including base-failure promises.

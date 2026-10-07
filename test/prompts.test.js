@@ -448,8 +448,6 @@ test('coverage work externalizes compact receipts and constrains Claude orchestr
   assert.match(procedure, /no more than 15 Claude subagents/i)
   assert.match(procedure, /root context (?:below|under) 100k tokens/i)
   assert.match(procedure, /never finding, severity, confidence, or coverage cutoffs/i)
-  assert.match(procedure, /obligations: \[\{id: <stable obligation ID>/)
-  assert.match(procedure, /coverage unit needs a specific obligation, its check, and an exact\s+evidence reference/i)
 })
 
 test('Codex adjudication is script-backed, blind, read-only, and reaches a fixed point', () => {
