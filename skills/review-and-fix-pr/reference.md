@@ -254,6 +254,7 @@ checked_nonissues:
     evidence: [<fact ID>]
 receipt:
   coverage_units: [<path/hunk/symbol/requirement/test/contract/doc/rule ID>]
+  obligations: [{id: <stable obligation ID>, unit: <hunk or requirement ID>, check: <specific variant or literal claim checked>, evidence_refs: [<fact ID>], disposition: candidate|checked|gap}]
   evidence_refs: [<stable evidence ID>]
   candidate_ids: [<candidate ID>]
   checked_nonissue_ids: [<observation ID>]
@@ -293,7 +294,10 @@ claim text in the ledger so benchmark extraction does not mistake them for repor
 
 The first coverage auditor sees the frozen inventory and all receipts, but no titles, candidate
 prose, severities, lane names, or finding counts. It identifies missing semantic coverage—not just
-whether a file was opened—and assigns precise gap tasks. Consolidate all gaps into at most one fresh
+whether a file was opened. A coverage unit needs a specific obligation, its check, and an exact
+evidence reference; opening a file or naming a hunk alone is insufficient. Audit behavior and test
+variants, PR/test/comment claims affected by control flow, and concrete duplicated guards, state,
+fixtures, and fragile references. Assign precise gap tasks. Consolidate all gaps into at most one fresh
 assignment naming every needed expertise and run it once. A fresh final auditor applies the same
 blind rule to the combined receipts. Any remaining required unit makes
 coverage `incomplete-gaps`; a missing or malformed core lane makes it `incomplete-lens`.
