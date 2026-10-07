@@ -234,6 +234,7 @@ function buildJudgePrompt(reviewContext, candidates, contract = CONTRACT_V2) {
     'Never substitute a nearby or newly inspected path or line. Put the supporting, disproof, or uncertainty explanation in sourceEvidence.detail while preserving the copied path and line exactly.',
     'Severity is critical, high, medium, low, or nit; scope is in, deferred, or out.',
     'If inspection reveals a distinct atomic mechanism absent from the candidates, add it to newCandidates.',
+    'Independently inspect every changed hunk and literal PR/test claim for omitted mechanisms after judging the supplied leads. Check behavior variants, assertions that cannot detect the promised result, comments affected by control flow, duplicated guards/state/fixtures, fragile references, and unbounded waits. Emit every distinct evidenced lead as a new candidate, including plausible future-edit risks for later suggestion judgment.',
     'A new candidate must have one mechanism, a specific defectClass, and a concrete consequence. Set duplicateOfCandidateId to an existing ID only for the same mechanism identity; otherwise use an empty string.',
     'Do not include lane identity, reporter/support counts, Claude dispositions, external reports, or benchmark baselines.',
     `Your top-level identity fields must be schemaVersion=${contract === CONTRACT_V3 ? 2 : 1}, provider="OpenAI Codex", model="${JUDGE_MODEL}".`,

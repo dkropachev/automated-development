@@ -288,6 +288,7 @@ test('judge prompt discloses providers while excluding lane, support, dispositio
   assert.match(prompt, /independently adjudicating/i)
   assert.match(prompt, /"id":"C1"/)
   assert.match(prompt, /stale reference/)
+  assert.match(prompt, /Independently inspect every changed hunk and literal PR\/test claim/)
   for (const secret of secretSources) assert.doesNotMatch(prompt, new RegExp(secret, 'i'))
 })
 
