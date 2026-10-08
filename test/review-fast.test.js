@@ -5,7 +5,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { PASS_IDS, assemblePasses, normalizedPass, passPrompt } = require('../lib/review-fast')
-const { applyGroups, normalizeGroups } = require('../lib/review-fast-cluster')
+const { applyGroups, normalizeGroups, refineGroups } = require('../lib/review-fast-cluster')
 const { PASS_EFFORT, childEnvironment, parseArgs, runPasses } = require('../bin/review-and-fix-pr-fast')
 const { validatePassReceipt } = require('../lib/review-fast-contract')
 const { candidateClaimHash, sha256 } = require('../lib/review-codex-contract')
@@ -82,6 +82,23 @@ test('semantic clustering preserves raw provenance and rejects missing or unsafe
   assert.deepEqual(result.ledger.candidates.map((row) => row.disposition), ['admitted', 'merged'])
   assert.throws(() => normalizeGroups({ groups: [{ ...groups[0], memberIds: ['C1'] }] }, assembled.input.candidates))
   assert.throws(() => normalizeGroups({ groups: [{ ...groups[0], memberIds: ['C1', 'C1'] }] }, assembled.input.candidates))
+})
+
+test('unsafe cross-file cluster is split into independently judged leads', () => {
+  const second = { ...finding, claim: 'Another path has a flag',
+    basis: 'editing the second guard', mechanisms: ['independent second flag'],
+    locations: [{ path: 'src/b.js', line: 8 }],
+    evidence: [{ path: 'src/b.js', line: 8, detail: 'second flag' }] }
+  const passes = PASS_IDS.map((id, index) => normalizedPass(id, {
+    findings: index === 0 ? [finding, second] : [], coverage: 'reviewed',
+  }))
+  const assembled = assemblePasses(passes, {}, {}, null)
+  const proposed = { groups: [{ representativeId: 'C1', memberIds: ['C1', 'C2'],
+    reason: 'model proposed one mechanism' }] }
+  assert.throws(() => normalizeGroups(proposed, assembled.input.candidates), /shared source path/)
+  const safe = refineGroups(proposed, assembled.input.candidates)
+  assert.deepEqual(safe.map((group) => group.memberIds), [['C1'], ['C2']])
+  assert.equal(applyGroups(assembled, safe).input.candidates.length, 2)
 })
 
 test('six-pass receipt binds raw findings and semantic clusters to closure IDs', () => {

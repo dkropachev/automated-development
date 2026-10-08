@@ -9,7 +9,7 @@ const {
   sha256, canonical, validateReceipt, receiptSummary, JUDGE_MODEL, JUDGE_REASONING_EFFORT,
 } = require('../lib/review-codex-contract')
 const { PASS_IDS, assemblePasses, formatReport, normalizedPass, passPrompt } = require('../lib/review-fast')
-const { applyGroups, clusterPrompt, normalizeGroups } = require('../lib/review-fast-cluster')
+const { applyGroups, clusterPrompt, refineGroups } = require('../lib/review-fast-cluster')
 const { validatePassReceipt } = require('../lib/review-fast-contract')
 const { normalizeInput, parseTrace } = require('./review-and-fix-pr-codex')
 
@@ -132,10 +132,11 @@ async function runCluster(candidates, options) {
       /collab_tool_call|request_permissions/i.test(event.item?.type || ''))) {
     throw new Error('Codex clustering attempted a tool or permission request')
   }
-  const groups = normalizeGroups(trace.output, candidates)
+  const groups = refineGroups(trace.output, candidates)
   return { groups, model: JUDGE_MODEL, usage: trace.usage,
     invocationId: trace.invocationId, promptSha256: sha256(prompt),
-    traceSha256: sha256(response.stdout), resultSha256: sha256(trace.output),
+    traceSha256: sha256(response.stdout), resultSha256: sha256({ groups }),
+    rawResultSha256: sha256(trace.output),
     wallMs: response.wallMs }
 }
 
