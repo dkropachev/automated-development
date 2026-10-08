@@ -1,0 +1,324 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-six-pass-batched-2026-10-08",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "fdd879cd873eb3e535d39680ff82393e6e0b0a17bc852a5277e3b856b8185da6",
+  "pluginFingerprint": {
+    "contentSha256": "1dfe904c933bb322b7036091cdb8937f6bad59c6593b9ba6b0666dfb3fbf2507",
+    "gitCommit": "7ac66dc338912d459674b8669ca101e08040ab56",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "target": "quillstone",
+  "language": "Rust",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "rawFindings": 15,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Rejected shard-aware excess connection dropped without decrementing total_connections",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1006,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "In handle_ready_connection's `else if evt.requested_shard.is_some()` arm (connection_pool.rs:994-1006), the already-counted `connection` is dropped (via start_opening_connection(None) retry, with the original `connection` binding going out of scope) with no call to decrement_total_connections, unlike the sibling excess-pool-clear and reshard sites this PR fixed.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "This exact branch is byte-for-byte identical on main; the PR added decrement calls at other clear sites but never touched or newly exposed this one.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "A shard-aware connection rejected as excess is still dropped without decrementing total_connections, so the metric stays unbalanced on a discard path that sits right next to the ones this PR fixed."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr": "The metrics fix is incomplete (shotgun surgery). Each clear site needs its own hand-added `decrement_total_connections(...)`, and one path that drops an already-counted connection still has none: the rejected shard-aware connection branch."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "Pool worker teardown drops all connections without decrementing total_connections",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 696,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "When the keyspace-request channel closes, run() returns (connection_pool.rs:696) and `self` is dropped, discarding conns/excess_connections/in-flight ready_connections without any decrement_total_connections call; this path is unchanged from main.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Identical teardown code exists on main; the PR's metric-balancing commits did not touch or newly expose this shutdown path.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "When the pool worker stops, its pooled, excess and in-flight connections are dropped without decrementing total_connections. The 'balance metrics when clearing pools' change does not cover this teardown."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr": "When the pool worker stops, its pooled, excess and in-flight connections are dropped without decrementing total_connections. The 'balance metrics when clearing pools' change does not cover this teardown."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Per-connection USE keyspace future has no timeout; reordering now gates resharding on it",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1330,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "start_setting_keyspace_for_connection (line 1330, marked `// TODO: There should be a timeout for this`, unchanged from main) still awaits connection.use_keyspace with no timeout. The PR moved the keyspace-mismatch check (connection_pool.rs:915-929) to run before maybe_reshard/shard_aware_port update instead of after, so a hung USE now also delays resharding and the shard-aware port update for that connection event, which previously happened immediately regardless of keyspace state.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The missing timeout predates the PR, but the PR's reordering of the keyspace check ahead of resharding/port-update newly makes those updates wait on this hang-prone future.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The keyspace-setup future still has no timeout, so a USE request that hangs keeps the connection in ready_connections indefinitely. That leaves is_filling() true and blocks both refills and the new failure-reporting path. / Resharding and the shard-aware port update now wait for a USE request that has no timeout, so the sharder and port stay stale for as long as that USE hangs."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr": "The keyspace-setup future still has no timeout, so a USE request that hangs keeps the connection in ready_connections indefinitely. That leaves is_filling() true and blocks both refills and the new failure-reporting path. Resharding and the shard-aware port update now wait for a USE request that has no timeout, so the sharder and port stay stale for as long as that USE hangs."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "keyspace_setup_failure_triggers_refill feeds an impossible event and never checks a…",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The test (line 1474) constructs OpenedConnectionEvent{result: Err(Keyspace(..)), requested_shard: Some(..), keyspace_name: None}; in production, start_setting_keyspace_for_connection (the only producer of Keyspace errors) always sets keyspace_name: Some(..), so None never occurs alongside a Keyspace error. The test also only asserts need_filling()/had_error_since_last_refill, not that an actual refill (e.g. start_opening_connection) is subsequently scheduled or executed.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a brand-new test added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The test keyspace_setup_failure_triggers_refill builds an event state that production never produces: a Keyspace error with keyspace_name None and a shard-aware requested_shard. It also never checks that a refill actually happens. / The test keyspace_setup_failure_triggers_refill never shows that a refill is scheduled. It feeds an error that the production path cannot produce."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr": "The test keyspace_setup_failure_triggers_refill builds an event state that production never produces: a Keyspace error with keyspace_name None and a shard-aware requested_shard. It also never checks that a refill actually happens, and never shows that a refill is scheduled."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "keyspace_setup_failure_preserves_pool_state awaits ready_connections with no timeout",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1634,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Lines 1634 and 1667 call `refiller.ready_connections.next().await.unwrap()` with no tokio::time::timeout wrapper, unlike full_pool_clears_excess_connections_and_balances_metrics which wraps its polling loop in a 5s timeout; if the simulated USE response never arrives the test hangs instead of failing with a clear message.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New test added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "keyspace_setup_failure_preserves_pool_state awaits ready_connections.next() with no timeout, and the USE path it waits on has no client-side timeout either."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr": "keyspace_setup_failure_preserves_pool_state awaits ready_connections.next() with no timeout, and the USE path it waits on has no client-side timeout either."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "New keyspace tests omit the setup_tracing() call other new tests in this PR use",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_triggers_refill (1474) and keyspace_setup_failure_preserves_pool_state (1526) don't call setup_tracing(), while this PR's resharding_discards_old_connections_and_balances_metrics (1869), excess_connection_limit_clears_connections_and_balances_metrics (1945) and full_pool_clears_excess_connections_and_balances_metrics (1973) all do, and CONTRIBUTING.md says new tests should call it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both affected tests are new in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The two new keyspace tests do not call setup_tracing(), even though CONTRIBUTING requires new tests to call it. The other new tests in this PR do."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr": "The two new keyspace tests do not call setup_tracing(), even though CONTRIBUTING requires new tests to call it. The other new tests in this PR do."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "All four PR commits have subject-only messages with no explanatory body",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "git log shows all four commits (617139df, 7f48315d, 0d91aa54, de164845) are single-line subjects with empty bodies, while CONTRIBUTING.md:10 says commit messages should explain what changed and why.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The commits under review are this PR's own commits.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "All four commits have a subject line only. None explains what changed or why, and there is no PR description, which the repository's contribution rules require. / None of the four commits has a message body. Each is just a subject line, so none explains why the change was made. This violates a documented rule."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr": "All four commits (617139df, 7f48315d, 0d91aa54, de164845) have a subject line only, with no body explaining what changed or why, violating CONTRIBUTING.md's commit message guidance."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "PR description covers only the keyspace-setup commit, omits the metrics-balancing work",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "`gh pr view 1` shows the description only discusses the keyspace-setup-failure behavior (commit 7f48315d) and its regression tests; it never mentions the total_connections balancing commit de164845 or its test commits 0d91aa54/617139df.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR description is part of this PR submission.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The PR body describes only the keyspace-setup change. It omits the behavior-changing metrics commit de164845 (total_connections decrements on reshard, excess-limit clearing and full-pool clearing) and its tests (0d91aa54, 617139df)."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr": "The PR body describes only the keyspace-setup change. It omits the behavior-changing metrics commit de164845 (total_connections decrements on reshard, excess-limit clearing and full-pool clearing) and its tests (0d91aa54, 617139df)."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "Inconsistent proxy-shutdown assertions across the PR's new tests",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1689,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_preserves_pool_state (line 1689) matches on proxy.finish() and panics on unexpected errors, while the three new metrics tests (lines 1939, 1967, 2012) all discard the result with `let _ = proxy.finish().await;`, silently swallowing proxy-side failures.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "All affected tests are new in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Proxy shutdown handling is inconsistent across the new tests: the keyspace test asserts finish() succeeds or only reports DriverDisconnected, while the three metrics tests discard the result with `let _ =`."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr": "Proxy shutdown handling is inconsistent across the new tests: the keyspace test asserts finish() succeeds or only reports DriverDisconnected, while the three metrics tests discard the result with `let _ =`."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "Keyspace setup failure on an empty pool is reported as lost host connectivity",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 908,
+      "kind": "design",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The new `Err(ConnectionSetupError::Keyspace(err))` arm (lines 900-911) calls update_shared_conns(Some(err.into())) when the pool is empty, which sets MaybePoolConnections::Broken and, per emit_events (line 1158) and worker.rs:733 handle_connectivity_change_event, publishes ConnectivityChangeEvent::Lost -> HostEvent::Down to the configured HostListener, marking a TCP-reachable node as connectivity-lost purely because of a keyspace-level failure (e.g. bad/missing keyspace).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This call path is new code added by commit 7f48315d.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "A keyspace failure on an empty pool goes through update_shared_conns(Some(err.into())). That moves the pool from Initializing or Ready to Broken and emits ConnectivityChangeEvent::Lost, so a keyspace-level error is reported as lost host connectivity."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr": "A keyspace failure on an empty pool goes through update_shared_conns(Some(err.into())). That moves the pool from Initializing or Ready to Broken and emits ConnectivityChangeEvent::Lost, so a keyspace-level error is reported as lost host connectivity."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "Broken connection during USE is misclassified as a keyspace setup failure",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "connection.use_keyspace propagates RequestAttemptError::BrokenConnectionError as UseKeyspaceError::RequestError(..); the new Keyspace-error arm (lines 900-911) treats this the same as a genuine keyspace problem - setting had_error_since_last_refill (increasing backoff) and, if the pool is empty, publishing ConnectionError::UseKeyspaceError - whereas cluster/worker.rs:783's use_keyspace_result treats RequestError(BrokenConnectionError) specially as a non-keyspace, connection-level condition.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The Keyspace-error arm and its backoff/reporting behavior are new code from commit 7f48315d.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "A broken connection during USE (UseKeyspaceError::RequestError(BrokenConnectionError)) is now reported as a keyspace setup failure. It increases backoff and is published as ConnectionError::UseKeyspaceError instead of BrokenConnection. Sibling code in use_keyspace_result treats broken connections as non-keyspace errors."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/quillstone/review-and-fix-pr": "A broken connection during USE (UseKeyspaceError::RequestError(BrokenConnectionError)) is now reported as a keyspace setup failure. It increases backoff and is published as ConnectionError::UseKeyspaceError instead of BrokenConnection. Sibling code in use_keyspace_result treats broken connections as non-keyspace errors."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.3263150000000001,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 74,
+      "outputTokens": 33885,
+      "cacheReadInputTokens": 2986425,
+      "cacheCreationInputTokens": 97508,
+      "webSearchRequests": 0,
+      "costUSD": 1.3263150000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 19784,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/quillstone/runs/rafp-six-pass-batched-2026-10-08/_judge/attempt-246ZPw/repo",
+  "judgedAt": "2026-10-08T05:23:48.387Z"
+}

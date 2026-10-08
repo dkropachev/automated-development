@@ -1,0 +1,324 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-six-pass-batched-2026-10-08",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "fdd879cd873eb3e535d39680ff82393e6e0b0a17bc852a5277e3b856b8185da6",
+  "pluginFingerprint": {
+    "contentSha256": "1dfe904c933bb322b7036091cdb8937f6bad59c6593b9ba6b0666dfb3fbf2507",
+    "gitCommit": "7ac66dc338912d459674b8669ca101e08040ab56",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "target": "ironweave",
+  "language": "C++",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "rawFindings": 14,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Claim that the test's loopback sink can't batch flushes is factually wrong",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1847,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "loopback_data_sink_impl::can_batch_flushes() (tests/unit/loopback_socket.hh:164) returns true, and connected_socket::output() (src/net/stack.cc:116-121) unconditionally sets opts.batch_flushes=true, so output_stream::_batch_flushes is true for this stream's write_buf; send_entry() calls write_buf.flush() after every write (src/rpc/rpc.cc:188), so the batch-flush/_in_batch path is genuinely exercised, contradicting the claim.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "the test and its comments are new code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The regression test never exercises the batch-flush path it describes. The loopback sink it wraps does not support batch flushes, so the stream's write_buf flushes synchronously and the ~output_stream `!_in_batch` crash cannot occur in this test."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr": "The regression test never exercises the batch-flush path it describes. The loopback sink it wraps does not support batch flushes, so the stream's write_buf flushes synchronously and the ~output_stream `!_in_batch` crash cannot occur in this test."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "Claim that test comments describe a batch-flush path that never happens is wrong",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2021,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Same misreading as I1: batching is active for this stream's write_buf (loopback sink's can_batch_flushes()==true, options.batch_flushes==true), so the yield loop giving the global flush poller time to run, and the ~output_stream() assertion the test targets, both describe real, reachable behavior.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "the test comments are new text added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Two test comments describe behavior that never happens in this fixture: the 'batch flush poller' yield loop and the closing note that ~output_stream() asserts on a pending batch flush."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr": "Two test comments describe behavior that never happens in this fixture: the 'batch flush poller' yield loop and the closing note that ~output_stream() asserts on a pending batch flush."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Test doesn't assert send_empty_frame hook was refused; relies only on a side effect",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The try/catch around stream_send_empty_frame().get() (rpc_test.cc:2016-2020) only reacts to rpc::closed_error; a successful call falls through silently. The regression is still caught later via BOOST_REQUIRE_MESSAGE(!st.put_after_close, ...) at line 2030, so the test does fail on a regression, but not at the point the comments imply, and not with a clear assertion about the exception itself.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "new test code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The test does not assert that the send_empty_frame hook was refused with closed_error. A hook that succeeds is silently accepted."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr": "The test's comments say an empty frame sent in the window 'must be refused' and that catching closed_error is 'what we want', but nothing asserts that the frame was refused. A successful send() is accepted silently."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "No test covers stream_close() draining pre-existing queued entries",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "In the new test, every send() completes (.get()) before stream_close() runs, so _outgoing_queue is always empty when stream_close() exchanges _outgoing_queue_ready at rpc.cc:562; no test creates an in-flight entry racing the _stream_closing flag, so that drain path is never meaningfully exercised.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "the drain logic is new code from this PR and the new test is the only coverage added for it.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "No test covers the second half of the fix: stream_close() waiting for _outgoing_queue_ready to drain entries accepted before _stream_closing was set."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr": "No test covers the second half of the fix: stream_close() waiting for _outgoing_queue_ready to drain entries accepted before _stream_closing was set."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Doc overstates that any exception while reading a source closes it",
+      "file": "doc/rpc-streaming.md",
+      "line": 111,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "source_impl::operator()() (include/seastar/rpc/rpc_impl.hh:941-983) only calls close_source() when stream_receive() itself fails or yields eof; an exception thrown by unmarshall() while deserializing an already-buffered frame (process_one_buffer(), line 945-948) propagates without calling close_source(), so 'throws is what closes it' is false for that case.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "this is new documentation text added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new docs say any exception thrown while reading a source closes it. That is false for exceptions thrown while deserializing a buffer."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr": "The new docs say any exception thrown while reading a source closes it. That is false for exceptions thrown while deserializing a buffer."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Doc claim that a stream connection shuts down 'only once both halves are closed' is…",
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "client::abort_all_streams() (src/rpc/rpc.cc:848-855) calls abort() directly on every child stream connection when the parent client closes, shutting it down without either half of the stream protocol being closed; this contradicts the unqualified statement at doc/rpc-streaming.md:115, even though the doc separately (lines 49-51) already describes client-close as aborting streams.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "new documentation text added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new doc says a stream's connection is shut down 'only once both halves are closed'. That contradicts the client-close abort described a few lines earlier and the error/peer-eof paths in the client loop."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr": "The new doc says a stream's connection is shut down 'only once both halves are closed'. That contradicts the client-close abort described a few lines earlier and the error/peer-eof paths in the client loop."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "stream_close() comment wrongly claims nothing else waits for _outgoing_queue_ready",
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "stop_send_loop() (rpc.cc:225) explicitly does when_all(std::move(_outgoing_queue_ready), ...); after stream_close()'s exchange at line 562 that future is always already-resolved, so the wait is vacuous in practice, but the comment's literal claim that 'nothing else waits for it' is not true of the code.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "new comment text added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The stream_close() comment says nothing else waits for _outgoing_queue_ready. In fact stop_send_loop() still awaits it, and suspend_for_testing() calls .get() on it."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr": "The stream_close() comment says nothing else waits for _outgoing_queue_ready. In fact stop_send_loop() still awaits it, and suspend_for_testing() calls .get() on it."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "test_data_sink_impl::put override is not guarded by SEASTAR_API_LEVEL, unlike the repo's…",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "data_sink_impl::put(std::span<...>) only exists when SEASTAR_API_LEVEL >= 9 (include/seastar/core/iostream.hh:110-128); below that level the pure virtual is put(net::packet). test_data_sink_impl (rpc_test.cc:1877-1888) overrides only the span form unconditionally, while tests/unit/loopback_socket.hh:144-153 guards the same choice with #if SEASTAR_API_LEVEL >= 9 / #else. Built with Seastar_API_LEVEL=7 (an explicitly supported CMake cache value), test_data_sink_impl would fail to compile as an abstract class missing put(net::packet). Default build (level 9) is unaffected.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "new test code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "`test_data_sink_impl` unconditionally overrides `put(std::span<temporary_buffer<char>>)`, which exists only when `SEASTAR_API_LEVEL >= 9`. The repository's own loopback sink guards the same override with `#if`."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr": "`test_data_sink_impl` unconditionally overrides `put(std::span<temporary_buffer<char>>)`, which exists only when `SEASTAR_API_LEVEL >= 9`. The repository's own loopback sink guards the same override with `#if`."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "stream_close() comment wrongly implies failed sends make _outgoing_queue_ready exceptional",
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "In send()'s continuation (rpc.cc:333-339), when send_entry() fails it calls abort() and then unconditionally p->done.set_value() (not set_exception), so a failed send resolves the chain with a value, not an exception. The comment's 'exceptional if an entry failed' conflates that with withdraw()'s exception path (used by stop_send_loop/timeout cancellation), which is a different mechanism.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "new comment text added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new `stream_close()` comment says `_outgoing_queue_ready` is exceptional \"if an entry failed\". In `send()`, a failed entry resolves its `done` promise with a value."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr": "The new `stream_close()` comment says `_outgoing_queue_ready` is exceptional \"if an entry failed\". In `send()`, a failed entry resolves its `done` promise with a value."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "Commits and PR description carry forbidden Claude/Anthropic attribution",
+      "file": "src/rpc/rpc.cc",
+      "line": 551,
+      "kind": "style",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "git log main..HEAD shows 'Co-Authored-By: Claude Opus 5 (1M context)' and 'Co-Authored-By: Claude Fable 5.1' trailers on all three commits, and `gh pr view` shows the PR body ends with '🤖 Generated with [Claude Code](https://claude.com/claude-code)'; the user's global CLAUDE.md explicitly forbids this attribution.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "the attribution lives in this PR's own commits and description.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The commit messages carry Co-Authored-By: Claude trailers, and the PR body ends with a \"Generated with Claude Code\" line. The user's governing instructions forbid this attribution."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr": "The commit messages carry Co-Authored-By: Claude trailers, and the PR body ends with a \"Generated with Claude Code\" line. The user's governing instructions forbid this attribution."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "stream_close() comment wrongly claims _error is only set by the stop() that follows",
+      "file": "src/rpc/rpc.cc",
+      "line": 552,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "_error can also be set independently on the same connection by stop_send_loop() (rpc.cc:199) or by abort() called directly from send()'s failure continuation (rpc.cc:336), neither of which is 'the stop() that follows' in stream_close(); either could race with stream_close() and set _error before stop() runs.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "new comment text added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new stream_close() comment says _error is only set by the stop() that follows, but other paths on the same stream connection set it independently."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/ironweave/review-and-fix-pr": "The new stream_close() comment says _error is only set by the stop() that follows, but other paths on the same stream connection set it independently."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.689782,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 100,
+      "outputTokens": 36916,
+      "cacheReadInputTokens": 4137570,
+      "cacheCreationInputTokens": 123227,
+      "webSearchRequests": 0,
+      "costUSD": 1.689782,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 21539,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/ironweave/runs/rafp-six-pass-batched-2026-10-08/_judge/attempt-3thkrA/repo",
+  "judgedAt": "2026-10-08T05:17:26.636Z"
+}
