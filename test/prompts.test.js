@@ -614,6 +614,7 @@ test('current review skill uses the isolated six-pass engine and one terminal ma
   assert.match(skill, /review-and-fix-pr-fast\.js/)
   assert.match(skill, /six independent Claude Opus discovery passes/)
   assert.match(skill, /Do not schedule wakeups or reminders/)
+  assert.match(skill, /never poll for the helper by process-name text/)
   assert.match(skill, /REVIEW_AND_FIX_PR_RESULT_JSON=/)
   assert.match(reference, /original rows, sources, groups/)
   assert.match(reference, /Suggestions appear under \*\*Needs reviewer judgment\*\*/)

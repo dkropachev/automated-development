@@ -103,10 +103,11 @@ async function runPass(id, context, options) {
 async function runPasses(context, options) {
   const output = Array(PASS_IDS.length)
   let next = 0
-  const workers = Array.from({ length: Math.min(3, PASS_IDS.length) }, async () => {
+  const execute = options.runPass || runPass
+  const workers = Array.from({ length: PASS_IDS.length }, async () => {
     while (next < PASS_IDS.length) {
       const index = next++
-      output[index] = await runPass(PASS_IDS[index], context, options)
+      output[index] = await execute(PASS_IDS[index], context, options)
     }
   })
   await Promise.all(workers)

@@ -39,7 +39,8 @@ missing evidence, malformed output, model drift, attempted write, incomplete lea
 receipt tampering. It does not edit the PR.
 
 If the shell moves the command to a supervised background task, wait for that exact task and read
-its complete output. Do not schedule wakeups or reminders. Never respond or finalize while the
+its complete output. Use its task ID or output path; never poll for the helper by process-name text.
+Do not schedule wakeups or reminders. Never respond or finalize while the
 helper or background task is pending. Do not run a second review cycle merely because observing
 that task timed out.
 

@@ -6,7 +6,7 @@ const os = require('node:os')
 const path = require('node:path')
 const { PASS_IDS, assemblePasses, normalizedPass, passPrompt } = require('../lib/review-fast')
 const { applyGroups, normalizeGroups } = require('../lib/review-fast-cluster')
-const { childEnvironment, parseArgs } = require('../bin/review-and-fix-pr-fast')
+const { childEnvironment, parseArgs, runPasses } = require('../bin/review-and-fix-pr-fast')
 const { validatePassReceipt } = require('../lib/review-fast-contract')
 const { candidateClaimHash, sha256 } = require('../lib/review-codex-contract')
 
@@ -48,6 +48,17 @@ test('nested Claude subprocess drops parent session markers', () => {
   assert.equal(env.CLAUDE_CODE_ENTRYPOINT, undefined)
   assert.equal(env.TASK_ENV, 'kept')
   assert.equal(parseArgs(['--root', '/tmp/repo']).root, '/tmp/repo')
+})
+
+test('all six independent passes launch before any one finishes', async () => {
+  const started = [], release = []
+  const running = runPasses({}, { runPass: (id) => new Promise((resolve) => {
+    started.push(id)
+    release.push(() => resolve(id))
+  }) })
+  assert.deepEqual(started, PASS_IDS)
+  for (const finish of release) finish()
+  assert.deepEqual(await running, PASS_IDS)
 })
 
 test('semantic clustering preserves raw provenance and rejects missing or unsafe groups', () => {
