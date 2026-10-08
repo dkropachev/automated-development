@@ -146,6 +146,7 @@ Bash command with `run_in_background: false` and `timeout: 600000` (maximum fore
 prefix, suffix, pipe, or redirection. Wait for exit; never respond or finalize while helper or
 background task is pending. Parse stdout `markerBinding`, `counts`, and `usage`; copy the first two into
 v3, store `usage` separately, and never reconstruct them or read receipt prose.
+Do not schedule a wakeup or reminder; emit exactly one final review turn after all work exits.
 
 This is a required cross-provider stage: disclose that Claude performed discovery and OpenAI Codex
 performed adjudication. Missing or old CLI, authentication failure, malformed output, model drift,

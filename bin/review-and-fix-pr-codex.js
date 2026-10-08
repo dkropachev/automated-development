@@ -209,9 +209,14 @@ function normalizeInput(input) {
   return canonical({ ...input, candidates, reviewContext: normalizeReviewContext(input.reviewContext) })
 }
 
-function buildJudgePrompt(reviewContext, candidates, contract = CONTRACT_V2) {
+function buildJudgePrompt(reviewContext, candidates, contract = CONTRACT_V2,
+  knownCandidates = [], firstWave = true) {
   const blindCandidates = candidates.map((candidate) => sanitizedCandidate(candidate))
-  const payload = canonical({ reviewContext, candidates: blindCandidates })
+  const known = knownCandidates.map((candidate) => ({ id: candidate.id, claim: candidate.claim,
+    mechanism: candidate.mechanisms[0], consequence: candidate.consequence,
+    category: candidate.category, locations: candidate.locations }))
+  const payload = canonical({ reviewContext, candidates: blindCandidates,
+    ...(contract === CONTRACT_V3 ? { knownCandidates: known } : {}) })
   return [
     'You are OpenAI Codex independently adjudicating atomic pull-request findings discovered by Anthropic Claude.',
     'This explicit cross-provider disclosure is informational; judge only the supplied claims and source.',
@@ -233,8 +238,11 @@ function buildJudgePrompt(reviewContext, candidates, contract = CONTRACT_V2) {
     'For every verdict, including false_positive and unresolved, every sourceEvidence item must copy an exact path and line pair from that same candidate\'s supplied locations or evidence.',
     'Never substitute a nearby or newly inspected path or line. Put the supporting, disproof, or uncertainty explanation in sourceEvidence.detail while preserving the copied path and line exactly.',
     'Severity is critical, high, medium, low, or nit; scope is in, deferred, or out.',
-    'If inspection reveals a distinct atomic mechanism absent from the candidates, add it to newCandidates.',
-    'Independently inspect every changed hunk and literal PR/test claim for omitted mechanisms after judging the supplied leads. Check behavior variants, assertions that cannot detect the promised result, comments affected by control flow, duplicated guards/state/fixtures, fragile references, and unbounded waits. Emit every distinct evidenced lead as a new candidate, including plausible future-edit risks for later suggestion judgment.',
+    contract === CONTRACT_V3 && firstWave
+      ? 'Independently inspect every changed hunk and literal PR/test claim once for omitted mechanisms after judging the supplied leads. Check behavior variants, assertions, affected comments, duplicated guards/state/fixtures, fragile references, and unbounded waits. Emit distinct evidenced leads, including future-edit risks.'
+      : contract === CONTRACT_V3
+        ? 'This is a judgment-only wave for newly promoted leads. Judge pending candidates; do not rescan the full diff or restate any mechanism in knownCandidates, even with different wording or a nearby line.'
+        : 'If inspection reveals a distinct atomic mechanism absent from the candidates, add it to newCandidates.',
     'A new candidate must have one mechanism, a specific defectClass, and a concrete consequence. Set duplicateOfCandidateId to an existing ID only for the same mechanism identity; otherwise use an empty string.',
     'Do not include lane identity, reporter/support counts, Claude dispositions, external reports, or benchmark baselines.',
     `Your top-level identity fields must be schemaVersion=${contract === CONTRACT_V3 ? 2 : 1}, provider="OpenAI Codex", model="${JUDGE_MODEL}".`,
@@ -406,7 +414,8 @@ function assertRepositoryState(root, head) {
 function runOneInvocation(options, dependencies = {}) {
   const spawn = dependencies.spawnSync || spawnSync
   assertRepositoryState(options.root, options.head)
-  const prompt = buildJudgePrompt(options.reviewContext, options.candidates, options.contract)
+  const prompt = buildJudgePrompt(options.reviewContext, options.candidates, options.contract,
+    options.knownCandidates || [], options.firstWave !== false)
   let result
   try {
     result = checkedSpawn(options.executable, codexArgs(options.schemaFile, options.root), {
@@ -542,6 +551,8 @@ function runAdjudication(options, dependencies = {}) {
       reviewContext: input.reviewContext,
       candidates: judgeBatch,
       contract: input.contract,
+      knownCandidates: allCandidates.filter((candidate) => !batch.some((entry) => entry.id === candidate.id)),
+      firstWave: invocations.length === 0,
       }, dependencies)
     } catch (error) {
       const failureBase = `invocation-${String(invocations.length + 1).padStart(3, '0')}.failed`

@@ -288,8 +288,18 @@ test('judge prompt discloses providers while excluding lane, support, dispositio
   assert.match(prompt, /independently adjudicating/i)
   assert.match(prompt, /"id":"C1"/)
   assert.match(prompt, /stale reference/)
-  assert.match(prompt, /Independently inspect every changed hunk and literal PR\/test claim/)
   for (const secret of secretSources) assert.doesNotMatch(prompt, new RegExp(secret, 'i'))
+})
+
+test('v3 broad discovery runs once and later waves see known mechanisms', () => {
+  const first = runner.buildJudgePrompt(reviewContext(), [candidate('C1')],
+    codexContract.CONTRACT_V3)
+  const later = runner.buildJudgePrompt(reviewContext(), [candidate('N1')],
+    codexContract.CONTRACT_V3, [candidate('C1')], false)
+  assert.match(first, /Independently inspect every changed hunk/)
+  assert.match(later, /judgment-only wave/)
+  assert.match(later, /"knownCandidates":\[\{"category"/)
+  assert.doesNotMatch(later, /Independently inspect every changed hunk/)
 })
 
 test('judge prompt and schema bind every verdict sourceEvidence to its candidate locations', () => {

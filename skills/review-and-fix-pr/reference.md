@@ -420,6 +420,9 @@ Always run at least one invocation, even with zero Claude candidates, so the req
 surface new leads. Deduplicate each Codex lead by mechanism and claim hash. Record it as
 `duplicate`, or admit it as a new candidate and send it through another fresh ephemeral invocation;
 the originating invocation cannot judge its own lead. Continue to a fixed point with no queued lead.
+The broad changed-hunk scan occurs only in the first v3 invocation. Later waves see a blind
+catalogue of known candidate mechanisms and judge pending leads without repeating that scan.
+They may still emit a genuinely distinct mechanism discovered while judging a pending lead.
 
 On success, copy helper stdout `markerBinding.candidateLedger`,
 `markerBinding.newLeadResolutions`, and `markerBinding.codex` verbatim into the v3 marker, and copy

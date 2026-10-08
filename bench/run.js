@@ -761,7 +761,8 @@ function claudeArgs(prompt, requestedModel, options = {}) {
   }
   // Keep this variadic option last: otherwise Commander can consume subsequent scalar flags as
   // additional tool names. No web because the maintainers' upstream review is one search away.
-  args.push('--disallowedTools', 'WebSearch', 'WebFetch')
+  args.push('--disallowedTools', 'WebSearch', 'WebFetch',
+    ...(options.disableScheduleWakeup ? ['ScheduleWakeup'] : []))
   return args
 }
 
@@ -940,6 +941,7 @@ async function execPair(pair, context, dependencies = {}) {
         pluginName: options.pluginName,
         pluginIsolationSettings,
         env: codexEnvironment,
+        disableScheduleWakeup: tool.id === 'review-and-fix-pr',
       })
       assertPluginDirectoryCurrent(options)
       parsed = null
