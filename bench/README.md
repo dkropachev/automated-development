@@ -160,11 +160,10 @@ make bench-extract RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--tool review
 make bench-judge RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--only tidepool --max-budget-usd 5 --timeout 120"
 ```
 
-After `complete.json` validates, `make bench-publish` discovers this cohort from its verified
+After `complete.json` validates, `make bench-publish` discovers the cohort from its verified
 snapshot without a model allow-list. `make bench-publish-check` must pass before the generated
-report or dashboard is committed. This publication is cohort-local only: leave `bench/gold/`
-unchanged, and do not claim canonical inclusion unless a separate manually reviewed gold snapshot
-is accepted and sealed.
+report or dashboard is committed. Cohort publication alone is local; canonical inclusion requires
+a separately reviewed, accepted, and sealed gold snapshot.
 
 ## Why each PR is republished
 
@@ -209,47 +208,57 @@ stays in the matrix and in the report, and `run.js` skips it unless `--include-p
 ## Canonical model-comparison gold
 
 The model comparison does not reuse independent cohort judgements as if they were a shared truth
-set. `bench/reconcile.js` builds one versioned, reviewable gold snapshot from the declared legacy
-Opus 5, Fable 5.1, and Opus 5.5 cohorts. Its default ID is
-`model-comparison-2026-09-30`; override it with `GOLD_ID=<id>` when intentionally creating another
-snapshot. Run the four phases in order:
+set. `bench/reconcile.js` builds versioned, reviewable gold snapshots. Its default ID is the
+historical `model-comparison-2026-09-30`; the published snapshot is
+`model-comparison-2026-10-08`. Set `GOLD_ID=<id>` when working on another snapshot.
 
 The Models dashboard also lists every hash-verified completed cohort automatically using its own
 judgement snapshot. These cohort-local rows expose recorded quality, cost, runtime, and evidence,
 but do not receive canonical completeness or detection credit until a reviewed gold snapshot maps
 their findings. This keeps new cohorts visible without weakening the sealed comparison.
 
+For a fresh independent comparison, `proposal` runs Opus 5.5 reconciliation per target. The
+published extension of the earlier gold used a deterministic decision file after reviewing all
+new confirmed claims against the pinned code and existing canonical issues:
+
 ```
-make bench-reconcile PHASE=proposal ARGS="--issue-url https://github.com/.../issues/..."
-# Inspect and correct every gold/<id>/proposal/<target>.json mapping and canonical issue.
-make bench-reconcile PHASE=accept ARGS="--reviewer <name>"
-make bench-reconcile PHASE=seal
-make bench-reconcile PHASE=validate
+make bench-reconcile PHASE=source GOLD_ID=model-comparison-2026-10-08 ARGS="--declaration-file bench/gold/declarations/model-comparison-2026-10-08.json --supersedes model-comparison-2026-09-30 --issue-url https://github.com/dkropachev/automated-development/issues/42"
+make bench-reconcile PHASE=proposal GOLD_ID=model-comparison-2026-10-08 ARGS="--decision-file bench/gold/decisions/model-comparison-2026-10-08.json"
+# Review every proposal issue and source mapping before acceptance.
+make bench-reconcile PHASE=accept GOLD_ID=model-comparison-2026-10-08 ARGS="--reviewer codex"
+make bench-reconcile PHASE=seal GOLD_ID=model-comparison-2026-10-08
+make bench-reconcile PHASE=validate GOLD_ID=model-comparison-2026-10-08
 ```
 
-`proposal` hashes all source findings, checks the declared cohorts and target pins, and runs one
-`claude-opus-5-5` high-effort reconciliation per target. It merges semantic duplicates, verifies
-claims against the pinned code, and retains canonical `real`, `false-positive`, and `unproven`
-records. Human review may correct the proposal files before `accept`; acceptance validates complete
+`proposal` hashes all source findings and checks the declared cohorts and target pins. Without a
+decision file it runs one `claude-opus-5-5` high-effort reconciliation per target. A decision file
+preserves the earlier sealed issues and mappings and supplies reviewed additions. Both paths retain
+canonical `real`, `false-positive`, and `unproven` records. Review may correct proposal files before
+`accept`; acceptance validates complete
 source coverage and promotes the reviewed records into `canonical/`. `seal` refuses an already
-sealed snapshot, writes `complete.json`, and publishes its hash through `gold/index.json`.
+sealed snapshot, writes `complete.json`, and publishes its hash through `gold/index.json`. Replacing
+the published index requires an explicit, hash-matched `supersedes` declaration; the older sealed
+snapshot remains intact.
 `validate` is read-only and rechecks the index, completion marker, source, proposal, and canonical hashes,
 target pins, enums, stable issue IDs, and every mapping. Changed inputs, missing or duplicate
 mappings, cross-target references, incomplete coverage, and post-seal edits all fail validation.
 
-The current source manifest contains 403 eligible, genuinely raised claims. Findings with
-`selfRejected: true` are excluded before reconciliation, and each remaining raw claim is mapped
+The published source manifest contains 450 eligible claims: the earlier 403 and 47 confirmed
+review-and-fix-pr claims. Its 74 suggestions and all `selfRejected: true` findings are excluded from
+confirmed gold credit. Each eligible raw claim is mapped
 exactly once by `{cellId, findingIndex}`. The parked legacy DNF is excluded from evidence and credit
 but remains hash-bound as an excluded source; intentionally deleted historical tool cells are not
 reconstructed. Two recovered legacy C++ reports remain discovery evidence: they may
 support creation of a canonical issue, but are marked discovery-only and can never give Opus 5
 detection credit.
 
-The published manifest defines two exact scopes. **All models · 17 matched cells** compares Opus 5,
+The published manifest retains two matched scopes. **All models · 17 matched cells** compares Opus 5,
 Fable 5.1, and Opus 5.5 only where all three have complete, non-salvaged evidence. **Current
 controlled pair · 19 matched cells** compares every matched Fable 5.1 and Opus 5.5 cell. Every
 matched attempt contributes recorded cost and success/failure evidence; finding credit requires a
-complete, non-salvaged, credit-eligible cell.
+complete, non-salvaged, credit-eligible cell. A third **Supplemental review protocol · 3 cells**
+scope shows the new skill's canonical credit on the same pinned PRs. Its tool set differs from the
+older model cohorts, which the new cohort report states beside its cross-model table.
 
 ## Accounting
 

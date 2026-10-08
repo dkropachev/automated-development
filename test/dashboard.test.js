@@ -327,17 +327,19 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
   if (publishedGoldExisted || data.modelComparison) {
     const comparison = data.modelComparison
     assert.ok(comparison, 'a published gold index must populate modelComparison')
-    assert.equal(comparison.id, 'model-comparison-2026-09-30')
+    assert.equal(comparison.id, 'model-comparison-2026-10-08')
     assert.deepEqual(comparison.scopes.map((scope) => [scope.id, scope.count]), [
       ['all-models', 17],
       ['controlled-pair', 19],
+      ['supplemental-rafp-six-pass-parallel-broker-2026-10-08', 3],
     ])
     assert.deepEqual(comparison.scopes[0].modelIds, ['claude-opus-5', 'claude-fable-5-1', 'claude-opus-5-5'])
     assert.deepEqual(comparison.scopes[1].modelIds, ['claude-fable-5-1', 'claude-opus-5-5'])
-    assert.equal(comparison.sourceMappings.length, 403)
-    assert.equal(comparison.complete.counts.eligibleClaims, 403)
-    assert.equal(new Set(comparison.sourceMappings.map((mapping) => `${mapping.cellId}#${mapping.findingIndex}`)).size, 403)
+    assert.equal(comparison.sourceMappings.length, 450)
+    assert.equal(comparison.complete.counts.eligibleClaims, 450)
+    assert.equal(new Set(comparison.sourceMappings.map((mapping) => `${mapping.cellId}#${mapping.findingIndex}`)).size, 450)
     assert.ok(comparison.sourceMappings.every((mapping) => mapping.finding.selfRejected !== true))
+    assert.ok(comparison.sourceMappings.every((mapping) => mapping.finding.reviewDisposition !== 'suggestion'))
     assert.ok(comparison.canonicalIssues.length > 0)
     assert.ok(comparison.canonicalIssues.every((issue) => ['real', 'false-positive', 'unproven'].includes(issue.verdict)))
     const legacy = comparison.cohorts.find((cohort) => cohort.modelId === 'claude-opus-5')

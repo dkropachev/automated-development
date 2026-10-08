@@ -30,6 +30,20 @@ the maintainers' review instead of doing its own.
 - Judging: 3 calls, 36 merged issues (32 real, 4 false-positive, 0 unproven), $4.50.
 - Total known cohort spend: $20.92. Discarded attempts are not included in immutable stage artifacts.
 
+## Compare with other models on canonical gold
+
+All rows use the same 3 pinned PRs and 113 reviewed real gold issues. The older model rows use 17 matched tool cells; this cohort uses one review-and-fix-pr cell per PR. Tool sets and call counts differ, so the table compares complete review workflows rather than isolated model ability. Suggestions are excluded from confirmed gold credit.
+
+| Model / cohort | Review protocol | Gold issues found | Claude tokens | Claude review cost | Summed review time |
+|---|---|---:|---:|---:|---:|
+| Claude Opus 5 | 17 matched tool cells | 75 / 113 | 153,643,618 | $160.60 | 242.5 min |
+| Claude Fable 5.1 | 17 matched tool cells | 61 / 113 | 53,834,538 | $91.59 | 125.4 min |
+| Claude Opus 5.5 | 17 matched tool cells | 42 / 113 | 24,688,795 | $19.30 | 58.8 min |
+| Claude Opus 5.5 · this cohort | review-and-fix-pr · 3 cells | 35 / 113 | 12,695,932 | $16.42 | 45.6 min |
+
+This cohort additionally used 498,302 Codex tokens for adjudication; its receipts do not provide a USD cost. The 74 suggestions remain visible in the structured review receipts and are not counted above.
+The sealed comparison is [model-comparison-2026-10-08](./index.html#choose?tab=models&scope=supplemental-rafp-six-pass-parallel-broker-2026-10-08); the earlier [matched-model scope](./index.html#choose?tab=models&scope=all-models) remains separately available.
+
 ## Findings, by issue
 
 One row per distinct defect the tools found between them, merged across tools by a judge that had

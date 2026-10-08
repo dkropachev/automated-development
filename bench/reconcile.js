@@ -101,11 +101,18 @@ function jsonFiles(dir) {
 function normalizedDeclaration(input = DEFAULT_DECLARATION) {
   const value = canonical(input)
   if (!value || value.schemaVersion !== 1) throw new Error('invalid reconciliation declaration')
-  for (const id of [value.legacyRunId, ...value.modernRunIds, ...value.targets]) assertSafeId(id, 'declaration id')
+  for (const id of [value.legacyRunId, ...value.modernRunIds,
+    ...(value.supplementalRunIds || []), ...value.targets]) assertSafeId(id, 'declaration id')
   if (new Set(value.modernRunIds).size !== value.modernRunIds.length || value.modernRunIds.length !== 2) {
     throw new Error('declaration requires exactly two unique modern cohorts')
   }
   if (new Set(value.targets).size !== value.targets.length || !value.targets.length) throw new Error('declaration targets must be unique')
+  if (value.supplementalRunIds !== undefined &&
+      (!Array.isArray(value.supplementalRunIds) ||
+        new Set([...value.modernRunIds, ...value.supplementalRunIds]).size !==
+          value.modernRunIds.length + value.supplementalRunIds.length)) {
+    throw new Error('supplemental cohorts must be unique and distinct from controlled pair cohorts')
+  }
   for (const field of [
     'expectedPhysicalFindingFiles', 'expectedEvidenceCells', 'expectedEligibleClaims',
     'expectedAllModelsMatchedCells', 'expectedCurrentPairMatchedCells',
@@ -174,7 +181,7 @@ function sourceCell(root, details) {
   const excluded = []
   findingRecord.findings.forEach((finding, findingIndex) => {
     const entry = { cellId: id, findingIndex, finding: canonical(finding) }
-    if (finding.selfRejected === true) excluded.push(entry)
+    if (finding.selfRejected === true || finding.reviewDisposition === 'suggestion') excluded.push(entry)
     else eligible.push(entry)
   })
   const salvaged = details.salvaged
@@ -262,10 +269,16 @@ function makeScopes(declaration, cohorts, cells) {
   if (allKeys.length !== declaration.expectedAllModelsMatchedCells) {
     throw new Error(`all-model scope must contain ${declaration.expectedAllModelsMatchedCells} matched cells, found ${allKeys.length}`)
   }
-  return [
+  const scopes = [
     scopeRecord('all-models', `All models · ${allKeys.length} matched cells`, allRuns, cells, allKeys.map(coordinate)),
     scopeRecord('controlled-pair', `Current controlled pair · ${pairKeys.length} matched cells`, pairRuns, cells, pairKeys.map(coordinate)),
   ]
+  for (const runId of declaration.supplementalRunIds || []) {
+    const keys = [...coordinatesForRun.get(runId)].sort()
+    scopes.push(scopeRecord(`supplemental-${runId}`,
+      `Supplemental review protocol · ${keys.length} cells`, [runId], cells, keys.map(coordinate)))
+  }
+  return scopes
 }
 
 function controlledCoordinates(manifest) {
@@ -289,10 +302,17 @@ function assertControlledCompatibility(left, right) {
 function buildSourceSnapshot(root = ROOT, options = {}) {
   const declaration = normalizedDeclaration(options.declaration || DEFAULT_DECLARATION)
   const modern = declaration.modernRunIds.map((runId) => readComplete(root, runId, declaration.targets))
+  const supplemental = (declaration.supplementalRunIds || [])
+    .map((runId) => readComplete(root, runId, declaration.targets))
   const [first, second] = modern
   assertControlledCompatibility(first, second)
   const pins = canonical(first.manifest.targets)
   const targetMetadata = canonical(first.manifest.targetMetadata)
+  for (const completed of supplemental) {
+    if (!same(completed.manifest.targets, pins)) {
+      throw new Error(`supplemental cohort target pins differ: ${completed.manifest.runId}`)
+    }
+  }
   const cohorts = [{
     runId: declaration.legacyRunId,
     modelId: 'claude-opus-5',
@@ -306,7 +326,7 @@ function buildSourceSnapshot(root = ROOT, options = {}) {
     complete: null,
     reviewEffort: null,
   }]
-  for (const completed of modern) {
+  for (const completed of [...modern, ...supplemental]) {
     const paths = path.join(root, 'runs', completed.manifest.runId)
     cohorts.push({
       runId: completed.manifest.runId,
@@ -315,7 +335,7 @@ function buildSourceSnapshot(root = ROOT, options = {}) {
       requestedModel: completed.manifest.requestedModel,
       provenance: 'controlled-recorded',
       controlled: true,
-      reviewEffort: REVIEW_EFFORT,
+      reviewEffort: modern.includes(completed) ? REVIEW_EFFORT : 'mixed',
       pins: canonical(completed.manifest.targets),
       pinsInferred: false,
       manifest: { file: relative(root, path.join(paths, 'manifest.json')), sha256: sha256File(path.join(paths, 'manifest.json')) },
@@ -371,7 +391,7 @@ function buildSourceSnapshot(root = ROOT, options = {}) {
     if (!cells.some((cell) => cell.id === expected && cell.salvaged)) throw new Error(`declared salvaged cell is missing: ${expected}`)
   }
 
-  for (const completed of modern) {
+  for (const completed of [...modern, ...supplemental]) {
     const runId = completed.manifest.runId
     const cohortRoot = path.join(root, 'runs', runId)
     physicalFindingFiles += jsonFiles(path.join(cohortRoot, 'findings')).length
@@ -416,6 +436,7 @@ function makeSourceManifest(root, id, snapshot, options = {}) {
   return {
     schemaVersion: 1,
     id,
+    ...(options.supersedes ? { supersedes: options.supersedes } : {}),
     generatedAt: options.generatedAt || new Date().toISOString(),
     issueUrl: options.issueUrl || null,
     declaration: snapshot.declaration,
@@ -430,7 +451,11 @@ function makeSourceManifest(root, id, snapshot, options = {}) {
       physicalFindingFiles: snapshot.declaration.expectedPhysicalFindingFiles,
       evidenceCells: snapshot.cells.length,
       eligibleClaims: snapshot.eligible.length,
-      selfRejectedClaims: snapshot.excluded.length,
+      selfRejectedClaims: snapshot.excluded.filter((entry) => entry.finding.selfRejected === true).length,
+      ...(snapshot.declaration.supplementalRunIds ? {
+        suggestionClaims: snapshot.excluded.filter((entry) =>
+          entry.finding.reviewDisposition === 'suggestion').length,
+      } : {}),
     },
     scopes: snapshot.scopes,
     provenance: {
@@ -439,6 +464,9 @@ function makeSourceManifest(root, id, snapshot, options = {}) {
       selfRejectedPolicy: 'excluded',
       salvagedPolicy: 'discovery-only-no-detection-credit',
       deletedHistoricalCells: 'excluded-not-reconstructed',
+      ...(snapshot.declaration.supplementalRunIds ? {
+        suggestionPolicy: 'excluded-from-confirmed-canonical-credit',
+      } : {}),
     },
   }
 }
@@ -446,6 +474,16 @@ function makeSourceManifest(root, id, snapshot, options = {}) {
 function validateSourceManifestAgainstRoot(root, manifest) {
   if (!manifest || manifest.schemaVersion !== 1) throw new Error('invalid source manifest schema')
   assertSafeId(manifest.id, 'comparison id')
+  if (manifest.supersedes) {
+    assertSafeId(manifest.supersedes.id, 'superseded comparison id')
+    if (manifest.supersedes.id === manifest.id || !HASH.test(manifest.supersedes.completeSha256 || '')) {
+      throw new Error('invalid superseded gold identity')
+    }
+    const oldComplete = goldPaths(root, manifest.supersedes.id).complete
+    if (!fs.existsSync(oldComplete) || sha256File(oldComplete) !== manifest.supersedes.completeSha256) {
+      throw new Error('superseded gold snapshot hash changed')
+    }
+  }
   if (manifest.id === DEFAULT_ID && !same(manifest.declaration, DEFAULT_DECLARATION)) {
     throw new Error('published comparison declaration was changed')
   }
@@ -453,6 +491,7 @@ function validateSourceManifestAgainstRoot(root, manifest) {
   const expected = makeSourceManifest(root, manifest.id, snapshot, {
     generatedAt: manifest.generatedAt,
     issueUrl: manifest.issueUrl,
+    supersedes: manifest.supersedes,
   })
   if (!same(manifest, expected)) throw new Error('source manifest differs from current source hashes, pins, or scope')
   return snapshot
@@ -476,6 +515,70 @@ function targetEvidence(snapshot, target) {
     const cell = snapshot.cells.find((candidate) => candidate.id === entry.cellId)
     return cell && cell.target === target
   })
+}
+
+function manualExtensionTarget(context, decisionFile) {
+  const decisionPath = fs.realpathSync(decisionFile)
+  const decisionRelative = relative(context.root, decisionPath)
+  const decisions = readJson(decisionPath)
+  const runIds = context.snapshot.declaration.supplementalRunIds || []
+  if (decisions.schemaVersion !== 1 || runIds.length !== 1 ||
+      decisions.sourceRunId !== runIds[0] ||
+      decisions.baseGoldId !== context.manifest.supersedes?.id ||
+      typeof decisions.preparedAt !== 'string' || !Number.isFinite(Date.parse(decisions.preparedAt))) {
+    throw new Error('manual gold decisions do not match the supplemental cohort and superseded snapshot')
+  }
+  const oldPaths = goldPaths(context.root, decisions.baseGoldId)
+  if (sha256File(oldPaths.complete) !== context.manifest.supersedes.completeSha256) {
+    throw new Error('manual extension base gold hash changed')
+  }
+  const oldComplete = readJson(oldPaths.complete)
+  const oldTarget = oldComplete.targets.find((entry) => entry.target === context.target)
+  if (!oldTarget) throw new Error(`base gold target is missing: ${context.target}`)
+  const oldFile = path.join(oldPaths.dir, oldTarget.file)
+  if (sha256File(oldFile) !== oldTarget.sha256) throw new Error('base gold target hash changed')
+  const oldArtifact = readJson(oldFile)
+  if (oldArtifact.reviewed !== true || oldArtifact.target !== context.target) {
+    throw new Error('manual extension requires a reviewed base target')
+  }
+  const decision = decisions.targets?.[context.target]
+  if (!decision || !Array.isArray(decision.newIssues) ||
+      !decision.mappings || typeof decision.mappings !== 'object' || Array.isArray(decision.mappings)) {
+    throw new Error(`manual gold decisions are missing target ${context.target}`)
+  }
+  const newEvidence = context.evidence.filter((entry) =>
+    entry.cellId.startsWith(`${decisions.sourceRunId}/`))
+  const expectedIds = new Set(newEvidence.map((entry) => entry.finding.candidateId))
+  if (expectedIds.has(undefined) || expectedIds.size !== newEvidence.length ||
+      !same([...expectedIds].sort(), Object.keys(decision.mappings).sort())) {
+    throw new Error(`manual gold decisions do not cover every confirmed candidate: ${context.target}`)
+  }
+  const additionalMappings = newEvidence.map((entry) => ({
+    cellId: entry.cellId,
+    findingIndex: entry.findingIndex,
+    issueIds: decision.mappings[entry.finding.candidateId],
+  }))
+  const mappings = [...oldArtifact.mappings, ...additionalMappings]
+    .sort((left, right) => tupleKey(left).localeCompare(tupleKey(right), 'en', { numeric: true }))
+  const artifact = {
+    schemaVersion: 2,
+    target: context.target,
+    baseSha: context.pins.baseSha,
+    headSha: context.pins.headSha,
+    sourceManifestSha256: context.sourceManifestSha256,
+    reviewed: false,
+    reconciler: {
+      method: 'manual-extension',
+      baseGoldId: decisions.baseGoldId,
+      baseCompleteSha256: context.manifest.supersedes.completeSha256,
+      decisionFile: decisionRelative,
+      decisionSha256: sha256File(decisionPath),
+      preparedAt: decisions.preparedAt,
+    },
+    issues: [...oldArtifact.issues, ...decision.newIssues],
+    mappings,
+  }
+  return validateTargetArtifact(artifact, context)
 }
 
 function targetSchema(target) {
@@ -566,7 +669,25 @@ function validateIssue(issue, target, index) {
   if (typeof issue.introducedByPr !== 'boolean') throw new Error(`canonical issue ${issue.id} has invalid introducedByPr`)
 }
 
-function validateReconciler(record, target) {
+function validateReconciler(record, target, schemaVersion = 1, root = null) {
+  if (schemaVersion === 2) {
+    if (!record || record.method !== 'manual-extension' ||
+        typeof record.baseGoldId !== 'string' || !record.baseGoldId ||
+        !HASH.test(record.baseCompleteSha256 || '') ||
+        typeof record.decisionFile !== 'string' || !record.decisionFile ||
+        !HASH.test(record.decisionSha256 || '') ||
+        typeof record.preparedAt !== 'string' || !Number.isFinite(Date.parse(record.preparedAt))) {
+      throw new Error(`canonical target ${target} has invalid manual-extension provenance`)
+    }
+    if (root) {
+      const file = path.resolve(root, record.decisionFile)
+      if (!file.startsWith(path.resolve(root) + path.sep) || !fs.existsSync(file) ||
+          sha256File(file) !== record.decisionSha256) {
+        throw new Error(`canonical target ${target} manual decision hash changed`)
+      }
+    }
+    return
+  }
   if (!record || record.requestedModel !== RECONCILER_MODEL || record.effort !== RECONCILER_EFFORT) {
     throw new Error(`canonical target ${target} was not reconciled by ${RECONCILER_MODEL} at ${RECONCILER_EFFORT} effort`)
   }
@@ -591,10 +712,10 @@ function validateReconciler(record, target) {
 
 function validateTargetArtifact(artifact, context, options = {}) {
   const { target, pins, sourceManifestSha256, evidence, sourceCells } = context
-  if (!artifact || artifact.schemaVersion !== 1 || artifact.target !== target) throw new Error(`invalid canonical target artifact: ${target}`)
+  if (!artifact || ![1, 2].includes(artifact.schemaVersion) || artifact.target !== target) throw new Error(`invalid canonical target artifact: ${target}`)
   if (artifact.baseSha !== pins.baseSha || artifact.headSha !== pins.headSha) throw new Error(`canonical target pin drift: ${target}`)
   if (artifact.sourceManifestSha256 !== sourceManifestSha256) throw new Error(`canonical source manifest hash drift: ${target}`)
-  validateReconciler(artifact.reconciler, target)
+  validateReconciler(artifact.reconciler, target, artifact.schemaVersion, context.root)
   if (options.requireReviewed && artifact.reviewed !== true) throw new Error(`canonical target has not been reviewed: ${target}`)
   if (!Array.isArray(artifact.issues) || !Array.isArray(artifact.mappings)) throw new Error(`canonical target arrays are missing: ${target}`)
   artifact.issues.forEach((issue, index) => validateIssue(issue, target, index))
@@ -643,6 +764,9 @@ function ensureSourceManifest(root, id, options = {}) {
     const manifest = readJson(paths.sourceManifest)
     validateSourceManifestAgainstRoot(root, manifest)
     if (options.issueUrl && manifest.issueUrl !== options.issueUrl) throw new Error('existing source manifest issueUrl differs')
+    if (options.supersedes && !same(manifest.supersedes, options.supersedes)) {
+      throw new Error('existing source manifest supersedes differs')
+    }
     return { paths, manifest, snapshot: buildSourceSnapshot(root, { declaration: manifest.declaration }) }
   }
   const snapshot = buildSourceSnapshot(root, options)
@@ -655,12 +779,15 @@ async function propose(root = ROOT, options = {}, dependencies = {}) {
   const id = options.id || DEFAULT_ID
   const { paths, manifest, snapshot } = ensureSourceManifest(root, id, options)
   const manifestHash = sha256File(paths.sourceManifest)
-  const reconcile = dependencies.reconcileTarget || ((context) => defaultReconcileTarget(context, dependencies))
+  const reconcile = dependencies.reconcileTarget || (options.decisionFile
+    ? (context) => manualExtensionTarget(context, options.decisionFile)
+    : (context) => defaultReconcileTarget(context, dependencies))
   ensureDirectorySafe(paths.proposal)
   for (const target of snapshot.declaration.targets) {
     const output = path.join(paths.proposal, `${target}.json`)
     const context = {
       root, id, target, pins: snapshot.pins[target], snapshot,
+      manifest,
       sourceManifestSha256: manifestHash,
       evidence: targetEvidence(snapshot, target),
       sourceCells: snapshot.cells,
@@ -706,7 +833,7 @@ function accept(root = ROOT, options = {}) {
     const output = path.join(paths.canonical, `${target}.json`)
     if (!fs.existsSync(input)) throw new Error(`missing proposal for review: ${target}`)
     const context = {
-      target, pins: snapshot.pins[target], sourceManifestSha256,
+      root, target, pins: snapshot.pins[target], sourceManifestSha256,
       evidence: targetEvidence(snapshot, target), sourceCells: snapshot.cells,
     }
     const proposal = readJson(input)
@@ -741,7 +868,7 @@ function validateCanonicalSet(root, id, manifest, snapshot, options = {}) {
     const file = path.join(paths.canonical, `${target}.json`)
     const artifact = readJson(file)
     validateTargetArtifact(artifact, {
-      target, pins: snapshot.pins[target], sourceManifestSha256,
+      root, target, pins: snapshot.pins[target], sourceManifestSha256,
       evidence: targetEvidence(snapshot, target), sourceCells: snapshot.cells,
     }, { requireReviewed: true })
     artifacts.push({ target, file, artifact, sha256: sha256File(file) })
@@ -771,7 +898,7 @@ function validateProposalSet(root, id, snapshot, canonicalArtifacts, options = {
     const file = path.join(paths.proposal, `${target}.json`)
     const artifact = readJson(file)
     validateTargetArtifact(artifact, {
-      target, pins: snapshot.pins[target], sourceManifestSha256,
+      root, target, pins: snapshot.pins[target], sourceManifestSha256,
       evidence: targetEvidence(snapshot, target), sourceCells: snapshot.cells,
     })
     const promoted = { ...artifact, reviewed: true, review: canonicalArtifact.review }
@@ -814,7 +941,20 @@ function seal(root = ROOT, options = {}) {
   writeJsonExclusive(paths.complete, complete)
   const index = { schemaVersion: 1, published: id, completeSha256: sha256File(paths.complete) }
   if (fs.existsSync(paths.index)) {
-    if (!same(readJson(paths.index), index)) throw new Error('gold index already publishes a different snapshot')
+    const previous = readJson(paths.index)
+    if (!same(previous, index)) {
+      if (!manifest.supersedes || manifest.supersedes.id !== previous.published ||
+          manifest.supersedes.completeSha256 !== previous.completeSha256) {
+        throw new Error('gold index already publishes a different snapshot without matching supersession')
+      }
+      const oldPaths = goldPaths(root, previous.published)
+      if (!fs.existsSync(oldPaths.complete) || sha256File(oldPaths.complete) !== previous.completeSha256) {
+        throw new Error('superseded gold snapshot hash changed')
+      }
+      const temporary = `${paths.index}.${process.pid}.tmp`
+      fs.writeFileSync(temporary, JSON.stringify(index, null, 2) + '\n', { flag: 'wx' })
+      fs.renameSync(temporary, paths.index)
+    }
   } else {
     writeJsonExclusive(paths.index, index)
   }
@@ -950,10 +1090,13 @@ function parseArgs(argv) {
     if (arg === '--id') { options.id = assertSafeId(value(arg, index++), 'comparison id'); continue }
     if (arg === '--issue-url') { options.issueUrl = value(arg, index++); continue }
     if (arg === '--reviewer') { options.reviewer = value(arg, index++); continue }
+    if (arg === '--declaration-file') { options.declarationFile = value(arg, index++); continue }
+    if (arg === '--decision-file') { options.decisionFile = value(arg, index++); continue }
+    if (arg === '--supersedes') { options.supersedesId = assertSafeId(value(arg, index++), 'superseded comparison id'); continue }
     throw new Error(`unknown argument: ${arg}`)
   }
-  if (!['proposal', 'accept', 'seal', 'validate'].includes(options.phase)) {
-    throw new Error('--phase must be proposal, accept, seal, or validate')
+  if (!['source', 'proposal', 'accept', 'seal', 'validate'].includes(options.phase)) {
+    throw new Error('--phase must be source, proposal, accept, seal, or validate')
   }
   if (options.issueUrl && !/^https:\/\//.test(options.issueUrl)) throw new Error('--issue-url must be an https URL')
   return options
@@ -961,6 +1104,15 @@ function parseArgs(argv) {
 
 async function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
   const options = parseArgs(argv)
+  if (options.declarationFile) options.declaration = readJson(path.resolve(options.declarationFile))
+  if (options.supersedesId) {
+    const index = readJson(path.join(root, 'gold', 'index.json'))
+    if (index.published !== options.supersedesId || !HASH.test(index.completeSha256 || '')) {
+      throw new Error('declared superseded snapshot is not currently published')
+    }
+    options.supersedes = { id: index.published, completeSha256: index.completeSha256 }
+  }
+  if (options.phase === 'source') return { id: options.id, ...ensureSourceManifest(root, options.id, options) }
   if (options.phase === 'proposal') return propose(root, options, dependencies)
   if (options.phase === 'accept') return accept(root, options)
   if (options.phase === 'seal') return seal(root, options)

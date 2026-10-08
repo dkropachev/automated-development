@@ -246,6 +246,13 @@ try {
   assert.deepEqual(modelRows(controlledPair.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1'])
   assert.deepEqual(linkedEvidenceCounts(controlledPair.app), [19, 19])
 
+  const supplemental = render('choose?tab=models&scope=supplemental-rafp-six-pass-parallel-broker-2026-10-08')
+  assert.match(supplemental.app, /Supplemental review protocol · 3 cells/)
+  assert.deepEqual(modelRows(supplemental.app).map((row) => row.name), ['Claude Opus 5.5'])
+  assert.deepEqual(linkedEvidenceCounts(supplemental.app), [3])
+  assert.deepEqual(modelCompletenessDenominators(supplemental.app), [113])
+  assert.match(supplemental.app, /35 \/ 113/)
+
   const modelSorted = render('choose?tab=models&modelSort=model')
   assert.match(modelSorted.app, /<th class="" aria-sort="ascending">/)
   assert.deepEqual(modelRows(modelSorted.app).map((row) => row.name), ['Claude Fable 5.1', 'Claude Opus 5', 'Claude Opus 5.5'])

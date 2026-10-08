@@ -347,6 +347,42 @@ if (!cohort.legacy) {
   P('')
 }
 
+if (!cohort.legacy && fs.existsSync(path.join(ROOT, 'gold', 'index.json'))) {
+  const publishedGold = require('./reconcile').loadPublishedComparison(ROOT)
+  const supplementalRunIds = publishedGold.manifest.declaration.supplementalRunIds || []
+  if (supplementalRunIds.includes(cohort.runId)) {
+    const { deriveModelMetrics } = require('./dashboard')
+    const matched = deriveModelMetrics(publishedGold, { scopeId: 'all-models' })
+    const supplemental = deriveModelMetrics(publishedGold, { scopeId: `supplemental-${cohort.runId}` })
+    const evidenceById = new Map(publishedGold.sourceEvidence.map((entry) => [entry.cellId, entry]))
+    const rows = [
+      ...matched.models.map((model) => ({ ...model, protocol: '17 matched tool cells' })),
+      ...supplemental.models.map((model) => ({ ...model, protocol: 'review-and-fix-pr · 3 cells' })),
+    ]
+    P('## Compare with other models on canonical gold\n')
+    P(`All rows use the same ${targets.length} pinned PRs and ${fmt(matched.denominator)} reviewed real gold issues. The older model rows use 17 matched tool cells; this cohort uses one review-and-fix-pr cell per PR. Tool sets and call counts differ, so the table compares complete review workflows rather than isolated model ability. Suggestions are excluded from confirmed gold credit.\n`)
+    P('| Model / cohort | Review protocol | Gold issues found | Claude tokens | Claude review cost | Summed review time |')
+    P('|---|---|---:|---:|---:|---:|')
+    for (const row of rows) {
+      const evidence = row.runIds.map((id) => evidenceById.get(id))
+      const tokens = sumKnown(evidence.map((entry) => {
+        if (!entry) return null
+        const result = JSON.parse(fs.readFileSync(path.join(ROOT, entry.result.file), 'utf8'))
+        return finite(result.transcriptUsage && result.transcriptUsage.total)
+      }))
+      const wall = sumKnown(evidence.map((entry) => finite(entry && entry.wallMs)))
+      const label = row.protocol.startsWith('review-and-fix-pr')
+        ? `${row.label} · this cohort` : row.label
+      P(`| ${label} | ${row.protocol} | ${row.canonicalReal} / ${matched.denominator} | ${fmt(tokens)} | ${money(row.recordedTotalCostUsd)} | ${mins(wall)} min |`)
+    }
+    const codexTokens = targets.reduce((sum, target) => sum + Object.values(results[target.id] || {})
+      .reduce((part, record) => part + (finite(record.codexUsage && record.codexUsage.totalTokens) || 0), 0), 0)
+    P('')
+    P(`This cohort additionally used ${fmt(codexTokens)} Codex tokens for adjudication; its receipts do not provide a USD cost. The ${publishedGold.manifest.counts.suggestionClaims} suggestions remain visible in the structured review receipts and are not counted above.`)
+    P(`The sealed comparison is [${publishedGold.id}](./index.html#choose?tab=models&scope=supplemental-${cohort.runId}); the earlier [matched-model scope](./index.html#choose?tab=models&scope=all-models) remains separately available.\n`)
+  }
+}
+
 P('## Findings, by issue\n')
 P('One row per distinct defect the tools found between them, merged across tools by a judge that had')
 P('the code in front of it. `✓` = that tool reported it.\n')

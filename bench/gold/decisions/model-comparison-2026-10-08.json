@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "baseGoldId": "model-comparison-2026-09-30",
+  "sourceRunId": "rafp-six-pass-parallel-broker-2026-10-08",
+  "preparedAt": "2026-10-08T11:36:03.000Z",
+  "targets": {
+    "ironweave": {
+      "mappings": {
+        "C29": ["ironweave-I005"],
+        "C3": ["ironweave-I010"],
+        "C59": ["ironweave-I013"],
+        "C14": ["ironweave-I012"],
+        "C56": ["ironweave-I012"],
+        "C12": ["ironweave-I033"],
+        "C62": ["ironweave-I002"],
+        "C60": ["ironweave-I001"],
+        "C33": ["ironweave-I013", "ironweave-I014"],
+        "C57": ["ironweave-I019"],
+        "C41": ["ironweave-I061"],
+        "C50": ["ironweave-I010", "ironweave-I027"],
+        "C64": ["ironweave-I062"],
+        "N2": ["ironweave-I002"],
+        "N3": ["ironweave-I001"],
+        "N4": ["ironweave-I003"],
+        "N6": ["ironweave-I061"],
+        "N7": ["ironweave-I015"],
+        "N15": ["ironweave-I062"]
+      },
+      "newIssues": [
+        {
+          "id": "ironweave-I061",
+          "title": "stream_close comment wrongly says only its later stop() can set _error",
+          "file": "src/rpc/rpc.cc",
+          "line": 552,
+          "kind": "docs",
+          "severity": "low",
+          "verdict": "real",
+          "verdictReason": "The new comment says _error is only set by the stop() after the queue drain, but abort() after a send_entry failure and stop_send_loop() can set _error while stream_close() awaits queue_drained. The comment states a false invariant on the changed control path.",
+          "introducedByPr": true,
+          "scope": "in-scope",
+          "scopeReason": "The inaccurate comment was introduced beside the new stream-close drain."
+        },
+        {
+          "id": "ironweave-I062",
+          "title": "PR verification lists rpc_test but does not establish the required test.py run",
+          "file": "doc/contributing.md",
+          "line": 25,
+          "kind": "question",
+          "severity": "low",
+          "verdict": "unproven",
+          "verdictReason": "The PR description reports rpc_test in a debug build, while doc/contributing.md asks contributors to run test.py. The stated verification omits test.py, but that omission alone cannot establish whether it was run; confirmation requires the author's test record.",
+          "introducedByPr": true,
+          "scope": "in-scope",
+          "scopeReason": "The question concerns verification of this PR's change to connection::send()."
+        }
+      ]
+    },
+    "quillstone": {
+      "mappings": {
+        "C29": ["quillstone-I001"],
+        "C48": ["quillstone-I003"],
+        "C7": ["quillstone-I050"],
+        "C10": ["quillstone-I014", "quillstone-I053"],
+        "C14": ["quillstone-I014"],
+        "C28": ["quillstone-I051"],
+        "C30": ["quillstone-I006"],
+        "C35": ["quillstone-I052"],
+        "C66": ["quillstone-I008"],
+        "C65": ["quillstone-I007", "quillstone-I011"]
+      },
+      "newIssues": [
+        {
+          "id": "quillstone-I050",
+          "title": "ready_connections comment claims keyspace setup always succeeds",
+          "file": "scylla/src/network/connection_pool.rs",
+          "line": 531,
+          "kind": "docs",
+          "severity": "low",
+          "verdict": "real",
+          "verdictReason": "The ready_connections comment still describes a newly connected connection or one whose keyspace was correctly set. start_setting_keyspace_for_connection now pushes an OpenedConnectionEvent with Err(ConnectionSetupError::Keyspace) on USE failure, and handle_ready_connection discards it, so the channel also carries unsuccessful setup outcomes.",
+          "introducedByPr": true,
+          "scope": "in-scope",
+          "scopeReason": "The new keyspace-error event path makes the old comment inaccurate."
+        },
+        {
+          "id": "quillstone-I051",
+          "title": "Successful-connection precondition comment is pre-existing and still applies",
+          "file": "scylla/src/network/connection_pool.rs",
+          "line": 1328,
+          "kind": "docs",
+          "severity": "nit",
+          "verdict": "false-positive",
+          "verdictReason": "The same comment appears at the merge base. The function receives a successfully opened Connection and then attempts USE; the later Err event does not contradict its input precondition. The word 'event' is imprecise but was not made false by this PR.",
+          "introducedByPr": false,
+          "scope": "out-of-scope",
+          "scopeReason": "The wording and input precondition predate this PR."
+        },
+        {
+          "id": "quillstone-I052",
+          "title": "FutureExt import is used without the metrics feature",
+          "file": "scylla/src/network/connection_pool.rs",
+          "line": 1462,
+          "kind": "style",
+          "severity": "nit",
+          "verdict": "false-positive",
+          "verdictReason": "The import also supplies now_or_never() in keyspace_setup_failure_triggers_refill, which is not feature-gated. A default-feature test build therefore uses FutureExt even when the metrics tests are excluded.",
+          "introducedByPr": true,
+          "scope": "in-scope",
+          "scopeReason": "The import and its unconditional use were added in this PR."
+        },
+        {
+          "id": "quillstone-I053",
+          "title": "Keyspace test finishes the proxy before dropping its refiller",
+          "file": "scylla/src/network/connection_pool.rs",
+          "line": 1689,
+          "kind": "test-gap",
+          "severity": "low",
+          "verdict": "real",
+          "verdictReason": "keyspace_setup_failure_preserves_pool_state awaits proxy.finish() before dropping the refiller, unlike sibling tests that drop the refiller first. It must then explicitly allow DriverDisconnected, so an unexpected early driver disconnect can satisfy its teardown check instead of failing the test.",
+          "introducedByPr": true,
+          "scope": "in-scope",
+          "scopeReason": "The test and its teardown order were added by this PR."
+        }
+      ]
+    },
+    "tidepool": {
+      "mappings": {
+        "C1": ["tidepool-I008", "tidepool-I009"],
+        "C34": ["tidepool-I016"],
+        "C52": ["tidepool-I034"],
+        "C10": ["tidepool-I035", "tidepool-I043"],
+        "C11": ["tidepool-I017"],
+        "C12": ["tidepool-I014", "tidepool-I017"],
+        "C23": ["tidepool-I032"],
+        "C49": ["tidepool-I012"],
+        "C46": ["tidepool-I014", "tidepool-I017"],
+        "C43": ["tidepool-I008"],
+        "C27": ["tidepool-I013"],
+        "C51": ["tidepool-I033"],
+        "C29": ["tidepool-I011"],
+        "C30": ["tidepool-I044"],
+        "C32": ["tidepool-I015"],
+        "C35": ["tidepool-I017"],
+        "C47": ["tidepool-I013"],
+        "N1": ["tidepool-I003"]
+      },
+      "newIssues": []
+    }
+  }
+}

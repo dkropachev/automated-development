@@ -79,7 +79,7 @@ bench-publish: ## write every completed cohort report and both Pages dashboard e
 bench-publish-check: ## fail when any completed cohort report or Pages export is missing or stale
 	$(NODE) bench/publish.js --check
 
-bench-reconcile: ## propose, accept, seal, or validate model-comparison gold; PHASE defaults to proposal
+bench-reconcile: ## prepare, propose, accept, seal, or validate model-comparison gold; PHASE defaults to proposal
 	$(NODE) bench/reconcile.js --phase "$(or $(PHASE),proposal)" $(if $(strip $(GOLD_ID)),--id "$(GOLD_ID)") $(ARGS)
 
 bench-dashboard: ## render the offline dashboard and GitHub Pages entry point
