@@ -32,6 +32,7 @@ const CODEX = process.env.CODEX || 'codex'
 const DEFAULT_TIMEOUT_MS = 30 * 60_000
 const MAX_BUFFER = 1 << 30
 const MAX_INVOCATIONS = 64
+const MAX_JUDGMENT_BATCH = 12
 const INPUT_KEYS = [
   'candidates', 'contract', 'pluginFingerprint', 'reviewContext', 'schemaVersion',
   'sourceDisclosure', 'target',
@@ -537,7 +538,7 @@ function runAdjudication(options, dependencies = {}) {
   let nextLead = 1
   while (pending.length || invocations.length === 0) {
     if (invocations.length >= MAX_INVOCATIONS) throw new Error('Codex new-lead adjudication did not reach a fixed point')
-    const batch = pending.splice(0)
+    const batch = pending.splice(0, MAX_JUDGMENT_BATCH)
     const judgeBatch = batch.map(candidateForJudge)
     let invocation
     try {

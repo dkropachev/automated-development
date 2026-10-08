@@ -10,7 +10,8 @@ clustering call to propose conservative semantic groups. The original rows, sour
 reasons, pass usage, and final candidate IDs remain in the pass receipt and discovery ledger.
 
 Codex then independently adjudicates the canonical candidates. A distinct new lead is judged in a
-fresh invocation; the originating invocation cannot judge itself. The broad changed-hunk scan runs
+fresh invocation; the originating invocation cannot judge itself. Candidate judgments are sent in
+small complete waves so no candidate is omitted from a large structured response. The broad changed-hunk scan runs
 once. Later waves see known candidate mechanisms and judge pending leads without repeating the
 scan. `real` means a verified defect, factual doc/test mismatch, or applicable rule violation.
 `suggestion` means exact evidence supports a plausible named future edit and consequence without

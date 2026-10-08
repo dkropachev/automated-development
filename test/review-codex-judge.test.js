@@ -519,6 +519,30 @@ test('adjudication sends a unique new lead to a distinct fresh invocation and ca
   }
 })
 
+test('adjudication judges every candidate across bounded waves', () => {
+  const candidates = Array.from({ length: 13 }, (_, index) => candidate(`C${index + 1}`, {
+    claim: `Distinct issue ${index + 1}`,
+    basis: `Trigger ${index + 1}`,
+    mechanisms: [`Mechanism ${index + 1}`],
+    consequence: `Consequence ${index + 1}`,
+  }))
+  const fixture = adjudicationFixture(candidates)
+  const sizes = []
+  try {
+    const receipt = runner.runAdjudication(fixture.options, {
+      now: () => new Date('2026-10-08T00:00:00.000Z'),
+      runOneInvocation: (options) => {
+        sizes.push(options.candidates.length)
+        const output = judgeOutput(options.candidates.map((entry) => judgment(entry.id)))
+        return invocation(`J00${sizes.length}`, options.candidates, output, sizes.length)
+      },
+    })
+    assert.deepEqual(sizes, [12, 1])
+    assert.equal(receipt.candidates.length, 13)
+    assert.equal(receipt.counts.confirmed, 13)
+  } finally { fs.rmSync(fixture.root, { recursive: true, force: true }) }
+})
+
 test('a duplicate new lead maps to the existing mechanism without another invocation', () => {
   const fixture = adjudicationFixture()
   let calls = 0
