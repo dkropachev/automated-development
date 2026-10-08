@@ -337,12 +337,13 @@ if (typeof module !== 'undefined' && module.exports) {
     else if (activeView === 'findings') renderFindings(params)
     else if (activeView === 'skills') renderSkills(parts[1] || null, params)
     else renderOverview(params)
-    const evidencePanel = activeView === 'choose' && params.get('tab') === 'models' && params.get('evidenceModel')
-      ? document.getElementById('canonical-evidence')
+    const focusedPanel = activeView === 'choose' && params.get('tab') === 'models'
+      ? params.get('evidenceModel') ? document.getElementById('canonical-evidence')
+        : params.get('focus') === 'ranking' ? document.getElementById('model-ranking') : null
       : null
-    if (evidencePanel) {
-      evidencePanel.focus({ preventScroll: true })
-      evidencePanel.scrollIntoView({ block: 'start', behavior: 'auto' })
+    if (focusedPanel) {
+      focusedPanel.focus({ preventScroll: true })
+      focusedPanel.scrollIntoView({ block: 'start', behavior: 'auto' })
     } else window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
@@ -1028,7 +1029,10 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function modelComparisonFilterBar(params, snapshot, scope) {
-    const sources = snapshot && scope ? enrichScopeSources(snapshot, scope) : []
+    const supplemental = scope?.id === 'all-models'
+      ? snapshot.scopes.filter((item) => item.id.startsWith('supplemental-')) : []
+    const sources = snapshot && scope
+      ? [scope, ...supplemental].flatMap((item) => enrichScopeSources(snapshot, item)) : []
     const cohortRuns = completedCohortRuns()
     const skillLabels = new Map(sources.map((source) => [source.toolId, tools.get(source.toolId)?.label || source.toolId]))
     for (const run of cohortRuns) skillLabels.set(run.toolId, run.toolLabel || tools.get(run.toolId)?.label || run.toolId)
@@ -1218,6 +1222,20 @@ if (typeof module !== 'undefined' && module.exports) {
     })
   }
 
+  function comparisonStatsWithSupplemental(snapshot, scope, params) {
+    const rows = comparisonStats(snapshot, scope, params)
+    if (scope.id !== 'all-models') return rows
+    for (const supplemental of snapshot.scopes.filter((item) => item.id.startsWith('supplemental-'))) {
+      const protocol = [...new Set(cellsForScope(supplemental).map((cell) => cell.toolId))].join(' + ')
+      for (const row of comparisonStats(snapshot, supplemental, params)) {
+        if (!row.evidence.length) continue
+        rows.push({ ...row, id: `${row.id}:${supplemental.id}`,
+          label: `${row.label} + ${protocol}`, provenance: `supplemental · ${row.attempts} cells`, supplemental: true })
+      }
+    }
+    return rows
+  }
+
   function comparisonRunHash(evidence) {
     const ids = [...new Set(evidence.map((source) => source.runId).filter(Boolean).map(resolveRunId))]
     if (!ids.length) return null
@@ -1293,7 +1311,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const body = el('tbody')
     for (const row of sortedModelStats(stats, params)) {
       const evidenceHref = comparisonParams(params, { evidenceModel: row.id, evidenceVerdict: 'real' })
-      body.append(el('tr', { class: row.legacy ? 'legacy-model-row' : '' },
+      body.append(el('tr', { class: row.supplemental ? 'supplemental-model-row' : row.legacy ? 'legacy-model-row' : '' },
         el('td', {}, el('strong', {}, row.label), el('span', { class: 'subline' }, row.provenance), row.legacy ? badge('historical', 'unproven') : null),
         el('td', { class: 'num' }, fmt(row.realPerDollar)),
         el('td', { class: 'num' }, fmt(row.cost, 'money')),
@@ -1350,7 +1368,7 @@ if (typeof module !== 'undefined' && module.exports) {
     }
     const requestedScope = params.get('scope')
     const scope = snapshot.scopes.find((item) => item.id === requestedScope) || snapshot.scopes.find((item) => item.id === 'all-models') || snapshot.scopes[0]
-    const stats = comparisonStats(snapshot, scope, params)
+    const stats = comparisonStatsWithSupplemental(snapshot, scope, params)
     const valueWinner = modelWinner(stats, (row) => row.realPerDollar)
     const completenessWinner = modelWinner(stats, (row) => row.completeness)
     const costWinner = modelWinner(stats, (row) => row.medianCost, 1)
@@ -1359,22 +1377,22 @@ if (typeof module !== 'undefined' && module.exports) {
     const issueUrl = snapshot.issueUrl || 'https://github.com/dkropachev/automated-development/issues/42'
     const scopePicker = field('Comparison scope', select('model-scope', snapshot.scopes.map((item) => [item.id, comparisonScopeLabel(item)]), scope.id, (event) => { location.hash = comparisonParams(params, { scope: event.target.value === (snapshot.scopes.find((item) => item.id === 'all-models') || snapshot.scopes[0]).id ? '' : event.target.value, evidenceModel: '', evidenceVerdict: '' }) }))
     frame(el('div', {},
-      compactHero('Choose a reviewer', 'Compare models against the canonical gold standard.', 'Recorded benchmark spend, verified detections, runtime, and reliability over exact matched cells. No list-price estimates or runtime network requests are used.'),
+      compactHero('Choose a reviewer', 'Compare models against the canonical gold standard.', 'Recorded benchmark spend, verified detections, runtime, and reliability over pinned pull requests. Supplemental review protocols are labeled in the ranking.'),
       chooseTabs(params, 'models'),
       el('section', { class: 'model-scope-controls' }, scopePicker, el('p', {}, 'The completeness denominator is the same for every model: all canonical real issues on the targets selected below.')),
       modelComparisonFilterBar(params, snapshot, scope),
-      completedCohortPanel(params),
       legacyPresent ? el('div', { class: 'notice model-legacy-warning', role: 'note' }, 'Claude Opus 5 is historical/inferred: its request, effort, target pins, prompts, and accounting were not fully recorded. Salvaged reports can expand the canonical gold set but never receive detection credit. ', externalLink('Track the controlled 19-cell rerun in issue #42 ↗', issueUrl)) : null,
+      el('section', { class: 'panel model-results-panel', id: 'model-ranking', tabindex: -1 },
+        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Model ranking'), el('p', {}, `${comparisonScopeLabel(scope)}. Cost and success include every recorded attempt. Supplemental rows use their own cell counts and the same pinned-PR gold denominator; tool sets differ.`))),
+        stats.length ? modelComparisonTable(stats, params) : el('div', { class: 'empty' }, 'No models are declared for this comparison scope.'),
+      ),
       el('section', { class: 'model-winners', 'aria-label': 'Model comparison winners' },
         modelWinnerCard('Best value', valueWinner, (row) => `${fmt(row.realPerDollar)} real / $`, (row) => `${row.real} canonical real · ${fmt(row.cost, 'money')} recorded total`),
         modelWinnerCard('Most complete', completenessWinner, (row) => fmt(row.completeness, 'percent'), (row) => `${row.real} of ${row.possible} canonical real issues`),
         modelWinnerCard('Lowest median cost', costWinner, (row) => fmt(row.medianCost, 'money'), (row) => `${row.attempts} matched attempt${row.attempts === 1 ? '' : 's'}`),
         modelWinnerCard('Fastest median runtime', runtimeWinner, (row) => fmt(row.medianWall, 'minutes'), (row) => `${fmt(row.successRate, 'percent')} success rate`),
       ),
-      el('section', { class: 'panel model-results-panel' },
-        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Model ranking'), el('p', {}, `${comparisonScopeLabel(scope)}. Cost and success include every matched attempt; findings require complete, non-salvaged, credit-eligible source evidence.`))),
-        stats.length ? modelComparisonTable(stats, params) : el('div', { class: 'empty' }, 'No models are declared for this comparison scope.'),
-      ),
+      completedCohortPanel(params),
       analysisPanel('Cost versus completeness', 'The Pareto frontier shows models for which no cheaper model is at least as complete. Select a point to open its exact contributing runs.', paretoChart(stats, {
         completeness: modelMetricHints.Completeness,
       })),

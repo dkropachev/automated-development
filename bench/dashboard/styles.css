@@ -187,6 +187,8 @@ td > .badge.experimental, .selection-card .badge.experimental, .rank-card > .bad
 .model-comparison-table .badge { margin-top: .45rem; }
 .model-comparison-table .canonical-evidence-link { color: var(--text); font-weight: 750; text-underline-offset: .15em; }
 .legacy-model-row { background: rgb(244 191 98 / 3%); }
+.supplemental-model-row { background: rgb(103 232 193 / 8%); }
+.model-results-panel { scroll-margin-top: 1rem; }
 .model-evidence-panel { margin-top: 1rem; }
 .canonical-issue-list { display: grid; gap: .7rem; }
 .canonical-issue { padding: .85rem .9rem; border: 1px solid var(--line); border-radius: 9px; background: #0e131a; }
