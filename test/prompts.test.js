@@ -620,5 +620,5 @@ test('current review skill uses the isolated six-pass engine and one terminal ma
   assert.match(reference, /Suggestions appear under \*\*Needs reviewer judgment\*\*/)
   assert.equal(tool.reviewProtocol, 'six-pass')
   assert.equal(tool.requiresDiscoveryReceipts, false)
-  assert.match(tool.prompt, /do not schedule a reminder/i)
+  assert.match(tool.prompt, /do not poll by process-name text or schedule a Monitor or reminder/i)
 })

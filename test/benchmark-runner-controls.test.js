@@ -620,8 +620,8 @@ test('Claude review argv carries an exact hard budget and isolated local plugin 
     '--disallowedTools', 'WebSearch', 'WebFetch',
   ])
   assert.deepEqual(runner.claudeArgs('review', 'claude-opus-5-5', {
-    disableScheduleWakeup: true,
-  }).slice(-4), ['--disallowedTools', 'WebSearch', 'WebFetch', 'ScheduleWakeup'])
+    disableScheduleWakeup: true, disableMonitor: true,
+  }).slice(-5), ['--disallowedTools', 'WebSearch', 'WebFetch', 'ScheduleWakeup', 'Monitor'])
   const root = fixture()
   try {
     assert.equal(runner.parseArgs(['--max-budget-usd', '50'], root).maxBudgetUsd, 50)
