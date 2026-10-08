@@ -455,8 +455,6 @@ test('coverage work externalizes compact receipts and constrains Claude orchestr
   assert.match(procedure, /compact receipts in agent transcripts/i)
   assert.match(procedure, /only receipt IDs in root context|only IDs and evidence\s+references/i)
   assert.match(procedure, /Consolidate all gaps into at most one fresh\s+assignment/i)
-  assert.match(procedure, /gap assignee also reads every screened\s+observation with its original reason and exact evidence/i)
-  assert.match(procedure, /Promote such a lead as one atomic\s+candidate/i)
   const tool = JSON.parse(rd('bench/tools.json')).tools.find(({ id }) => id === 'review-and-fix-pr')
   assert.match(tool.prompt, /at most one consolidated gap-review subagent/i)
   assert.match(procedure, /no more than 15 Claude subagents/i)

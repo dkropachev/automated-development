@@ -319,11 +319,7 @@ claim text in the ledger so benchmark extraction does not mistake them for repor
 The first coverage auditor sees the frozen inventory and all receipts, but no titles, candidate
 prose, severities, lane names, or finding counts. It identifies missing semantic coverage—not just
 whether a file was opened—and assigns precise gap tasks. Consolidate all gaps into at most one fresh
-assignment naming every needed expertise and run it once. The gap assignee also reads every screened
-observation with its original reason and exact evidence. Recheck screens that cite only working
-current behavior, base parity, or subjective taste when a named future edit, literal claim, or
-different entry point could still have a concrete consequence. Promote such a lead as one atomic
-candidate; keep a screen only when the counterevidence disproves that mechanism. A fresh final auditor applies the same
+assignment naming every needed expertise and run it once. A fresh final auditor applies the same
 blind rule to the combined receipts. Any remaining required unit makes
 coverage `incomplete-gaps`; a missing or malformed core lane makes it `incomplete-lens`.
 

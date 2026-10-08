@@ -122,8 +122,7 @@ the target tree. Keep only receipt IDs in root context.
 Give a fresh auditor the frozen inventory and compact receipts, including checked-nonissue coverage,
 but no candidate prose or lane identities. It identifies semantic gaps and emits targeted tasks.
 Consolidate all gaps into at most one fresh assignment naming every needed expertise, run it once,
-and externalize its receipt. Give it screened observations to challenge per `reference.md`;
-it may promote leads. A fresh final auditor checks closure. Report gaps.
+and externalize its receipt. A fresh final auditor checks closure. Report remaining gaps explicitly.
 
 ## 4. Deduplicate and adjudicate with Codex
 
