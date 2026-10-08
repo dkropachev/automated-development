@@ -222,6 +222,7 @@ try {
     assert.match(row, new RegExp(`>${runCount} runs?<\\/a>`))
   }
   assert.ok(completedRows.some((html) => /Claude Sonnet 5\.5/.test(html) && /sonnet-5-5-2026-09-30/.test(html)))
+  assert.match(models.app, /href="#report\/rafp-six-pass-parallel-broker-2026-10-08" class="cohort-report-link">Read site report<\/a>/)
   const denominators = modelCompletenessDenominators(models.app)
   assert.deepEqual(modelRows(models.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1', 'Claude Opus 5'])
   assert.equal(denominators.length, 3, 'all-model scope must compare exactly three models')
@@ -252,6 +253,15 @@ try {
   assert.deepEqual(linkedEvidenceCounts(supplemental.app), [3])
   assert.deepEqual(modelCompletenessDenominators(supplemental.app), [113])
   assert.match(supplemental.app, /35 \/ 113/)
+
+  const siteReport = render('report/rafp-six-pass-parallel-broker-2026-10-08')
+  assert.match(siteReport.app, /Review-and-fix-pr compared with other models/)
+  assert.match(siteReport.app, /class="model-comparison-table cohort-report-table"/)
+  assert.match(siteReport.app, /Claude Opus 5\.5 \+ review-and-fix-pr/)
+  assert.match(siteReport.app, /35 \/ 113/)
+  assert.match(siteReport.app, /12,695,932/)
+  assert.match(siteReport.app, /498,302/)
+  assert.match(siteReport.app, /74.*?no confirmed gold credit/s)
 
   const modelSorted = render('choose?tab=models&modelSort=model')
   assert.match(modelSorted.app, /<th class="" aria-sort="ascending">/)

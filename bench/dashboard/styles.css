@@ -184,6 +184,9 @@ td > .badge.experimental, .selection-card .badge.experimental, .rank-card > .bad
 .model-winner-card strong { display: block; margin-top: .8rem; color: var(--accent); font-size: 1.5rem; }
 .model-winner-card p { margin: .35rem 0 0; color: var(--muted); font-size: .75rem; line-height: 1.4; }
 .model-comparison-table td:first-child { min-width: 190px; }
+.cohort-report-link { display: inline-block; margin-top: .35rem; font-size: .8rem; }
+.cohort-report-table th, .cohort-report-table td { white-space: nowrap; }
+.cohort-report-table .report-current-row { background: rgb(103 232 193 / 8%); }
 .model-comparison-table .badge { margin-top: .45rem; }
 .model-comparison-table .canonical-evidence-link { color: var(--text); font-weight: 750; text-underline-offset: .15em; }
 .legacy-model-row { background: rgb(244 191 98 / 3%); }

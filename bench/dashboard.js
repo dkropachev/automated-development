@@ -685,6 +685,7 @@ function loadArtifacts(root = ROOT) {
           attempts: finite(record.attempts),
           dnfReason: record.dnfReason || null,
           usage,
+          codexTokens: finite(record.codexUsage && record.codexUsage.totalTokens),
           numTurns: finite(record.numTurns),
           sessionId: record.sessionId || null,
           subagentStats: record.subagentStats || null,
