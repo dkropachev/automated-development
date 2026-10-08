@@ -321,7 +321,7 @@ function parseUsage(event) {
   return { inputTokens, cachedInputTokens, cacheWriteInputTokens, outputTokens, reasoningOutputTokens, totalTokens }
 }
 
-function validateJudgeOutput(output, expectedIds, contract = CONTRACT_V2) {
+function validateJudgeOutput(output, expectedIds, contract = CONTRACT_V2, allowOmitted = false) {
   exactKeys(output, ['judgments', 'model', 'newCandidates', 'provider', 'schemaVersion'], 'Codex structured output')
   if (output.schemaVersion !== (contract === CONTRACT_V3 ? 2 : 1) || output.provider !== 'OpenAI Codex' || output.model !== JUDGE_MODEL) {
     throw new Error('Codex structured output identity or model drifted')
@@ -363,7 +363,7 @@ function validateJudgeOutput(output, expectedIds, contract = CONTRACT_V2) {
     }
     return canonical(judgment)
   })
-  if (seen.size !== expected.size) throw new Error('Codex omitted a candidate judgment')
+  if (!allowOmitted && seen.size !== expected.size) throw new Error('Codex omitted a candidate judgment')
   const newCandidates = output.newCandidates.map((candidate, index) => {
     const label = `Codex newCandidates[${index}]`
     exactKeys(candidate, NEW_CANDIDATE_KEYS, label)
@@ -443,7 +443,8 @@ function runOneInvocation(options, dependencies = {}) {
   let parsed, output
   try {
     parsed = parseTrace(result.stdout)
-    output = validateJudgeOutput(parsed.output, options.candidates.map((candidate) => candidate.id), options.contract)
+    output = validateJudgeOutput(parsed.output, options.candidates.map((candidate) => candidate.id),
+      options.contract, options.contract === CONTRACT_V3)
   } catch (error) {
     error.traceText = String(result.stdout || '')
     error.stderrText = String(result.stderr || '')
@@ -536,9 +537,11 @@ function runAdjudication(options, dependencies = {}) {
   const traceDirectory = options.traceDirectory
   fs.mkdirSync(traceDirectory, { recursive: false, mode: 0o700 })
   let nextLead = 1
+  let nextBatchLimit = MAX_JUDGMENT_BATCH
   while (pending.length || invocations.length === 0) {
     if (invocations.length >= MAX_INVOCATIONS) throw new Error('Codex new-lead adjudication did not reach a fixed point')
-    const batch = pending.splice(0, MAX_JUDGMENT_BATCH)
+    const batch = pending.splice(0, nextBatchLimit)
+    nextBatchLimit = MAX_JUDGMENT_BATCH
     const judgeBatch = batch.map(candidateForJudge)
     let invocation
     try {
@@ -574,7 +577,13 @@ function runAdjudication(options, dependencies = {}) {
     writeExclusive(path.join(traceDirectory, traceName), invocation.traceText ||
       invocation.events.map((event) => JSON.stringify(event)).join('\n') + '\n')
     const judgments = new Map(invocation.output.judgments.map((judgment) => [judgment.candidateId, judgment]))
+    const omitted = batch.filter((candidate) => !judgments.has(candidate.id))
+    if (omitted.length) {
+      pending.unshift(...omitted)
+      nextBatchLimit = 1
+    }
     for (const candidate of batch) {
+      if (!judgments.has(candidate.id)) continue
       if (candidate.originInvocationId === invocation.invocationId) {
         throw new Error(`candidate ${candidate.id} was judged by its originating invocation`)
       }
@@ -671,7 +680,8 @@ function runAdjudication(options, dependencies = {}) {
     invocations.push({
       id: invocation.invocationId,
       sequence: invocations.length + 1,
-      candidateIds: batch.map((candidate) => candidate.id),
+      candidateIds: batch.filter((candidate) => judgments.has(candidate.id))
+        .map((candidate) => candidate.id),
       model: JUDGE_MODEL,
       traceSha256: invocation.traceSha256,
       resultSha256: invocation.resultSha256,
