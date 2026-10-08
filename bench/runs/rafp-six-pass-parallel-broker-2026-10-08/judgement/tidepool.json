@@ -1,0 +1,399 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-six-pass-parallel-broker-2026-10-08",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "1e82419105f2ea8d4a2883c86f514a674c791d63d627ddc6e621b3ea84965799",
+    "gitCommit": "e8b16216b0e9651209f1759499dacb890d5d84ac",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "target": "tidepool",
+  "language": "Go",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "rawFindings": 18,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Nested-vector \"no Go type\" error blames the wrong cause",
+      "file": "marshal.go",
+      "line": 1048,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Reproduced: unmarshalling a nested vector into *any hits marshal.go:1048's new guard and reports 'no Go type for element type', but asVectorType (helpers.go:77) strips the inner spec from the nested VectorType's custom name, so goType()/NewWithError() wrongly fail even though a real Go type ([]float32 etc.) exists for the element.",
+      "introducedByPr": true,
+      "scope": "out-of-scope",
+      "scopeReason": "The PR body explicitly lists this exact case as deferred work ('Out — making a nested vector actually decode into interface{} ... #1085'), and fixing the message requires the same asVectorType fix that issue tracks.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The nested-vector panic is turned into an error that says the element type has no Go type, even though one exists. The real cause is left in place: the inner vector's custom name is cut down to the bare \"...VectorType\" prefix."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "The nested-vector panic is turned into an error that says the element type has no Go type, even though one exists. The real cause is left in place: the inner vector's custom name is cut down to the bare \"...VectorType\" prefix."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "VectorType has no String(), so vector errors render uninformatively",
+      "file": "marshal.go",
+      "line": 1048,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Confirmed no VectorType.String() exists; it inherits NativeType.String(), which for a nested vector's bare custom name renders only 'custom(org.apache.cassandra.db.marshal.VectorType)' with no element type or dimension, verified with a small reproduction.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Improving what the new error prints is independent of the deeper decode-support fix deferred to #1085, and the error text itself is new in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "For the nested-vector case the new error cannot say which type the server sent. VectorType has no String method, so %v of the inner VectorType uses NativeType.String and renders \"custom(org.apache.cassandra.db.marshal.VectorType)\", with no element type or dimension."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "For the nested-vector case the new error cannot say which type the server sent. VectorType has no String method, so %v of the inner VectorType uses NativeType.String and renders \"custom(org.apache.cassandra.db.marshal.VectorType)\", with no element type or dimension."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Function comment overclaims that every unmarshalVector path allocates",
+      "file": "marshal.go",
+      "line": 986,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "vectorSliceReuse (marshal.go:941) reuses the destination slice without allocating when capacity suffices, and the array branch (around marshal.go:1078) never calls make/reflect.MakeSlice, contradicting the new comment's blanket 'every path below turns it into an allocation' claim.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The inaccurate comment is new text added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The function-level comment says \"every path below turns it into an allocation (make, reflect.MakeSlice)\". That is not true for the array destination, or for vectorSliceReuse when the destination already has enough capacity. The PR's own test comment contradicts it."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "The function-level comment says \"every path below turns it into an allocation (make, reflect.MakeSlice)\". That is not true for the array destination, or for vectorSliceReuse when the destination already has enough capacity. The PR's own test comment contradicts it."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Commit messages don't match CONTRIBUTING.md's documented format",
+      "file": "CONTRIBUTING.md",
+      "line": 30,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "git log shows every recent commit in this repo (fix(marshal):, docs(conn):, chore:, etc.) uses the same conventional 'type(scope): description' style with no 'Patch by' trailer, so the PR's commits match actual, established project convention; CONTRIBUTING.md is the stale artifact here, not the PR.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "CONTRIBUTING.md's template is pre-existing and already ignored across the whole repository history, unrelated to this PR's diff.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The commit messages do not follow CONTRIBUTING.md's required format. They use a lowercase conventional 'fix(marshal):' prefix rather than a short description starting with a capital letter, and neither has the 'Patch by <authors>; reviewed by <Reviewers> for #####' line. Recent repository history uses the same conventional style, so the rule may be stale."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "The commit messages do not follow CONTRIBUTING.md's required format. They use a lowercase conventional 'fix(marshal):' prefix rather than a short description starting with a capital letter, and neither has the 'Patch by <authors>; reviewed by <Reviewers> for #####' line. Recent repository history uses the same conventional style, so the rule may be stale."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "No CHANGELOG/godoc entry for the new vector Scan error behavior",
+      "file": "marshal.go",
+      "line": 992,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "CHANGELOG.md was deliberately removed from this fork (see commit 'Remove upstream's CHANGELOG.md'), and the touched functions (unmarshalVector, getCassandraLongType) are unexported with no godoc surface, matching how other recent fix commits in this repo ship without changelog or doc updates.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The checklist item references a changelog file and documentation practice this repository no longer maintains, independent of this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "These are notable behaviour changes (new Scan errors instead of panics, and new error text for unknown custom types), but nothing in the change documents them in a changelog or godoc. The checklist requires that."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "These are notable behaviour changes (new Scan errors instead of panics, and new error text for unknown custom types), but nothing in the change documents them in a changelog or godoc. The checklist requires that."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "vectorElemMinSize floors a 0-dim fixed-type nested vector at 1, not 0",
+      "file": "marshal.go",
+      "line": 1140,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Reproduced: unmarshalVector on vector<vector<float,0>,5> with an empty, non-NULL payload now errors '5 dimensions do not fit in 0 bytes', although a 0-dimension vector of a fixed-size element type legitimately encodes to 0 bytes and used to decode successfully; the new test comments ('Neither can describe an element in zero bytes', 'never encoded in fewer than N bytes') assert this wrong floor as fact instead of flagging it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize is new code added by this PR, and the decode regression and the test/doc claims about it are new.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "vectorElemMinSize returns 1 for a fixed-element inner vector with 0 dimensions, but such an element really takes 0 bytes on the wire. A vector<vector<float,0>,N> with an empty non-NULL payload used to decode and is now rejected. Related: the TestVectorElemMinSize and TestUnmarshalVectorAcceptsWellFormedPayloads comments assert the bound is a correct floor / non-narrowing when it is not for this case."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "vectorElemMinSize returns 1 for a fixed-element inner vector with 0 dimensions, but such an element really takes 0 bytes on the wire. A vector<vector<float,0>,N> with an empty non-NULL payload used to decode and is now rejected. Related: the TestVectorElemMinSize and TestUnmarshalVectorAcceptsWellFormedPayloads comments assert the bound is a correct floor / non-narrowing when it is not for this case."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "32-bit-targeting test comment is moot: package can't build for GOARCH=386",
+      "file": "marshal_vector_test.go",
+      "line": 584,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "GOARCH=386 go build -tags unit . fails to compile for this module due to pre-existing constant overflows in serialization/cqlint and serialization/varint (unrelated to this PR), so the claim that using the word size makes the wrap 'land on a 32-bit target too' is never actually exercised by any build.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The misleading comment is new text this PR added, even though the underlying 32-bit build breakage predates it and belongs elsewhere.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new test comment says the overflow cases \"use the word size so the wrap lands on a 32-bit target too\", but the unit-tagged test package for `gocql` does not compile for a 32-bit `int`, so that target is never exercised."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "The new test comment says the overflow cases \"use the word size so the wrap lands on a 32-bit target too\", but the unit-tagged test package for `gocql` does not compile for a 32-bit `int`, so that target is never exercised."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "PR description overclaims every new test fails against pristine code",
+      "file": "marshal_vector_test.go",
+      "line": 701,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Ran the new tests against main with only vectorElemMinSize added back to allow compilation: TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType pass unchanged against the old unmarshalVector logic, and TestVectorElemMinSize would only fail to compile against true pristine code (undefined: vectorElemMinSize), not fail as a running test, contradicting the PR body's 'every new test fails against pristine marshal.go/helpers.go'.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The overclaim is in this PR's own description.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The PR body says 'Every new test fails against pristine marshal.go/helpers.go'. Several added tests cannot fail on pristine code. TestUnmarshalVectorAcceptsWellFormedPayloads, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType, and the 'still decodes' subtests pin existing behaviour. TestVectorElemMinSize would fail to compile, which is not a test failure."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "The PR body says 'Every new test fails against pristine marshal.go/helpers.go'. Several added tests cannot fail on pristine code. TestUnmarshalVectorAcceptsWellFormedPayloads, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType, and the 'still decodes' subtests pin existing behaviour. TestVectorElemMinSize would fail to compile, which is not a test failure."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "Negative-dimension check runs before NULL check, splitting *[]T vs **[]T",
+      "file": "marshal.go",
+      "line": 992,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Reproduced: Unmarshal on a NULL vector value with Dimensions=-3 now errors for a *[]float32 destination, but still returns nil for a **[]float32 destination, because isNullableValue/unmarshalNullable short-circuits on nil data before ever calling unmarshalVector, bypassing the new Dimensions<0 check entirely for double-pointer destinations.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new Dimensions<0 check, which now runs ahead of the data==nil case for single-pointer destinations, is new code from this PR, and the inconsistency it creates isn't mentioned in the PR's behaviour-change notes.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "A NULL value for a vector column with negative metadata dimensions now errors for a `*[]T` destination but still succeeds for a `**[]T` destination; the negative-dimension check runs before the NULL check. The PR's behaviour-change section does not mention this."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "A NULL value for a vector column with negative metadata dimensions now errors for a `*[]T` destination but still succeeds for a `**[]T` destination; the negative-dimension check runs before the NULL check. The PR's behaviour-change section does not mention this."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "getCassandraLongType's custom-name change isn't scoped to vectors only",
+      "file": "helpers.go",
+      "line": 280,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "getCassandraLongType is the shared recursive parser for set/list/map/tuple/UDT/frozen/vector element names (7 call sites found via grep), so the new branch that preserves an unrecognized name onto a CustomType changes TypeInfo for every unrecognized basic type name throughout metadata parsing, not only vector elements, which the PR's 'Behaviour change' section doesn't mention.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is the exact diff hunk added by the PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The getCassandraLongType change applies to every unrecognised type name in all metadata parsing, not only to vector elements. The PR's 'Behaviour change' section does not mention it."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "The getCassandraLongType change applies to every unrecognised type name in all metadata parsing, not only to vector elements. The PR's 'Behaviour change' section does not mention it."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "vectorElemMinSize panics recursing into a nested vector's nil SubType",
+      "file": "marshal.go",
+      "line": 1135,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Reproduced: vectorElemMinSize(VectorType{Dimensions:3, SubType:nil}) panics with a nil pointer dereference inside vectorFixedElemSize's elemType.Type() call, directly contradicting the function's own new comment that a caller of Unmarshal may leave SubType nil.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize is new code added by this PR, and this gap contradicts the nil-SubType handling the same PR added nearby for the outer Dimensions==0 case.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "vectorElemMinSize recurses into a nested VectorType's SubType without a nil check. The new comment states that callers of Unmarshal may leave SubType nil."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "vectorElemMinSize recurses into a nested VectorType's SubType without a nil check. The new comment states that callers of Unmarshal may leave SubType nil."
+      }
+    },
+    {
+      "id": "I12",
+      "title": "Stale fast-path comment no longer matches code reachable after new bound",
+      "file": "marshal.go",
+      "line": 1006,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "For Dimensions>0 with an empty non-nil payload, the new bound now returns an error before either the fast path or the generic path is reached, so the pre-existing, untouched comment's claim that such input 'falls through to the generic path' is no longer accurate.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new bound code this PR added is what made the adjacent comment stale.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The old fast-path comment says \"nil/empty and dim=0 fall through to the generic path\". It now sits under the new bound, which rejects an empty non-nil payload whenever Dimensions > 0 before it can reach either path."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "The old fast-path comment says \"nil/empty and dim=0 fall through to the generic path\". It now sits under the new bound, which rejects an empty non-nil payload whenever Dimensions > 0 before it can reach either path."
+      }
+    },
+    {
+      "id": "I13",
+      "title": "Zero-dim vector with nil SubType still panics scanning into *any",
+      "file": "marshal.go",
+      "line": 1044,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "Reproduced: Unmarshal(VectorType{Dimensions:0}, []byte{}, &v) with v any panics inside VectorType.Zero() (marshal.go:2046) before the PR's new t==nil guard at line 1045 can ever run, because Zero() itself dereferences a nil SubType; this is the exact crash class ('reflect.TypeOf(info.Zero()) is nil ... Kind() dereferences it') the PR's own commit message says it closed.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "This pre-existing panic sits in the exact function and crash class this PR's second commit explicitly set out to fix, and the new guard it added does not cover this path.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "A zero-dimensional VectorType with a nil SubType still panics when a non-NULL empty payload is unmarshaled into *any. The new zero-dimension test covers only a concrete slice destination, while the interface path calls info.Zero() before the new nil-Type guard can run."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "A zero-dimensional VectorType with a nil SubType still panics when a non-NULL empty payload is unmarshaled into *any. The new zero-dimension test covers only a concrete slice destination, while the interface path calls info.Zero() before the new nil-Type guard can run."
+      }
+    },
+    {
+      "id": "I14",
+      "title": "Commits and PR body carry Claude/Anthropic attribution trailers",
+      "file": "marshal.go",
+      "line": 986,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "git log confirms both commits end with 'Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>', and gh pr view confirms the PR body ends with '🤖 Generated with Claude Code', matching the finding exactly.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "These are this PR's own commits and description.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Both commits end with a 'Co-Authored-By: Claude Opus 5' trailer, and the PR body ends with 'Generated with Claude Code'. The user's standing instructions forbid this attribution in commits and PR descriptions."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/tidepool/review-and-fix-pr": "Both commits end with a 'Co-Authored-By: Claude Opus 5' trailer, and the PR body ends with 'Generated with Claude Code'. The user's standing instructions forbid this attribution in commits and PR descriptions."
+      }
+    }
+  ],
+  "judgeCostUsd": 2.2267788000000004,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 112,
+      "outputTokens": 62110,
+      "cacheReadInputTokens": 5435814,
+      "cacheCreationInputTokens": 129573,
+      "webSearchRequests": 0,
+      "costUSD": 2.2267788000000004,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 42708,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/tidepool/runs/rafp-six-pass-parallel-broker-2026-10-08/_judge/attempt-ITnFTm/repo",
+  "judgedAt": "2026-10-08T08:35:47.395Z"
+}
