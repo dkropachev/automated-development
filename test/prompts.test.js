@@ -51,7 +51,7 @@ test('the learn loop lives outside the skills, so none of them carries a second 
 })
 
 test('review-and-fix-pr is a stateless parent-session procedure with direct preflight', () => {
-  const skill = rd('skills/review-and-fix-pr/SKILL.md')
+  const skill = rd('skills/review-and-fix-pr/legacy-six-lane.md')
   const ref = rd('skills/review-and-fix-pr/reference.md')
 
   assert.match(skill, /parent session/i)
@@ -82,7 +82,7 @@ test('review-and-fix-pr is a stateless parent-session procedure with direct pref
 })
 
 test('review-and-fix-pr uses one dedicated structurally read-only lane controller', () => {
-  const skill = rd('skills/review-and-fix-pr/SKILL.md')
+  const skill = rd('skills/review-and-fix-pr/legacy-six-lane.md')
   const ref = rd('skills/review-and-fix-pr/reference.md')
   const readme = rd('README.md')
   const agent = rd('agents/review-lane-controller.md')
@@ -166,7 +166,7 @@ test('review-and-fix-pr uses one dedicated structurally read-only lane controlle
 
 test('review lane controller requires the complete frozen routing input', () => {
   const prompts = [
-    ['SKILL.md', rd('skills/review-and-fix-pr/SKILL.md')],
+    ['SKILL.md', rd('skills/review-and-fix-pr/legacy-six-lane.md')],
     ['reference.md', rd('skills/review-and-fix-pr/reference.md')],
     ['review-lane-controller.md', rd('agents/review-lane-controller.md')],
   ]
@@ -315,7 +315,7 @@ test('review lane controller can add depth but cannot review or narrow coverage'
 })
 
 test('review-and-fix-pr controller routes optional work without skipping core lanes', () => {
-  const procedure = rd('skills/review-and-fix-pr/SKILL.md') + '\n' +
+  const procedure = rd('skills/review-and-fix-pr/legacy-six-lane.md') + '\n' +
     rd('skills/review-and-fix-pr/reference.md')
 
   assert.match(procedure, /(?:lane|review) controller/i)
@@ -343,7 +343,7 @@ test('review-and-fix-pr controller routes optional work without skipping core la
 })
 
 test('review-and-fix-pr adjudicates candidates, can fix and rereview, and emits the v3 marker', () => {
-  const procedure = rd('skills/review-and-fix-pr/SKILL.md') + '\n' +
+  const procedure = rd('skills/review-and-fix-pr/legacy-six-lane.md') + '\n' +
     rd('skills/review-and-fix-pr/reference.md')
 
   assert.match(procedure, /fix(?:es|ing)? (?:are|is )?optional|only (?:edit|fix)[\s\S]{0,100}(?:asked|authorized)/i)
@@ -363,7 +363,7 @@ test('review-and-fix-pr adjudicates candidates, can fix and rereview, and emits 
 })
 
 test('every discovery lane receives exact delimited PR evidence instead of a summary', () => {
-  const skill = rd('skills/review-and-fix-pr/SKILL.md')
+  const skill = rd('skills/review-and-fix-pr/legacy-six-lane.md')
   const ref = rd('skills/review-and-fix-pr/reference.md')
   const controller = rd('agents/review-lane-controller.md')
   for (const [name, text] of [['SKILL.md', skill], ['reference.md', ref],
@@ -387,7 +387,7 @@ test('every discovery lane receives exact delimited PR evidence instead of a sum
 })
 
 test('discovery admits atomic candidates and retains checked nonissues only in coverage', () => {
-  const procedure = rd('skills/review-and-fix-pr/SKILL.md') + '\n' +
+  const procedure = rd('skills/review-and-fix-pr/legacy-six-lane.md') + '\n' +
     rd('skills/review-and-fix-pr/reference.md')
   for (const field of ['basisType', 'basis', 'mechanisms', 'consequence', 'defectClass', 'category',
                        'locations', 'evidence', 'sourceIds']) {
@@ -450,20 +450,18 @@ test('controller optional routing is distinct, nonduplicative, and keeps its YAM
 })
 
 test('coverage work externalizes compact receipts and constrains Claude orchestration', () => {
-  const procedure = rd('skills/review-and-fix-pr/SKILL.md') + '\n' +
+  const procedure = rd('skills/review-and-fix-pr/legacy-six-lane.md') + '\n' +
     rd('skills/review-and-fix-pr/reference.md')
   assert.match(procedure, /compact receipts in agent transcripts/i)
   assert.match(procedure, /only receipt IDs in root context|only IDs and evidence\s+references/i)
   assert.match(procedure, /Consolidate all gaps into at most one fresh\s+assignment/i)
-  const tool = JSON.parse(rd('bench/tools.json')).tools.find(({ id }) => id === 'review-and-fix-pr')
-  assert.match(tool.prompt, /at most one consolidated gap-review subagent/i)
   assert.match(procedure, /no more than 15 Claude subagents/i)
   assert.match(procedure, /root context (?:below|under) 100k tokens/i)
   assert.match(procedure, /never finding, severity, confidence, or coverage cutoffs/i)
 })
 
 test('Codex adjudication is script-backed, blind, read-only, and reaches a fixed point', () => {
-  const skill = rd('skills/review-and-fix-pr/SKILL.md')
+  const skill = rd('skills/review-and-fix-pr/legacy-six-lane.md')
   const ref = rd('skills/review-and-fix-pr/reference.md')
   const procedure = skill + '\n' + ref
   const command = 'node "${CLAUDE_PLUGIN_ROOT}/bin/review-and-fix-pr-codex.js" --root ' +
@@ -489,12 +487,9 @@ test('Codex adjudication is script-backed, blind, read-only, and reaches a fixed
 })
 
 test('Codex helper runs in foreground and blocks finalization until stdout is parsed', () => {
-  const tool = JSON.parse(rd('bench/tools.json')).tools.find(({ id }) => id === 'review-and-fix-pr')
-  assert.ok(tool, 'bench/tools.json has no review-and-fix-pr tool')
   for (const [name, text] of [
-    ['SKILL.md', rd('skills/review-and-fix-pr/SKILL.md')],
+    ['SKILL.md', rd('skills/review-and-fix-pr/legacy-six-lane.md')],
     ['reference.md', rd('skills/review-and-fix-pr/reference.md')],
-    ['benchmark prompt', tool.prompt],
   ]) {
     assert.match(text, /Bash[\s\S]{0,120}`run_in_background: false`/i,
       `${name} does not require a foreground Bash invocation`)
@@ -610,4 +605,19 @@ test('a skill body stays under the size a whole invocation pays for it', () => {
     const bytes = Buffer.byteLength(rd(path.join('skills', d, 'SKILL.md')), 'utf8')
     assert.ok(bytes <= 13000, `skills/${d}/SKILL.md is ${bytes} bytes, over the 13000 ceiling`)
   }
+})
+
+test('current review skill uses the isolated six-pass engine and one terminal marker', () => {
+  const skill = rd('skills/review-and-fix-pr/SKILL.md')
+  const reference = rd('skills/review-and-fix-pr/reference-fast.md')
+  const tool = JSON.parse(rd('bench/tools.json')).tools.find(({ id }) => id === 'review-and-fix-pr')
+  assert.match(skill, /review-and-fix-pr-fast\.js/)
+  assert.match(skill, /six independent Claude Opus discovery passes/)
+  assert.match(skill, /Do not schedule wakeups or reminders/)
+  assert.match(skill, /REVIEW_AND_FIX_PR_RESULT_JSON=/)
+  assert.match(reference, /original rows, sources, groups/)
+  assert.match(reference, /Suggestions appear under \*\*Needs reviewer judgment\*\*/)
+  assert.equal(tool.reviewProtocol, 'six-pass')
+  assert.equal(tool.requiresDiscoveryReceipts, false)
+  assert.match(tool.prompt, /do not schedule a reminder/i)
 })

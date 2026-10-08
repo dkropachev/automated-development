@@ -114,8 +114,9 @@
       "resultContract": "review-and-fix-pr-v3",
       "requiresDiscoveryLedger": true,
       "discoveryLedgerSchemaVersion": 2,
-      "requiresDiscoveryReceipts": true,
-      "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill directly to review pull request #{pr}.\n\n{context}\n\nRun its complete stateless, review-only protocol to completion. Do not invoke a nested Workflow and do not fix the pull request. Complete every mandatory review lane, both coverage audits, candidate deduplication, and required Codex adjudication to fixed-point closure. Use at most one consolidated gap-review subagent. Invoke the exact Codex helper with Bash tool parameters `run_in_background: false` and `timeout: 600000` (maximum foreground timeout), using the code block as the entire command with no prefix, suffix, pipe, or redirection. Wait for its process to exit, then parse stdout `markerBinding`, `counts`, and `usage`. Never respond or finalize while that helper or any background task is pending. Return the human-readable review followed by exactly one valid `review-and-fix-pr-v3` contract line beginning `REVIEW_AND_FIX_PR_RESULT_JSON=`. That marker must be the final nonempty line of your response, and no earlier line may begin with that marker prefix."
+      "requiresDiscoveryReceipts": false,
+      "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill directly to review pull request #{pr}.\n\n{context}\n\nRun its complete read-only six-pass protocol through the trusted local helper. Do not invoke a nested Workflow or fix the PR. The helper runs six independent Claude discovery passes, semantic clustering, and required OpenAI Codex adjudication to fixed-point closure. Invoke the exact helper command in the foreground with Bash `run_in_background: false` and `timeout: 600000` (maximum foreground timeout). If Bash moves it to a supervised background task, wait for that exact task to exit and read its complete output; do not schedule a reminder, respond, or finalize while work is pending. Return the helper's human-readable review and exactly one valid `review-and-fix-pr-v3` contract line beginning `REVIEW_AND_FIX_PR_RESULT_JSON=` as the final nonempty line. Do not add a later status response.",
+      "reviewProtocol": "six-pass"
     }
   ]
 }

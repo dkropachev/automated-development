@@ -265,6 +265,9 @@ function normalizedToolConfig(config) {
         ![REVIEW_AND_FIX_PR_CONTRACT_V1, REVIEW_AND_FIX_PR_CONTRACT_V2, REVIEW_AND_FIX_PR_CONTRACT_V3].includes(tool.resultContract)) {
       throw new Error(`manifest toolConfig review contract is invalid: ${tool.resultContract}`)
     }
+    if (tool.reviewProtocol != null && tool.reviewProtocol !== 'six-pass') {
+      throw new Error(`manifest toolConfig review protocol is invalid: ${tool.reviewProtocol}`)
+    }
   }
   return canonical(config)
 }
@@ -1229,7 +1232,16 @@ function validateResultRecord(record, manifest, targetId, toolId, options = {}) 
       if (tool && tool.requiresDiscoveryReceipts) {
         require('../../lib/review-discovery-receipts').validateDiscoveryReceipts(record.discoveryReceipts)
       }
-      validateV2ControllerStats(record, `result ${targetId}/${toolId}`)
+      if (tool && tool.reviewProtocol === 'six-pass') {
+        require('../../lib/review-fast-contract').validatePassReceipt(record.reviewPasses, {
+          target: { repository: manifest.targetMetadata[targetId].fork,
+            baseSha: manifest.targets[targetId].baseSha, headSha: manifest.targets[targetId].headSha },
+          model: manifest.requestedModel, candidateLedger: parsedContract.candidateLedger,
+        })
+        if (record.subagentStats?.spawned !== 0 || record.transcriptUsage.sessions < 7) {
+          throw new Error(`result ${targetId}/${toolId} six-pass execution did not stay isolated`)
+        }
+      } else validateV2ControllerStats(record, `result ${targetId}/${toolId}`)
       validateEmbeddedCodexReceipt(record, manifest, targetId, toolId, parsedContract)
       if (options.root) {
         readAndValidateCodexReceipt(options.root, record, manifest, targetId, toolId, parsedContract, options)

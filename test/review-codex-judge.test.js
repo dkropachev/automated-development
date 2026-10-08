@@ -297,6 +297,9 @@ test('v3 broad discovery runs once and later waves see known mechanisms', () => 
   const later = runner.buildJudgePrompt(reviewContext(), [candidate('N1')],
     codexContract.CONTRACT_V3, [candidate('C1')], false)
   assert.match(first, /Independently inspect every changed hunk/)
+  assert.match(first, /false_positive only when evidence disproves the factual premise/)
+  assert.match(first, /group candidates that share the same trigger or rule/)
+  assert.match(first, /shared callee handles current paths/)
   assert.match(later, /judgment-only wave/)
   assert.match(later, /"knownCandidates":\[\{"category"/)
   assert.doesNotMatch(later, /Independently inspect every changed hunk/)

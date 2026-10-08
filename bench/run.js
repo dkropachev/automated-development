@@ -346,9 +346,10 @@ function allocateCodexReceipt(root, cohort, target, tool) {
   const inputFile = file.slice(0, -'.json'.length) + '.input.json'
   const contextFile = file.slice(0, -'.json'.length) + '.context.json'
   const discoveryFile = file.slice(0, -'.json'.length) + '.discovery.json'
+  const passFile = file.slice(0, -'.json'.length) + '.passes.json'
   ensureDirectorySafe(path.dirname(file))
   if (fs.existsSync(file) || fs.existsSync(inputFile) || fs.existsSync(contextFile) ||
-      fs.existsSync(discoveryFile)) {
+      fs.existsSync(discoveryFile) || fs.existsSync(passFile)) {
     throw new Error(`refusing existing Codex receipt/input/context path: ${file}`)
   }
   // Unix domain socket addresses are much shorter than artifact paths on Linux.
@@ -357,7 +358,7 @@ function allocateCodexReceipt(root, cohort, target, tool) {
   if (Buffer.byteLength(socketFile) > 100 || fs.existsSync(socketFile)) {
     throw new Error('cannot allocate a short, unused Codex broker socket path')
   }
-  return { receiptId, file, inputFile, contextFile, discoveryFile, socketFile }
+  return { receiptId, file, inputFile, contextFile, discoveryFile, passFile, socketFile }
 }
 
 function jsonCommand(executable, args, cwd, label, dependencies = {}) {
@@ -915,6 +916,9 @@ async function execPair(pair, context, dependencies = {}) {
           REVIEW_AND_FIX_PR_CODEX_INPUT: codexReceipt.inputFile,
           REVIEW_AND_FIX_PR_CODEX_CONTEXT: codexReceipt.contextFile,
           REVIEW_AND_FIX_PR_DISCOVERY_LEDGER: codexReceipt.discoveryFile,
+          ...(tool.reviewProtocol === 'six-pass'
+            ? { REVIEW_AND_FIX_PR_PASS_RECEIPT: codexReceipt.passFile,
+                REVIEW_AND_FIX_PR_MODEL: cohort.requestedModel } : {}),
           REVIEW_AND_FIX_PR_CODEX_EXPECTED_JSON: JSON.stringify({
             target: { repository: target.fork, baseSha: checkout.baseSha, headSha: checkout.headSha },
             pluginFingerprint: cohort.pluginFingerprint,
@@ -985,6 +989,19 @@ async function execPair(pair, context, dependencies = {}) {
         { schemaVersion: tool.discoveryLedgerSchemaVersion || 1 },
       )
     }
+    let reviewPasses = null
+    if (tool.reviewProtocol === 'six-pass') {
+      if (!codexReceipt || !fs.existsSync(codexReceipt.passFile)) {
+        throw new Error('review-and-fix-pr produced no six-pass receipt')
+      }
+      const stat = fs.lstatSync(codexReceipt.passFile)
+      if (stat.isSymbolicLink() || !stat.isFile()) throw new Error('unsafe six-pass receipt path')
+      reviewPasses = require('../lib/review-fast-contract').validatePassReceipt(
+        JSON.parse(fs.readFileSync(codexReceipt.passFile, 'utf8')),
+        { target: { repository: target.fork, baseSha: checkout.baseSha, headSha: checkout.headSha },
+          model: cohort.requestedModel, candidateLedger: resultContract.candidateLedger },
+      ).receipt
+    }
     const usage = readUsage(checkout.repo)
     assertTranscriptUsage(usage, cohort.requestedModel)
     const discoveryReceipts = tool.requiresDiscoveryReceipts
@@ -1050,6 +1067,7 @@ async function execPair(pair, context, dependencies = {}) {
       ...(codexArtifacts || {}),
       ...(discoveryLedger == null ? {} : { discoveryLedger }),
       ...(discoveryReceipts == null ? {} : { discoveryReceipts }),
+      ...(reviewPasses == null ? {} : { reviewPasses }),
       ...(cohort.requestedModel === FABLE_MODEL ? { quotaEvidence: authorization && authorization.quotaEvidence } : {}),
       stderrTail: response.err.slice(-4000),
       attempts,
