@@ -204,7 +204,7 @@ async function main(argv = process.argv.slice(2), env = process.env) {
     throw new Error('Codex marker binding differs from runner-owned receipt')
   }
   assertTarget(root, base, head)
-  const report = formatReport(receipt, passReceipt)
+  const report = formatReport(receipt, passReceipt, receiptFile)
   process.stdout.write(report)
   return { report, passes, receipt }
 }
