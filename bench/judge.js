@@ -134,9 +134,16 @@ function judgeArgs(text, options = {}) {
 function normalizeAttribution(issues, blob, runId, targetId) {
   const cells = new Map(blob.map((finding) => [finding.cellId, finding.tool]))
   const cellForTool = new Map(blob.map((finding) => [finding.tool, finding.cellId]))
+  const taggedCandidates = new Set(blob.filter((finding) => finding.candidateId)
+    .map((finding) => `${finding.cellId}#${finding.candidateId}`))
+  const cellId = (value) => {
+    if (cells.has(value)) return value
+    if (taggedCandidates.has(value)) return value.slice(0, value.lastIndexOf('#'))
+    return null
+  }
   return issues.map((issue) => {
     const reportedBy = [...new Set((issue.reportedBy || []).filter((tool) => cellForTool.has(tool)))]
-    const reportedByRuns = [...new Set((issue.reportedByRuns || []).filter((id) => cells.has(id)))]
+    const reportedByRuns = [...new Set((issue.reportedByRuns || []).map(cellId).filter(Boolean))]
     for (const tool of reportedBy) {
       const id = cellForTool.get(tool)
       if (!reportedByRuns.includes(id)) reportedByRuns.push(id)
@@ -146,7 +153,13 @@ function normalizeAttribution(issues, blob, runId, targetId) {
       if (!reportedBy.includes(tool)) reportedBy.push(tool)
     }
     const reportedAs = { ...(issue.reportedAs || {}) }
-    const reportedAsByRun = { ...(issue.reportedAsByRun || {}) }
+    const reportedAsByRun = {}
+    for (const [key, value] of Object.entries(issue.reportedAsByRun || {})) {
+      const id = cellId(key)
+      if (!id) continue
+      reportedAsByRun[id] = reportedAsByRun[id] == null ? value
+        : reportedAsByRun[id] === value ? value : `${reportedAsByRun[id]}; ${value}`
+    }
     for (const tool of reportedBy) {
       const id = cellForTool.get(tool) || `${runId}/${targetId}/${tool}`
       if (reportedAsByRun[id] == null && reportedAs[tool] != null) reportedAsByRun[id] = reportedAs[tool]
