@@ -1222,15 +1222,14 @@ if (typeof module !== 'undefined' && module.exports) {
     })
   }
 
-  function comparisonStatsWithSupplemental(snapshot, scope, params) {
-    const rows = comparisonStats(snapshot, scope, params)
-    if (scope.id !== 'all-models') return rows
+  function supplementalProtocolStats(snapshot, scope, params) {
+    if (scope.id !== 'all-models') return []
+    const rows = []
     for (const supplemental of snapshot.scopes.filter((item) => item.id.startsWith('supplemental-'))) {
       const protocol = [...new Set(cellsForScope(supplemental).map((cell) => cell.toolId))].join(' + ')
       for (const row of comparisonStats(snapshot, supplemental, params)) {
         if (!row.evidence.length) continue
-        rows.push({ ...row, id: `${row.id}:${supplemental.id}`,
-          label: `${row.label} + ${protocol}`, provenance: `supplemental · ${row.attempts} cells`, supplemental: true })
+        rows.push({ ...row, protocol, scopeId: supplemental.id })
       }
     }
     return rows
@@ -1307,11 +1306,11 @@ if (typeof module !== 'undefined' && module.exports) {
     )
   }
 
-  function modelComparisonTable(stats, params) {
+  function modelComparisonTable(stats, params, protocols = []) {
     const body = el('tbody')
     for (const row of sortedModelStats(stats, params)) {
       const evidenceHref = comparisonParams(params, { evidenceModel: row.id, evidenceVerdict: 'real' })
-      body.append(el('tr', { class: row.supplemental ? 'supplemental-model-row' : row.legacy ? 'legacy-model-row' : '' },
+      body.append(el('tr', { class: row.legacy ? 'legacy-model-row' : '' },
         el('td', {}, el('strong', {}, row.label), el('span', { class: 'subline' }, row.provenance), row.legacy ? badge('historical', 'unproven') : null),
         el('td', { class: 'num' }, fmt(row.realPerDollar)),
         el('td', { class: 'num' }, fmt(row.cost, 'money')),
@@ -1325,6 +1324,27 @@ if (typeof module !== 'undefined' && module.exports) {
         el('td', { class: 'num' }, fmt(row.successRate, 'percent')),
         el('td', { class: 'num' }, comparisonRunLink(row.evidence, fmt(row.attempts))),
       ))
+      for (const protocol of protocols.filter((item) => item.id === row.id)) {
+        const protocolHref = comparisonParams(params, { scope: protocol.scopeId,
+          evidenceModel: protocol.id, evidenceVerdict: 'real' })
+        body.append(el('tr', { class: 'protocol-detail-row' },
+          el('td', {}, el('span', { class: 'protocol-label' }, `↳ ${protocol.protocol}`),
+            el('span', { class: 'subline' }, `${protocol.attempts} review cells · same model`)),
+          el('td', { class: 'num' }, fmt(protocol.realPerDollar)),
+          el('td', { class: 'num' }, fmt(protocol.cost, 'money')),
+          el('td', { class: 'num' }, fmt(protocol.medianCost, 'money')),
+          el('td', { class: 'num' }, el('a', { href: protocolHref, class: 'canonical-evidence-link',
+            'aria-label': `View ${protocol.real} canonical real findings for ${row.label} using ${protocol.protocol}` }, fmt(protocol.real))),
+          el('td', { class: 'num' }, fmt(protocol.highMedium)),
+          el('td', { class: 'num' }, fmt(protocol.precision, 'percent')),
+          el('td', { class: 'num' }, fmt(protocol.completeness, 'percent'),
+            el('span', { class: 'subline' }, `${protocol.real} / ${protocol.possible}`)),
+          el('td', { class: 'num' }, fmt(protocol.costPerReal, 'money')),
+          el('td', { class: 'num' }, fmt(protocol.medianWall, 'minutes')),
+          el('td', { class: 'num' }, fmt(protocol.successRate, 'percent')),
+          el('td', { class: 'num' }, comparisonRunLink(protocol.evidence, fmt(protocol.attempts))),
+        ))
+      }
     }
     const headings = [
       ['Model', 'model'], ['Real / $', 'value'], ['Recorded total', 'totalCost'], ['Median cost', 'medianCost'], ['Canonical real', 'real'], ['High + med', 'highMedium'], ['Precision', 'precision'], ['Completeness', 'completeness'], ['Cost / real', 'costPerReal'], ['Median runtime', 'wall'], ['Success', 'success'], ['Evidence', 'evidence'],
@@ -1368,7 +1388,8 @@ if (typeof module !== 'undefined' && module.exports) {
     }
     const requestedScope = params.get('scope')
     const scope = snapshot.scopes.find((item) => item.id === requestedScope) || snapshot.scopes.find((item) => item.id === 'all-models') || snapshot.scopes[0]
-    const stats = comparisonStatsWithSupplemental(snapshot, scope, params)
+    const stats = comparisonStats(snapshot, scope, params)
+    const protocols = supplementalProtocolStats(snapshot, scope, params)
     const valueWinner = modelWinner(stats, (row) => row.realPerDollar)
     const completenessWinner = modelWinner(stats, (row) => row.completeness)
     const costWinner = modelWinner(stats, (row) => row.medianCost, 1)
@@ -1377,14 +1398,14 @@ if (typeof module !== 'undefined' && module.exports) {
     const issueUrl = snapshot.issueUrl || 'https://github.com/dkropachev/automated-development/issues/42'
     const scopePicker = field('Comparison scope', select('model-scope', snapshot.scopes.map((item) => [item.id, comparisonScopeLabel(item)]), scope.id, (event) => { location.hash = comparisonParams(params, { scope: event.target.value === (snapshot.scopes.find((item) => item.id === 'all-models') || snapshot.scopes[0]).id ? '' : event.target.value, evidenceModel: '', evidenceVerdict: '' }) }))
     frame(el('div', {},
-      compactHero('Choose a reviewer', 'Compare models against the canonical gold standard.', 'Recorded benchmark spend, verified detections, runtime, and reliability over pinned pull requests. Supplemental review protocols are labeled in the ranking.'),
+      compactHero('Choose a reviewer', 'Compare models against the canonical gold standard.', 'Recorded benchmark spend, verified detections, runtime, and reliability over pinned pull requests. Supplemental protocols appear beneath their model.'),
       chooseTabs(params, 'models'),
       el('section', { class: 'model-scope-controls' }, scopePicker, el('p', {}, 'The completeness denominator is the same for every model: all canonical real issues on the targets selected below.')),
       modelComparisonFilterBar(params, snapshot, scope),
       legacyPresent ? el('div', { class: 'notice model-legacy-warning', role: 'note' }, 'Claude Opus 5 is historical/inferred: its request, effort, target pins, prompts, and accounting were not fully recorded. Salvaged reports can expand the canonical gold set but never receive detection credit. ', externalLink('Track the controlled 19-cell rerun in issue #42 ↗', issueUrl)) : null,
       el('section', { class: 'panel model-results-panel', id: 'model-ranking', tabindex: -1 },
-        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Model ranking'), el('p', {}, `${comparisonScopeLabel(scope)}. Cost and success include every recorded attempt. Supplemental rows use their own cell counts and the same pinned-PR gold denominator; tool sets differ.`))),
-        stats.length ? modelComparisonTable(stats, params) : el('div', { class: 'empty' }, 'No models are declared for this comparison scope.'),
+        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Model ranking'), el('p', {}, `${comparisonScopeLabel(scope)}. Indented protocol details belong to the model above and do not affect model ranking. They use their own cell counts and the same pinned-PR gold denominator; tool sets differ.`))),
+        stats.length ? modelComparisonTable(stats, params, protocols) : el('div', { class: 'empty' }, 'No models are declared for this comparison scope.'),
       ),
       el('section', { class: 'model-winners', 'aria-label': 'Model comparison winners' },
         modelWinnerCard('Best value', valueWinner, (row) => `${fmt(row.realPerDollar)} real / $`, (row) => `${row.real} canonical real · ${fmt(row.cost, 'money')} recorded total`),

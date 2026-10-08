@@ -61,9 +61,10 @@ function modelCompletenessDenominators(text) {
 function modelRows(text) {
   const table = text.match(/<table class="model-comparison-table">[\s\S]*?<tbody>([\s\S]*?)<\/tbody><\/table>/)
   assert.ok(table, 'the model comparison must render model rows')
-  return [...table[1].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((match) => ({
-    html: match[1],
-    name: (match[1].match(/<strong>([^<]+)<\/strong>/) || [])[1],
+  return [...table[1].matchAll(/<tr([^>]*)>([\s\S]*?)<\/tr>/g)]
+    .filter((match) => !match[1].includes('protocol-detail-row')).map((match) => ({
+    html: match[2],
+    name: (match[2].match(/<strong>([^<]+)<\/strong>/) || [])[1],
   }))
 }
 
@@ -223,17 +224,17 @@ try {
   }
   assert.ok(completedRows.some((html) => /Claude Sonnet 5\.5/.test(html) && /sonnet-5-5-2026-09-30/.test(html)))
   const denominators = modelCompletenessDenominators(models.app)
-  assert.deepEqual(modelRows(models.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Opus 5.5 + review-and-fix-pr', 'Claude Fable 5.1', 'Claude Opus 5'])
-  assert.equal(denominators.length, 4, 'the model table must include the supplemental review workflow')
+  assert.deepEqual(modelRows(models.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1', 'Claude Opus 5'])
+  assert.equal(denominators.length, 4, 'the table includes three models and one indented protocol detail')
   assert.equal(new Set(denominators).size, 1, 'completeness denominator must be fixed across models')
-  assert.deepEqual(linkedEvidenceCounts(models.app), [17, 3, 17, 17])
-  assert.match(modelRows(models.app)[1].html, /35 \/ 113/)
+  assert.deepEqual(linkedEvidenceCounts(models.app), [17, 17, 17])
+  assert.match(models.app, /class="protocol-detail-row"[\s\S]*?review-and-fix-pr[\s\S]*?35 \/ 113[\s\S]*?3<\/a>/)
   assert.doesNotMatch(models.app, /Read site report/)
   const focusedRanking = render('choose?tab=models&focus=ranking')
   assert.match(focusedRanking.app, /class="panel model-results-panel" id="model-ranking"/)
-  assert.match(focusedRanking.app, /class="supplemental-model-row"[\s\S]*?35 \/ 113/)
-  const supplementalEvidence = render('choose?tab=models&evidenceModel=claude-opus-5-5%3Asupplemental-rafp-six-pass-parallel-broker-2026-10-08&evidenceVerdict=real')
-  assert.match(supplementalEvidence.app, /Canonical real evidence · Claude Opus 5\.5 \+ review-and-fix-pr/)
+  assert.match(focusedRanking.app, /class="protocol-detail-row"[\s\S]*?35 \/ 113/)
+  const supplementalEvidence = render('choose?tab=models&scope=supplemental-rafp-six-pass-parallel-broker-2026-10-08&evidenceModel=claude-opus-5-5&evidenceVerdict=real')
+  assert.match(supplementalEvidence.app, /Canonical real evidence · Claude Opus 5\.5/)
   const supplementalPanel = supplementalEvidence.app.match(/<section class="panel model-evidence-panel"[\s\S]*?<\/section>/)
   assert.ok(supplementalPanel)
   assert.equal(count(supplementalPanel[0], /class="canonical-issue"/g), 35)
@@ -248,7 +249,7 @@ try {
   const targetDenominators = modelCompletenessDenominators(targetFilteredModels.app)
   assert.equal(new Set(targetDenominators).size, 1, 'target-filtered denominator must remain fixed across models')
   assert.notEqual(targetDenominators[0], denominators[0], 'target filters must change the canonical denominator')
-  assert.deepEqual(linkedEvidenceCounts(targetFilteredModels.app), [1, 6, 6, 6])
+  assert.deepEqual(linkedEvidenceCounts(targetFilteredModels.app), [6, 6, 6])
 
   const controlledPair = render('choose?tab=models&scope=controlled-pair')
   assert.match(controlledPair.app, /Current controlled pair · 19 matched cells/)
@@ -265,7 +266,7 @@ try {
 
   const modelSorted = render('choose?tab=models&modelSort=model')
   assert.match(modelSorted.app, /<th class="" aria-sort="ascending">/)
-  assert.deepEqual(modelRows(modelSorted.app).map((row) => row.name), ['Claude Fable 5.1', 'Claude Opus 5', 'Claude Opus 5.5', 'Claude Opus 5.5 + review-and-fix-pr'])
+  assert.deepEqual(modelRows(modelSorted.app).map((row) => row.name), ['Claude Fable 5.1', 'Claude Opus 5', 'Claude Opus 5.5'])
 
   const opusEvidence = render('choose?tab=models&evidenceModel=claude-opus-5-5&evidenceVerdict=real')
   assert.match(opusEvidence.app, /Canonical real evidence · Claude Opus 5\.5/)
