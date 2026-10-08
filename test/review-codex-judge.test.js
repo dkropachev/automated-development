@@ -537,7 +537,7 @@ test('adjudication judges every candidate across bounded waves', () => {
         return invocation(`J00${sizes.length}`, options.candidates, output, sizes.length)
       },
     })
-    assert.deepEqual(sizes, [12, 1])
+    assert.deepEqual(sizes, [6, 6, 1])
     assert.equal(receipt.candidates.length, 13)
     assert.equal(receipt.counts.confirmed, 13)
   } finally { fs.rmSync(fixture.root, { recursive: true, force: true }) }
