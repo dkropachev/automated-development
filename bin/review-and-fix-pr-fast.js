@@ -17,6 +17,7 @@ const PLUGIN_ROOT = path.join(__dirname, '..')
 const PASS_DIR = path.join(PLUGIN_ROOT, 'skills', 'review-and-fix-pr', 'passes')
 const DEFAULT_PASS_TIMEOUT_MS = 12 * 60_000
 const MAX_OUTPUT_BYTES = 16 * 1024 * 1024
+const PASS_EFFORT = Object.freeze({ contracts: 'low' })
 
 function parseArgs(argv) {
   const options = {}
@@ -77,8 +78,9 @@ function childEnvironment(env) {
 async function runPass(id, context, options) {
   const schema = fs.readFileSync(path.join(PASS_DIR, 'output.schema.json'), 'utf8')
   const prompt = passPrompt(id, context, PASS_DIR)
+  const effort = PASS_EFFORT[id] || 'medium'
   const args = ['-p', prompt, '--output-format', 'json', '--json-schema', schema,
-    '--model', options.model, '--effort', 'medium', '--permission-mode', 'bypassPermissions',
+    '--model', options.model, '--effort', effort, '--permission-mode', 'bypassPermissions',
     '--max-budget-usd', String(options.passBudgetUsd), '--disallowedTools',
     'WebSearch', 'WebFetch', 'ScheduleWakeup', 'Agent', 'Skill']
   const result = await runProcess(options.claudeExecutable, args, {
@@ -93,7 +95,7 @@ async function runPass(id, context, options) {
     throw new Error(`${id} did not finish as one isolated ${options.model} review`)
   }
   const pass = normalizedPass(id, response.structured_output, {
-    model: options.model, wallMs: result.wallMs, costUsd: response.total_cost_usd,
+    model: options.model, effort, wallMs: result.wallMs, costUsd: response.total_cost_usd,
     reportedUsage: response.usage, resultSha256: sha256(response.structured_output),
   })
   assertTarget(options.root, options.base, options.head)
@@ -206,7 +208,7 @@ async function main(argv = process.argv.slice(2), env = process.env) {
   return { report, passes, receipt }
 }
 
-module.exports = { assertTarget, childEnvironment, main, parseArgs, runCluster, runPass, runPasses, runProcess }
+module.exports = { PASS_EFFORT, assertTarget, childEnvironment, main, parseArgs, runCluster, runPass, runPasses, runProcess }
 if (require.main === module) {
   main().catch((error) => { console.error(error.stack || error.message); process.exitCode = 1 })
 }

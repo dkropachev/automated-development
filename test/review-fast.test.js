@@ -6,7 +6,7 @@ const os = require('node:os')
 const path = require('node:path')
 const { PASS_IDS, assemblePasses, normalizedPass, passPrompt } = require('../lib/review-fast')
 const { applyGroups, normalizeGroups } = require('../lib/review-fast-cluster')
-const { childEnvironment, parseArgs, runPasses } = require('../bin/review-and-fix-pr-fast')
+const { PASS_EFFORT, childEnvironment, parseArgs, runPasses } = require('../bin/review-and-fix-pr-fast')
 const { validatePassReceipt } = require('../lib/review-fast-contract')
 const { candidateClaimHash, sha256 } = require('../lib/review-codex-contract')
 
@@ -59,6 +59,13 @@ test('all six independent passes launch before any one finishes', async () => {
   assert.deepEqual(started, PASS_IDS)
   for (const finish of release) finish()
   assert.deepEqual(await running, PASS_IDS)
+})
+
+test('contracts pass uses low reasoning effort while all other passes retain medium', () => {
+  assert.equal(PASS_EFFORT.contracts, 'low')
+  for (const id of PASS_IDS.filter((id) => id !== 'contracts')) {
+    assert.equal(PASS_EFFORT[id] || 'medium', 'medium')
+  }
 })
 
 test('semantic clustering preserves raw provenance and rejects missing or unsafe groups', () => {
