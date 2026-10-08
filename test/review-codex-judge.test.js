@@ -537,14 +537,14 @@ test('adjudication judges every candidate across bounded waves', () => {
         return invocation(`J00${sizes.length}`, options.candidates, output, sizes.length)
       },
     })
-    assert.deepEqual(sizes, [6, 6, 1])
+    assert.deepEqual(sizes, [12, 1])
     assert.equal(receipt.candidates.length, 13)
     assert.equal(receipt.counts.confirmed, 13)
   } finally { fs.rmSync(fixture.root, { recursive: true, force: true }) }
 })
 
 test('v3 retries omitted judgments as singleton waves without losing receipt usage', () => {
-  const candidates = Array.from({ length: 7 }, (_, index) => candidate(`C${index + 1}`, {
+  const candidates = Array.from({ length: 13 }, (_, index) => candidate(`C${index + 1}`, {
     claim: `Distinct issue ${index + 1}`, basis: `Trigger ${index + 1}`,
     mechanisms: [`Mechanism ${index + 1}`], consequence: `Consequence ${index + 1}`,
   }))
@@ -563,10 +563,10 @@ test('v3 retries omitted judgments as singleton waves without losing receipt usa
         return invocation(`J00${sizes.length}`, options.candidates, output, sizes.length)
       },
     })
-    assert.deepEqual(sizes, [6, 1, 1])
-    assert.deepEqual(receipt.invocations.map((entry) => entry.candidateIds.length), [5, 1, 1])
-    assert.equal(receipt.counts.confirmed, 7)
-    assert.equal(receipt.candidates.length, 7)
+    assert.deepEqual(sizes, [12, 1, 1])
+    assert.deepEqual(receipt.invocations.map((entry) => entry.candidateIds.length), [11, 1, 1])
+    assert.equal(receipt.counts.confirmed, 13)
+    assert.equal(receipt.candidates.length, 13)
     assert.equal(receipt.invocations.length, 3)
   } finally { fs.rmSync(fixture.root, { recursive: true, force: true }) }
 })

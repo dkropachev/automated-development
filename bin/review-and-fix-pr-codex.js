@@ -32,7 +32,7 @@ const CODEX = process.env.CODEX || 'codex'
 const DEFAULT_TIMEOUT_MS = 30 * 60_000
 const MAX_BUFFER = 1 << 30
 const MAX_INVOCATIONS = 64
-const MAX_JUDGMENT_BATCH = 6
+const MAX_JUDGMENT_BATCH = 12
 const INPUT_KEYS = [
   'candidates', 'contract', 'pluginFingerprint', 'reviewContext', 'schemaVersion',
   'sourceDisclosure', 'target',
