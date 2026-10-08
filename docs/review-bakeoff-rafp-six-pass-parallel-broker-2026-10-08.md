@@ -1,8 +1,8 @@
-# Review-tool bake-off: 1 review configurations, 3 real PRs
+# Review-tool bake-off: 1 review configuration, 3 real PRs
 
 **Cohort:** `rafp-six-pass-parallel-broker-2026-10-08`. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
 
-**Experimental cohort-local evidence:** `review-and-fix-pr` is experimental and self-authored. These results are not canonical gold.
+**Experimental cohort-local evidence:** `review-and-fix-pr` is experimental and self-authored. Its confirmed claims are mapped in the sealed model-comparison-2026-10-08 gold snapshot; suggestions are excluded from confirmed credit. The cohort-local judgements below remain separate.
 
 Every number below is produced by `bench/` in this repository and can be regenerated with
 `make bench-report RUN=rafp-six-pass-parallel-broker-2026-10-08`.
@@ -18,35 +18,35 @@ working directory so its token spend is attributable.
 | `quillstone` | Rust | 26,179 B | 4 commits | https://github.com/dkropachev/quillstone/pull/1 | https://github.com/scylladb/scylla-rust-driver/pull/1801 |
 | `tidepool` | Go | 18,335 B | 2 commits | https://github.com/dkropachev/tidepool/pull/1 | https://github.com/scylladb/gocql/pull/1094 |
 
-Each PR was republished into a private repository of its own: full upstream history, the PR's own
-commits replayed under a neutral author, every `owner/repo` link repointed at the copy, and
-`WebSearch`/`WebFetch` denied to every run. A reviewer that could reach the original PR could read
-the maintainers' review instead of doing its own.
+Each PR was replayed in its own fork with its commits under a neutral author. The preparer rewrote
+repository references in review material and denied `WebSearch`/`WebFetch`. The benchmark freezes
+the review inputs because access to upstream comments would bias discovery.
 
 ## Cohort accounting
 
 - Reviews: 3 calls, 12,695,932 tokens, $16.42, 45.6 minutes wall time.
-- Extraction: 0 calls, 121 raw claims, $0.00.
-- Judging: 3 calls, 36 merged issues (32 real, 4 false-positive, 0 unproven), $4.50.
+- Extraction: 0 calls, 121 raw claims (47 confirmed, 74 suggestions), $0.00.
+- Judging: 3 calls, 36 merged issues from 47 confirmed claims (32 real, 4 false-positive, 0 unproven), $4.50.
 - Total known cohort spend: $20.92. Discarded attempts are not included in immutable stage artifacts.
 
 ## Compare with other models on canonical gold
 
-All rows use the same 3 pinned PRs and 113 reviewed real gold issues. The older model rows use 17 matched tool cells; this cohort uses one review-and-fix-pr cell per PR. Tool sets and call counts differ, so the table compares complete review workflows rather than isolated model ability. Suggestions are excluded from confirmed gold credit.
+All rows use the same 3 pinned PRs and 113 reviewed real gold issues. The older model rows use 17 matched tool cells; the indented review-and-fix-pr line uses 3 cells under the same Opus 5.5 model. It is a protocol detail, not another model in the ranking. Tool sets differ, and suggestions are excluded from confirmed gold credit.
 
-| Model / cohort | Review protocol | Gold issues found | Claude tokens | Claude review cost | Summed review time |
+| Model / protocol | Evidence | Gold issues found | Claude tokens | Claude review cost | Summed review time |
 |---|---|---:|---:|---:|---:|
 | Claude Opus 5 | 17 matched tool cells | 75 / 113 | 153,643,618 | $160.60 | 242.5 min |
 | Claude Fable 5.1 | 17 matched tool cells | 61 / 113 | 53,834,538 | $91.59 | 125.4 min |
 | Claude Opus 5.5 | 17 matched tool cells | 42 / 113 | 24,688,795 | $19.30 | 58.8 min |
-| Claude Opus 5.5 · this cohort | review-and-fix-pr · 3 cells | 35 / 113 | 12,695,932 | $16.42 | 45.6 min |
+| ↳ review-and-fix-pr (same Claude Opus 5.5) | 3 review-and-fix-pr cells | 35 / 113 | 12,695,932 | $16.42 | 45.6 min |
 
 This cohort additionally used 498,302 Codex tokens for adjudication; its receipts do not provide a USD cost. The 74 suggestions remain visible in the structured review receipts and are not counted above.
+Canonical gold credits 35 real issues from this cohort; the cohort-local judge reports 32. These are separate adjudications over the same pinned PRs.
 The sealed comparison is [model-comparison-2026-10-08](./index.html#choose?tab=models&scope=supplemental-rafp-six-pass-parallel-broker-2026-10-08); the earlier [matched-model scope](./index.html#choose?tab=models&scope=all-models) remains separately available.
 
 ## Findings, by issue
 
-One row per distinct defect the tools found between them, merged across tools by a judge that had
+One row per distinct issue claim, including false positives, merged across tools by a judge that had
 the code in front of it. `✓` = that tool reported it.
 
 | # | Issue | Verdict | Scope | New? | Sev | review-and-fix-pr |
@@ -106,9 +106,9 @@ the per-session figure Claude Code itself bills, already priced per class. Think
 (113,650 across the matrix) are counted in the cost and reported by the model as part of
 its output, so they are deliberately not added on top of it here.
 
-| Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Only this tool | Tokens | Cost | Wall | Lost to limits |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Automated Development review-and-fix-pr | 3 | 36 | 32 | 4 | 0 | 30 | 2 | 32 | 12,695,932 | $16.42 | 45.6 min | - |
+| Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Tokens | Cost | Wall | Lost to limits |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Automated Development review-and-fix-pr | 3 | 36 | 32 | 4 | 0 | 30 | 2 | 12,695,932 | $16.42 | 45.6 min | - |
 
 ### Spend per run
 
@@ -121,12 +121,11 @@ Retry attempts, judging, and extraction are not included.
 
 ### Raw claims before judging
 
-What each run said, before merging and verification - the gap between this and *Raised* above is
-what the judge merged away as the same defect twice.
+Extracted claims include 74 suggestions. They remain visible for reviewer judgment but do not enter cohort judging. The 47 confirmed claims were merged and verified into 36 issues.
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Automated Development review-and-fix-pr | 53 | 33 | 35 |
+| Automated Development review-and-fix-pr | 53 (19 confirmed, 34 suggestions) | 33 (10 confirmed, 23 suggestions) | 35 (18 confirmed, 17 suggestions) |
 
 ## What the maintainers actually said
 
@@ -134,11 +133,9 @@ The upstream reviews, fetched at prepare time and never shown to any reviewer or
 Bot comments are dropped, and so are the PR author's own replies, which are answers rather than
 findings.
 
-Read these as context, not as a scoreboard. Every PR here was replayed at the revision that was
-merged, which is the revision *after* its review: the defects the maintainers caught were already
-fixed in the code the tools were given, so not reporting one is not a miss. What the list is good
-for is the other direction - whether a tool raises the kind of thing these maintainers raise, and
-whether anything they flagged survived into the merged code.
+Read these as context, not as a scoreboard. The PRs were reviewed at their pinned revisions,
+after some upstream comments may already have been addressed. Not repeating a comment is not
+automatically a miss; the useful question is whether a concern still applies to the pinned code.
 
 **`ironweave`** - https://github.com/scylladb/seastar/pull/3664 - 9 inline review comments, 2 thread comments.
 
@@ -156,11 +153,10 @@ whether anything they flagged survived into the merged code.
 | michoecho | thread | One more thing: That's also Scylla-specific. Unless it changed, the usual convention was to put such links on the Scylla PR which updates the Seastar submodule. |
 | mykaul | thread | @bhalevy - https://github.com/scylladb/seastar/pull/3669 failed CI on test_stream_send_after_stream_close in tests/unit/rpc_test.cc . I think it has nothing to do with RPC, just exposes flakiness in the new test. |
 
-**`quillstone`** - https://github.com/scylladb/scylla-rust-driver/pull/1801 - 8 inline review comments, 1 thread comments.
+**`quillstone`** - https://github.com/scylladb/scylla-rust-driver/pull/1801 - 7 inline review comments, 1 thread comments.
 
 | Who | Where | What they said |
 |---|---|---|
-| Copilot | `scylla/src/network/connection_pool.rs:902` | When keyspace setup fails for the first connection, this branch leaves `shared_conns` as `Initializing` and never notifies `pool_updated_notify`. Consequently, `wait_until_all_pools_are_initialized()` can block foreve... |
 | wprzytula | `scylla/src/network/connection_pool.rs:1692` | Oh, this was a pre-existing bug, right? @Guflly |
 | wprzytula | `scylla/src/network/connection_pool.rs:1692` | cc @Lorak-mmk |
 | wprzytula | `scylla/src/network/connection_pool.rs:2004` | 🔧 Using `tokio::timeout::sleep(Duration::from_millis(1))` could decrease CPU burn. |

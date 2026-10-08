@@ -1236,7 +1236,7 @@ test('report requires a complete hash snapshot and uses only its frozen target/t
 
     const report = runReport(root, '--run', manifest.runId)
     assert.equal(report.status, 0, report.stderr)
-    assert.match(report.stdout, /1 review configurations, 1 real PR/)
+    assert.match(report.stdout, /1 review configuration, 1 real PR/)
     assert.match(report.stdout, /\| `sample` \| JS \| 42 B/)
     assert.match(report.stdout, /\| Reviewer \| 1 \|/)
     assert.match(report.stdout, /## Cohort accounting/)

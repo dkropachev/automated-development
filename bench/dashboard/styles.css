@@ -190,6 +190,7 @@ td > .badge.experimental, .selection-card .badge.experimental, .rank-card > .bad
 .protocol-detail-row { background: rgb(103 232 193 / 8%); }
 .protocol-detail-row td:first-child { padding-left: 1.6rem; }
 .protocol-label { color: var(--accent); font-weight: 700; }
+.protocol-cost-note { padding: 0 1.1rem 1rem; }
 .model-results-panel { scroll-margin-top: 1rem; }
 .model-evidence-panel { margin-top: 1rem; }
 .canonical-issue-list { display: grid; gap: .7rem; }

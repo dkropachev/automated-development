@@ -229,6 +229,7 @@ try {
   assert.equal(new Set(denominators).size, 1, 'completeness denominator must be fixed across models')
   assert.deepEqual(linkedEvidenceCounts(models.app), [17, 17, 17])
   assert.match(models.app, /class="protocol-detail-row"[\s\S]*?review-and-fix-pr[\s\S]*?35 \/ 113[\s\S]*?3<\/a>/)
+  assert.match(models.app, /Codex judgment tokens have no USD receipt/)
   assert.doesNotMatch(models.app, /Read site report/)
   const focusedRanking = render('choose?tab=models&focus=ranking')
   assert.match(focusedRanking.app, /class="panel model-results-panel" id="model-ranking"/)
@@ -244,6 +245,14 @@ try {
   assert.deepEqual([...new Set(modelCompletenessDenominators(skillFilteredModels.app))], [...new Set(denominators)], 'skill filters must not change the target-level completeness denominator')
   assert.deepEqual(linkedEvidenceCounts(skillFilteredModels.app), [3, 3, 3], 'skill filters must change contributing evidence')
   assert.notEqual(modelRows(skillFilteredModels.app)[0].html, modelRows(models.app)[0].html, 'skill filters must change spend and findings')
+
+  const protocolFiltered = render('choose?tab=models&skills=review-and-fix-pr')
+  assert.equal(modelRows(protocolFiltered.app).length, 3)
+  for (const row of modelRows(protocolFiltered.app)) {
+    assert.match(row.html, /N\/A/)
+    assert.doesNotMatch(row.html, /0 \/ 113/)
+  }
+  assert.match(protocolFiltered.app, /class="protocol-detail-row"[\s\S]*?35 \/ 113/)
 
   const targetFilteredModels = render('choose?tab=models&targets=tidepool')
   const targetDenominators = modelCompletenessDenominators(targetFilteredModels.app)
@@ -308,6 +317,11 @@ try {
   }
   assert.match(run.app, /source: <span class="hinted-label">transcript/)
   assert.match(run.app, /Upstream human review/)
+
+  const reviewedRun = render('run/rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr')
+  assert.match(reviewedRun.app, /53 extracted claims: 19 Codex-confirmed leads and 34 suggestions/)
+  assert.equal(count(reviewedRun.app, /Needs reviewer judgment<\/span>/g), 34)
+  assert.equal(count(reviewedRun.app, /Codex-confirmed lead<\/span>/g), 19)
 
   const insights = render('insights?model=claude-opus-5')
   assert.match(insights.app, /non-dominated frontier<span class="hint-mark"/)

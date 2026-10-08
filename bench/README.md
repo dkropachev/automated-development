@@ -258,7 +258,9 @@ controlled pair · 19 matched cells** compares every matched Fable 5.1 and Opus 
 matched attempt contributes recorded cost and success/failure evidence; finding credit requires a
 complete, non-salvaged, credit-eligible cell. A third **Supplemental review protocol · 3 cells**
 scope shows the new skill's canonical credit on the same pinned PRs. Its tool set differs from the
-older model cohorts, which the new cohort report states beside its cross-model table.
+older model cohorts, which the new cohort report states beside its cross-model table. The Models
+ranking keeps one row per model; review-and-fix-pr appears as an indented protocol detail beneath
+Claude Opus 5.5 and does not affect model rankings or winner cards.
 
 ## Accounting
 

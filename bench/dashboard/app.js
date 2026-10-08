@@ -1029,10 +1029,7 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function modelComparisonFilterBar(params, snapshot, scope) {
-    const supplemental = scope?.id === 'all-models'
-      ? snapshot.scopes.filter((item) => item.id.startsWith('supplemental-')) : []
-    const sources = snapshot && scope
-      ? [scope, ...supplemental].flatMap((item) => enrichScopeSources(snapshot, item)) : []
+    const sources = snapshot && scope ? enrichScopeSources(snapshot, scope) : []
     const cohortRuns = completedCohortRuns()
     const skillLabels = new Map(sources.map((source) => [source.toolId, tools.get(source.toolId)?.label || source.toolId]))
     for (const run of cohortRuns) skillLabels.set(run.toolId, run.toolLabel || tools.get(run.toolId)?.label || run.toolId)
@@ -1196,6 +1193,7 @@ if (typeof module !== 'undefined' && module.exports) {
       const decided = realIssues.length + falsePositives.length
       const cost = total(evidence, (source) => source.costUsd)
       const rows = evidence.map((source) => runs.get(resolveRunId(source.runId))).filter(Boolean)
+      const hasEvidence = evidence.length > 0
       return {
         ...model,
         evidence,
@@ -1204,13 +1202,13 @@ if (typeof module !== 'undefined' && module.exports) {
         issueSources,
         detected,
         realIssues,
-        real: realIssues.length,
-        highMedium: realIssues.filter((issue) => ['blocker', 'critical', 'high', 'medium'].includes(issue.severity)).length,
+        real: hasEvidence ? realIssues.length : null,
+        highMedium: hasEvidence ? realIssues.filter((issue) => ['blocker', 'critical', 'high', 'medium'].includes(issue.severity)).length : null,
         falsePositive: falsePositives.length,
         falsePositiveRate: decided ? falsePositives.length / decided : null,
         precision: decided ? realIssues.length / decided : null,
         possible: possibleReal.length,
-        completeness: possibleReal.length ? realIssues.length / possibleReal.length : null,
+        completeness: hasEvidence && possibleReal.length ? realIssues.length / possibleReal.length : null,
         cost,
         medianCost: median(evidence.map((source) => source.costUsd)),
         medianWall: median(evidence.map((source) => source.wallMs)),
@@ -1306,23 +1304,33 @@ if (typeof module !== 'undefined' && module.exports) {
     )
   }
 
+  function comparisonMetricCells(row, evidenceHref, evidenceLabel) {
+    const hasEvidence = row.attempts > 0
+    return [
+      el('td', { class: 'num' }, fmt(row.realPerDollar)),
+      el('td', { class: 'num' }, fmt(row.cost, 'money')),
+      el('td', { class: 'num' }, fmt(row.medianCost, 'money')),
+      el('td', { class: 'num' }, hasEvidence ? el('a', { href: evidenceHref, class: 'canonical-evidence-link',
+        'aria-label': evidenceLabel }, fmt(row.real)) : 'N/A'),
+      el('td', { class: 'num' }, fmt(row.highMedium)),
+      el('td', { class: 'num' }, fmt(row.precision, 'percent')),
+      el('td', { class: 'num' }, fmt(row.completeness, 'percent'),
+        hasEvidence ? el('span', { class: 'subline' }, `${row.real} / ${row.possible}`) : null),
+      el('td', { class: 'num' }, fmt(row.costPerReal, 'money')),
+      el('td', { class: 'num' }, fmt(row.medianWall, 'minutes')),
+      el('td', { class: 'num' }, fmt(row.successRate, 'percent')),
+      el('td', { class: 'num' }, comparisonRunLink(row.evidence, fmt(row.attempts))),
+    ]
+  }
+
   function modelComparisonTable(stats, params, protocols = []) {
     const body = el('tbody')
     for (const row of sortedModelStats(stats, params)) {
       const evidenceHref = comparisonParams(params, { evidenceModel: row.id, evidenceVerdict: 'real' })
       body.append(el('tr', { class: row.legacy ? 'legacy-model-row' : '' },
         el('td', {}, el('strong', {}, row.label), el('span', { class: 'subline' }, row.provenance), row.legacy ? badge('historical', 'unproven') : null),
-        el('td', { class: 'num' }, fmt(row.realPerDollar)),
-        el('td', { class: 'num' }, fmt(row.cost, 'money')),
-        el('td', { class: 'num' }, fmt(row.medianCost, 'money')),
-        el('td', { class: 'num' }, el('a', { href: evidenceHref, class: 'canonical-evidence-link', 'aria-label': `View ${row.real} canonical real findings for ${row.label}` }, fmt(row.real))),
-        el('td', { class: 'num' }, fmt(row.highMedium)),
-        el('td', { class: 'num' }, fmt(row.precision, 'percent')),
-        el('td', { class: 'num' }, fmt(row.completeness, 'percent'), el('span', { class: 'subline' }, `${row.real} / ${row.possible}`)),
-        el('td', { class: 'num' }, fmt(row.costPerReal, 'money')),
-        el('td', { class: 'num' }, fmt(row.medianWall, 'minutes')),
-        el('td', { class: 'num' }, fmt(row.successRate, 'percent')),
-        el('td', { class: 'num' }, comparisonRunLink(row.evidence, fmt(row.attempts))),
+        ...comparisonMetricCells(row, evidenceHref,
+          `View ${row.real} canonical real findings for ${row.label}`),
       ))
       for (const protocol of protocols.filter((item) => item.id === row.id)) {
         const protocolHref = comparisonParams(params, { scope: protocol.scopeId,
@@ -1330,19 +1338,8 @@ if (typeof module !== 'undefined' && module.exports) {
         body.append(el('tr', { class: 'protocol-detail-row' },
           el('td', {}, el('span', { class: 'protocol-label' }, `↳ ${protocol.protocol}`),
             el('span', { class: 'subline' }, `${protocol.attempts} review cells · same model`)),
-          el('td', { class: 'num' }, fmt(protocol.realPerDollar)),
-          el('td', { class: 'num' }, fmt(protocol.cost, 'money')),
-          el('td', { class: 'num' }, fmt(protocol.medianCost, 'money')),
-          el('td', { class: 'num' }, el('a', { href: protocolHref, class: 'canonical-evidence-link',
-            'aria-label': `View ${protocol.real} canonical real findings for ${row.label} using ${protocol.protocol}` }, fmt(protocol.real))),
-          el('td', { class: 'num' }, fmt(protocol.highMedium)),
-          el('td', { class: 'num' }, fmt(protocol.precision, 'percent')),
-          el('td', { class: 'num' }, fmt(protocol.completeness, 'percent'),
-            el('span', { class: 'subline' }, `${protocol.real} / ${protocol.possible}`)),
-          el('td', { class: 'num' }, fmt(protocol.costPerReal, 'money')),
-          el('td', { class: 'num' }, fmt(protocol.medianWall, 'minutes')),
-          el('td', { class: 'num' }, fmt(protocol.successRate, 'percent')),
-          el('td', { class: 'num' }, comparisonRunLink(protocol.evidence, fmt(protocol.attempts))),
+          ...comparisonMetricCells(protocol, protocolHref,
+            `View ${protocol.real} canonical real findings for ${row.label} using ${protocol.protocol}`),
         ))
       }
     }
@@ -1406,6 +1403,7 @@ if (typeof module !== 'undefined' && module.exports) {
       el('section', { class: 'panel model-results-panel', id: 'model-ranking', tabindex: -1 },
         el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Model ranking'), el('p', {}, `${comparisonScopeLabel(scope)}. Indented protocol details belong to the model above and do not affect model ranking. They use their own cell counts and the same pinned-PR gold denominator; tool sets differ.`))),
         stats.length ? modelComparisonTable(stats, params, protocols) : el('div', { class: 'empty' }, 'No models are declared for this comparison scope.'),
+        protocols.length ? el('p', { class: 'method-note protocol-cost-note' }, 'Supplemental review cost includes recorded Claude spend; Codex judgment tokens have no USD receipt. The completed-cohorts table below uses separate cohort-local judgments, so its real counts can differ from canonical gold credit.') : null,
       ),
       el('section', { class: 'model-winners', 'aria-label': 'Model comparison winners' },
         modelWinnerCard('Best value', valueWinner, (row) => `${fmt(row.realPerDollar)} real / $`, (row) => `${row.real} canonical real · ${fmt(row.cost, 'money')} recorded total`),
@@ -2119,13 +2117,18 @@ if (typeof module !== 'undefined' && module.exports) {
 
   function claimSection(run) {
     const list = el('div', { class: 'issue-list' })
+    const suggestionCount = run.claims.filter((claim) => claim.reviewDisposition === 'suggestion').length
+    const confirmedLeadCount = run.claims.filter((claim) => claim.reviewDisposition === 'confirmed').length
     const filters = { severity: 'all', text: '' }
     const update = () => {
       const q = filters.text.toLowerCase()
       const visible = run.claims.filter((claim) => (filters.severity === 'all' || claim.severity === filters.severity) && (!q || `${claim.title} ${claim.file || ''} ${claim.claim || ''}`.toLowerCase().includes(q)))
       list.replaceChildren(...(visible.length ? visible.map((claim) => el('article', { class: 'issue' },
         el('div', { class: 'issue-head' }, el('div', {}, el('h3', {}, claim.title), el('div', { class: 'where' }, `${claim.file || 'No file'}${claim.line ? ':' + claim.line : ''}`))),
-        el('div', { class: 'badges' }, badge(claim.severity || 'unspecified'), badge(claim.kind || 'finding'), claim.selfRejected ? badge('self-rejected', 'unproven') : null),
+        el('div', { class: 'badges' }, badge(claim.severity || 'unspecified'), badge(claim.kind || 'finding'),
+          claim.reviewDisposition === 'suggestion' ? badge('Needs reviewer judgment', 'unproven') : null,
+          claim.reviewDisposition === 'confirmed' ? badge('Codex-confirmed lead', 'real') : null,
+          claim.selfRejected ? badge('self-rejected', 'unproven') : null),
         el('p', {}, claim.claim || ''),
       )) : [el('div', { class: 'empty' }, 'No extracted claims match these filters.')]))
     }
@@ -2133,7 +2136,10 @@ if (typeof module !== 'undefined' && module.exports) {
     const severity = select('claim-severity', [['all', 'All severities'], ...claimSeverities.map((value) => [value, value])], 'all', (event) => { filters.severity = event.target.value; update() })
     const search = el('input', { id: 'claim-search', type: 'search', placeholder: 'File, title, or claim…', oninput: (event) => { filters.text = event.target.value; update() } })
     update()
-    return el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Extracted claims'), el('p', {}, `${run.claims.length} claims before merging and verification.`)), el('div', { class: 'compact-controls' }, field('Severity', severity), field('Search', search))), run.extractError ? el('div', { class: 'notice' }, `Extraction error: ${run.extractError}`) : null, el('div', { class: 'panel-body' }, list))
+    const description = suggestionCount
+      ? `${run.claims.length} extracted claims: ${confirmedLeadCount} Codex-confirmed leads and ${suggestionCount} suggestions. Suggestions receive no automatic fix or confirmed gold credit.`
+      : `${run.claims.length} claims before merging and verification.`
+    return el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Extracted claims'), el('p', {}, description)), el('div', { class: 'compact-controls' }, field('Severity', severity), field('Search', search))), run.extractError ? el('div', { class: 'notice' }, `Extraction error: ${run.extractError}`) : null, el('div', { class: 'panel-body' }, list))
   }
 
   function searchableRaw(title, text, open = false, note = null) {
@@ -2160,7 +2166,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const truth = target.groundtruth
     if (!truth) return null
     const author = String(truth.author || '').toLowerCase()
-    const human = (comment) => !/\[bot\]$/.test(comment.user || '') && String(comment.user || '').toLowerCase() !== author
+    const human = (comment) => !/(?:\[bot\]$|^copilot$)/i.test(comment.user || '') && String(comment.user || '').toLowerCase() !== author
     const comments = [
       ...((truth.review && truth.review.inline) || []).filter(human).map((comment) => ({ ...comment, type: 'inline' })),
       ...((truth.review && truth.review.issue) || []).filter(human).map((comment) => ({ ...comment, type: 'thread' })),
