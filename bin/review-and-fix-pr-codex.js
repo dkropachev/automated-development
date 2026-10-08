@@ -10,6 +10,7 @@ const { spawnSync, execFileSync } = require('node:child_process')
 const fs = require('node:fs')
 const net = require('node:net')
 const path = require('node:path')
+const { Worker } = require('node:worker_threads')
 const {
   CONTRACT_V2,
   CONTRACT_V3,
@@ -799,11 +800,29 @@ function brokerClient(argv, environment = process.env) {
   })
 }
 
+function adjudicateInWorker(options) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(path.join(__dirname, 'review-and-fix-pr-codex-worker.js'), {
+      workerData: options,
+    })
+    let settled = false
+    worker.once('message', (message) => {
+      settled = true
+      if (message.ok) resolve(message.receipt)
+      else reject(new Error(message.error || 'Codex worker failed'))
+    })
+    worker.once('error', (error) => { if (!settled) { settled = true; reject(error) } })
+    worker.once('exit', (code) => {
+      if (!settled) reject(new Error(`Codex worker exited ${code} without a receipt`))
+    })
+  })
+}
+
 function startCodexBroker(options, dependencies = {}) {
   const socketFile = path.resolve(options.socketFile)
   if (fs.existsSync(socketFile)) throw new Error('refusing an existing Codex broker socket')
   const state = { invoked: false, result: null, error: null }
-  const server = net.createServer((socket) => {
+  const server = net.createServer({ allowHalfOpen: true }, (socket) => {
     let requestText = ''
     socket.setEncoding('utf8')
     socket.on('data', (chunk) => {
@@ -811,7 +830,7 @@ function startCodexBroker(options, dependencies = {}) {
       if (requestText.length > 1024 * 1024) socket.destroy(new Error('Codex broker request is too large'))
     })
     socket.on('error', () => {})
-    socket.on('end', () => {
+    socket.on('end', async () => {
       if (state.invoked) {
         socket.end(JSON.stringify({ ok: false, error: 'Codex broker permits exactly one invocation' }))
         return
@@ -839,7 +858,7 @@ function startCodexBroker(options, dependencies = {}) {
         if (!Number.isSafeInteger(remainingMs) || remainingMs < 1) {
           throw new Error('Codex broker received the request after the review deadline')
         }
-        const receipt = runAdjudication({
+        const adjudicationOptions = {
           root: expectedRequest.root,
           base: expectedRequest.base,
           head: expectedRequest.head,
@@ -854,7 +873,12 @@ function startCodexBroker(options, dependencies = {}) {
           executable: options.executable,
           cliVersion: options.cliVersion,
           executableSha256: options.executableSha256,
-        }, dependencies)
+        }
+        const receipt = dependencies.runAdjudicationAsync
+          ? await dependencies.runAdjudicationAsync(adjudicationOptions)
+          : dependencies.runOneInvocation
+            ? runAdjudication(adjudicationOptions, dependencies)
+            : await adjudicateInWorker(adjudicationOptions)
         writeExclusive(expectedRequest.receiptFile, JSON.stringify(receipt, null, 2) + '\n')
         const proof = normalizedReceiptProof(receipt)
         const markerBinding = receiptSummary(receipt)

@@ -684,3 +684,52 @@ test('runner-owned broker is the exclusive producer of the admitted receipt proo
     fs.rmSync(parent, { recursive: true, force: true })
   }
 })
+
+test('separate broker requests can complete while another adjudication is running', async () => {
+  const repo = gitFixture()
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'review-codex-concurrent-'))
+  const target = { repository: 'private/example', baseSha: repo.head, headSha: repo.head }
+  const brokers = []
+  const order = []
+  try {
+    for (const name of ['slow', 'fast']) {
+      const input = judgeInput()
+      input.target = target
+      input.pluginFingerprint = null
+      const inputFile = path.join(parent, `${name}.input.json`)
+      fs.writeFileSync(inputFile, JSON.stringify(input))
+      const request = { root: repo.root, base: repo.head, head: repo.head, inputFile,
+        receiptFile: path.join(parent, `${name}.receipt.json`), timeoutMs: 30_000 }
+      const broker = await runner.startCodexBroker({
+        ...request, socketFile: path.join(parent, `${name}.sock`),
+        expected: { target, pluginFingerprint: null, model: MODEL, reasoningEffort: 'high',
+          cliVersion: '0.149.0', executableSha256: '5'.repeat(64),
+          schemaSha256: codexContract.sha256(fs.readFileSync(SCHEMA)) },
+        expectedReviewContext: input.reviewContext, schemaFile: SCHEMA,
+        executable: '/exact/codex', cliVersion: '0.149.0',
+        executableSha256: '5'.repeat(64), env: {},
+      }, {
+        runAdjudicationAsync: async (options) => {
+          await new Promise((resolve) => setTimeout(resolve, name === 'slow' ? 80 : 1))
+          order.push(name)
+          return runner.runAdjudication(options, {
+            now: () => new Date('2026-10-03T12:00:00.000Z'),
+            runOneInvocation: (wave) => invocation(`${name}-J001`, wave.candidates,
+              judgeOutput(wave.candidates.map((entry) => judgment(entry.id)))),
+          })
+        },
+      })
+      brokers.push({ broker, request })
+    }
+    const [slow, fast] = await Promise.all(brokers.map(({ broker, request }) =>
+      brokerRequest(broker.socketFile, request)))
+    assert.equal(slow.ok, true, slow.error)
+    assert.equal(fast.ok, true, fast.error)
+    assert.deepEqual(order, ['fast', 'slow'])
+    for (const { broker } of brokers) assert.equal(broker.assertCompleted().receipt.status, 'complete')
+  } finally {
+    for (const { broker } of brokers) broker.close()
+    fs.rmSync(repo.root, { recursive: true, force: true })
+    fs.rmSync(parent, { recursive: true, force: true })
+  }
+})
