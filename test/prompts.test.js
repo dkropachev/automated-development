@@ -431,6 +431,9 @@ test('standards and test lanes retain judgment-call discovery without routine no
     assert.match(standards, new RegExp(smell))
   }
   assert.match(testing, /unbounded waits that hide failures/)
+  assert.match(testing, /hook setup, negotiation, and\s+fixture entry points differ/)
+  assert.match(rd('skills/review-and-fix-pr/lenses/reliability.md'), /newly explicit wait/)
+  assert.match(rd('skills/review-and-fix-pr/lenses/comments.md'), /hard assertion, abort, or hang/)
   assert.match(reference, /routine\s+passing checks as short coverage-unit and evidence IDs/)
   assert.match(reference, /Keep all screened lead reasons substantive/)
 })
