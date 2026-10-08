@@ -327,8 +327,6 @@ if (typeof module !== 'undefined' && module.exports) {
     else if (parts[0] === 'run' && parts.length >= 2) {
       const id = parts.length === 2 ? parts[1] : parts.length >= 4 ? `${parts[1]}/${parts[2]}/${parts[3]}` : `${parts[1]}/${parts[2]}`
       renderRun(id)
-    } else if (parts[0] === 'report' && parts.length === 2) {
-      renderCohortReport(parts[1])
     } else if (parts[0] === 'compare' && parts.length >= 3) {
       if (parts.length >= 7) renderComparison(`${parts[1]}/${parts[2]}/${parts[3]}`, `${parts[4]}/${parts[5]}/${parts[6]}`)
       else if (parts.length >= 5) renderComparison(`${parts[1]}/${parts[2]}`, `${parts[3]}/${parts[4]}`)
@@ -1100,12 +1098,9 @@ if (typeof module !== 'undefined' && module.exports) {
     const body = el('tbody')
     for (const row of stats) {
       const created = row.createdAt ? String(row.createdAt).slice(0, 10) : null
-      const hasReport = (DATA.modelComparison?.scopes || [])
-        .some((scope) => scope.id === `supplemental-${row.cohortId}`)
       body.append(el('tr', {},
         el('td', {}, el('strong', {}, row.modelLabel), experimentalToolBadge(row.cohortRows), el('span', { class: 'subline' }, `${row.modelId || 'model unavailable'} · ${row.modelProvenance}`)),
-        el('td', {}, el('strong', {}, row.cohortId), created ? el('span', { class: 'subline' }, `created ${created}`) : null,
-          hasReport ? el('a', { href: `#report/${encodeURIComponent(row.cohortId)}`, class: 'cohort-report-link' }, 'Read site report') : null),
+        el('td', {}, el('strong', {}, row.cohortId), created ? el('span', { class: 'subline' }, `created ${created}`) : null),
         el('td', {}, row.claudeVersion),
         el('td', { class: 'num' }, fmt(row.real)),
         el('td', { class: 'num' }, fmt(row.highMedium)),
@@ -1385,63 +1380,6 @@ if (typeof module !== 'undefined' && module.exports) {
       })),
       modelEvidencePanel(stats, params),
       el('p', { class: 'method-note model-provenance' }, `Published gold snapshot: ${snapshot.id || 'version unavailable'} · ${snapshot.canonicalIssues.length} canonical records · filters affect cells and targets, never the per-model denominator.`),
-    ))
-  }
-
-  function renderCohortReport(cohortId) {
-    const snapshot = modelComparisonSnapshot()
-    const cohort = (DATA.cohorts || []).find((item) => (item.id || item.runId) === cohortId && item.complete)
-    const supplemental = snapshot?.scopes.find((scope) => scope.id === `supplemental-${cohortId}`)
-    const baseline = snapshot?.scopes.find((scope) => scope.id === 'all-models')
-    if (!cohort || !supplemental || !baseline) return renderNotFound('Cohort report not found', cohortId)
-    const baselineRows = comparisonStats(snapshot, baseline, new URLSearchParams())
-    const currentRows = comparisonStats(snapshot, supplemental, new URLSearchParams())
-    const current = currentRows[0]
-    if (!current) return renderNotFound('Cohort report has no credited evidence', cohortId)
-    const cohortRuns = DATA.runs.filter((run) => run.cohortId === cohortId)
-    const codexTokens = total(cohortRuns, (run) => run.codexTokens)
-    const suggestions = cohortRuns.reduce((count, run) => count +
-      run.claims.filter((claim) => claim.reviewDisposition === 'suggestion').length, 0)
-    const rows = [
-      ...baselineRows.map((row) => ({ ...row, protocol: '17 matched tool cells', label: row.label })),
-      ...currentRows.map((row) => ({ ...row, protocol: 'review-and-fix-pr · 3 cells',
-        label: `${row.label} + review-and-fix-pr`, current: true })),
-    ]
-    const table = el('table', { class: 'model-comparison-table cohort-report-table' },
-      el('thead', {}, el('tr', {}, ['Model / workflow', 'Review protocol', 'Canonical real', 'Claude tokens', 'Claude review cost', 'Summed review time', 'Evidence']
-        .map((heading) => el('th', { scope: 'col' }, heading)))),
-      el('tbody', {}, rows.map((row) => el('tr', { class: row.current ? 'report-current-row' : '' },
-        el('td', {}, el('strong', {}, row.label)),
-        el('td', {}, row.protocol),
-        el('td', { class: 'num' }, `${row.real} / ${row.possible}`),
-        el('td', { class: 'num' }, fmt(total(row.rows, (run) => run.usage.total))),
-        el('td', { class: 'num' }, fmt(row.cost, 'money')),
-        el('td', { class: 'num' }, fmt(total(row.evidence, (source) => source.wallMs), 'minutes')),
-        el('td', { class: 'num' }, comparisonRunLink(row.evidence, `${row.attempts} runs`)),
-      ))),
-    )
-    frame(el('div', {},
-      hero('Cohort report', 'Review-and-fix-pr compared with other models',
-        `Three pinned PRs · published gold ${snapshot.id} · ${cohortId}`,
-        [hashLink('Models', '#choose?tab=models'), ' / ', cohortId]),
-      el('section', { class: 'kpis', 'aria-label': 'Cohort report summary' },
-        kpi('Canonical real', `${current.real} / ${current.possible}`, 'confirmed detections'),
-        kpi('Claude tokens', fmt(total(cohortRuns, (run) => run.usage.total)), 'three review cells'),
-        kpi('Codex tokens', fmt(codexTokens), 'judgment, no USD receipt'),
-        kpi('Claude review cost', fmt(current.cost, 'money'), 'excludes judging'),
-        kpi('Summed review time', fmt(total(current.evidence, (source) => source.wallMs), 'minutes'), 'three review cells'),
-        kpi('Suggestions', fmt(suggestions), 'no confirmed gold credit'),
-      ),
-      el('section', { class: 'panel cohort-report-panel', id: 'site-cohort-report' },
-        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Cross-model comparison'),
-          el('p', {}, `All rows use the same three pinned PRs and ${current.possible} canonical real issues. The older workflows use 17 matched tool cells; review-and-fix-pr uses three. Tool sets differ, so this compares full review workflows.`))),
-        el('div', { class: 'table-wrap' }, table),
-        el('div', { class: 'panel-body' },
-          el('p', { class: 'method-note' }, 'Suggestions and rejected leads are excluded from canonical detections. Claude review cost excludes Codex judgment because its receipts contain tokens but no USD cost.'),
-          el('p', {}, hashLink('Explore this workflow’s canonical findings', `#choose?tab=models&scope=${encodeURIComponent(supplemental.id)}&evidenceModel=${encodeURIComponent(current.id)}&evidenceVerdict=real`),
-            ' · ', hashLink('Explore the matched-model comparison', '#choose?tab=models')),
-        ),
-      ),
     ))
   }
 
