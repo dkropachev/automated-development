@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-six-pass-frozen-patch-2026-10-08",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "bf2d9b99f74e0a9858fc3dc35af05ff3bb16a47ff98a5ac3b179acbe5e4f2269",
+    "gitCommit": "9601c55ef2e05be9180a66376fcd673d8fec7084",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "target": "quillstone",
+  "language": "Rust",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "rawFindings": 13,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Excess shard-aware connection is dropped without decrementing total_connections",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1006,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "In handle_ready_connection's `else if evt.requested_shard.is_some()` branch, the just-opened `connection` is dropped (only `start_opening_connection(None)` is called) without any call to `dec_total_connections`/`decrement_total_connections`, even though `inc_total_connections` fired when the connection was opened (start_opening_connection's count_in_metrics); this branch is byte-for-byte unchanged from main, so the leak predates this PR.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The branch at connection_pool.rs:994-1006 is untouched by this diff; the PR's metrics-balancing commit fixed three other clearing sites (reshard, excess-limit-clear, full-pool-clear) but left this pre-existing one alone.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The metrics-balancing commit misses one place where an opened connection is dropped: the excess shard-aware connection branch. `total_connections` still drifts upward there."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr": "The metrics-balancing commit misses one place where an opened connection is dropped: the excess shard-aware connection branch. `total_connections` still drifts upward there."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "Pool worker shutdown drops conns/excess_connections without decrementing total_connections",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 696,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "When the use_keyspace request channel closes, run() returns at line 697 and `self` (with all of `self.conns` and `self.excess_connections`) is dropped without any dec_total_connections calls; the counter is purely manual (no Drop-based accounting on Connection), so this leaks the gauge. This return path is unchanged from main.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "This shutdown branch was not touched by the diff and the same gap existed before the metrics-balancing commit was written.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "When the pool worker stops, its active and excess connections are dropped without decrementing total_connections."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr": "When the pool worker stops, its active and excess connections are dropped without decrementing total_connections."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "keyspace_setup_failure_triggers_refill never exercises the actual refill-scheduling loop",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The test calls handle_ready_connection directly and only asserts had_error_since_last_refill, need_filling(), is_empty(), the Broken shared state, and a pool_updated notification; it never calls refiller.run() or otherwise exercises the scheduled_refill/start_filling logic at lines 722-739, so it does not actually prove a refill is triggered despite its name.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a new test added by the PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Test keyspace_setup_failure_triggers_refill claims to prove a refill is triggered but only asserts need_filling() and the flag; it never runs the scheduling loop in run()."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr": "Test keyspace_setup_failure_triggers_refill claims to prove a refill is triggered but only asserts need_filling() and the flag; it never runs the scheduling loop in run()."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "New keyspace-failure tests skip the required setup_tracing() call",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Neither keyspace_setup_failure_triggers_refill (line 1474) nor keyspace_setup_failure_preserves_pool_state (line 1526) call setup_tracing(), while CONTRIBUTING.md states 'Most of the tests already call this function, and any new tests should too,' and neighboring new tests (resharding_discards_old_connections_and_balances_metrics etc.) do call it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both tests are new in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The two new keyspace tests do not call setup_tracing(), which the repository's contributing guide requires for new tests and which the neighbouring new tests do call."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr": "The two new keyspace tests do not call setup_tracing(), which the repository's contributing guide requires for new tests and which the neighbouring new tests do call."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "keyspace_setup_failure_preserves_pool_state can hang forever with no timeout",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1634,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The test awaits open_connection(...) and refiller.ready_connections.next().await.unwrap() (line 1634) with no surrounding tokio::time::timeout, unlike full_pool_clears_excess_connections_and_balances_metrics in the same file which wraps its wait in tokio::time::timeout; a regression that makes the proxy or driver hang would hang the CI job instead of failing fast.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a new test added by the PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "keyspace_setup_failure_preserves_pool_state awaits network operations and ready_connections.next() with no timeout."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr": "keyspace_setup_failure_preserves_pool_state awaits network operations and ready_connections.next() with no timeout."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Commit messages are subject-only, contradicting the PR's own checklist claim",
+      "file": "CONTRIBUTING.md",
+      "line": 10,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "All four commits (617139df, 7f48315d, 0d91aa54, de164845) have a subject line only with no body (verified via `git log main..HEAD --format='%B'`), while CONTRIBUTING.md:10 requires commit messages to explain what and why, and the PR's own pre-review checklist checks 'The commit messages explain what changes and why.'",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The commit messages belong to this PR's own commits.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "All four commit messages are a subject line with no body explaining why. The PR checklist nonetheless claims 'The commit messages explain what changes and why.'"
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr": "All four commit messages are a subject line with no body explaining why. The PR checklist nonetheless claims 'The commit messages explain what changes and why.'"
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Per-connection USE has no timeout, so a hang suppresses the promised keyspace-failure…",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1342,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "start_setting_keyspace_for_connection awaits connection.use_keyspace(&keyspace_name) with no timeout wrapper; query_raw_unpaged/query_raw_with_consistency call send_request directly and never consult an execution profile or statement request_timeout, and RequestAttemptError has no timeout variant, so UseKeyspaceError::RequestTimeout (only reachable via the test's synthetic construction) is effectively unreachable from real traffic. A USE that hangs never completes, leaving is_filling() true indefinitely: the new keyspace-setup-error-triggers-refill fix added by this PR never fires, and update_shared_conns/Broken publication is suppressed for an empty pool.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "The missing timeout on the await predates the PR, but the PR's entire point is to guarantee that keyspace setup failures are detected and drive a refill; a hang defeats that guarantee for the exact feature this PR implements, so fixing it belongs here.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The per-connection USE still has no timeout. A USE that hangs never yields a keyspace setup error, so the promised refill never happens. / Sharder and port learning now has to wait for the per-connection USE, which still has no timeout. A hung USE delays resharding without limit, and while it is pending `is_filling()` stays true, which suppresses the Broken publication in the new keyspace arm."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr": "The per-connection USE still has no timeout. A USE that hangs never yields a keyspace setup error, so the promised refill never happens. / Sharder and port learning now has to wait for the per-connection USE, which still has no timeout. A hung USE delays resharding without limit, and while it is pending `is_filling()` stays true, which suppresses the Broken publication in the new keyspace arm."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "PR's own validation command never ran the new feature-gated metrics tests",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1868,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "`gh pr view 1` shows the Validation section runs only `cargo +1.88.0 test -p scylla --lib network::connection_pool::tests::keyspace_setup_failure -- --nocapture (2 passed)`, a name filter matching only the two keyspace_setup_failure tests; the three new tests added by commit 0d91aa54 (resharding_discards_old_connections_and_balances_metrics at line 1868, excess_connection_limit_clears_connections_and_balances_metrics at 1944, full_pool_clears_excess_connections_and_balances_metrics at 1972) are gated by `#[cfg(feature = \"metrics\")]` and the command has no `--features metrics`, so none of them nor any metrics assertion ran as part of the stated validation.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The validation claim and the untested commits are both part of this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The PR's stated validation never ran any metrics assertion or any of the three new metrics tests, because they are all gated on the non-default `metrics` feature."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr": "The PR's stated validation never ran any metrics assertion or any of the three new metrics tests, because they are all gated on the non-default `metrics` feature."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "PR description omits the metrics-balancing commit entirely",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1028,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "`gh pr view 1`'s Description section only discusses the USE-keyspace-failure fix and regression coverage; it never mentions commit de164845 ('balance metrics when clearing pools'), which changes total_connections accounting on reshard, excess-limit-clear and full-pool-clear.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR description is authored as part of this PR and covers exactly these commits.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The PR title and body describe only the keyspace-failure fix. They leave out the behavior-changing commit de164845, which changes the total_connections metric on reshard, excess clearing and full-pool clearing."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr": "The PR title and body describe only the keyspace-failure fix. They leave out the behavior-changing commit de164845, which changes the total_connections metric on reshard, excess clearing and full-pool clearing."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "Keyspace regression test's QUERY rule never checks the request was actually USE",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1543,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "make_rules's QUERY RequestRule matches any Condition::RequestOpcode(RequestOpcode::Query) frame and the reaction never inspects frame body/content to confirm it is the expected `USE <keyspace>` statement; in this specific test no other QUERY is sent so it happens to work, but the assertion is weaker than the test name implies and would silently pass even if a different query were sent.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This fixture is new in this PR's regression test.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The keyspace regression fixture matches every QUERY opcode and never verifies that the connection sent the expected USE statement."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr": "The keyspace regression fixture matches every QUERY opcode and never verifies that the connection sent the expected USE statement."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.2047286000000004,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 68,
+      "outputTokens": 27197,
+      "cacheReadInputTokens": 2790673,
+      "cacheCreationInputTokens": 93622,
+      "webSearchRequests": 0,
+      "costUSD": 1.2047286000000004,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 15303,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/quillstone/runs/rafp-six-pass-frozen-patch-2026-10-08/_judge/attempt-nZWcC5/repo",
+  "judgedAt": "2026-10-08T18:25:58.209Z"
+}

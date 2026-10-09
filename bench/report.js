@@ -363,13 +363,13 @@ if (publishedGold) {
     const supplemental = deriveModelMetrics(publishedGold, { scopeId: `supplemental-${cohort.runId}` })
     const evidenceById = new Map(publishedGold.sourceEvidence.map((entry) => [entry.cellId, entry]))
     const rows = [
-      ...matched.models.map((model) => ({ ...model, protocol: `${matched.matchedCells.length} matched tool cells` })),
+      ...matched.models.map((model) => ({ ...model, evidenceLabel: `${matched.matchedCells.length} matched tool cells` })),
       ...supplemental.models.map((model) => ({ ...model,
-        protocol: `${supplemental.matchedCells.length} review-and-fix-pr cells`, protocolDetail: true })),
+        evidenceLabel: `${supplemental.matchedCells.length} review-and-fix-pr cells`, skill: true })),
     ]
-    P('## Compare with other models on canonical gold\n')
-    P(`All rows use the same ${targets.length} pinned PRs and ${fmt(matched.denominator)} reviewed real gold issues. The older model rows use ${matched.matchedCells.length} matched tool cells; the indented review-and-fix-pr line uses ${supplemental.matchedCells.length} cells under the same Opus 5.5 model. It is a protocol detail, not another model in the ranking. Tool sets differ, and suggestions are excluded from confirmed gold credit.\n`)
-    P('| Model / protocol | Evidence | Gold issues found | Claude tokens | Claude review cost | Summed review time |')
+    P('## Separate skill evidence on canonical gold\n')
+    P(`The review-and-fix-pr skill was tested with Claude Opus 5.5 on the same ${targets.length} pinned PRs and ${fmt(matched.denominator)} reviewed real gold issues. It is a separate skill, not a separate model or a row in the model ranking. The matched model rows below use ${matched.matchedCells.length} tool cells each; this skill uses ${supplemental.matchedCells.length}. Tool sets differ, and suggestions are excluded from confirmed gold credit.\n`)
+    P('| Candidate | Evidence | Gold issues found | Claude tokens | Claude review cost | Summed review time |')
     P('|---|---|---:|---:|---:|---:|')
     for (const row of rows) {
       const evidence = row.runIds.map((id) => evidenceById.get(id))
@@ -379,15 +379,15 @@ if (publishedGold) {
         return finite(result.transcriptUsage && result.transcriptUsage.total)
       }))
       const wall = sumKnown(evidence.map((entry) => finite(entry && entry.wallMs)))
-      const label = row.protocolDetail ? '↳ review-and-fix-pr (same Claude Opus 5.5)' : row.label
-      P(`| ${label} | ${row.protocol} | ${row.canonicalReal} / ${matched.denominator} | ${fmt(tokens)} | ${money(row.recordedTotalCostUsd)} | ${mins(wall)} min |`)
+      const label = row.skill ? 'review-and-fix-pr skill (Claude Opus 5.5)' : row.label
+      P(`| ${label} | ${row.evidenceLabel} | ${row.canonicalReal} / ${matched.denominator} | ${fmt(tokens)} | ${money(row.recordedTotalCostUsd)} | ${mins(wall)} min |`)
     }
     const codexTokens = targets.reduce((sum, target) => sum + Object.values(results[target.id] || {})
       .reduce((part, record) => part + (finite(record.codexUsage && record.codexUsage.totalTokens) || 0), 0), 0)
     P('')
     P(`This cohort additionally used ${fmt(codexTokens)} Codex tokens for adjudication; its receipts do not provide a USD cost. The ${publishedGold.manifest.counts.suggestionClaims} suggestions remain visible in the structured review receipts and are not counted above.`)
     P(`Canonical gold credits ${supplemental.models[0].canonicalReal} real issues from this cohort; the cohort-local judge reports ${verdicts.real}. These are separate adjudications over the same pinned PRs.`)
-    P(`The sealed comparison is [${publishedGold.id}](./index.html#choose?tab=models&scope=supplemental-${cohort.runId}); the earlier [matched-model scope](./index.html#choose?tab=models&scope=all-models) remains separately available.\n`)
+    P(`The skill appears in the [Skills comparison](./index.html#choose?tab=skills&skills=review-and-fix-pr); the [matched-model ranking](./index.html#choose?tab=models) remains separate.\n`)
   }
 }
 

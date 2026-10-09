@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "runId": "rafp-six-pass-sonnet-2026-10-08",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "9e1b41776b4b692b23850e9d084b6ec8775ed43d47fe10bfd6d4fb41b37fbdd1",
+    "gitCommit": "9601c55ef2e05be9180a66376fcd673d8fec7084",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "createdAt": "2026-10-08T18:05:36.504Z",
+  "manifestSha256": "4f526b52c841c7d46163f2b7445a5e032f6d1e8b1cc6214a09ae0b921a974b84",
+  "sealSha256": "5aca7dac1a76a0c78ff13bffd7b0e9bf8e65f15ee9ec27bfb31761751536aa85",
+  "findings": [
+    {
+      "file": "findings/ironweave/review-and-fix-pr.json",
+      "sha256": "37234654c7c6110a5b8f1e94bb78469198677220dd7f77e6f86806fbd22a9356"
+    }
+  ],
+  "judgements": [
+    {
+      "file": "judgement/ironweave.json",
+      "sha256": "9c30ef14ee2b407176287ca0c98f5588bacd23015f3cf2c81be9edf2f85a586b"
+    }
+  ]
+}

@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-frozen-patch-tokens-ironweave-2026-10-08",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "f5d085a74f68b32b939829ddfe029c313cd607dc9efbf7e32a7cf0efdfe9beb5",
+    "gitCommit": "9601c55ef2e05be9180a66376fcd673d8fec7084",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "target": "ironweave",
+  "language": "C++",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "rawFindings": 8,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Doc claims stream connection closes \"only once both halves are closed\", contradicted…",
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Lines 49 and 115 of the new doc text conflict: closing the client aborts an open stream outright, and connection errors tear down the stream connection too, so the connection is not shut down only when both halves are gracefully closed as line 115 states.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The contradictory text is new prose added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The guide says the stream's connection is shut down \"only once both halves are closed\". The same patch says a few lines earlier that closing the client aborts any open stream, and connection errors also stop the stream connection without either half being closed."
+      },
+      "reportedAsByRun": {
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr": "The guide says the stream's connection is shut down \"only once both halves are closed\". The same patch says a few lines earlier that closing the client aborts any open stream, and connection errors also stop the stream connection without either half being closed."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "stream_close() comment wrongly claims _error is only set by the trailing stop()",
+      "file": "src/rpc/rpc.cc",
+      "line": 553,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "While stream_close() awaits queue_drained (the pre-existing _outgoing_queue_ready for entries already queued), send_entry() failures on those same entries call abort() (rpc.cc:318-320), which sets _error=true concurrently and before the trailing stop() call, contradicting the comment's claim.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new text added in this PR's stream_close() change.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new stream_close() comment says _error is set only by the stop() that follows. That is wrong: abort() also sets _error, and abort() is called from send()'s failure path, from client::abort_all_streams(), and on receive-loop errors."
+      },
+      "reportedAsByRun": {
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr": "The new stream_close() comment says _error is set only by the stop() that follows. That is wrong: abort() also sets _error, and abort() is called from send()'s failure path, from client::abort_all_streams(), and on receive-loop errors."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "New regression test never asserts the refused send actually throws closed_error",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2018,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The try/catch around stream_send_empty_frame().get() (rpc_test.cc:2016-2020) only swallows rpc::closed_error if thrown; a successful send is accepted silently with no BOOST_FAIL, so the comment's \"must be refused\" is not itself asserted (the put_after_close check later is the only real guard).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is new test code added by the PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The test comment says the frame 'must be refused', but the test never asserts that closed_error was thrown. A successful send_empty_frame() is also accepted silently."
+      },
+      "reportedAsByRun": {
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr": "The test comment says the frame 'must be refused', but the test never asserts that closed_error was thrown. A successful send_empty_frame() is also accepted silently."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "New test doesn't exercise stream_close()'s wait on the drained outgoing queue",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The test calls sink(1).get() to full completion before close(), so the outgoing queue is already drained by the time stream_close() runs; the new queue_drained wait at rpc.cc:562 is never exercised with a queued-but-unsent entry, so a regression there would not be caught by this test.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The untested code path is new in this PR and the test was added by this PR to cover the broader fix.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The test never exercises the second half of the fix, the wait in stream_close() for `_outgoing_queue_ready`. Removing that wait would still pass."
+      },
+      "reportedAsByRun": {
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr": "The test never exercises the second half of the fix, the wait in stream_close() for `_outgoing_queue_ready`. Removing that wait would still pass."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "New test's cleanup is not exception-safe on early assertion failure",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "release_close.set_value(), sink_closed.get() and server_done.get() only run at the end of the happy path; an earlier BOOST_REQUIRE failure or an unexpected send exception skips them, leaving the parked test_data_sink_impl::close() forever pending and the sink unclosed at teardown.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is new test code added by the PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Cleanup in the test is not exception-safe. An early BOOST_REQUIRE failure, or a send exception other than closed_error, skips release_close.set_value(), sink_closed.get() and server_done.get(). Teardown then either blocks forever on the parked close or hits SEASTAR_ASSERT in ~sink_impl because the sink was never closed."
+      },
+      "reportedAsByRun": {
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr": "Cleanup in the test is not exception-safe. An early BOOST_REQUIRE failure, or a send exception other than closed_error, skips release_close.set_value(), sink_closed.get() and server_done.get(). Teardown then either blocks forever on the parked close or hits SEASTAR_ASSERT in ~sink_impl because the sink was never closed."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "test_data_sink_impl omits the pre-level-9 put() overload, breaking Seastar_API_LEVEL=7…",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "data_sink_impl::put(std::span<...>) is pure virtual only for SEASTAR_API_LEVEL >= 9 (include/seastar/core/iostream.hh:110-128); below that, put(net::packet) is the pure virtual instead. test_data_sink_impl overrides only the span form, so it is an abstract class and fails to instantiate when the project is configured with Seastar_API_LEVEL=7, which CMakeLists.txt:72-80 still exposes as a supported cache value.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new test class is added by this PR and is the thing that breaks the alternate API level build.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new test_data_sink_impl overrides only put(std::span<...>), and without a SEASTAR_API_LEVEL guard. That pure virtual exists only at API level 9 and above, and the build still lets you pick level 7."
+      },
+      "reportedAsByRun": {
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr": "The new test_data_sink_impl overrides only put(std::span<...>), and without a SEASTAR_API_LEVEL guard. That pure virtual exists only at API level 9 and above, and the build still lets you pick level 7."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Doc wrongly says a source is closed by reading until it \"throws\", not true for…",
+      "file": "doc/rpc-streaming.md",
+      "line": 111,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "In source_impl<...>::operator() (include/seastar/rpc/rpc_impl.hh:941-980), con->close_source() is only called around stream_receive() failures and on eof; the direct call to unmarshall<...>() in process_one_buffer (line 945-948) is unguarded, so an exception thrown by deserialization propagates without close_source() ever running and _source_closed stays false.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The inaccurate claim is new prose added by this PR's streaming-close documentation.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new docs say a source is closed by reading it until it 'throws'. That is wrong when the throw comes from deserialization: unmarshall exceptions propagate without close_source() being called, so the source stays open."
+      },
+      "reportedAsByRun": {
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr": "The new docs say a source is closed by reading it until it 'throws'. That is wrong when the throw comes from deserialization: unmarshall exceptions propagate without close_source() being called, so the source stays open."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "stream_close() now blocks on the outgoing queue with no timeout, risking an indefinite…",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "Before this PR, stream_close() called write_buf.close() immediately (confirmed via git show main:src/rpc/rpc.cc:548-556); now it first awaits queue_drained, the prior _outgoing_queue_ready. withdraw()'s own comment (rpc.cc:208-210) states the front queue entry cannot be cancelled once it is inside send_entry(), so a peer that stops reading can stall that front entry's write indefinitely, and sink::close() (which drives stream_close()) inherits that unbounded wait with no timeout or cancellation path.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The wait on the outgoing queue is new behavior added by this PR's stream_close() change; it did not exist on main.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "stream_close() now waits for the previous _outgoing_queue_ready before closing the write buffer, with no timeout or cancellation. Each queued entry's own send timeout or cancel only withdraws non-front entries, and the front entry can block indefinitely on a peer that stops reading. sink::close() therefore inherits an unbounded wait before eof is even attempted, and neither the commit message nor the PR body mentions this latency or cancellation effect."
+      },
+      "reportedAsByRun": {
+        "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/review-and-fix-pr": "stream_close() now waits for the previous _outgoing_queue_ready before closing the write buffer, with no timeout or cancellation. Each queued entry's own send timeout or cancel only withdraws non-front entries, and the front entry can block indefinitely on a peer that stops reading. sink::close() therefore inherits an unbounded wait before eof is even attempted, and neither the commit message nor the PR body mentions this latency or cancellation effect."
+      }
+    }
+  ],
+  "judgeCostUsd": 0.7803996,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 40,
+      "outputTokens": 18954,
+      "cacheReadInputTokens": 1250518,
+      "cacheCreationInputTokens": 85169,
+      "webSearchRequests": 0,
+      "costUSD": 0.7803996,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 8915,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/ironweave/runs/rafp-frozen-patch-tokens-ironweave-2026-10-08/_judge/attempt-A0nl4J/repo",
+  "judgedAt": "2026-10-08T21:56:04.792Z"
+}

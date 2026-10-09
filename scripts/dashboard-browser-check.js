@@ -109,7 +109,7 @@ try {
 
   const sonnetHome = render('home?model=claude-sonnet-5-5')
   assert.match(sonnetHome.app, /<option value="claude-sonnet-5-5" selected="">Claude Sonnet 5\.5<\/option>/)
-  assert.match(sonnetHome.app, /<strong>19<\/strong><span>review runs<\/span>/)
+  assert.match(sonnetHome.app, /<strong>[1-9][0-9]*<\/strong><span>review runs<\/span>/)
 
   // Pin historical assertions to legacy Opus. `model=all` intentionally changes whenever a new
   // completed cohort lands, while this slice remains stable before and after that event.
@@ -225,20 +225,20 @@ try {
   assert.ok(completedRows.some((html) => /Claude Sonnet 5\.5/.test(html) && /sonnet-5-5-2026-09-30/.test(html)))
   const denominators = modelCompletenessDenominators(models.app)
   assert.deepEqual(modelRows(models.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1', 'Claude Opus 5'])
-  assert.equal(denominators.length, 4, 'the table includes three models and one indented protocol detail')
+  assert.equal(denominators.length, 3, 'the table includes only the three matched models')
   assert.equal(new Set(denominators).size, 1, 'completeness denominator must be fixed across models')
   assert.deepEqual(linkedEvidenceCounts(models.app), [17, 17, 17])
-  assert.match(models.app, /class="protocol-detail-row"[\s\S]*?review-and-fix-pr[\s\S]*?35 \/ 113[\s\S]*?3<\/a>/)
-  assert.match(models.app, /Codex judgment tokens have no USD receipt/)
+  assert.doesNotMatch(models.app, /class="protocol-detail-row"/)
+  assert.doesNotMatch(models.app, /<option value="supplemental-rafp-six-pass-parallel-broker-2026-10-08"/)
   assert.doesNotMatch(models.app, /Read site report/)
   const focusedRanking = render('choose?tab=models&focus=ranking')
   assert.match(focusedRanking.app, /class="panel model-results-panel" id="model-ranking"/)
-  assert.match(focusedRanking.app, /class="protocol-detail-row"[\s\S]*?35 \/ 113/)
-  const supplementalEvidence = render('choose?tab=models&scope=supplemental-rafp-six-pass-parallel-broker-2026-10-08&evidenceModel=claude-opus-5-5&evidenceVerdict=real')
-  assert.match(supplementalEvidence.app, /Canonical real evidence · Claude Opus 5\.5/)
-  const supplementalPanel = supplementalEvidence.app.match(/<section class="panel model-evidence-panel"[\s\S]*?<\/section>/)
-  assert.ok(supplementalPanel)
-  assert.equal(count(supplementalPanel[0], /class="canonical-issue"/g), 35)
+  assert.doesNotMatch(focusedRanking.app, /class="protocol-detail-row"/)
+  const supplementalSkill = render('choose?tab=skills&skills=review-and-fix-pr')
+  assert.match(supplementalSkill.app, /Supplemental skill evidence/)
+  assert.match(supplementalSkill.app, /review-and-fix-pr[\s\S]*?35 \/ 113 canonical real/)
+  assert.match(supplementalSkill.app, /3 review cells/)
+  assert.match(supplementalSkill.app, /Codex judgment tokens have no USD receipt/)
 
   const skillFilteredModels = render('choose?tab=models&skills=builtin-code-review')
   assert.match(skillFilteredModels.app, /Skills · 1/)
@@ -252,7 +252,7 @@ try {
     assert.match(row.html, /N\/A/)
     assert.doesNotMatch(row.html, /0 \/ 113/)
   }
-  assert.match(protocolFiltered.app, /class="protocol-detail-row"[\s\S]*?35 \/ 113/)
+  assert.doesNotMatch(protocolFiltered.app, /class="protocol-detail-row"/)
 
   const targetFilteredModels = render('choose?tab=models&targets=tidepool')
   const targetDenominators = modelCompletenessDenominators(targetFilteredModels.app)
@@ -267,11 +267,7 @@ try {
   assert.deepEqual(linkedEvidenceCounts(controlledPair.app), [19, 19])
 
   const supplemental = render('choose?tab=models&scope=supplemental-rafp-six-pass-parallel-broker-2026-10-08')
-  assert.match(supplemental.app, /Supplemental review protocol · 3 cells/)
-  assert.deepEqual(modelRows(supplemental.app).map((row) => row.name), ['Claude Opus 5.5'])
-  assert.deepEqual(linkedEvidenceCounts(supplemental.app), [3])
-  assert.deepEqual(modelCompletenessDenominators(supplemental.app), [113])
-  assert.match(supplemental.app, /35 \/ 113/)
+  assert.deepEqual(modelRows(supplemental.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1', 'Claude Opus 5'])
 
   const modelSorted = render('choose?tab=models&modelSort=model')
   assert.match(modelSorted.app, /<th class="" aria-sort="ascending">/)

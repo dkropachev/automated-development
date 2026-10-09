@@ -1220,17 +1220,23 @@ if (typeof module !== 'undefined' && module.exports) {
     })
   }
 
-  function supplementalProtocolStats(snapshot, scope, params) {
-    if (scope.id !== 'all-models') return []
-    const rows = []
-    for (const supplemental of snapshot.scopes.filter((item) => item.id.startsWith('supplemental-'))) {
-      const protocol = [...new Set(cellsForScope(supplemental).map((cell) => cell.toolId))].join(' + ')
-      for (const row of comparisonStats(snapshot, supplemental, params)) {
-        if (!row.evidence.length) continue
-        rows.push({ ...row, protocol, scopeId: supplemental.id })
-      }
-    }
-    return rows
+  function supplementalSkillPanel(params) {
+    const snapshot = modelComparisonSnapshot()
+    if (!snapshot) return null
+    const rows = snapshot.scopes.filter((scope) => scope.id.startsWith('supplemental-')).flatMap((scope) =>
+      comparisonStats(snapshot, scope, params).filter((row) => row.evidence.length && (selectedModel(params) === 'all' || row.id === selectedModel(params))).map((row) => ({
+        ...row, skillId: [...new Set(cellsForScope(scope).map((cell) => cell.toolId))].join(' + '),
+      })))
+    if (!rows.length) return null
+    return el('section', { class: 'panel supplemental-skill-panel' },
+      el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Supplemental skill evidence'),
+        el('p', {}, 'Separately tested skills on the same pinned PRs. Canonical gold credit is shown here without adding a model to the ranking; cohort-local judgments remain separate. Codex judgment tokens have no USD receipt.'))),
+      el('div', { class: 'panel-body' }, rows.map((row) => el('article', { class: 'supplemental-skill' },
+        el('h3', {}, hashLink(tools.get(row.skillId)?.label || row.skillId, skillHash(row.skillId))),
+        el('p', {}, `${row.modelLabel || row.label} · ${row.attempts} review cells · ${row.real} / ${row.possible} canonical real · ${fmt(row.cost, 'money')} recorded review spend`),
+        comparisonRunLink(row.evidence, 'View exact runs'),
+      ))),
+    )
   }
 
   function comparisonRunHash(evidence) {
@@ -1323,7 +1329,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ]
   }
 
-  function modelComparisonTable(stats, params, protocols = []) {
+  function modelComparisonTable(stats, params) {
     const body = el('tbody')
     for (const row of sortedModelStats(stats, params)) {
       const evidenceHref = comparisonParams(params, { evidenceModel: row.id, evidenceVerdict: 'real' })
@@ -1332,16 +1338,6 @@ if (typeof module !== 'undefined' && module.exports) {
         ...comparisonMetricCells(row, evidenceHref,
           `View ${row.real} canonical real findings for ${row.label}`),
       ))
-      for (const protocol of protocols.filter((item) => item.id === row.id)) {
-        const protocolHref = comparisonParams(params, { scope: protocol.scopeId,
-          evidenceModel: protocol.id, evidenceVerdict: 'real' })
-        body.append(el('tr', { class: 'protocol-detail-row' },
-          el('td', {}, el('span', { class: 'protocol-label' }, `↳ ${protocol.protocol}`),
-            el('span', { class: 'subline' }, `${protocol.attempts} review cells · same model`)),
-          ...comparisonMetricCells(protocol, protocolHref,
-            `View ${protocol.real} canonical real findings for ${row.label} using ${protocol.protocol}`),
-        ))
-      }
     }
     const headings = [
       ['Model', 'model'], ['Real / $', 'value'], ['Recorded total', 'totalCost'], ['Median cost', 'medianCost'], ['Canonical real', 'real'], ['High + med', 'highMedium'], ['Precision', 'precision'], ['Completeness', 'completeness'], ['Cost / real', 'costPerReal'], ['Median runtime', 'wall'], ['Success', 'success'], ['Evidence', 'evidence'],
@@ -1384,26 +1380,25 @@ if (typeof module !== 'undefined' && module.exports) {
       ))
     }
     const requestedScope = params.get('scope')
-    const scope = snapshot.scopes.find((item) => item.id === requestedScope) || snapshot.scopes.find((item) => item.id === 'all-models') || snapshot.scopes[0]
+    const scope = snapshot.scopes.find((item) => item.id === requestedScope && !item.id.startsWith('supplemental-')) || snapshot.scopes.find((item) => item.id === 'all-models') || snapshot.scopes[0]
     const stats = comparisonStats(snapshot, scope, params)
-    const protocols = supplementalProtocolStats(snapshot, scope, params)
     const valueWinner = modelWinner(stats, (row) => row.realPerDollar)
     const completenessWinner = modelWinner(stats, (row) => row.completeness)
     const costWinner = modelWinner(stats, (row) => row.medianCost, 1)
     const runtimeWinner = modelWinner(stats, (row) => row.medianWall, 1)
     const legacyPresent = stats.some((row) => row.legacy)
     const issueUrl = snapshot.issueUrl || 'https://github.com/dkropachev/automated-development/issues/42'
-    const scopePicker = field('Comparison scope', select('model-scope', snapshot.scopes.map((item) => [item.id, comparisonScopeLabel(item)]), scope.id, (event) => { location.hash = comparisonParams(params, { scope: event.target.value === (snapshot.scopes.find((item) => item.id === 'all-models') || snapshot.scopes[0]).id ? '' : event.target.value, evidenceModel: '', evidenceVerdict: '' }) }))
+    const modelScopes = snapshot.scopes.filter((item) => !item.id.startsWith('supplemental-'))
+    const scopePicker = field('Comparison scope', select('model-scope', modelScopes.map((item) => [item.id, comparisonScopeLabel(item)]), scope.id, (event) => { location.hash = comparisonParams(params, { scope: event.target.value === (snapshot.scopes.find((item) => item.id === 'all-models') || snapshot.scopes[0]).id ? '' : event.target.value, evidenceModel: '', evidenceVerdict: '' }) }))
     frame(el('div', {},
-      compactHero('Choose a reviewer', 'Compare models against the canonical gold standard.', 'Recorded benchmark spend, verified detections, runtime, and reliability over pinned pull requests. Supplemental protocols appear beneath their model.'),
+      compactHero('Choose a reviewer', 'Compare models against the canonical gold standard.', 'Recorded benchmark spend, verified detections, runtime, and reliability over pinned pull requests. Supplemental skills appear on the Skills tab.'),
       chooseTabs(params, 'models'),
       el('section', { class: 'model-scope-controls' }, scopePicker, el('p', {}, 'The completeness denominator is the same for every model: all canonical real issues on the targets selected below.')),
       modelComparisonFilterBar(params, snapshot, scope),
       legacyPresent ? el('div', { class: 'notice model-legacy-warning', role: 'note' }, 'Claude Opus 5 is historical/inferred: its request, effort, target pins, prompts, and accounting were not fully recorded. Salvaged reports can expand the canonical gold set but never receive detection credit. ', externalLink('Track the controlled 19-cell rerun in issue #42 ↗', issueUrl)) : null,
       el('section', { class: 'panel model-results-panel', id: 'model-ranking', tabindex: -1 },
-        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Model ranking'), el('p', {}, `${comparisonScopeLabel(scope)}. Indented protocol details belong to the model above and do not affect model ranking. They use their own cell counts and the same pinned-PR gold denominator; tool sets differ.`))),
-        stats.length ? modelComparisonTable(stats, params, protocols) : el('div', { class: 'empty' }, 'No models are declared for this comparison scope.'),
-        protocols.length ? el('p', { class: 'method-note protocol-cost-note' }, 'Supplemental review cost includes recorded Claude spend; Codex judgment tokens have no USD receipt. The completed-cohorts table below uses separate cohort-local judgments, so its real counts can differ from canonical gold credit.') : null,
+        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Model ranking'), el('p', {}, `${comparisonScopeLabel(scope)}. Only matched model evidence affects this ranking; separately tested skills appear on the Skills tab.`))),
+        stats.length ? modelComparisonTable(stats, params) : el('div', { class: 'empty' }, 'No models are declared for this comparison scope.'),
       ),
       el('section', { class: 'model-winners', 'aria-label': 'Model comparison winners' },
         modelWinnerCard('Best value', valueWinner, (row) => `${fmt(row.realPerDollar)} real / $`, (row) => `${row.real} canonical real · ${fmt(row.cost, 'money')} recorded total`),
@@ -1456,6 +1451,7 @@ if (typeof module !== 'undefined' && module.exports) {
         kpi('Languages', fmt(new Set(base.map((run) => targetForRun(run)?.language)).size), 'in current slice'),
       ),
       el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Decision leaderboard'), el('p', {}, 'Successful zero-yield runs remain in the denominator. “Best value” weights high ×8, medium ×4, low ×1, false positive −3, then divides by attempted cost.')), controls), leaderboard(groups, params, groupBy)),
+      supplementalSkillPanel(params),
       el('div', { class: 'notice info evidence-note' }, 'Model quality is grouped by the explicitly requested model under test. Observed runtime model stacks remain visible as execution metadata and do not control this filter. Language results are directional because the current benchmark has one target per language.'),
       comparisonTray(selected, params),
     ))

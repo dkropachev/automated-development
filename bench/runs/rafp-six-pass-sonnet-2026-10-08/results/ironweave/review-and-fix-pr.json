@@ -1,0 +1,2978 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-six-pass-sonnet-2026-10-08",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "9e1b41776b4b692b23850e9d084b6ec8775ed43d47fe10bfd6d4fb41b37fbdd1",
+    "gitCommit": "9601c55ef2e05be9180a66376fcd673d8fec7084",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "cellId": "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr",
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "tool": "review-and-fix-pr",
+  "label": "Automated Development review-and-fix-pr",
+  "source": "automated-development@inline",
+  "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill to review the runner-frozen pull request #1 in dkropachev/ironweave. The runner already validated the clean head, PR scope, linked evidence, rules, and exact diff; do not refetch or rebuild that context. Invoke the trusted `review-and-fix-pr-fast.js` helper immediately as the skill directs, in one foreground Bash command with `run_in_background: false` and `timeout: 600000`. If Bash supervises it in the background, wait by its exact task ID or output file; do not poll by process-name text or schedule a Monitor or reminder. After the helper exits, return its complete human report and its one `REVIEW_AND_FIX_PR_RESULT_JSON=` v3 marker as the final nonempty line, without an extra status turn. Do not invoke a Workflow or modify the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 595686,
+  "reportedCostUsd": 0.3385,
+  "reportedUsage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 41236,
+    "cache_read_input_tokens": 113850,
+    "output_tokens": 15077,
+    "output_tokens_details": {
+      "thinking_tokens": 171
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 41236,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 14527,
+        "cache_read_input_tokens": 36026,
+        "cache_creation_input_tokens": 14858,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 14858
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-sonnet-5-5": {
+      "inputTokens": 8,
+      "outputTokens": 15077,
+      "cacheReadInputTokens": 113850,
+      "cacheCreationInputTokens": 41236,
+      "webSearchRequests": 0,
+      "costUSD": 0.3385,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 171,
+      "canonicalModel": "claude-sonnet-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 5,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "6a4b8066-d8a8-46ac-aa56-5e495d1af97a",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 86,
+    "output": 46274,
+    "thinking": 8542,
+    "cacheRead": 1138401,
+    "cacheCreation": 276334,
+    "costUsd": 1.7959282,
+    "sessions": 7,
+    "models": {
+      "claude-sonnet-5-5": 1.7959282
+    },
+    "bySession": {
+      "11ebe8b6-81bc-4519-b290-3cd87c7debe6": {
+        "costUsd": 0.1907642,
+        "startTime": 1791481839003,
+        "tokens": 185428
+      },
+      "30da8b82-8167-4f46-a1d3-67d4799d5e1b": {
+        "costUsd": 0.2899454,
+        "startTime": 1791481839009,
+        "tokens": 265882
+      },
+      "407af558-f664-4d0c-9edc-042d5516d07e": {
+        "costUsd": 0.225507,
+        "startTime": 1791481838993,
+        "tokens": 185647
+      },
+      "6a4b8066-d8a8-46ac-aa56-5e495d1af97a": {
+        "costUsd": 0.3385,
+        "startTime": 1791481831311,
+        "tokens": 170171
+      },
+      "6ef4088c-2995-46b1-a897-09fdcf52d0e5": {
+        "costUsd": 0.2389236,
+        "startTime": 1791481838999,
+        "tokens": 186564
+      },
+      "9525cc48-9e05-4007-b6ef-480a93b8495e": {
+        "costUsd": 0.2495686,
+        "startTime": 1791481839007,
+        "tokens": 217432
+      },
+      "f0a68a75-c6a8-47bd-a4dc-1ac417d2ec44": {
+        "costUsd": 0.2627194,
+        "startTime": 1791481839016,
+        "tokens": 249971
+      }
+    },
+    "rawMessages": 63,
+    "rawOutput": 92216,
+    "rawCacheRead": 1794364,
+    "since": 0,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-ironweave-runs-rafp-six-pass-sonnet-2026-10-08-review-and-fix-pr-attempt-VgJILr-repo",
+    "byAgent": {
+      "11ebe8b6-81bc-4519-b290-3cd87c7debe6.jsonl": {
+        "input": 12,
+        "output": 2420,
+        "cacheRead": 148801,
+        "cacheCreation": 34195,
+        "messages": 6,
+        "total": 185428
+      },
+      "30da8b82-8167-4f46-a1d3-67d4799d5e1b.jsonl": {
+        "input": 16,
+        "output": 7968,
+        "cacheRead": 216147,
+        "cacheCreation": 41751,
+        "messages": 8,
+        "total": 265882
+      },
+      "407af558-f664-4d0c-9edc-042d5516d07e.jsonl": {
+        "input": 12,
+        "output": 4552,
+        "cacheRead": 143255,
+        "cacheCreation": 37828,
+        "messages": 6,
+        "total": 185647
+      },
+      "6a4b8066-d8a8-46ac-aa56-5e495d1af97a.jsonl": {
+        "input": 8,
+        "output": 15077,
+        "cacheRead": 113850,
+        "cacheCreation": 41236,
+        "messages": 4,
+        "total": 170171
+      },
+      "6ef4088c-2995-46b1-a897-09fdcf52d0e5.jsonl": {
+        "input": 12,
+        "output": 6280,
+        "cacheRead": 143418,
+        "cacheCreation": 36854,
+        "messages": 6,
+        "total": 186564
+      },
+      "9525cc48-9e05-4007-b6ef-480a93b8495e.jsonl": {
+        "input": 12,
+        "output": 4813,
+        "cacheRead": 170793,
+        "cacheCreation": 41814,
+        "messages": 6,
+        "total": 217432
+      },
+      "f0a68a75-c6a8-47bd-a4dc-1ac417d2ec44.jsonl": {
+        "input": 14,
+        "output": 5164,
+        "cacheRead": 202137,
+        "cacheCreation": 42656,
+        "messages": 7,
+        "total": 249971
+      }
+    },
+    "total": 1461095
+  },
+  "result": "Review of dkropachev/ironweave at 69da8f5bb2f2a53a51946aa4b6ba2124be434cb0\n\nFix completeness: reviewed against PR intent and tests; see findings for remaining gaps.\nCoverage: six independent Claude passes completed (holistic, standards, spec-test, contracts, maintenance, api-commit).\nOpenAI Codex independently judged every admitted candidate and new lead.\n\n### Confirmed findings\n- [C1] The regression test never asserts that the late send was refused. The catch of rpc::closed_error is silent, and nothing fails if stream_send_empty_frame() succeeds or never throws. (tests/unit/rpc_test.cc:2012; medium)\n  Evidence: The PR's named behavior is that send() fails with closed_error once stream_close() begins, but the test records neither that the exception occurred nor failure on successful completion. The put_after_close assertion protects the original write-after-close symptom, not the refusal contract itself.\n- [C3] Cleanup is skipped if an assertion or exception fires early. release_close is only set at the end, and the cv wait on close_entered is unbounded. A failure before set_value() leaves the parked sink.close() and server_done pending. (tests/unit/rpc_test.cc:2009; medium)\n  Evidence: The test parks close() indefinitely and releases it only on the normal path. A regression in which close is never entered hangs at the unbounded wait, while an unexpected exception after parking can bypass release_close and leave cleanup dependent on an unresolved future.\n- [C11] Unbounded waits in the test: close_entered_cv.wait, sink_closed.get(), server_done.get() have no timeout. (tests/unit/rpc_test.cc:1997; medium)\n  Evidence: The test's synchronization has no bounded failure path. If the regression prevents close() from reaching the wrapped sink, close_entered_cv never completes; later cleanup futures similarly depend on release of the parked close, turning a test failure into an external-timeout hang.\n- [C20] The new comment says \"Nothing else waits for _outgoing_queue_ready from here on: send() is refused, and stop_send_loop() waits for _sink_closed_future.\" stop_send_loop() does wait on _outgoing_queue_ready. (src/rpc/rpc.cc:558; low)\n  Evidence: The comment literally says nothing else waits for _outgoing_queue_ready and characterizes stop_send_loop() as waiting for only _sink_closed_future, while stop_send_loop() still consumes both fields. Although stream_close() replaces the queue future with a ready future, that ownership detail is exactly what the comment should state.\n- [C21] No test covers the drain half of the fix. The PR says \"stream_close() also waits for _outgoing_queue to drain ... before it closes the buffer\". (tests/unit/rpc_test.cc:1989; medium)\n  Evidence: The regression test exercises refusal after stream_close() has already reached the parked close, but it does not hold a previously accepted entry pending across the transition. Consequently, the separately claimed queue-drain behavior can be removed or broken without this test detecting it.\n- [C42] The commits carry Claude Co-Authored-By trailers, and the PR body ends with a 'Generated with Claude Code' line. This violates the user's global rule against Claude/Anthropic attribution in commits and PR descriptions. (src/rpc/rpc.cc:548; low)\n  Evidence: The supplied frozen metadata contains the prohibited Claude co-author trailers and generated-with-Claude PR footer, while the candidate supplies an applicable user-level rule forbidding both forms of attribution.\n- [C36] The test header comment claims send_empty_frame is 'the one caller that is not guarded by sink_closed()'. This is not true: the sink's own eof frame in sink_impl::close() calls con->send() without a sink_closed() guard, and the claim is not checked by any assertion. (tests/unit/rpc_test.cc:1854; low)\n  Evidence: The uniqueness claim is literally false: sink_impl::close() is another direct, unguarded connection::send() caller. Although that EOF path is intentional, the absolute wording can mislead later analysis of the connection-level guard.\n- [C37] The doc rewrite now says closing the client aborts any stream still open and also points to 'Closing a stream' as the required path. It states a lifecycle guarantee ('stream's connection is shut down only once both halves are closed') that sits next to the code's explicit abort-on-error path, and it drops the original 'aborted if the client is closed before streaming is' phrasing without describing that the abort path skips stream_close() and its guard. (doc/rpc-streaming.md:117; low)\n  Evidence: The unconditional statement that shutdown occurs only after both halves close does not describe the already-errored/abort path, where stream_close() skips the normal close sequence. This is a semantic documentation mismatch, not merely missing implementation detail.\n- [N1] The applicable contribution guide requires commits to be made with DCO sign-off, but none of the three supplied commit messages contains a Signed-off-by trailer. (doc/contributing.md:10; medium)\n  Evidence: The repository contribution instructions explicitly require DCO sign-off when committing, while the supplied complete messages for all three commits omit Signed-off-by trailers. This is an applicable standards violation that can require rewriting the commits before acceptance.\n- [N2] The stream_close() comment says nothing else waits for _outgoing_queue_ready, although stop_send_loop() still consumes that future after stream_close() has exchanged it for a ready future. (src/rpc/rpc.cc:558; low)\n  Evidence: The comment makes an absolute statement that no other code waits on _outgoing_queue_ready, but stop_send_loop() still consumes that field after it has been replaced with a ready future. The intended statement may be that no other code needs the old captured future, but that is not what the comment says.\n- [N3] The regression test does not exercise the queue-drain half of the fix: it sends only after _stream_closing is set, rather than arranging an entry accepted before the mark that remains queued when stream_close() starts. (src/rpc/rpc.cc:562; medium)\n  Evidence: The regression test covers rejection after _stream_closing is set, but does not arrange an accepted entry that remains pending across stream_close(). Thus the separately added queue-drain behavior is a named integration path left unprotected.\n- [N7] The regression-test header says the compressor hook is the one caller not guarded by sink_closed(), although the sink close path also sends its EOF frame without such a guard. (tests/unit/rpc_test.cc:1854; low)\n  Evidence: The test comment's absolute uniqueness claim omits the sink EOF path, which also calls connection::send() without a sink_closed() guard. Even though that path is intentional, the comment is factually overbroad and can misdirect maintenance of the connection-level guard.\n- [N8] The documentation says the connection is shut down only once both stream halves are closed, even though the same document says closing the parent client aborts an open stream. (doc/rpc-streaming.md:49; low)\n  Evidence: The document first says closing the parent client aborts an open stream, then unconditionally says the stream connection shuts down only after both application-level halves are closed. Those statements require an explicit exception or distinction for abort/error teardown.\n\n### Needs reviewer judgment\n- [C4] The test relies on a positional assumption and a reference into a growable vector. BOOST_REQUIRE_EQUAL(hooks.size(), 2u) is followed by `auto& ... =… (tests/unit/rpc_test.cc:1996)\n  Codex objection or uncertainty: The current test establishes two hooks before taking back(), so the present execution is coherent. However, retaining a reference into a vector and identifying…\n  Affected edit: Copy the selected std::function by value and identify the stream negotiation explicitly, for example by recording a…; consequence: A later additional or reordered negotiation will not invoke the wrong hook or leave the test holding a dangling vector…\n- [C5] The test fixture is large boilerplate in the same file: socket, connected_socket and data_sink wrappers plus a compressor factory. The compressor's compress()… (tests/unit/rpc_test.cc:1888)\n  Codex objection or uncertainty: The fixture works, but it duplicates a broad virtual forwarding surface to intercept one close path and embeds an unexplained empty-buffer conversion in its…\n  Affected edit: Factor the forwarding wrapper into a reusable test helper or narrow adapter, and document or reuse the existing…; consequence: Future interface additions and compressor-fixture changes will require fewer synchronized edits and are less likely to…\n- [C6] The new comment says 'Nothing else waits for _outgoing_queue_ready from here on', but client::enqueue_zero_frame() and suspend_for_testing() still exchange or… (src/rpc/rpc.cc:558)\n  Codex objection or uncertainty: The comment's exclusivity claim is broader than the visible guard: another helper can replace _outgoing_queue_ready without checking _stream_closing. The…\n  Affected edit: Narrow the comment to the currently controlled send path, or make enqueue_zero_frame() observe the same closing state…; consequence: A later caller of enqueue_zero_frame() will not create queue work after stream_close has taken ownership of the prior…\n- [C12] Reference into a growable container: stream_send_empty_frame is a reference to hooks.back() of a std::vector. (tests/unit/rpc_test.cc:1983)\n  Codex objection or uncertainty: No further negotiation is shown after the reference is acquired, so there is no verified current dangling reference. The reference nonetheless becomes invalid…\n  Affected edit: Copy hooks.back() into a local std::function value, or store hooks in a container with stable references.; consequence: Adding a reconnect, stream, or other negotiation to the test will not turn the later hook call into…\n- [C13] The 'pass-through' compressor is not pass-through: it wraps lz4_fragmented_compressor and has an odd empty-buffer special case; comment misdescribes it. (tests/unit/rpc_test.cc:1940)\n  Codex objection or uncertainty: Calling the fixture a pass-through compressor is ambiguous because it actually delegates to LZ4 and changes empty-buffer representation. This is a naming and…\n  Affected edit: Rename it to a hook-capturing LZ4 compressor and explain why empty snd_buf input is converted before delegation.; consequence: Future maintainers will not assume compression is an identity operation or accidentally remove the empty-frame…\n- [C14] Test factory uses const_cast to mutate itself in a const negotiate(), leaves is_server unused, and the second negotiate overload is abort(). (tests/unit/rpc_test.cc:1957)\n  Codex objection or uncertainty: Casting away const is defined for the non-const factory objects used by this test, so there is no present UB. Declaring the intentionally mutated capture…\n  Affected edit: Declare hooks mutable and append directly from the const negotiate() method; also mark unused parameters explicitly if…; consequence: A later genuinely const factory instance will not make the mutation undefined, and the fixture's ownership intent will…\n- [C15] ~90 lines of socket/connected_socket/data_sink forwarding boilerplate are added inline in the test (pure middle-man wrappers), tied to the current virtual… (tests/unit/rpc_test.cc:1900)\n  Codex objection or uncertainty: The forwarding layer is present and creates a plausible interface-churn risk, but no current interface mismatch or behavioral defect is shown. A reusable…\n  Affected edit: Extract or reuse delegating socket and data-sink test adapters, leaving this fixture to override only close() and put().; consequence: Future interface changes are less likely to break this test or silently bypass its instrumentation.\n- [C29] _stream_closing is a new flag that parallels the existing _sink_closed and _sink_closed_future-not-ready state, with a different guard. send() checks _error… (src/rpc/rpc.cc:293)\n  Codex objection or uncertainty: The states have distinct present meanings, so the evidence does not establish an incorrect transition. However, shutdown is represented by several related…\n  Affected edit: Document the shutdown state machine and funnel the related state transitions through a single helper or authoritative…; consequence: A later close or error path is less likely to update one shutdown representation while overlooking another.\n- [C31] The sink/source close contract is written out three times (doc/rpc-streaming.md, the sink doxygen, the source doxygen), and the wording differs between them. (doc/rpc-streaming.md:104)\n  Codex objection or uncertainty: Repeating a lifecycle contract in a guide and API documentation is defensible and no present contradiction is demonstrated. Still, the copies can drift, and…\n  Affected edit: Choose one normative contract, link or concisely summarize it from the other API comments, and explicitly describe the…; consequence: Later shutdown-rule changes are less likely to leave inconsistent guidance, and users receive a clearer statement of…\n- [C26] stream_close() now waits on the outgoing queue with no bound before it closes the write buffer, and this wait is not documented as a latency or cancellation… (src/rpc/rpc.cc:562)\n  Codex objection or uncertainty: The new dependency on the existing outgoing queue is real, but the evidence does not show that waiting for accepted writes is an incorrect close contract or…\n  Affected edit: Document that stream close inherits the completion latency of accepted outgoing work; if prompt cancellation is…; consequence: Callers can set appropriate shutdown expectations, and a future cancellation change will preserve an intentional policy…\n- [C24] The test hard-codes `BOOST_REQUIRE_EQUAL(client_factory.hooks.size(), 2u)` and takes `hooks.back()`. The comment says the stream connection's hook is the last… (tests/unit/rpc_test.cc:1996)\n  Codex objection or uncertainty: The current two-negotiation ordering may be valid, so no present false positive is established. Identifying the stream hook solely by vector position is…\n  Affected edit: Clear or snapshot the parent hook before creating the stream, require exactly one newly captured hook, and copy that…; consequence: Later negotiation-order or container-growth changes cannot make the test invoke the wrong connection's hook or retain a…\n- [C30] The new doxygen blocks were added above the old plain '// send data Out...' and '// receive data In...' comments, which are now redundant leftovers sitting… (include/seastar/rpc/rpc_types.hh:343)\n  Codex objection or uncertainty: The legacy comments are redundant with the new Doxygen summaries, but the evidence does not demonstrate a semantic mismatch or an actual documentation-tool…\n  Affected edit: Delete the two legacy one-line comments or incorporate any unique wording into the Doxygen briefs.; consequence: Each declaration has one authoritative summary and future edits cannot make the duplicate comments diverge.\n- [C33] The test has unbounded waits and a fatal-assert failure mode that the comments describe as a failed check. close_entered_cv.wait, server_done.get() and… (tests/unit/rpc_test.cc:2011)\n  Codex objection or uncertainty: The supplied lines confirm unbounded test waits, which can turn a regression into a slow suite-level timeout. They do not independently establish every bundled…\n  Affected edit: Use bounded waits with diagnostic failures, protect release_close with scope-based cleanup, and replace fixed reactor…; consequence: Regressions fail the individual test promptly and cleanup still releases parked asynchronous work.\n- [C35] The test adds near-copies of existing fixtures: three pass-through wrappers (test_socket_impl, test_connected_socket_impl, test_data_sink_impl) that forward… (tests/unit/rpc_test.cc:1870)\n  Codex objection or uncertainty: The new fixtures repeat existing delegation patterns and create the same plausible interface-churn risk as the inline wrapper concern, but no current…\n  Affected edit: Refactor shared socket, sink, and compressor delegation into reusable test helpers, and name the remaining fixture…; consequence: Future interface or compressor changes require fewer synchronized edits and the regression fixture's purpose remains…\n- [C40] stream_close() now waits for _outgoing_queue_ready before closing the write buffer, but neither the code comment, the headers, nor doc/rpc-streaming.md says… (doc/rpc-streaming.md:104)\n  Codex objection or uncertainty: Waiting for accepted outgoing work is a plausible close-latency consideration, but public shutdown documentation need not ordinarily expose every internal…\n  Affected edit: Document behaviorally that sink close waits for frames accepted before closing to finish outgoing processing and…; consequence: Without that note, users investigating a hung close may overlook the accepted-output dependency and its lack of a local…\n- [C41] The reason _error is not reused is recorded only in the commit message. The new _stream_closing comment in rpc.hh says 'see stream_close()', but stream_close()… (include/seastar/rpc/rpc.hh:305)\n  Codex objection or uncertainty: The separate flag is presently intentional and the current code is coherent, so this is not a present correctness defect. The supplied rationale does identify…\n  Affected edit: Add a short comment beside _stream_closing or its assignment explaining that it must remain distinct from _error so…; consequence: A future maintainer could otherwise merge the states and introduce a receive-loop hang or truncate the EOF marker.\n- [N4] The new _stream_closing state overlaps existing sink-closure state but has a separate writer and separate consumers. (src/rpc/rpc.cc:293)\n  Codex objection or uncertainty: The states represent related but distinct lifecycle facts, and the PR rationale explains why _stream_closing cannot simply be replaced by _error, so…\n  Affected edit: Centralize the stream-closing transition in a named helper or add explicit invariants/comments describing how…; consequence: A future close or error path could update only one representation, allowing an invalid send or changing buffer-shutdown…\n- [N5] The shutdown contract is duplicated across the guide and both sink/source API comments. (doc/rpc-streaming.md:104)\n  Codex objection or uncertainty: Repeating an important contract in a guide and at both API entry points is useful and not a present defect. The three manually maintained formulations do…\n  Affected edit: Treat the guide as the canonical full contract and keep the API comments concise with a cross-reference, or add a…; consequence: A later error-handling or lifecycle change could otherwise update only one formulation and leave the public…\n- [N6] The new sink and source doxygen blocks leave the old plain one-line comments between the documentation and declarations. (include/seastar/rpc/rpc_types.hh:343)\n  Codex objection or uncertainty: The legacy one-line comments are redundant with the new Doxygen briefs, but the evidence does not establish that current tooling actually fails to associate…\n  Affected edit: Remove the two legacy plain comments, or fold any unique wording they contain into the adjacent Doxygen briefs.; consequence: Leaving both summaries invites future edits to update one but not the other and makes the declaration-to-Doxygen…\n- [N9] The new close path makes completion depend on all previously accepted outgoing queue work, but the public shutdown documentation does not mention that latency… (doc/rpc-streaming.md:104)\n  Codex objection or uncertainty: The close documentation states the caller obligation but omits the newly introduced dependency on completion of previously accepted outgoing work. The evidence…\n  Affected edit: Document that sink.close() waits for already accepted outbound frames to drain and therefore may remain pending while…; consequence: This would help users diagnose close latency or an apparently stuck shutdown caused by queued output.\n- [N10] The source comment does not preserve the reason _stream_closing must remain separate from _error. (include/seastar/rpc/rpc.hh:305)\n  Codex objection or uncertainty: The separate flag is documented only in terms of when it is set, not why the existing error state cannot safely represent closing. A future state…\n  Affected edit: Extend the _stream_closing or stream_close() comment to explain that reusing _error would make stop() skip…; consequence: This would deter a future consolidation of the states that could leave the receive loop asleep or truncate the EOF…\n\n### Unresolved\n- [C8] Commits carry Claude/Anthropic Co-Authored-By trailers, violating the user's global rule forbidding any such attribution.: The commit trailers are evidenced, but the alleged global prohibition is only quoted by the candidate and is absent from the supplied applicable repository rules. Those rules require DCO sign-off but do not prohibit Claude or Anthropic attribution, so applicability of the claimed external rule cannot be verified from the frozen evidence.\n\nConfirmed: 13; suggestions: 21; rejected: 3; unresolved: 1.\nSuggestions are never fixed automatically. Coverage complete means this review protocol finished, not that the PR is bug-free.\nFull claims, evidence, and judgments: /extra/dkropachev/automated-development/bench/work/codex-receipts/rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr/938566aa-636d-4805-9dba-59ee14c2b9b4.json\n\nDiscovery was by Anthropic Claude; adjudication by OpenAI Codex.\n\nREVIEW_AND_FIX_PR_RESULT_JSON={\"schemaVersion\":3,\"coverage\":\"complete\",\"verification\":\"complete\",\"fix\":\"not-requested\",\"stopTrigger\":\"none\",\"stopReason\":\"completed\",\"fixRequested\":false,\"completedLenses\":[\"correctness\",\"spec\",\"standards\",\"security\",\"reliability\",\"contracts\",\"testing\",\"performance\",\"comments\",\"maintainability\"],\"skippedLenses\":[],\"failedLenses\":[],\"coverageGapCount\":0,\"findings\":{\"confirmed\":13,\"provisional\":38,\"rejected\":3,\"suggestion\":21,\"unresolved\":1},\"candidateLedger\":[{\"candidateId\":\"C1\",\"claimHash\":\"639e284bb6f00a1f2b4ba9b4ebc6a24cc0b19a81e9c9189844b5b1a53c61e573\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C2\",\"claimHash\":\"ca147ff15f8d06594fd149641e90d8b542aba0b3db901bda35748919192c76ea\",\"finalDisposition\":\"rejected\",\"judgeInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"originInvocationId\":null,\"verdict\":\"false_positive\"},{\"candidateId\":\"C3\",\"claimHash\":\"3a94db8946ca62fc50a9b4aaf8c2b5ff3b5aa13edc1c31ea57458720cd20e5a2\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C4\",\"claimHash\":\"c7c084b9cbbca93f1e3b670de47be0a74c571d16fa8a2f89cc534d1348b07371\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C5\",\"claimHash\":\"4974118189a6aad5fe551a33e3431e07cd7fec4c4abfc9a04cfc5a2315774ab8\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C6\",\"claimHash\":\"08f1b42533d40eb6d3fafee0ad01986cb5f5e9ea84b469be421f304c4d60a0c1\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C8\",\"claimHash\":\"fb596388ec5b2958d2f1b2a6cf0ed8a2f357eb5ab2cd5b67c3449e5c5dd06daf\",\"finalDisposition\":\"unresolved\",\"judgeInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"originInvocationId\":null,\"verdict\":\"unresolved\"},{\"candidateId\":\"C10\",\"claimHash\":\"4257df53ac6eb37c6b720631c8db1878b69404f814c10ec1c4eadf5db880e7b9\",\"finalDisposition\":\"rejected\",\"judgeInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"originInvocationId\":null,\"verdict\":\"false_positive\"},{\"candidateId\":\"C11\",\"claimHash\":\"91b407329be49e7350a75463e2a57a53b0e56df915baa1595257b652fb5942be\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C12\",\"claimHash\":\"9b672c490a8a4ad94f105cc7234e5da2b17b4ab90b07dd014f7ebdaef0f2e9bf\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C13\",\"claimHash\":\"f8d862046922ccd4246ed4303b804dc383d27f8e7488995923e3da9a966df585\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C14\",\"claimHash\":\"1a46b52730508c61163708d6899e5d4054366d0f327d592dcc1b21932d6298f5\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C15\",\"claimHash\":\"ef1c7e2e20ce79331e222b5d54b9e82f411caf9e8f038fd725e84e0b05c4705c\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca8-11f2-7261-b321-36877a7b1e0a\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C29\",\"claimHash\":\"ac8de4b8a2867ee2093151a9c280c0bfdf36a07070f63cf1bf7fea7ffd3c03b6\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca8-11f2-7261-b321-36877a7b1e0a\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C20\",\"claimHash\":\"6f61b638b322cf2366f3580ce77e913ef8df670819c4ffebd7e3cf7dd32643b1\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca8-11f2-7261-b321-36877a7b1e0a\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C31\",\"claimHash\":\"5616e77020b19807cd8d170a2b760133e64ca5b66199147dcfdc946d36ea8b53\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca8-11f2-7261-b321-36877a7b1e0a\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C44\",\"claimHash\":\"e16a7e10be2a281cf4225dedf92d69ae5c77a2a48d8a3612b79bcf941b195f0a\",\"finalDisposition\":\"rejected\",\"judgeInvocationId\":\"01a11ca8-11f2-7261-b321-36877a7b1e0a\",\"originInvocationId\":null,\"verdict\":\"false_positive\"},{\"candidateId\":\"C21\",\"claimHash\":\"479903aab61cf7c3a4d30e0e26439d1ab7b8e347809ed750e3b027a0eb2be76b\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca8-11f2-7261-b321-36877a7b1e0a\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C26\",\"claimHash\":\"fcbfd2dcb8d185d13508238a7399617dfeb61dcd77bc44e6a802e841081859ec\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca8-11f2-7261-b321-36877a7b1e0a\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C24\",\"claimHash\":\"4aaf309a2c2516e50c49a91fe7eb77696bbb21c8bdb861a2c49f4c794dd432d4\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca8-11f2-7261-b321-36877a7b1e0a\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C42\",\"claimHash\":\"c868ab7f3cc584ce1e53597611ddd10dd84fead2d99114e56bd3c2a4cdcac411\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca8-11f2-7261-b321-36877a7b1e0a\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C30\",\"claimHash\":\"7b8890934fc65e84632815aca66d8adb333704c76b3bd48e230aacbf0760e74c\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca8-11f2-7261-b321-36877a7b1e0a\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C33\",\"claimHash\":\"0299496b2eeacecb0f622041920ef7da8f412ac43b03454d3b935c0555e4d5d7\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca8-11f2-7261-b321-36877a7b1e0a\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C35\",\"claimHash\":\"4057684ab9e9ea4885d70d20c2ee773e49976f983dd14718fb03fc542031f3f7\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca8-11f2-7261-b321-36877a7b1e0a\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C36\",\"claimHash\":\"e82ad619b21546cb30c2725ac390d2e01b935fc4c56f527ca369415a624ab98a\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca9-807b-7482-9d80-4fabefe25e7c\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C37\",\"claimHash\":\"341f7d44490cf76dba9e3137a2d1a92af7fee744024662dbbd6d7723141fa691\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca9-807b-7482-9d80-4fabefe25e7c\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C40\",\"claimHash\":\"929b7058ba6a2c1985ee148bf039b028cdc2352f328640b7134f2915fab3e266\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca9-807b-7482-9d80-4fabefe25e7c\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C41\",\"claimHash\":\"d96cfda0f9c7456c6ed2f839134f816a380e9d68764f83ee0c0e0289726f3c74\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca9-807b-7482-9d80-4fabefe25e7c\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"N1\",\"claimHash\":\"943619c65b557db9ad8f248a192d9a8f6bc9b9f3386e0715d5598d130121f799\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca9-807b-7482-9d80-4fabefe25e7c\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"verdict\":\"real\"},{\"candidateId\":\"N2\",\"claimHash\":\"02b6650a18b58a2561d53c462d13c101744738780340b5a22a8317189e353d1e\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca9-807b-7482-9d80-4fabefe25e7c\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"verdict\":\"real\"},{\"candidateId\":\"N3\",\"claimHash\":\"1f4916efd8bb13d3d67c9b8644a7cf92c4fc8002e42265457f08f8badb81d05c\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca9-807b-7482-9d80-4fabefe25e7c\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"verdict\":\"real\"},{\"candidateId\":\"N4\",\"claimHash\":\"044f56419e3c123ff5792079093842541e780ca561096fc689bfd144fd72b324\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca9-807b-7482-9d80-4fabefe25e7c\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"verdict\":\"suggestion\"},{\"candidateId\":\"N5\",\"claimHash\":\"9bd283a4c1d108a8b6f95640ccc2186747886b1ef7788deecb9644f4465f2626\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca9-807b-7482-9d80-4fabefe25e7c\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"verdict\":\"suggestion\"},{\"candidateId\":\"N6\",\"claimHash\":\"00325fb8c289e006d91296819f91d62835d93fddbb25f9c7af55611f0009d638\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11ca9-807b-7482-9d80-4fabefe25e7c\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"verdict\":\"suggestion\"},{\"candidateId\":\"N7\",\"claimHash\":\"175408860a300039135d3f55d4186bfabb1b8aa57e4248b2474784710fcffc3a\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca9-807b-7482-9d80-4fabefe25e7c\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"verdict\":\"real\"},{\"candidateId\":\"N8\",\"claimHash\":\"9e2b3eb92ef4a8545d7564b37f21aa2a04c33478728a5844c2158e84e4f5f5c7\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11ca9-807b-7482-9d80-4fabefe25e7c\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"verdict\":\"real\"},{\"candidateId\":\"N9\",\"claimHash\":\"5c3bbd81acd7e9a35948e04cbe440959b10e5785e3a56f2286cf2c80594c0a65\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11caa-84dc-74d1-94b2-90c8baf05ae3\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"verdict\":\"suggestion\"},{\"candidateId\":\"N10\",\"claimHash\":\"6b0a71aed73a5a7d5bce0beb69facc3ad32505b2e3b5e07926bf01e8c735a595\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11caa-84dc-74d1-94b2-90c8baf05ae3\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"verdict\":\"suggestion\"}],\"newLeadResolutions\":[{\"candidateId\":\"N1\",\"claimHash\":\"943619c65b557db9ad8f248a192d9a8f6bc9b9f3386e0715d5598d130121f799\",\"leadId\":\"lead-50ae25b279a6063d4a45ef19895f3ac41fec4cddd39b688d5db302e6378ca8cb\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"resolution\":\"admitted\"},{\"candidateId\":\"N2\",\"claimHash\":\"02b6650a18b58a2561d53c462d13c101744738780340b5a22a8317189e353d1e\",\"leadId\":\"lead-a995a2e10287a3a5fd8e48916bae7d74d53e7cf53aaa0b9708a0d33346d73aa2\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"resolution\":\"admitted\"},{\"candidateId\":\"N3\",\"claimHash\":\"1f4916efd8bb13d3d67c9b8644a7cf92c4fc8002e42265457f08f8badb81d05c\",\"leadId\":\"lead-963d5fc4dd67ea30451996b0377aae6a8aa5b6cfc57a075012c215bcef433ded\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"resolution\":\"admitted\"},{\"candidateId\":\"N4\",\"claimHash\":\"044f56419e3c123ff5792079093842541e780ca561096fc689bfd144fd72b324\",\"leadId\":\"lead-8ace0073db82843b2a494a36534b1c7dce1f9356667f78e37c0f1371fa25a8ef\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"resolution\":\"admitted\"},{\"candidateId\":\"N5\",\"claimHash\":\"9bd283a4c1d108a8b6f95640ccc2186747886b1ef7788deecb9644f4465f2626\",\"leadId\":\"lead-41911894c0e8fe3cff6e53b0811e31ca9348e30d6584cbce59207d34b4209db3\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"resolution\":\"admitted\"},{\"candidateId\":\"N6\",\"claimHash\":\"00325fb8c289e006d91296819f91d62835d93fddbb25f9c7af55611f0009d638\",\"leadId\":\"lead-7fe728563bb943694d7c4480d82fbfc5405a04067a19ed7b1c474ae208e21ade\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"resolution\":\"admitted\"},{\"candidateId\":\"N7\",\"claimHash\":\"175408860a300039135d3f55d4186bfabb1b8aa57e4248b2474784710fcffc3a\",\"leadId\":\"lead-53309b9a618a06618e4485bc753ed8ceacda2d7e66667dba35f958a8b11f6d03\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"resolution\":\"admitted\"},{\"candidateId\":\"N8\",\"claimHash\":\"9e2b3eb92ef4a8545d7564b37f21aa2a04c33478728a5844c2158e84e4f5f5c7\",\"leadId\":\"lead-fe21a88b2d436224fdc2760f6d2e68cdf2ecfaf0ee20a07853f653f9ac96315f\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"resolution\":\"admitted\"},{\"candidateId\":\"N9\",\"claimHash\":\"5c3bbd81acd7e9a35948e04cbe440959b10e5785e3a56f2286cf2c80594c0a65\",\"leadId\":\"lead-f7d3e7169350f611abd5d3eff9ef931b06a1d7d973a685cf2a2235305771962f\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"resolution\":\"admitted\"},{\"candidateId\":\"N10\",\"claimHash\":\"6b0a71aed73a5a7d5bce0beb69facc3ad32505b2e3b5e07926bf01e8c735a595\",\"leadId\":\"lead-08e7991b3893b9d8f067b8b25dbbfc49a1da42364c6958422e0a46e20d29689f\",\"originInvocationId\":\"01a11ca5-602e-7b90-925c-55debeda63ed\",\"resolution\":\"admitted\"}],\"codex\":{\"cliVersion\":\"0.156.0\",\"model\":\"gpt-5.6-sol\",\"provider\":\"openai\",\"reasoningEffort\":\"high\",\"receiptSha256\":\"428644b9498726a8144afdd0997f4e979d4954358c6939d090bd5c68ce1c9b76\"}}",
+  "resultContract": {
+    "candidateLedger": [
+      {
+        "candidateId": "C1",
+        "claimHash": "639e284bb6f00a1f2b4ba9b4ebc6a24cc0b19a81e9c9189844b5b1a53c61e573",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C2",
+        "claimHash": "ca147ff15f8d06594fd149641e90d8b542aba0b3db901bda35748919192c76ea",
+        "finalDisposition": "rejected",
+        "judgeInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "originInvocationId": null,
+        "verdict": "false_positive"
+      },
+      {
+        "candidateId": "C3",
+        "claimHash": "3a94db8946ca62fc50a9b4aaf8c2b5ff3b5aa13edc1c31ea57458720cd20e5a2",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C4",
+        "claimHash": "c7c084b9cbbca93f1e3b670de47be0a74c571d16fa8a2f89cc534d1348b07371",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C5",
+        "claimHash": "4974118189a6aad5fe551a33e3431e07cd7fec4c4abfc9a04cfc5a2315774ab8",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C6",
+        "claimHash": "08f1b42533d40eb6d3fafee0ad01986cb5f5e9ea84b469be421f304c4d60a0c1",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C8",
+        "claimHash": "fb596388ec5b2958d2f1b2a6cf0ed8a2f357eb5ab2cd5b67c3449e5c5dd06daf",
+        "finalDisposition": "unresolved",
+        "judgeInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "originInvocationId": null,
+        "verdict": "unresolved"
+      },
+      {
+        "candidateId": "C10",
+        "claimHash": "4257df53ac6eb37c6b720631c8db1878b69404f814c10ec1c4eadf5db880e7b9",
+        "finalDisposition": "rejected",
+        "judgeInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "originInvocationId": null,
+        "verdict": "false_positive"
+      },
+      {
+        "candidateId": "C11",
+        "claimHash": "91b407329be49e7350a75463e2a57a53b0e56df915baa1595257b652fb5942be",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C12",
+        "claimHash": "9b672c490a8a4ad94f105cc7234e5da2b17b4ab90b07dd014f7ebdaef0f2e9bf",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C13",
+        "claimHash": "f8d862046922ccd4246ed4303b804dc383d27f8e7488995923e3da9a966df585",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C14",
+        "claimHash": "1a46b52730508c61163708d6899e5d4054366d0f327d592dcc1b21932d6298f5",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C15",
+        "claimHash": "ef1c7e2e20ce79331e222b5d54b9e82f411caf9e8f038fd725e84e0b05c4705c",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca8-11f2-7261-b321-36877a7b1e0a",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C29",
+        "claimHash": "ac8de4b8a2867ee2093151a9c280c0bfdf36a07070f63cf1bf7fea7ffd3c03b6",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca8-11f2-7261-b321-36877a7b1e0a",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C20",
+        "claimHash": "6f61b638b322cf2366f3580ce77e913ef8df670819c4ffebd7e3cf7dd32643b1",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca8-11f2-7261-b321-36877a7b1e0a",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C31",
+        "claimHash": "5616e77020b19807cd8d170a2b760133e64ca5b66199147dcfdc946d36ea8b53",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca8-11f2-7261-b321-36877a7b1e0a",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C44",
+        "claimHash": "e16a7e10be2a281cf4225dedf92d69ae5c77a2a48d8a3612b79bcf941b195f0a",
+        "finalDisposition": "rejected",
+        "judgeInvocationId": "01a11ca8-11f2-7261-b321-36877a7b1e0a",
+        "originInvocationId": null,
+        "verdict": "false_positive"
+      },
+      {
+        "candidateId": "C21",
+        "claimHash": "479903aab61cf7c3a4d30e0e26439d1ab7b8e347809ed750e3b027a0eb2be76b",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca8-11f2-7261-b321-36877a7b1e0a",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C26",
+        "claimHash": "fcbfd2dcb8d185d13508238a7399617dfeb61dcd77bc44e6a802e841081859ec",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca8-11f2-7261-b321-36877a7b1e0a",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C24",
+        "claimHash": "4aaf309a2c2516e50c49a91fe7eb77696bbb21c8bdb861a2c49f4c794dd432d4",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca8-11f2-7261-b321-36877a7b1e0a",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C42",
+        "claimHash": "c868ab7f3cc584ce1e53597611ddd10dd84fead2d99114e56bd3c2a4cdcac411",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca8-11f2-7261-b321-36877a7b1e0a",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C30",
+        "claimHash": "7b8890934fc65e84632815aca66d8adb333704c76b3bd48e230aacbf0760e74c",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca8-11f2-7261-b321-36877a7b1e0a",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C33",
+        "claimHash": "0299496b2eeacecb0f622041920ef7da8f412ac43b03454d3b935c0555e4d5d7",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca8-11f2-7261-b321-36877a7b1e0a",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C35",
+        "claimHash": "4057684ab9e9ea4885d70d20c2ee773e49976f983dd14718fb03fc542031f3f7",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca8-11f2-7261-b321-36877a7b1e0a",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C36",
+        "claimHash": "e82ad619b21546cb30c2725ac390d2e01b935fc4c56f527ca369415a624ab98a",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca9-807b-7482-9d80-4fabefe25e7c",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C37",
+        "claimHash": "341f7d44490cf76dba9e3137a2d1a92af7fee744024662dbbd6d7723141fa691",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca9-807b-7482-9d80-4fabefe25e7c",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C40",
+        "claimHash": "929b7058ba6a2c1985ee148bf039b028cdc2352f328640b7134f2915fab3e266",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca9-807b-7482-9d80-4fabefe25e7c",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C41",
+        "claimHash": "d96cfda0f9c7456c6ed2f839134f816a380e9d68764f83ee0c0e0289726f3c74",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca9-807b-7482-9d80-4fabefe25e7c",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "N1",
+        "claimHash": "943619c65b557db9ad8f248a192d9a8f6bc9b9f3386e0715d5598d130121f799",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca9-807b-7482-9d80-4fabefe25e7c",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "verdict": "real"
+      },
+      {
+        "candidateId": "N2",
+        "claimHash": "02b6650a18b58a2561d53c462d13c101744738780340b5a22a8317189e353d1e",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca9-807b-7482-9d80-4fabefe25e7c",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "verdict": "real"
+      },
+      {
+        "candidateId": "N3",
+        "claimHash": "1f4916efd8bb13d3d67c9b8644a7cf92c4fc8002e42265457f08f8badb81d05c",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca9-807b-7482-9d80-4fabefe25e7c",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "verdict": "real"
+      },
+      {
+        "candidateId": "N4",
+        "claimHash": "044f56419e3c123ff5792079093842541e780ca561096fc689bfd144fd72b324",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca9-807b-7482-9d80-4fabefe25e7c",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "N5",
+        "claimHash": "9bd283a4c1d108a8b6f95640ccc2186747886b1ef7788deecb9644f4465f2626",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca9-807b-7482-9d80-4fabefe25e7c",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "N6",
+        "claimHash": "00325fb8c289e006d91296819f91d62835d93fddbb25f9c7af55611f0009d638",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11ca9-807b-7482-9d80-4fabefe25e7c",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "N7",
+        "claimHash": "175408860a300039135d3f55d4186bfabb1b8aa57e4248b2474784710fcffc3a",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca9-807b-7482-9d80-4fabefe25e7c",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "verdict": "real"
+      },
+      {
+        "candidateId": "N8",
+        "claimHash": "9e2b3eb92ef4a8545d7564b37f21aa2a04c33478728a5844c2158e84e4f5f5c7",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11ca9-807b-7482-9d80-4fabefe25e7c",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "verdict": "real"
+      },
+      {
+        "candidateId": "N9",
+        "claimHash": "5c3bbd81acd7e9a35948e04cbe440959b10e5785e3a56f2286cf2c80594c0a65",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11caa-84dc-74d1-94b2-90c8baf05ae3",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "N10",
+        "claimHash": "6b0a71aed73a5a7d5bce0beb69facc3ad32505b2e3b5e07926bf01e8c735a595",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11caa-84dc-74d1-94b2-90c8baf05ae3",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "verdict": "suggestion"
+      }
+    ],
+    "codex": {
+      "cliVersion": "0.156.0",
+      "model": "gpt-5.6-sol",
+      "provider": "openai",
+      "reasoningEffort": "high",
+      "receiptSha256": "428644b9498726a8144afdd0997f4e979d4954358c6939d090bd5c68ce1c9b76"
+    },
+    "completedLenses": [
+      "correctness",
+      "spec",
+      "standards",
+      "security",
+      "reliability",
+      "contracts",
+      "testing",
+      "performance",
+      "comments",
+      "maintainability"
+    ],
+    "coverage": "complete",
+    "coverageGapCount": 0,
+    "failedLenses": [],
+    "findings": {
+      "confirmed": 13,
+      "provisional": 38,
+      "rejected": 3,
+      "suggestion": 21,
+      "unresolved": 1
+    },
+    "fix": "not-requested",
+    "fixRequested": false,
+    "newLeadResolutions": [
+      {
+        "candidateId": "N1",
+        "claimHash": "943619c65b557db9ad8f248a192d9a8f6bc9b9f3386e0715d5598d130121f799",
+        "leadId": "lead-50ae25b279a6063d4a45ef19895f3ac41fec4cddd39b688d5db302e6378ca8cb",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N2",
+        "claimHash": "02b6650a18b58a2561d53c462d13c101744738780340b5a22a8317189e353d1e",
+        "leadId": "lead-a995a2e10287a3a5fd8e48916bae7d74d53e7cf53aaa0b9708a0d33346d73aa2",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N3",
+        "claimHash": "1f4916efd8bb13d3d67c9b8644a7cf92c4fc8002e42265457f08f8badb81d05c",
+        "leadId": "lead-963d5fc4dd67ea30451996b0377aae6a8aa5b6cfc57a075012c215bcef433ded",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N4",
+        "claimHash": "044f56419e3c123ff5792079093842541e780ca561096fc689bfd144fd72b324",
+        "leadId": "lead-8ace0073db82843b2a494a36534b1c7dce1f9356667f78e37c0f1371fa25a8ef",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N5",
+        "claimHash": "9bd283a4c1d108a8b6f95640ccc2186747886b1ef7788deecb9644f4465f2626",
+        "leadId": "lead-41911894c0e8fe3cff6e53b0811e31ca9348e30d6584cbce59207d34b4209db3",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N6",
+        "claimHash": "00325fb8c289e006d91296819f91d62835d93fddbb25f9c7af55611f0009d638",
+        "leadId": "lead-7fe728563bb943694d7c4480d82fbfc5405a04067a19ed7b1c474ae208e21ade",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N7",
+        "claimHash": "175408860a300039135d3f55d4186bfabb1b8aa57e4248b2474784710fcffc3a",
+        "leadId": "lead-53309b9a618a06618e4485bc753ed8ceacda2d7e66667dba35f958a8b11f6d03",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N8",
+        "claimHash": "9e2b3eb92ef4a8545d7564b37f21aa2a04c33478728a5844c2158e84e4f5f5c7",
+        "leadId": "lead-fe21a88b2d436224fdc2760f6d2e68cdf2ecfaf0ee20a07853f653f9ac96315f",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N9",
+        "claimHash": "5c3bbd81acd7e9a35948e04cbe440959b10e5785e3a56f2286cf2c80594c0a65",
+        "leadId": "lead-f7d3e7169350f611abd5d3eff9ef931b06a1d7d973a685cf2a2235305771962f",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N10",
+        "claimHash": "6b0a71aed73a5a7d5bce0beb69facc3ad32505b2e3b5e07926bf01e8c735a595",
+        "leadId": "lead-08e7991b3893b9d8f067b8b25dbbfc49a1da42364c6958422e0a46e20d29689f",
+        "originInvocationId": "01a11ca5-602e-7b90-925c-55debeda63ed",
+        "resolution": "admitted"
+      }
+    ],
+    "schemaVersion": 3,
+    "skippedLenses": [],
+    "stopReason": "completed",
+    "stopTrigger": "none",
+    "verification": "complete"
+  },
+  "codexReceiptId": "938566aa-636d-4805-9dba-59ee14c2b9b4",
+  "codexReceiptProof": {
+    "candidateCount": 38,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "inputSha256": "f22c0eb627004bed0c7ba39a86c7782bc32a91c3c9318899bb8b84852acea15e",
+    "invocationCount": 4,
+    "judgeModel": "gpt-5.6-sol",
+    "judgeProvider": "openai",
+    "reasoningEffort": "high",
+    "receiptSha256": "428644b9498726a8144afdd0997f4e979d4954358c6939d090bd5c68ce1c9b76",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5",
+    "schemaVersion": 2,
+    "sourceProvider": "anthropic",
+    "usage": {
+      "cacheWriteInputTokens": 0,
+      "cachedInputTokens": 0,
+      "inputTokens": 117421,
+      "outputTokens": 21232,
+      "reasoningOutputTokens": 11472,
+      "totalTokens": 138653
+    }
+  },
+  "codexUsage": {
+    "inputTokens": 117421,
+    "cachedInputTokens": 0,
+    "cacheWriteInputTokens": 0,
+    "outputTokens": 21232,
+    "reasoningOutputTokens": 11472,
+    "totalTokens": 138653
+  },
+  "discoveryLedger": {
+    "schemaVersion": 2,
+    "candidates": [
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-1",
+        "claim": "The regression test never asserts that the late send was refused. The catch of rpc::closed_error is silent, and nothing fails if stream_send_empty_frame() succeeds or never throws.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C1"
+      },
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-2",
+        "claim": "Detection depends on a fixed 10-yield loop and a put() observed in the window. Accepting the frame cannot be detected deterministically, because the batch flush may not have run within 10 yields.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C2"
+      },
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-3",
+        "claim": "Cleanup is skipped if an assertion or exception fires early. release_close is only set at the end, and the cv wait on close_entered is unbounded. A failure before set_value() leaves the parked sink.close() and server_done pending.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C3"
+      },
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-4",
+        "claim": "The test relies on a positional assumption and a reference into a growable vector. BOOST_REQUIRE_EQUAL(hooks.size(), 2u) is followed by `auto& ... = client_factory.hooks.back()`.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C4"
+      },
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-5",
+        "claim": "The test fixture is large boilerplate in the same file: socket, connected_socket and data_sink wrappers plus a compressor factory. The compressor's compress() has an odd `data.size ? ... : snd_buf(temporary_buffer())` fallback, and negotiate() has an unused is_server parameter and an abort() overload.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C5"
+      },
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-6",
+        "claim": "The new comment says 'Nothing else waits for _outgoing_queue_ready from here on', but client::enqueue_zero_frame() and suspend_for_testing() still exchange or chain on it. enqueue_zero_frame() guards only on _error, not on _stream_closing.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C6"
+      },
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-7",
+        "claim": "The commit messages carry 'Co-Authored-By: Claude ...' trailers on all three commits.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C8",
+        "canonicalId": "C8"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-1",
+        "claim": "Commits carry Claude/Anthropic Co-Authored-By trailers, violating the user's global rule forbidding any such attribution.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C8"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-2",
+        "claim": "The test never asserts that the hook is refused with closed_error; the catch swallows it and a successful send passes silently, so the stated 'fails with closed_error' contract is unverified.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C1",
+        "canonicalId": "C1"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-3",
+        "claim": "Test is only as strong as a 10-iteration yield loop; the crash scenario (pending batch flush at destruction) is asserted only in a comment, not by an assertion.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C10"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-4",
+        "claim": "Unbounded waits in the test: close_entered_cv.wait, sink_closed.get(), server_done.get() have no timeout.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C11"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-5",
+        "claim": "Reference into a growable container: stream_send_empty_frame is a reference to hooks.back() of a std::vector.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C12"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-6",
+        "claim": "The 'pass-through' compressor is not pass-through: it wraps lz4_fragmented_compressor and has an odd empty-buffer special case; comment misdescribes it.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C13"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-7",
+        "claim": "Test factory uses const_cast to mutate itself in a const negotiate(), leaves is_server unused, and the second negotiate overload is abort().",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C14"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-8",
+        "claim": "~90 lines of socket/connected_socket/data_sink forwarding boilerplate are added inline in the test (pure middle-man wrappers), tied to the current virtual interface.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C15"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-9",
+        "claim": "Duplicated state: _stream_closing duplicates the role of _error/_sink_closed_future, and send() guard is a second place that must be kept in sync with error().",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C29",
+        "canonicalId": "C29"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-10",
+        "claim": "stream_close() steals _outgoing_queue_ready by std::exchange and the comment says nothing else waits for it, but stop_send_loop() does when_all on it (rpc.cc:225); the invariant is implicit and the comment is inaccurate.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C20",
+        "canonicalId": "C20"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-11",
+        "claim": "The shutdown contract is stated three times (md doc, sink doc, source doc) and the test header duplicates the commit message and rpc.cc comments; copies can drift.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C31",
+        "canonicalId": "C31"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-12",
+        "claim": "Doc sentence claims 'closing the client aborts any stream still open on it' and header sink doc says 'last reference ... goes away' without checking against the diff; commit says docs-only but the doc commit's claim about ~sink_impl assert covers sink only is unverified in docs themselves.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C44",
+        "canonicalId": "C44"
+      },
+      {
+        "sourceId": "P3",
+        "candidateId": "P3-1",
+        "claim": "The new comment says \"Nothing else waits for _outgoing_queue_ready from here on: send() is refused, and stop_send_loop() waits for _sink_closed_future.\" stop_send_loop() does wait on _outgoing_queue_ready.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C20"
+      },
+      {
+        "sourceId": "P3",
+        "candidateId": "P3-2",
+        "claim": "No test covers the drain half of the fix. The PR says \"stream_close() also waits for _outgoing_queue to drain ... before it closes the buffer\".",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C21"
+      },
+      {
+        "sourceId": "P3",
+        "candidateId": "P3-3",
+        "claim": "The test comment says \"A compressor asking for an empty frame now must be refused\", but the test never requires closed_error.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C1",
+        "canonicalId": "C1"
+      },
+      {
+        "sourceId": "P3",
+        "candidateId": "P3-4",
+        "claim": "stream_close() now waits on the outgoing queue, and no failure or latency bound is stated. The PR does not discuss this new wait on the close path.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C26",
+        "canonicalId": "C26"
+      },
+      {
+        "sourceId": "P3",
+        "candidateId": "P3-5",
+        "claim": "The test hard-codes `BOOST_REQUIRE_EQUAL(client_factory.hooks.size(), 2u)` and takes `hooks.back()`. The comment says the stream connection's hook is the last one.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C24"
+      },
+      {
+        "sourceId": "P4",
+        "candidateId": "P4-1",
+        "claim": "Commits and PR body carry Claude/Anthropic attribution, which the user's global rules forbid.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C42",
+        "canonicalId": "C42"
+      },
+      {
+        "sourceId": "P4",
+        "candidateId": "P4-2",
+        "claim": "stream_close() now waits on the outgoing queue with no bound before it closes the write buffer, and this wait is not documented as a latency or cancellation change.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C26"
+      },
+      {
+        "sourceId": "P4",
+        "candidateId": "P4-3",
+        "claim": "The new doc sentence about closing the client may overstate current behaviour. It also adds a public contract in the same PR as the fix, and the comment on the _stream_closing flag in rpc.hh is thin.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C44",
+        "canonicalId": "C44"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-1",
+        "claim": "The new stream_close() comment says nothing else waits for _outgoing_queue_ready and that stop_send_loop() waits only for _sink_closed_future, but stop_send_loop() still does when_all(_outgoing_queue_ready, _sink_closed_future).",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C20",
+        "canonicalId": "C20"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-2",
+        "claim": "_stream_closing is a new flag that parallels the existing _sink_closed and _sink_closed_future-not-ready state, with a different guard. send() checks _error and _stream_closing, sink_impl checks sink_closed(), and the write-buffer close is serialized by _sink_closed_future.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C29"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-3",
+        "claim": "The new doxygen blocks were added above the old plain '// send data Out...' and '// receive data In...' comments, which are now redundant leftovers sitting between the doxygen block and the class.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C30"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-4",
+        "claim": "The sink/source close contract is written out three times (doc/rpc-streaming.md, the sink doxygen, the source doxygen), and the wording differs between them.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C31"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-5",
+        "claim": "The test's try/catch swallows the outcome of stream_send_empty_frame(). The comment says the frame 'must be refused', but nothing asserts that closed_error was thrown. The only assertion is that no put() happened after close.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C1",
+        "canonicalId": "C1"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-6",
+        "claim": "The test has unbounded waits and a fatal-assert failure mode that the comments describe as a failed check. close_entered_cv.wait, server_done.get() and release_close have no timeout. The regression is described as 'asserts on the pending batch flush', which aborts the whole test binary instead of failing one test case.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C33"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-7",
+        "claim": "The test holds a reference into the growable vector client_factory.hooks, asserting exactly 2 hooks and taking .back(), and the hooks are pushed through a const_cast in a const negotiate().",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C4",
+        "canonicalId": "C4"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-8",
+        "claim": "The test adds near-copies of existing fixtures: three pass-through wrappers (test_socket_impl, test_connected_socket_impl, test_data_sink_impl) that forward every method of the socket and sink interfaces, and a second compressor fixture that copies the lz4 delegate pattern at rpc_test.cc:1764.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C35"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-9",
+        "claim": "The test header comment claims send_empty_frame is 'the one caller that is not guarded by sink_closed()'. This is not true: the sink's own eof frame in sink_impl::close() calls con->send() without a sink_closed() guard, and the claim is not checked by any assertion.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C36"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-10",
+        "claim": "The doc rewrite now says closing the client aborts any stream still open and also points to 'Closing a stream' as the required path. It states a lifecycle guarantee ('stream's connection is shut down only once both halves are closed') that sits next to the code's explicit abort-on-error path, and it drops the original 'aborted if the client is closed before streaming is' phrasing without describing that the abort path skips stream_close() and its guard.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C37"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-1",
+        "claim": "The regression test does not assert that the hook fails with closed_error. The try/catch only swallows closed_error, so a call that succeeds, or fails with another error, passes unless a put() was recorded.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C1",
+        "canonicalId": "C1"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-2",
+        "claim": "The new queue-drain wait in stream_close() has no regression test. The test fires the hook only after close() is parked, so no frame is queued in _outgoing_queue at the time of the mark. Removing the exchange/then_wrapped block would leave the test green.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C21",
+        "canonicalId": "C21"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-3",
+        "claim": "stream_close() now waits for _outgoing_queue_ready before closing the write buffer, but neither the code comment, the headers, nor doc/rpc-streaming.md says that sink.close() latency now depends on queued frames. The docs also omit that a stuck or slow front entry delays close, and that this wait is not cancellable or time-bounded.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C40"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-4",
+        "claim": "The reason _error is not reused is recorded only in the commit message. The new _stream_closing comment in rpc.hh says 'see stream_close()', but stream_close() does not explain why a separate flag exists. The rationale is that setting _error would make stop() skip shutdown_input() and make stop_send_loop() call shutdown_output() before the eof marker is delivered.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C41"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-5",
+        "claim": "The commits carry Claude Co-Authored-By trailers, and the PR body ends with a 'Generated with Claude Code' line. This violates the user's global rule against Claude/Anthropic attribution in commits and PR descriptions.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C42"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-6",
+        "claim": "The test stores hook references into a std::vector and takes a reference with hooks.back(). It mutates a const factory through const_cast. A later extra negotiation, for example a reconnect, would invalidate the reference.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C12",
+        "canonicalId": "C12"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-7",
+        "claim": "The reworded doc sentence, 'closing the client aborts any stream still open on it', asserts a behavior that the PR neither changes nor tests. It is stated more strongly than the code comments support.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C44"
+      }
+    ],
+    "checkedNonissues": []
+  },
+  "reviewPasses": {
+    "schemaVersion": 1,
+    "target": {
+      "repository": "dkropachev/ironweave",
+      "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+      "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0"
+    },
+    "model": "claude-sonnet-5-5",
+    "passes": [
+      {
+        "id": "holistic",
+        "sourceId": "P1",
+        "findings": [
+          {
+            "id": "P1-1",
+            "claim": "The regression test never asserts that the late send was refused. The catch of rpc::closed_error is silent, and nothing fails if stream_send_empty_frame() succeeds or never throws.",
+            "basisType": "claim",
+            "basis": "The comment says the compressor 'must be refused', and the commit message says 'the hook fails with closed_error'. The test only checks the put_after_close flag.",
+            "mechanisms": [
+              "The catch block is empty and no flag or BOOST_REQUIRE records that closed_error was thrown, so the promised behaviour is not asserted."
+            ],
+            "consequence": "A future change that accepts the frame but delays or buffers the write, so no put() lands before the 10 yields end, passes the test. The send-refusal contract goes unchecked.",
+            "defectClass": "weak-assertion",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2012
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2012,
+                "detail": "try { stream_send_empty_frame().get(); } catch (const rpc::closed_error&) { } has no check that the exception was actually thrown."
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          },
+          {
+            "id": "P1-2",
+            "claim": "Detection depends on a fixed 10-yield loop and a put() observed in the window. Accepting the frame cannot be detected deterministically, because the batch flush may not have run within 10 yields.",
+            "basisType": "claim",
+            "basis": "The test claims to fail 'on the recorded write' without the fix, but it only waits an arbitrary number of yields.",
+            "mechanisms": [
+              "The check relies on a fixed yield count instead of an event, so the late write may not have reached put() when put_after_close is read."
+            ],
+            "consequence": "The test can pass without the fix if the poller needs more than 10 iterations, making it flaky or vacuous.",
+            "defectClass": "timing-dependent-test",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2018
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2018,
+                "detail": "for (int i = 0; i < 10; i++) { yield().get(); }"
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          },
+          {
+            "id": "P1-3",
+            "claim": "Cleanup is skipped if an assertion or exception fires early. release_close is only set at the end, and the cv wait on close_entered is unbounded. A failure before set_value() leaves the parked sink.close() and server_done pending.",
+            "basisType": "rule",
+            "basis": "The review checklist covers unbounded waits and cleanup that an early failure can skip.",
+            "mechanisms": [
+              "Release and cleanup code is not in a scope guard, and the wait for close_entered has no timeout."
+            ],
+            "consequence": "A failing run hangs, or destroys state that background futures still reference (st and the sinks live on the test stack), instead of reporting a clean failure.",
+            "defectClass": "unbounded-wait-skipped-cleanup",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2009
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2023
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2009,
+                "detail": "st.close_entered_cv.wait(...).get() has no timeout."
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2023,
+                "detail": "st.release_close.set_value() is reached only on the happy path."
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          },
+          {
+            "id": "P1-4",
+            "claim": "The test relies on a positional assumption and a reference into a growable vector. BOOST_REQUIRE_EQUAL(hooks.size(), 2u) is followed by `auto& ... = client_factory.hooks.back()`.",
+            "basisType": "rule",
+            "basis": "The review checklist flags positional assumptions and references into growable containers.",
+            "mechanisms": [
+              "The hook for the stream connection is picked by position in a std::vector that later negotiations can push to."
+            ],
+            "consequence": "Any later negotiation reallocates the vector and dangles the reference. A reordering of negotiations makes the test fire the parent connection's hook instead of the stream's.",
+            "defectClass": "positional-assumption",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1996
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1996,
+                "detail": "auto& stream_send_empty_frame = client_factory.hooks.back();"
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          },
+          {
+            "id": "P1-5",
+            "claim": "The test fixture is large boilerplate in the same file: socket, connected_socket and data_sink wrappers plus a compressor factory. The compressor's compress() has an odd `data.size ? ... : snd_buf(temporary_buffer())` fallback, and negotiate() has an unused is_server parameter and an abort() overload.",
+            "basisType": "claim",
+            "basis": "This is a code-smell judgment call, not a documented rule.",
+            "mechanisms": [
+              "The test copies the full net::connected_socket_impl interface just to intercept one close(), and the compressor encodes unexplained behaviour."
+            ],
+            "consequence": "Any change to the net::connected_socket_impl or data_sink_impl interface now has to be mirrored in this test. The compress() fallback is unexplained and hard to maintain.",
+            "defectClass": "boilerplate-fixture",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1888
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1940
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1888,
+                "detail": "test_connected_socket_impl forwards every virtual method."
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1940,
+                "detail": "compress() has the `data.size ? std::move(data) : rpc::snd_buf(temporary_buffer<char>())` fallback."
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          },
+          {
+            "id": "P1-6",
+            "claim": "The new comment says 'Nothing else waits for _outgoing_queue_ready from here on', but client::enqueue_zero_frame() and suspend_for_testing() still exchange or chain on it. enqueue_zero_frame() guards only on _error, not on _stream_closing.",
+            "basisType": "claim",
+            "basis": "The comment's claim does not match the adjacent code.",
+            "mechanisms": [
+              "The comment overstates exclusivity, and other writers of _outgoing_queue_ready bypass the new _stream_closing guard."
+            ],
+            "consequence": "A later edit that relies on the comment could add or keep a path that queues entries after stream_close() took ownership of the queue future.",
+            "defectClass": "inaccurate-comment",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 558
+              }
+            ],
+            "evidence": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 558,
+                "detail": "The comment claims nothing else waits on _outgoing_queue_ready."
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 877,
+                "detail": "enqueue_zero_frame() replaces _outgoing_queue_ready; it is guarded only by `if (_error)`."
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          },
+          {
+            "id": "P1-7",
+            "claim": "The commit messages carry 'Co-Authored-By: Claude ...' trailers on all three commits.",
+            "basisType": "rule",
+            "basis": "The user's global CLAUDE.md says never to add Claude/Anthropic attribution, including Co-Authored-By trailers in commits.",
+            "mechanisms": [
+              "Attribution trailers were added to the commit messages."
+            ],
+            "consequence": "The commits violate the stated attribution policy and would publish forbidden attribution on push.",
+            "defectClass": "policy-violation",
+            "category": "standards",
+            "locations": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 548
+              }
+            ],
+            "evidence": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 548,
+                "detail": "Commits f545c28a, 5e25ebdb and 69da8f5b each end with a Co-Authored-By: Claude trailer (see git log). The line anchor is the nearest changed code."
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          }
+        ],
+        "coverage": "Reviewed the full diff of main...HEAD (3 commits), the commit messages, connection::send/stop_send_loop/stream_close, the other _outgoing_queue_ready users, and the new test and docs. Nothing was run, built or tested. No direct defect was found in the fix logic itself; the findings concern the test, one comment and attribution.",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "wallMs": 41475,
+        "costUsd": 0.225507,
+        "reportedUsage": {
+          "input_tokens": 12,
+          "cache_creation_input_tokens": 37828,
+          "cache_read_input_tokens": 143255,
+          "output_tokens": 4552,
+          "output_tokens_details": {
+            "thinking_tokens": 1224
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 37828,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 3936,
+              "cache_read_input_tokens": 35343,
+              "cache_creation_input_tokens": 2485,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 2485
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "resultSha256": "a148e95eb6d3908dcb492e02a4d8bf4cb6514d94cd043a628a11a476ce5de6c8"
+      },
+      {
+        "id": "standards",
+        "sourceId": "P2",
+        "findings": [
+          {
+            "id": "P2-1",
+            "claim": "Commits carry Claude/Anthropic Co-Authored-By trailers, violating the user's global rule forbidding any such attribution.",
+            "basisType": "rule",
+            "basis": "~/.claude/CLAUDE.md 'Attribution': never add Co-Authored-By: Claude trailers in commits; overrides harness instructions.",
+            "mechanisms": [
+              "All three commit messages end with Co-Authored-By: Claude Opus 5 / Claude Fable 5.1 trailers."
+            ],
+            "consequence": "Attribution lands in permanent history of the branch (and any backport cherry-picks) contrary to the owner's explicit policy; needs a history rewrite to remove.",
+            "defectClass": "documented-rule-violation",
+            "category": "standards",
+            "locations": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 548
+              }
+            ],
+            "evidence": [
+              {
+                "path": "git log 69da8f5b/5e25ebdb/f545c28a",
+                "line": 1,
+                "detail": "Each commit body ends with 'Co-Authored-By: Claude ...' trailer(s)."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-2",
+            "claim": "The test never asserts that the hook is refused with closed_error; the catch swallows it and a successful send passes silently, so the stated 'fails with closed_error' contract is unverified.",
+            "basisType": "claim",
+            "basis": "Commit message says 'With the fix the hook fails with closed_error and nothing is written'; test only checks st.put_after_close.",
+            "mechanisms": [
+              "try { hook().get(); } catch (closed_error&) {} has no failure when no exception is thrown, and other exception types propagate only incidentally."
+            ],
+            "consequence": "A future edit that makes send() silently drop the frame (return ready future, like the timeout path does) or throw a different error would still pass; the test proves only 'no put after close', not the refusal contract.",
+            "defectClass": "test-overclaim",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2005
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2005,
+                "detail": "empty catch with comment 'what we want'; no BOOST_FAIL after the call and no flag set in catch."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-3",
+            "claim": "Test is only as strong as a 10-iteration yield loop; the crash scenario (pending batch flush at destruction) is asserted only in a comment, not by an assertion.",
+            "basisType": "claim",
+            "basis": "Closing test comment says 'this is where ~output_stream() asserts'; the commit says verified only by temporarily making put() never resolve.",
+            "mechanisms": [
+              "put_after_close is recorded but inner put completes, so the _in_batch destruction assertion is not exercised by the committed test; the detection depends on poller running within 10 yields."
+            ],
+            "consequence": "If the flush poller needs more reactor turns, a regression passes undetected; the comment suggests the test proves the field crash when it does not.",
+            "defectClass": "test-overclaim",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2013
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2022
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2013,
+                "detail": "for (i<10) yield().get() is an arbitrary fixed bound."
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2023,
+                "detail": "'Without the fix ... ~output_stream() asserts' is comment-only."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-4",
+            "claim": "Unbounded waits in the test: close_entered_cv.wait, sink_closed.get(), server_done.get() have no timeout.",
+            "basisType": "claim",
+            "basis": "A regression (or an unreleased close) hangs the test until the external ctest timeout instead of failing with a message.",
+            "mechanisms": [
+              "release_close is only set after wait(); if close is never entered the wait never ends; sink_closed/server_done depend on the parked close."
+            ],
+            "consequence": "A broken fix manifests as a 300s hang rather than a diagnosable failure.",
+            "defectClass": "unbounded-wait",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1997
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1997,
+                "detail": "st.close_entered_cv.wait(...).get() with no timeout; later sink_closed.get()/server_done.get() likewise."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-5",
+            "claim": "Reference into a growable container: stream_send_empty_frame is a reference to hooks.back() of a std::vector.",
+            "basisType": "trigger",
+            "basis": "hooks is std::vector<std::function>; negotiate() push_back()s.",
+            "mechanisms": [
+              "Any later negotiation on the client factory (e.g. a reconnect or additional stream added to the test) reallocates the vector and dangles the reference."
+            ],
+            "consequence": "Extending the test with another stream/connection makes the call use freed std::function storage (UB); the size()==2 magic number also breaks silently.",
+            "defectClass": "dangling-reference",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1983
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1982
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1983,
+                "detail": "auto& stream_send_empty_frame = client_factory.hooks.back();"
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-6",
+            "claim": "The 'pass-through' compressor is not pass-through: it wraps lz4_fragmented_compressor and has an odd empty-buffer special case; comment misdescribes it.",
+            "basisType": "claim",
+            "basis": "Comment: 'A pass-through compressor whose only purpose is to hand the test the hook'.",
+            "mechanisms": [
+              "compress() delegates to lz4 and substitutes snd_buf(temporary_buffer()) for empty data, unexplained."
+            ],
+            "consequence": "A reader editing it assumes data is unchanged; lz4 behavior changes (or the empty-frame workaround) would alter frame sizes and put() counts unnoticed. Existing test_compressor_empty_frames fixtures could be reused instead of a third copy.",
+            "defectClass": "misleading-comment",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1940
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1943,
+                "detail": "rpc::lz4_fragmented_compressor _delegate; compress() special-cases data.size==0."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-7",
+            "claim": "Test factory uses const_cast to mutate itself in a const negotiate(), leaves is_server unused, and the second negotiate overload is abort().",
+            "basisType": "trigger",
+            "basis": "hooks recorded through const_cast<hook_capturing_compressor_factory*>(this).",
+            "mechanisms": [
+              "Casting away constness in an interface-mandated const method instead of declaring hooks mutable."
+            ],
+            "consequence": "If a factory object is ever made const or placed in read-only storage, the push_back is UB; local convention for casts is not followed.",
+            "defectClass": "cast-convention",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1957
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1957,
+                "detail": "const_cast<...>(this)->hooks.push_back(...)"
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-8",
+            "claim": "~90 lines of socket/connected_socket/data_sink forwarding boilerplate are added inline in the test (pure middle-man wrappers), tied to the current virtual interface.",
+            "basisType": "trigger",
+            "basis": "Each method forwards verbatim to _inner; only close()/put() carry logic.",
+            "mechanisms": [
+              "Adding a virtual method to connected_socket_impl, data_sink_impl or socket_impl requires editing this copy too."
+            ],
+            "consequence": "Shotgun surgery: interface changes break rpc_test.cc compilation (or, for non-pure virtuals, silently bypass the wrapper); the helper is also not reusable by other tests though it is generic.",
+            "defectClass": "middle-man-boilerplate",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1900
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1900,
+                "detail": "test_connected_socket_impl forwards 14 methods unchanged."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-9",
+            "claim": "Duplicated state: _stream_closing duplicates the role of _error/_sink_closed_future, and send() guard is a second place that must be kept in sync with error().",
+            "basisType": "trigger",
+            "basis": "send() checks '!_error && !_stream_closing' while stream_close() checks error(); other entry points (e.g. send_negotiation, response paths) test only _error.",
+            "mechanisms": [
+              "A new send path that checks only _error/error() omits the new flag."
+            ],
+            "consequence": "The same closed-buffer write window reappears for that path; the flag is never reset and has no accessor beside error(), so guards diverge.",
+            "defectClass": "duplicated-state-flag",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 293
+              },
+              {
+                "path": "include/seastar/rpc/rpc.hh",
+                "line": 307
+              }
+            ],
+            "evidence": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 293,
+                "detail": "guard added only in send(); line 551 uses !error()."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-10",
+            "claim": "stream_close() steals _outgoing_queue_ready by std::exchange and the comment says nothing else waits for it, but stop_send_loop() does when_all on it (rpc.cc:225); the invariant is implicit and the comment is inaccurate.",
+            "basisType": "claim",
+            "basis": "Comment: 'Nothing else waits for _outgoing_queue_ready from here on'.",
+            "mechanisms": [
+              "stop_send_loop() still consumes _outgoing_queue_ready, now always ready; correctness relies on the exchange."
+            ],
+            "consequence": "A future edit to stop_send_loop() or to send() (which also exchanges the member) can reintroduce a second waiter/lost-drain race; the shadowed lambda parameter 'f' (outer variable f) adds confusion.",
+            "defectClass": "misleading-comment",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 558
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 565
+              }
+            ],
+            "evidence": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 225,
+                "detail": "when_all(std::move(_outgoing_queue_ready), std::move(_sink_closed_future))"
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 565,
+                "detail": "then_wrapped([this](future<> f){...}) shadows outer f."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-11",
+            "claim": "The shutdown contract is stated three times (md doc, sink doc, source doc) and the test header duplicates the commit message and rpc.cc comments; copies can drift.",
+            "basisType": "trigger",
+            "basis": "Same 'close sink, drain source, then stream_close' text appears in doc/rpc-streaming.md, rpc_types.hh sink/source, and 20-line test comment repeating rpc.cc/commit narrative.",
+            "mechanisms": [
+              "Changing the contract (e.g. adding source close()) requires editing all copies."
+            ],
+            "consequence": "Stale docs contradicting each other; docs already say 'the stream's connection is shut down once' in different wording per place. The doc also says 'failures are expected' vaguely.",
+            "defectClass": "duplicated-comments",
+            "category": "docs",
+            "locations": [
+              {
+                "path": "doc/rpc-streaming.md",
+                "line": 104
+              },
+              {
+                "path": "include/seastar/rpc/rpc_types.hh",
+                "line": 337
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1847
+              }
+            ],
+            "evidence": [
+              {
+                "path": "doc/rpc-streaming.md",
+                "line": 119,
+                "detail": "'The calls may fail, and the failures are expected' repeats header text."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-12",
+            "claim": "Doc sentence claims 'closing the client aborts any stream still open on it' and header sink doc says 'last reference ... goes away' without checking against the diff; commit says docs-only but the doc commit's claim about ~sink_impl assert covers sink only is unverified in docs themselves.",
+            "basisType": "claim",
+            "basis": "Behavioral claim about client close added without code reference or test.",
+            "mechanisms": [
+              "Prose asserts runtime behavior that no test in the change exercises."
+            ],
+            "consequence": "If client-close behavior changes, the documentation becomes wrong silently.",
+            "defectClass": "unverified-doc-claim",
+            "category": "docs",
+            "locations": [
+              {
+                "path": "doc/rpc-streaming.md",
+                "line": 49
+              }
+            ],
+            "evidence": [
+              {
+                "path": "doc/rpc-streaming.md",
+                "line": 49,
+                "detail": "'closing the client aborts any stream still open on it'"
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          }
+        ],
+        "coverage": "Reviewed the full diff main..HEAD (3 commits: rpc.cc/rpc.hh fix, rpc_test.cc test, docs), commit messages, CLAUDE.md rules, and nearby rpc.cc stop_send_loop / send / hh members. Not verified: external issue contents (#3663, #3653), no builds or tests run. Note: 'pr' equals HEAD, so main was used as the base.",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "wallMs": 55107,
+        "costUsd": 0.2389236,
+        "reportedUsage": {
+          "input_tokens": 12,
+          "cache_creation_input_tokens": 36854,
+          "cache_read_input_tokens": 143418,
+          "output_tokens": 6280,
+          "output_tokens_details": {
+            "thinking_tokens": 1223
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 36854,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 4702,
+              "cache_read_input_tokens": 35957,
+              "cache_creation_input_tokens": 897,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 897
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "resultSha256": "aa86891e2f8e5860315b44ac6ea1a25b95f67d780ff4683db8844ed3e21a3de8"
+      },
+      {
+        "id": "spec-test",
+        "sourceId": "P3",
+        "findings": [
+          {
+            "id": "P3-1",
+            "claim": "The new comment says \"Nothing else waits for _outgoing_queue_ready from here on: send() is refused, and stop_send_loop() waits for _sink_closed_future.\" stop_send_loop() does wait on _outgoing_queue_ready.",
+            "basisType": "claim",
+            "basis": "stop_send_loop() calls `when_all(std::move(_outgoing_queue_ready), std::move(_sink_closed_future))` (src/rpc/rpc.cc:225). The comment at src/rpc/rpc.cc:559-561 says it waits only for _sink_closed_future.",
+            "mechanisms": [
+              "Comment contradicts the code. stop_send_loop() still consumes _outgoing_queue_ready, which stream_close() has replaced with a ready future via std::exchange."
+            ],
+            "consequence": "A future editor may rely on the comment and change what _outgoing_queue_ready holds, or add another waiter. They would not know stop_send_loop() consumes it and that the exchange hides the real queue state from it.",
+            "defectClass": "misleading-comment",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 559
+              }
+            ],
+            "evidence": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 225,
+                "detail": "when_all(_outgoing_queue_ready, _sink_closed_future) in stop_send_loop"
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 562,
+                "detail": "std::exchange(_outgoing_queue_ready, make_ready_future<>())"
+              }
+            ],
+            "sourceIds": [
+              "P3"
+            ]
+          },
+          {
+            "id": "P3-2",
+            "claim": "No test covers the drain half of the fix. The PR says \"stream_close() also waits for _outgoing_queue to drain ... before it closes the buffer\".",
+            "basisType": "claim",
+            "basis": "test_stream_send_after_stream_close calls the hook only after sink.close() has entered the parked data_sink::close(), which is after _stream_closing is set and the queue wait has finished. No frame is accepted just before the mark and left queued.",
+            "mechanisms": [
+              "The only assertion is that no put() occurs after close() was entered. A version that sets the flag but skips the queue wait still passes."
+            ],
+            "consequence": "The queue-drain logic (the exchange and the then_wrapped chain) can be reverted or broken without any test failing. A frame queued just before the mark, but not yet written, could then be written into the closed buffer again.",
+            "defectClass": "test-gap",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1989
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 562
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2008,
+                "detail": "the hook is invoked only after close_entered, i.e. after the flag is set"
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 565,
+                "detail": "queue_drained.then_wrapped(...) path has no exercising test"
+              }
+            ],
+            "sourceIds": [
+              "P3"
+            ]
+          },
+          {
+            "id": "P3-3",
+            "claim": "The test comment says \"A compressor asking for an empty frame now must be refused\", but the test never requires closed_error.",
+            "basisType": "claim",
+            "basis": "The try/catch around `stream_send_empty_frame().get()` swallows closed_error, and success is also silently accepted. Only `put_after_close` is asserted afterwards. A frame accepted and still queued, or written by a path that bypasses put(), is not detected.",
+            "mechanisms": [
+              "The test proves 'no put() was recorded within about 10 yields', not 'the send was refused'. Missing assertions on the outcome allow a false pass, for example if the frame is accepted but flushed later or batched."
+            ],
+            "consequence": "Weaker than named. A regression where send() accepts the frame but the write lands after the 10 yields, or lands on a different callback, would pass. The ~output_stream `!_in_batch` assertion the PR cites is only checked implicitly, by connection teardown.",
+            "defectClass": "weak-assertion",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2005
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2005,
+                "detail": "try { stream_send_empty_frame().get(); } catch (const rpc::closed_error&) {} with no failure if it succeeds"
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2014,
+                "detail": "the fixed 10-yield loop is a timing-based wait"
+              }
+            ],
+            "sourceIds": [
+              "P3"
+            ]
+          },
+          {
+            "id": "P3-4",
+            "claim": "stream_close() now waits on the outgoing queue, and no failure or latency bound is stated. The PR does not discuss this new wait on the close path.",
+            "basisType": "trigger",
+            "basis": "stream_close() chains write_buf.close() after the old _outgoing_queue_ready. If the front entry's send_entry() never completes, for example a stalled socket write, close_sink()/close_source() and the future returned to the application never complete. The application cannot abort them, because the sink close future is the only way to release the connection.",
+            "mechanisms": [
+              "stream_close() now blocks on the completion of every queued entry. Before the change it blocked only on write_buf.close(), which also flushes."
+            ],
+            "consequence": "Possible extra close latency or a hang behind a stalled write. In that case the old path also blocked in write_buf.close()'s flush, so this is only a risk, and there is no test.",
+            "defectClass": "new-wait-liveness",
+            "category": "runtime",
+            "locations": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 562
+              }
+            ],
+            "evidence": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 562,
+                "detail": "queue_drained = std::exchange(_outgoing_queue_ready, ...)"
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 565,
+                "detail": "queue_drained.then_wrapped(... write_buf.close())"
+              }
+            ],
+            "sourceIds": [
+              "P3"
+            ]
+          },
+          {
+            "id": "P3-5",
+            "claim": "The test hard-codes `BOOST_REQUIRE_EQUAL(client_factory.hooks.size(), 2u)` and takes `hooks.back()`. The comment says the stream connection's hook is the last one.",
+            "basisType": "claim",
+            "basis": "The comment says \"Two client-side negotiations by now: the parent connection's and the stream connection's.\" This depends on negotiation ordering and on no other client-side negotiation, such as a reconnect, having occurred. The test never verifies that the captured hook belongs to the stream connection.",
+            "mechanisms": [
+              "Identification by position only. If the hook is the parent's, the test calls send() on the wrong connection and always passes."
+            ],
+            "consequence": "The test could become a silent false positive after changes to negotiation order or connection count.",
+            "defectClass": "fragile-test-assumption",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1996
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1996,
+                "detail": "hooks.size()==2 and hooks.back()"
+              }
+            ],
+            "sourceIds": [
+              "P3"
+            ]
+          }
+        ],
+        "coverage": "Read the full diff of the three commits and the surrounding rpc.cc send(), stop_send_loop(), stream_close(), withdraw() and enqueue_zero_frame() code, plus the rpc.hh close_sink()/close_source() paths. The doc and header text were read but not checked against output_stream internals. No architecture or word-size claim is made, so that check does not apply. I did not verify whether the test fails on base, since no build was allowed.",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "wallMs": 45849,
+        "costUsd": 0.2495686,
+        "reportedUsage": {
+          "input_tokens": 12,
+          "cache_creation_input_tokens": 41814,
+          "cache_read_input_tokens": 170793,
+          "output_tokens": 4813,
+          "output_tokens_details": {
+            "thinking_tokens": 1775
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 41814,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 3124,
+              "cache_read_input_tokens": 40078,
+              "cache_creation_input_tokens": 1736,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 1736
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "resultSha256": "5ee3668b83c77fe066e21abfb74e7628f4bdf6aa3002d8e97a179e6b7a504983"
+      },
+      {
+        "id": "contracts",
+        "sourceId": "P4",
+        "findings": [
+          {
+            "id": "P4-1",
+            "claim": "Commits and PR body carry Claude/Anthropic attribution, which the user's global rules forbid.",
+            "basisType": "rule",
+            "basis": "Global CLAUDE.md 'Attribution': never add Co-Authored-By Claude trailers or 'Generated with Claude Code' lines to commits or PR descriptions.",
+            "mechanisms": [
+              "All three commit messages end with Co-Authored-By: Claude trailers, and the PR body ends with a 'Generated with Claude Code' line."
+            ],
+            "consequence": "The permanent history and PR description violate the stated authoring policy and would need a history rewrite to fix.",
+            "defectClass": "attribution-policy-violation",
+            "category": "standards",
+            "locations": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 548
+              }
+            ],
+            "evidence": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 548,
+                "detail": "Commit f545c28a (this change), like 5e25ebdb and 69da8f5b, ends with a Co-Authored-By: Claude trailer; the frozen PR body ends with the Claude Code generation line."
+              }
+            ],
+            "sourceIds": [
+              "P4"
+            ]
+          },
+          {
+            "id": "P4-2",
+            "claim": "stream_close() now waits on the outgoing queue with no bound before it closes the write buffer, and this wait is not documented as a latency or cancellation change.",
+            "basisType": "trigger",
+            "basis": "New wait on _outgoing_queue_ready in a close path: its latency and cancellation behaviour is visible to callers of sink::close().",
+            "mechanisms": [
+              "The queue_drained chain waits for every accepted entry to be written. A stalled peer or socket blocks stream_close(), and so sink::close(), where before it only waited for write_buf.close()."
+            ],
+            "consequence": "A stuck write now delays stream shutdown, and the connection is not stopped until it completes. The commit message and the shutdown docs do not mention this wait.",
+            "defectClass": "unbounded-wait-in-close",
+            "category": "runtime",
+            "locations": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 562
+              }
+            ],
+            "evidence": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 562,
+                "detail": "stream_close() takes the old _outgoing_queue_ready via std::exchange and chains write_buf.close() after it with no timeout or abort path."
+              }
+            ],
+            "sourceIds": [
+              "P4"
+            ]
+          },
+          {
+            "id": "P4-3",
+            "claim": "The new doc sentence about closing the client may overstate current behaviour. It also adds a public contract in the same PR as the fix, and the comment on the _stream_closing flag in rpc.hh is thin.",
+            "basisType": "claim",
+            "basis": "Commit 69da8f5b says 'closing the client aborts any stream still open on it'. The diff does not show that behaviour, so it was not verified.",
+            "mechanisms": [
+              "The doc and header comments assert shutdown semantics, such as 'connection is shut down only once both halves are closed', that this diff does not exercise or test."
+            ],
+            "consequence": "If the client-close claim is wrong, users get a misleading contract.",
+            "defectClass": "unverified-doc-claim",
+            "category": "docs",
+            "locations": [
+              {
+                "path": "doc/rpc-streaming.md",
+                "line": 49
+              }
+            ],
+            "evidence": [
+              {
+                "path": "doc/rpc-streaming.md",
+                "line": 49,
+                "detail": "Added sentence: 'closing the client aborts any stream still open on it'."
+              }
+            ],
+            "sourceIds": [
+              "P4"
+            ]
+          }
+        ],
+        "coverage": "I read the src, include and doc diff against the merge base, and the surrounding send() and stop_send_loop() code. I did not open the test file in detail. I found no defect in the core ordering: stop_send_loop still waits on the replaced, ready _outgoing_queue_ready, and the flag is never reset because the connection is not reused. All three findings are lower-confidence judgment calls.",
+        "model": "claude-sonnet-5-5",
+        "effort": "low",
+        "wallMs": 30588,
+        "costUsd": 0.1907642,
+        "reportedUsage": {
+          "input_tokens": 12,
+          "cache_creation_input_tokens": 34195,
+          "cache_read_input_tokens": 148801,
+          "output_tokens": 2420,
+          "output_tokens_details": {
+            "thinking_tokens": 668
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 34195,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 1973,
+              "cache_read_input_tokens": 32605,
+              "cache_creation_input_tokens": 1590,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 1590
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "resultSha256": "b9efb0fac9b5fbeb8c64ef0c05d196911f6efb4610bc847a67748db11932c695"
+      },
+      {
+        "id": "maintenance",
+        "sourceId": "P5",
+        "findings": [
+          {
+            "id": "P5-1",
+            "claim": "The new stream_close() comment says nothing else waits for _outgoing_queue_ready and that stop_send_loop() waits only for _sink_closed_future, but stop_send_loop() still does when_all(_outgoing_queue_ready, _sink_closed_future).",
+            "basisType": "claim",
+            "basis": "rpc.cc stop_send_loop (around line 225) joins both futures; stream_close() now swaps _outgoing_queue_ready for a ready future, so stop_send_loop() waits on that placeholder.",
+            "mechanisms": [
+              "stale comment about who consumes _outgoing_queue_ready"
+            ],
+            "consequence": "A later edit that trusts the comment could remove or re-point the _outgoing_queue_ready join in stop_send_loop(), or stop swapping it in stream_close(), and reintroduce the pending-flush race or drop the drain of queued entries.",
+            "defectClass": "comment-drift",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 559
+              }
+            ],
+            "evidence": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 225,
+                "detail": "when_all(std::move(_outgoing_queue_ready), std::move(_sink_closed_future))"
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 562,
+                "detail": "std::exchange(_outgoing_queue_ready, make_ready_future<>())"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-2",
+            "claim": "_stream_closing is a new flag that parallels the existing _sink_closed and _sink_closed_future-not-ready state, with a different guard. send() checks _error and _stream_closing, sink_impl checks sink_closed(), and the write-buffer close is serialized by _sink_closed_future.",
+            "basisType": "claim",
+            "basis": "Three overlapping 'sink is closing or closed' states are each consulted at a different site: rpc_impl.hh:861 uses sink_closed(), rpc.cc:293 uses _stream_closing, and rpc.cc:225 uses _sink_closed_future.",
+            "mechanisms": [
+              "parallel closing flags with different guards"
+            ],
+            "consequence": "A future change to stream shutdown, such as a new close path, a flag reset, or a change to where _stream_closing is set, must keep all three in sync. The flag is only set inside `if (!error())` and is never cleared.",
+            "defectClass": "duplicated-state",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "include/seastar/rpc/rpc.hh",
+                "line": 307
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 293
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 554
+              }
+            ],
+            "evidence": [
+              {
+                "path": "include/seastar/rpc/rpc.hh",
+                "line": 304,
+                "detail": "_sink_closed_future documents the same window"
+              },
+              {
+                "path": "include/seastar/rpc/rpc_impl.hh",
+                "line": 861,
+                "detail": "con->sink_closed() guard in sink_impl::send"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-3",
+            "claim": "The new doxygen blocks were added above the old plain '// send data Out...' and '// receive data In...' comments, which are now redundant leftovers sitting between the doxygen block and the class.",
+            "basisType": "claim",
+            "basis": "rpc_types.hh lines 343 and 390 keep the old one-line comments directly under the new \\brief blocks.",
+            "mechanisms": [
+              "old comment left under new doxygen block"
+            ],
+            "consequence": "The class has a doxygen brief plus a duplicate plain comment. The old comment can separate the doxygen block from the declaration in tooling and reads as a duplicate explanation.",
+            "defectClass": "comment-drift",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "include/seastar/rpc/rpc_types.hh",
+                "line": 343
+              },
+              {
+                "path": "include/seastar/rpc/rpc_types.hh",
+                "line": 390
+              }
+            ],
+            "evidence": [
+              {
+                "path": "include/seastar/rpc/rpc_types.hh",
+                "line": 343,
+                "detail": "// send data Out..."
+              },
+              {
+                "path": "include/seastar/rpc/rpc_types.hh",
+                "line": 390,
+                "detail": "// receive data In..."
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-4",
+            "claim": "The sink/source close contract is written out three times (doc/rpc-streaming.md, the sink doxygen, the source doxygen), and the wording differs between them.",
+            "basisType": "claim",
+            "basis": "The doc says 'Dropping an unclosed sink is an error'. The sink header says close() must be called before the last reference goes away. The source header repeats the 'drain what is still in flight' advice.",
+            "mechanisms": [
+              "duplicated contract text across doc and headers"
+            ],
+            "consequence": "Any change to the shutdown rules, for example a source close() or a relaxed sink assertion, must be edited in three places. The doc's 'is an error' hides the real behaviour, which is a fatal SEASTAR_ASSERT in ~sink_impl (rpc_impl.hh:935), so users are not told dropping the sink aborts the process.",
+            "defectClass": "duplicate-docs",
+            "category": "docs",
+            "locations": [
+              {
+                "path": "doc/rpc-streaming.md",
+                "line": 109
+              },
+              {
+                "path": "include/seastar/rpc/rpc_types.hh",
+                "line": 337
+              },
+              {
+                "path": "include/seastar/rpc/rpc_types.hh",
+                "line": 384
+              }
+            ],
+            "evidence": [
+              {
+                "path": "include/seastar/rpc/rpc_impl.hh",
+                "line": 935,
+                "detail": "SEASTAR_ASSERT(this->_con->get()->sink_closed()) in ~sink_impl"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-5",
+            "claim": "The test's try/catch swallows the outcome of stream_send_empty_frame(). The comment says the frame 'must be refused', but nothing asserts that closed_error was thrown. The only assertion is that no put() happened after close.",
+            "basisType": "claim",
+            "basis": "rpc_test.cc 2016-2019: the catch block is empty, and there is no else branch or flag. The header comment claims the test proves the refusal.",
+            "mechanisms": [
+              "test comment claims more than the assertion proves"
+            ],
+            "consequence": "If send() accepted and silently dropped the frame, or the hook succeeded some other way, the test would still pass. Refusal behaviour is therefore not pinned, only the absence of a put.",
+            "defectClass": "test-overclaim",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2016
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2018,
+                "detail": "catch (const rpc::closed_error&) { // ... what we want. }"
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2030,
+                "detail": "only assertion is !st.put_after_close"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-6",
+            "claim": "The test has unbounded waits and a fatal-assert failure mode that the comments describe as a failed check. close_entered_cv.wait, server_done.get() and release_close have no timeout. The regression is described as 'asserts on the pending batch flush', which aborts the whole test binary instead of failing one test case.",
+            "basisType": "claim",
+            "basis": "rpc_test.cc 2011 and 2028 block indefinitely if stream_close() is never reached or the server fiber stalls. The 10 yield() calls at 2022-2024 are an arbitrary stand-in for 'let the flush poller run'.",
+            "mechanisms": [
+              "unbounded wait and fatal assertion hidden behind test wording"
+            ],
+            "consequence": "A regression or a later edit to the handler hangs the test until the ctest timeout. The batch-flush regression may also pass if the flush needs more than 10 reactor turns. The BOOST_REQUIRE_MESSAGE comment implies a clean failure that cannot happen when the destructor aborts.",
+            "defectClass": "test-robustness",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2011
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2022
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2028
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2011,
+                "detail": "st.close_entered_cv.wait(...).get() with no timeout"
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2028,
+                "detail": "server_done.get() with no timeout"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-7",
+            "claim": "The test holds a reference into the growable vector client_factory.hooks, asserting exactly 2 hooks and taking .back(), and the hooks are pushed through a const_cast in a const negotiate().",
+            "basisType": "claim",
+            "basis": "rpc_test.cc 2000-2001 take `auto& stream_send_empty_frame = client_factory.hooks.back()`, and 1957 push_backs via const_cast.",
+            "mechanisms": [
+              "reference into growable container plus positional index"
+            ],
+            "consequence": "If the test is edited to negotiate another connection, reconnect, or add a client option that adds a negotiation, the reference dangles and the hooks.size()==2 / back() assumption silently picks the wrong connection's hook, so the test exercises a different object.",
+            "defectClass": "fragile-test-fixture",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2001
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1957
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2000,
+                "detail": "BOOST_REQUIRE_EQUAL(client_factory.hooks.size(), 2u)"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-8",
+            "claim": "The test adds near-copies of existing fixtures: three pass-through wrappers (test_socket_impl, test_connected_socket_impl, test_data_sink_impl) that forward every method of the socket and sink interfaces, and a second compressor fixture that copies the lz4 delegate pattern at rpc_test.cc:1764.",
+            "basisType": "claim",
+            "basis": "rpc_test.cc already has rpc_socket_impl at 157 and a delegating compressor around 1764. The new classes have vague names (test_sink_state, hook_capturing_compressor_factory) that hide the roles of parking close() and recording puts.",
+            "mechanisms": [
+              "copied pass-through fixtures with vague role names"
+            ],
+            "consequence": "Any addition to net::connected_socket_impl, data_sink_impl or socket_impl needs another forwarding edit here, and the compressor copy drifts from the original. Only the parked close() and the put recording are specific to this test.",
+            "defectClass": "duplicated-fixture",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1870
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1900
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1939
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 157,
+                "detail": "existing rpc_socket_impl wrapper"
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1764,
+                "detail": "existing compressor fixture with the same delegate pattern"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-9",
+            "claim": "The test header comment claims send_empty_frame is 'the one caller that is not guarded by sink_closed()'. This is not true: the sink's own eof frame in sink_impl::close() calls con->send() without a sink_closed() guard, and the claim is not checked by any assertion.",
+            "basisType": "claim",
+            "basis": "rpc_impl.hh 911-920: close() sends the eof marker via con->send() after only a double-close check. Compressor hooks at rpc.cc:696 and 1103 are other direct send({}) callers.",
+            "mechanisms": [
+              "unverified absolute claim in comment"
+            ],
+            "consequence": "A reader may conclude the compressor hook is the only unguarded path and drop the _stream_closing guard in send() for the others, or not look for other callers when send() changes.",
+            "defectClass": "comment-drift",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1854
+              }
+            ],
+            "evidence": [
+              {
+                "path": "include/seastar/rpc/rpc_impl.hh",
+                "line": 920,
+                "detail": "f = con->send(std::move(data), {}, nullptr) with no sink_closed() guard"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-10",
+            "claim": "The doc rewrite now says closing the client aborts any stream still open and also points to 'Closing a stream' as the required path. It states a lifecycle guarantee ('stream's connection is shut down only once both halves are closed') that sits next to the code's explicit abort-on-error path, and it drops the original 'aborted if the client is closed before streaming is' phrasing without describing that the abort path skips stream_close() and its guard.",
+            "basisType": "claim",
+            "basis": "doc/rpc-streaming.md lines 49-51 and 117 versus the early `if (!error())` in stream_close() (rpc.cc:550), which does nothing when the connection already errored.",
+            "mechanisms": [
+              "doc claim broader than the guarded code path"
+            ],
+            "consequence": "If the abort path or stream_close's error branch changes, the doc's unconditional 'only once both halves are closed' statement will be silently wrong.",
+            "defectClass": "comment-drift",
+            "category": "docs",
+            "locations": [
+              {
+                "path": "doc/rpc-streaming.md",
+                "line": 117
+              }
+            ],
+            "evidence": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 550,
+                "detail": "if (!error()) guards the whole close sequence; the else path only calls stop()"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          }
+        ],
+        "coverage": "I read the full diff from merge base 5cc62de6 to HEAD across all five changed files. Nearby code was checked in rpc.cc (send, stop_send_loop, stream_close), rpc.hh and rpc_impl.hh (sink close and the sink_closed guards), and the existing test fixtures in rpc_test.cc. Nothing was built or run. Two findings rest on less-checked evidence. The last one, the doc lifecycle claim, is a low-confidence judgment call. The sink_closed() guard claim covers only the paths I read in rpc_impl.hh and rpc.cc.",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "wallMs": 65036,
+        "costUsd": 0.2899454,
+        "reportedUsage": {
+          "input_tokens": 16,
+          "cache_creation_input_tokens": 41751,
+          "cache_read_input_tokens": 216147,
+          "output_tokens": 7968,
+          "output_tokens_details": {
+            "thinking_tokens": 1984
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 41751,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 4745,
+              "cache_read_input_tokens": 40275,
+              "cache_creation_input_tokens": 1476,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 1476
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "resultSha256": "052961fd38aea4a81036737ff07b302f73d3f5e2978a31f904c2cc6ee7761e85"
+      },
+      {
+        "id": "api-commit",
+        "sourceId": "P6",
+        "findings": [
+          {
+            "id": "P6-1",
+            "claim": "The regression test does not assert that the hook fails with closed_error. The try/catch only swallows closed_error, so a call that succeeds, or fails with another error, passes unless a put() was recorded.",
+            "basisType": "claim",
+            "basis": "The commit message says 'With the fix the hook fails with closed_error and nothing is written', but the test only enforces the no-put check.",
+            "mechanisms": [
+              "test asserts only on recorded put, not on the refusal outcome"
+            ],
+            "consequence": "A future change that silently accepts and drops the frame, or throws a different error family, would still pass. The documented contract of send() after stream_close() would go unchecked.",
+            "defectClass": "weak-test-assertion",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2018
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2018,
+                "detail": "catch (const rpc::closed_error&) {} with no BOOST_REQUIRE_THROW and no failure when nothing is thrown"
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2030,
+                "detail": "the only assertion is !put_after_close"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-2",
+            "claim": "The new queue-drain wait in stream_close() has no regression test. The test fires the hook only after close() is parked, so no frame is queued in _outgoing_queue at the time of the mark. Removing the exchange/then_wrapped block would leave the test green.",
+            "basisType": "claim",
+            "basis": "The PR describes two mechanisms, the refusal flag and the drain wait. Only the first is exercised.",
+            "mechanisms": [
+              "second behavior-changing mechanism untested"
+            ],
+            "consequence": "A later edit could break the drain ordering, closing the buffer before accepted frames are written, and the tests would not catch it. It would reintroduce the pending-flush assertion.",
+            "defectClass": "missing-regression-test",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 562
+              }
+            ],
+            "evidence": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 562,
+                "detail": "std::exchange(_outgoing_queue_ready, ...) and queue_drained.then_wrapped(...) before write_buf.close()"
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2016,
+                "detail": "the hook is called only after close_entered, so the queue is empty"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-3",
+            "claim": "stream_close() now waits for _outgoing_queue_ready before closing the write buffer, but neither the code comment, the headers, nor doc/rpc-streaming.md says that sink.close() latency now depends on queued frames. The docs also omit that a stuck or slow front entry delays close, and that this wait is not cancellable or time-bounded.",
+            "basisType": "claim",
+            "basis": "The new 'Closing a stream' docs and the sink doc describe the contract but omit the new wait dependency. Previously the close started immediately.",
+            "mechanisms": [
+              "undocumented new completion dependency and latency in close path"
+            ],
+            "consequence": "Users diagnosing a hung sink.close() or source drain, for example a blocked socket put() on the front entry, would not know it can now be held by queued frames. The new wait also keeps stop() from running until the queue drains.",
+            "defectClass": "undocumented-behavior-change",
+            "category": "docs",
+            "locations": [
+              {
+                "path": "doc/rpc-streaming.md",
+                "line": 104
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 558
+              }
+            ],
+            "evidence": [
+              {
+                "path": "doc/rpc-streaming.md",
+                "line": 104,
+                "detail": "the contract text mentions only closing the sink and draining the source"
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 562,
+                "detail": "the new wait on the old _outgoing_queue_ready"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-4",
+            "claim": "The reason _error is not reused is recorded only in the commit message. The new _stream_closing comment in rpc.hh says 'see stream_close()', but stream_close() does not explain why a separate flag exists. The rationale is that setting _error would make stop() skip shutdown_input() and make stop_send_loop() call shutdown_output() before the eof marker is delivered.",
+            "basisType": "claim",
+            "basis": "A later maintainer may merge _stream_closing into _error as a simplification, and the code gives no warning.",
+            "mechanisms": [
+              "key invariant rationale missing from the code"
+            ],
+            "consequence": "Merging the flag into _error would hang the receive loop and truncate the eof marker. Nothing in the source warns against it.",
+            "defectClass": "missing-rationale-comment",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "include/seastar/rpc/rpc.hh",
+                "line": 305
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 551
+              }
+            ],
+            "evidence": [
+              {
+                "path": "include/seastar/rpc/rpc.hh",
+                "line": 305,
+                "detail": "the comment points to stream_close()"
+              },
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 551,
+                "detail": "the comment omits why _error is not set"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-5",
+            "claim": "The commits carry Claude Co-Authored-By trailers, and the PR body ends with a 'Generated with Claude Code' line. This violates the user's global rule against Claude/Anthropic attribution in commits and PR descriptions.",
+            "basisType": "rule",
+            "basis": "The user's CLAUDE.md says: no Co-Authored-By: Claude trailer in commits, no 'Generated with Claude Code' line in PR descriptions.",
+            "mechanisms": [
+              "prohibited attribution in commit and PR metadata"
+            ],
+            "consequence": "The history and PR text break the stated authoring rule and would need rewriting before merge.",
+            "defectClass": "rule-violation",
+            "category": "standards",
+            "locations": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 548
+              }
+            ],
+            "evidence": [
+              {
+                "path": "src/rpc/rpc.cc",
+                "line": 548,
+                "detail": "commits f545c28a, 5e25ebdb and 69da8f5b carry Co-Authored-By Claude trailers. The PR body ends with the Claude Code generation line."
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-6",
+            "claim": "The test stores hook references into a std::vector and takes a reference with hooks.back(). It mutates a const factory through const_cast. A later extra negotiation, for example a reconnect, would invalidate the reference.",
+            "basisType": "claim",
+            "basis": "hooks is a std::vector. Each negotiate() push_back may reallocate it, and the test holds 'auto& stream_send_empty_frame'.",
+            "mechanisms": [
+              "reference into growing vector"
+            ],
+            "consequence": "A future edit to the test that triggers another negotiation before the hook is called would use a dangling std::function reference, a use-after-free under ASan.",
+            "defectClass": "dangling-reference-risk",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2001
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1957
+              }
+            ],
+            "evidence": [
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 2001,
+                "detail": "auto& stream_send_empty_frame = client_factory.hooks.back();"
+              },
+              {
+                "path": "tests/unit/rpc_test.cc",
+                "line": 1957,
+                "detail": "const_cast push_back into hooks"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-7",
+            "claim": "The reworded doc sentence, 'closing the client aborts any stream still open on it', asserts a behavior that the PR neither changes nor tests. It is stated more strongly than the code comments support.",
+            "basisType": "claim",
+            "basis": "The doc sentence was rewritten in a docs-only commit. The aborting behavior is claimed without a reference to the code path.",
+            "mechanisms": [
+              "unverified behavioral claim in documentation"
+            ],
+            "consequence": "Users may read this as a guaranteed abort path. The same doc says the sink must still be closed, so the two statements leave the diagnosis of leaks after client close ambiguous.",
+            "defectClass": "doc-accuracy",
+            "category": "docs",
+            "locations": [
+              {
+                "path": "doc/rpc-streaming.md",
+                "line": 49
+              }
+            ],
+            "evidence": [
+              {
+                "path": "doc/rpc-streaming.md",
+                "line": 49,
+                "detail": "closing the client aborts any stream still open on it"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          }
+        ],
+        "coverage": "I read the full diff of the three commits across src/rpc/rpc.cc, rpc.hh, rpc_types.hh, doc/rpc-streaming.md and tests/unit/rpc_test.cc. I also read send(), stop_send_loop(), stream_close() and close_sink/close_source. The change adds no new error variants, Display strings or log lines. send() reuses the existing closed_error. I traced the stop_send_loop/stream_close interplay on _outgoing_queue_ready and _sink_closed_future and found no concrete defect in the ordering. I could not build or run tests, so the stated validation command was not checked.",
+        "model": "claude-sonnet-5-5",
+        "effort": "medium",
+        "wallMs": 48120,
+        "costUsd": 0.2627194,
+        "reportedUsage": {
+          "input_tokens": 14,
+          "cache_creation_input_tokens": 42656,
+          "cache_read_input_tokens": 202137,
+          "output_tokens": 5164,
+          "output_tokens_details": {
+            "thinking_tokens": 1497
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 42656,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 2978,
+              "cache_read_input_tokens": 40598,
+              "cache_creation_input_tokens": 2058,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 2058
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "resultSha256": "8fa92b6bb5875a82e6aea2193630b05c2dce429bd2a9d2f257b5fadb98b00ea0"
+      }
+    ],
+    "cluster": {
+      "groups": [
+        {
+          "representativeId": "C1",
+          "memberIds": [
+            "C1",
+            "C9",
+            "C22",
+            "C32",
+            "C38"
+          ],
+          "reason": "All identify the missing assertion that the late send specifically fails with closed_error, allowing successful or silently dropped sends to pass."
+        },
+        {
+          "representativeId": "C2",
+          "memberIds": [
+            "C2"
+          ],
+          "reason": "Distinctly targets nondeterministic detection caused by the fixed ten-yield polling window."
+        },
+        {
+          "representativeId": "C3",
+          "memberIds": [
+            "C3"
+          ],
+          "reason": "Distinctly combines early-failure cleanup being skipped with a parked background close that can outlive test state."
+        },
+        {
+          "representativeId": "C4",
+          "memberIds": [
+            "C4",
+            "C34"
+          ],
+          "reason": "Both flag the combined positional hooks.back() assumption and reference invalidation risk in the growable hook vector."
+        },
+        {
+          "representativeId": "C5",
+          "memberIds": [
+            "C5"
+          ],
+          "reason": "This lead uniquely combines extensive fixture boilerplate with unexplained compressor fallback behavior."
+        },
+        {
+          "representativeId": "C6",
+          "memberIds": [
+            "C6"
+          ],
+          "reason": "Distinctly challenges the comment using enqueue_zero_frame() and suspend_for_testing() paths that bypass the new closing guard."
+        },
+        {
+          "representativeId": "C8",
+          "memberIds": [
+            "C7",
+            "C8"
+          ],
+          "reason": "Both report forbidden Claude Co-Authored-By trailers in the commits, without the separate PR-body violation."
+        },
+        {
+          "representativeId": "C10",
+          "memberIds": [
+            "C10"
+          ],
+          "reason": "Distinctly argues that the pending-batch destruction failure claimed by the comment is not actually exercised, in addition to mentioning timing."
+        },
+        {
+          "representativeId": "C11",
+          "memberIds": [
+            "C11"
+          ],
+          "reason": "Targets the test's ordinary unbounded waits and their poor failure diagnostics, independent of skipped cleanup."
+        },
+        {
+          "representativeId": "C12",
+          "memberIds": [
+            "C12",
+            "C43"
+          ],
+          "reason": "Both specifically identify a dangling std::function reference if a later negotiation grows the hooks vector."
+        },
+        {
+          "representativeId": "C13",
+          "memberIds": [
+            "C13"
+          ],
+          "reason": "Uniquely flags the compressor's misleading 'pass-through' description despite LZ4 delegation and empty-buffer substitution."
+        },
+        {
+          "representativeId": "C14",
+          "memberIds": [
+            "C14"
+          ],
+          "reason": "Uniquely targets mutation through const_cast in the const factory interface."
+        },
+        {
+          "representativeId": "C15",
+          "memberIds": [
+            "C15"
+          ],
+          "reason": "Specifically flags the forwarding wrappers as interface-coupled middle-man boilerplate."
+        },
+        {
+          "representativeId": "C29",
+          "memberIds": [
+            "C16",
+            "C29"
+          ],
+          "reason": "Both identify overlapping closing-state representations whose different guards can diverge on future paths."
+        },
+        {
+          "representativeId": "C20",
+          "memberIds": [
+            "C17",
+            "C20",
+            "C28"
+          ],
+          "reason": "All identify the same contradiction: stop_send_loop() still consumes _outgoing_queue_ready despite the new comment saying otherwise."
+        },
+        {
+          "representativeId": "C31",
+          "memberIds": [
+            "C18",
+            "C31"
+          ],
+          "reason": "Both flag duplicated stream-shutdown contract text across the guide and sink/source documentation, creating drift risk."
+        },
+        {
+          "representativeId": "C44",
+          "memberIds": [
+            "C19",
+            "C27",
+            "C44"
+          ],
+          "reason": "All challenge the newly strengthened client-close/stream-abort documentation as an untested behavioral claim."
+        },
+        {
+          "representativeId": "C21",
+          "memberIds": [
+            "C21",
+            "C39"
+          ],
+          "reason": "Both identify the missing regression test for the queue-drain half of the fix, which the existing post-close hook test does not exercise."
+        },
+        {
+          "representativeId": "C26",
+          "memberIds": [
+            "C23",
+            "C26"
+          ],
+          "reason": "Both flag the new unbounded outgoing-queue dependency on the stream close path and its potential liveness cost."
+        },
+        {
+          "representativeId": "C24",
+          "memberIds": [
+            "C24"
+          ],
+          "reason": "Specifically targets selecting the stream connection by negotiation count and position, which can exercise the wrong hook."
+        },
+        {
+          "representativeId": "C42",
+          "memberIds": [
+            "C25",
+            "C42"
+          ],
+          "reason": "Both report the combined policy violation in commit trailers and the PR body's generated-by-Claude attribution."
+        },
+        {
+          "representativeId": "C30",
+          "memberIds": [
+            "C30"
+          ],
+          "reason": "Uniquely flags old plain comments left directly beneath the new Doxygen blocks."
+        },
+        {
+          "representativeId": "C33",
+          "memberIds": [
+            "C33"
+          ],
+          "reason": "This composite robustness lead uniquely combines unbounded waits, arbitrary yielding, and a fatal-assert failure mode."
+        },
+        {
+          "representativeId": "C35",
+          "memberIds": [
+            "C35"
+          ],
+          "reason": "Uniquely claims the new wrappers and compressor are near-copies of existing fixtures and also criticizes their role naming."
+        },
+        {
+          "representativeId": "C36",
+          "memberIds": [
+            "C36"
+          ],
+          "reason": "Uniquely disputes the test comment's absolute claim that the compressor hook is the sole unguarded send caller."
+        },
+        {
+          "representativeId": "C37",
+          "memberIds": [
+            "C37"
+          ],
+          "reason": "Distinctly targets the unconditional both-halves-closed lifecycle statement versus the separate abort-on-error path."
+        },
+        {
+          "representativeId": "C40",
+          "memberIds": [
+            "C40"
+          ],
+          "reason": "Targets documentation of the new close-latency dependency, separate from whether the runtime wait itself is acceptable."
+        },
+        {
+          "representativeId": "C41",
+          "memberIds": [
+            "C41"
+          ],
+          "reason": "Uniquely flags the missing source-level rationale for keeping _stream_closing separate from _error."
+        }
+      ],
+      "model": "gpt-5.6-sol",
+      "usage": {
+        "inputTokens": 21094,
+        "cachedInputTokens": 0,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 3388,
+        "reasoningOutputTokens": 2278,
+        "totalTokens": 24482
+      },
+      "invocationId": "01a11ca4-7f3b-7910-9776-9bcb79a7259c",
+      "promptSha256": "0b2da757c8c633e3dad8fb2e6c6e5bc7ce00ebcfa21e9378841f6278f995bc1c",
+      "traceSha256": "9e04e6bec2d1f4b336a633e09680daa83ebb12a620f9a46c34e41ba8696f597b",
+      "resultSha256": "4999ccf46f0deec6a9d1d33db8ce7a33fb15ac26218c2eb4066e683f21d43af9",
+      "rawResultSha256": "4999ccf46f0deec6a9d1d33db8ce7a33fb15ac26218c2eb4066e683f21d43af9",
+      "wallMs": 57408
+    },
+    "createdAt": "2026-10-08T17:52:41.500Z"
+  },
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/ironweave/runs/rafp-six-pass-sonnet-2026-10-08/review-and-fix-pr/attempt-VgJILr/repo",
+  "finishedAt": "2026-10-08T18:00:27.353Z"
+}

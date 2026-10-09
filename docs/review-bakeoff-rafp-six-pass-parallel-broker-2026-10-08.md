@@ -29,20 +29,20 @@ the review inputs because access to upstream comments would bias discovery.
 - Judging: 3 calls, 36 merged issues from 47 confirmed claims (32 real, 4 false-positive, 0 unproven), $4.50.
 - Total known cohort spend: $20.92. Discarded attempts are not included in immutable stage artifacts.
 
-## Compare with other models on canonical gold
+## Separate skill evidence on canonical gold
 
-All rows use the same 3 pinned PRs and 113 reviewed real gold issues. The older model rows use 17 matched tool cells; the indented review-and-fix-pr line uses 3 cells under the same Opus 5.5 model. It is a protocol detail, not another model in the ranking. Tool sets differ, and suggestions are excluded from confirmed gold credit.
+The review-and-fix-pr skill was tested with Claude Opus 5.5 on the same 3 pinned PRs and 113 reviewed real gold issues. It is a separate skill, not a separate model or a row in the model ranking. The matched model rows below use 17 tool cells each; this skill uses 3. Tool sets differ, and suggestions are excluded from confirmed gold credit.
 
-| Model / protocol | Evidence | Gold issues found | Claude tokens | Claude review cost | Summed review time |
+| Candidate | Evidence | Gold issues found | Claude tokens | Claude review cost | Summed review time |
 |---|---|---:|---:|---:|---:|
 | Claude Opus 5 | 17 matched tool cells | 75 / 113 | 153,643,618 | $160.60 | 242.5 min |
 | Claude Fable 5.1 | 17 matched tool cells | 61 / 113 | 53,834,538 | $91.59 | 125.4 min |
 | Claude Opus 5.5 | 17 matched tool cells | 42 / 113 | 24,688,795 | $19.30 | 58.8 min |
-| ↳ review-and-fix-pr (same Claude Opus 5.5) | 3 review-and-fix-pr cells | 35 / 113 | 12,695,932 | $16.42 | 45.6 min |
+| review-and-fix-pr skill (Claude Opus 5.5) | 3 review-and-fix-pr cells | 35 / 113 | 12,695,932 | $16.42 | 45.6 min |
 
 This cohort additionally used 498,302 Codex tokens for adjudication; its receipts do not provide a USD cost. The 74 suggestions remain visible in the structured review receipts and are not counted above.
 Canonical gold credits 35 real issues from this cohort; the cohort-local judge reports 32. These are separate adjudications over the same pinned PRs.
-The sealed comparison is [model-comparison-2026-10-08](./index.html#choose?tab=models&scope=supplemental-rafp-six-pass-parallel-broker-2026-10-08); the earlier [matched-model scope](./index.html#choose?tab=models&scope=all-models) remains separately available.
+The skill appears in the [Skills comparison](./index.html#choose?tab=skills&skills=review-and-fix-pr); the [matched-model ranking](./index.html#choose?tab=models) remains separate.
 
 ## Findings, by issue
 

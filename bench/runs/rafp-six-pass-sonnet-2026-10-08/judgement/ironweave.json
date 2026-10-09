@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-six-pass-sonnet-2026-10-08",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "9e1b41776b4b692b23850e9d084b6ec8775ed43d47fe10bfd6d4fb41b37fbdd1",
+    "gitCommit": "9601c55ef2e05be9180a66376fcd673d8fec7084",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "target": "ironweave",
+  "language": "C++",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "rawFindings": 13,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Late-send test relies on silent catch, never asserts the send was actually refused",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2012,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "stream_send_empty_frame().get() is wrapped in a try/catch(const rpc::closed_error&) that only comments 'what we want' with no BOOST_REQUIRE/THROW; a silent success wouldn't fail at that line. The real invariant is still checked by the later BOOST_REQUIRE_MESSAGE(!st.put_after_close, ...), so the test would still catch a real regression, but the refusal itself is unverified where it is supposed to be shown.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is new test code added by the PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The regression test never asserts that the late send was refused; the catch of rpc::closed_error is silent and nothing fails if stream_send_empty_frame() succeeds or never throws."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr": "The regression test never asserts that the late send was refused; the catch of rpc::closed_error is silent and nothing fails if stream_send_empty_frame() succeeds or never throws."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "New regression test can deadlock on an early assertion failure instead of failing cleanly",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "st.release_close (a shared_promise<>) is only set at line 2026, after close_entered_cv.wait(), stream_send_empty_frame(), the yield loop, sink_closed.get() and server_done.get(). If any earlier BOOST_REQUIRE in the test body throws, release_close.set_value() is never reached, so test_data_sink_impl::close() stays parked forever and the connection's write_buf.close()/stop()/stream_close() chain, and server_done's async fiber, never resolve. None of the waits (close_entered_cv.wait, sink_closed.get(), server_done.get()) have a timeout, so the thread can hang on teardown rather than reporting the original assertion failure promptly.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This hazard exists only in the new test added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Cleanup is skipped if an assertion or exception fires early: release_close is only set at the end and close_entered_cv/sink_closed/server_done waits are unbounded, so a failure before set_value() leaves the parked sink.close() and server_done pending."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr": "Cleanup is skipped if an assertion or exception fires early (C3); unbounded waits in the test: close_entered_cv.wait, sink_closed.get(), server_done.get() have no timeout (C11)."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "stream_close() comment overstates that nothing else waits on _outgoing_queue_ready",
+      "file": "src/rpc/rpc.cc",
+      "line": 558,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "stop_send_loop() (rpc.cc:225) still does when_all(std::move(_outgoing_queue_ready), ...). By the time it runs, stream_close() has already exchanged the member for a ready future (rpc.cc:562), so that wait is trivial/instantaneous rather than a real wait on the drain -- but the comment's blanket claim that 'nothing else waits for _outgoing_queue_ready from here on' is still textually inaccurate about stop_send_loop() touching that future.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new text added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new comment says 'Nothing else waits for _outgoing_queue_ready from here on: send() is refused, and stop_send_loop() waits for _sink_closed_future,' but stop_send_loop() does wait on _outgoing_queue_ready."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr": "The stream_close() comment says nothing else waits for _outgoing_queue_ready, although stop_send_loop() still consumes that future after stream_close() has exchanged it for a ready future."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "No test exercises the queue-drain half of the fix (entry queued before _stream_closing)",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1989,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The commit message for f545c28a describes two parts of the fix: refusing new sends once _stream_closing is set, and draining entries already queued via _outgoing_queue_ready before closing the write buffer. test_stream_send_after_stream_close only calls stream_send_empty_frame() after close_entered_cv confirms stream_close() has already started (i.e. after the mark), so it only exercises the refusal path, not an entry that was accepted just before the flag flipped and must be drained.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The missing coverage is for behavior this PR itself introduced (the queue-drain wait in stream_close()).",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "No test covers the drain half of the fix: stream_close() also waits for _outgoing_queue to drain before closing the buffer, and that path is unexercised."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr": "No test covers the drain half of the fix (C21); the regression test does not exercise the queue-drain half, sending only after _stream_closing is set rather than arranging an entry accepted before the mark (N3)."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Commits carry Claude Co-Authored-By trailers, violating the user's no-attribution rule",
+      "file": "src/rpc/rpc.cc",
+      "line": 548,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "All three PR commits (f545c28a, 5e25ebdb, 69da8f5b) end with 'Co-Authored-By: Claude ...' trailers (verified via git log), which directly violates the user's global CLAUDE.md instruction to never add Claude/Anthropic attribution to commits or PR descriptions.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The trailers are part of this PR's own commit messages.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The commits carry Claude Co-Authored-By trailers, and the PR body ends with a 'Generated with Claude Code' line, violating the user's global rule against Claude/Anthropic attribution in commits and PR descriptions."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr": "The commits carry Claude Co-Authored-By trailers, and the PR body ends with a 'Generated with Claude Code' line, violating the user's global rule against Claude/Anthropic attribution in commits and PR descriptions."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Test header comment wrongly claims the compressor hook is the only unguarded send() caller",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1854,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "sink_impl::close() (include/seastar/rpc/rpc_impl.hh:916-920) also calls con->send() to write the eof marker, guarded only by !con->error() && !this->_ex, not by sink_closed() -- so the compressor's send_empty_frame hook is not actually the sole caller unguarded by sink_closed(), and no assertion in the test checks the claim either way.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new text written for this PR's test.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The test header comment claims send_empty_frame is 'the one caller that is not guarded by sink_closed()', but the sink's own eof frame in sink_impl::close() also calls con->send() without a sink_closed() guard, and no assertion checks the claim."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr": "The test header comment claims send_empty_frame is the one caller not guarded by sink_closed() (C36); the regression-test header repeats this although the sink close path also sends its EOF frame without such a guard (N7)."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Doc's 'shut down only once both halves closed' ignores the client-abort path that skips…",
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "client::abort_all_streams() (src/rpc/rpc.cc:848-854) calls connection::abort() directly on each open stream, bypassing stream_close() and the new _stream_closing guard entirely. The new paragraph 'The stream's connection is shut down only once both halves are closed' (doc/rpc-streaming.md:115) reads as a universal lifecycle guarantee, but it doesn't hold for the abort-on-client-close path documented a few lines above (line 49), which shuts the stream connection down immediately regardless of whether sink/source are closed.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both sentences are new/edited text added by this PR's documentation commit.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The doc rewrite says closing the client aborts any stream still open, and separately states the connection is shut down only once both halves are closed, without describing that the abort path skips stream_close() and its guard."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr": "The doc rewrite now says closing the client aborts any stream still open and also states a lifecycle guarantee that sits next to the code's explicit abort-on-error path (C37); the documentation says the connection is shut down only once both stream halves are closed, even though the same document says closing the parent client aborts an open stream (N8)."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "PR's commits lack the DCO Signed-off-by trailer required by the contributing guide",
+      "file": "doc/contributing.md",
+      "line": 10,
+      "kind": "style",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "doc/contributing.md:6-10 requires commits to carry a DCO sign-off (git commit -s). None of the three commits in this PR (f545c28a, 5e25ebdb, 69da8f5b) contains a Signed-off-by trailer, verified via git log.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The missing trailer is a property of this PR's own commits.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The applicable contribution guide requires commits to be made with DCO sign-off, but none of the three supplied commit messages contains a Signed-off-by trailer."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr": "The applicable contribution guide requires commits to be made with DCO sign-off, but none of the three supplied commit messages contains a Signed-off-by trailer."
+      }
+    }
+  ],
+  "judgeCostUsd": 0.9075129999999999,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 42,
+      "outputTokens": 23939,
+      "cacheReadInputTokens": 1427415,
+      "cacheCreationInputTokens": 95639,
+      "webSearchRequests": 0,
+      "costUSD": 0.9075129999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 14739,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/ironweave/runs/rafp-six-pass-sonnet-2026-10-08/_judge/attempt-r2xpp6/repo",
+  "judgedAt": "2026-10-08T18:05:36.471Z"
+}
