@@ -456,3 +456,37 @@ contract, and `test.py` validation claim. CLI usage was 112,901 input tokens
 receipt. At [published API rates](https://developers.openai.com/api/docs/models/gpt-6-luna),
 that usage is about $0.0073 API-equivalent. The lower-priced judge still fails
 the exact finding-set condition, so no production change follows from it.
+
+## Output brevity trials, 2026-10-09
+
+Three isolated Ironweave trials tested whether shorter review output lowers
+Claude spend. Each used the pinned PR and six Opus 5.5 passes. The trials are
+archived under ignored `bench/work/pilots/` with their run IDs below; they are
+not completed or published cohorts. The original matched run cost $5.35 with
+106,740 output tokens and 19 Codex-confirmed claims. An unchanged later control
+cost $5.21 with 100,768 output tokens and 12 confirmed claims, establishing
+substantial finding-set variance without a prompt change.
+
+| Trial | Claude cost | Output tokens | Outer-session cost | Codex confirmed | Decision |
+|---|---:|---:|---:|---:|---|
+| `rafp-concise-output-ironweave-2026-10-09` | $5.78 | 95,715 | $0.55 | 10 | Reverted |
+| `rafp-evidence-references-ironweave-2026-10-09` | $4.92 | 94,138 | $0.55 | 12 | Reverted |
+| `rafp-short-report-only-ironweave-2026-10-09` | $4.87 | 89,135 | $0.56 | 11 | Kept report formatting only |
+
+The concise-field instruction told all six passes to write short, direct
+sentences without repetition. It lowered output tokens but raised cache
+creation and total cost. Its confirmed set omitted baseline backpressure,
+compressor-contract, and stated-validation findings. The separate evidence
+instruction requested path and line references instead of pasted code. Its
+saved `evidence.detail` text grew from 10,052 to 11,345 characters, and it
+missed the same baseline mechanisms. Neither instruction improved the
+cost-and-coverage tradeoff, so both were removed.
+
+The retained change only shortens the human report after adjudication. Full
+claims, evidence, and judgments remain in the hash-bound receipt, and the v3
+marker is unchanged. Replaying the original receipt reduced human report text
+from 34,703 to 18,039 characters with an identical marker. The live trial's
+outer session used 11,001 output tokens and $0.56, versus 15,424 and $0.69
+in the unchanged control. Its eleven confirmed claims versus the control's
+twelve reflect review variance, since the formatter runs after discovery and
+judgment. These single-PR trials do not establish a general cost reduction.
