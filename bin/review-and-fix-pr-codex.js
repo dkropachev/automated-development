@@ -322,7 +322,7 @@ function parseUsage(event) {
   return { inputTokens, cachedInputTokens, cacheWriteInputTokens, outputTokens, reasoningOutputTokens, totalTokens }
 }
 
-function validateJudgeOutput(output, expectedIds, contract = CONTRACT_V2, allowOmitted = false) {
+function validateJudgeOutput(output, expectedIds, contract = CONTRACT_V2, allowOmitted = false, knownIds = []) {
   exactKeys(output, ['judgments', 'model', 'newCandidates', 'provider', 'schemaVersion'], 'Codex structured output')
   if (output.schemaVersion !== (contract === CONTRACT_V3 ? 2 : 1) || output.provider !== 'OpenAI Codex' || output.model !== JUDGE_MODEL) {
     throw new Error('Codex structured output identity or model drifted')
@@ -331,11 +331,13 @@ function validateJudgeOutput(output, expectedIds, contract = CONTRACT_V2, allowO
     throw new Error('Codex structured output arrays are invalid')
   }
   const expected = new Set(expectedIds)
+  const known = new Set(knownIds)
   const seen = new Set()
   const judgments = output.judgments.map((judgment, index) => {
     const label = `Codex judgments[${index}]`
     exactKeys(judgment, [...JUDGMENT_KEYS, ...(contract === CONTRACT_V3 ? ['suggestedEdit', 'suggestedConsequence'] : [])], label)
-    if (!expected.has(judgment.candidateId) || seen.has(judgment.candidateId)) {
+    if ((!expected.has(judgment.candidateId) && !known.has(judgment.candidateId)) ||
+        seen.has(judgment.candidateId)) {
       throw new Error(`${label}.candidateId is missing, duplicate, or unexpected`)
     }
     seen.add(judgment.candidateId)
@@ -363,8 +365,8 @@ function validateJudgeOutput(output, expectedIds, contract = CONTRACT_V2, allowO
       }
     }
     return canonical(judgment)
-  })
-  if (!allowOmitted && seen.size !== expected.size) throw new Error('Codex omitted a candidate judgment')
+  }).filter((judgment) => expected.has(judgment.candidateId))
+  if (!allowOmitted && judgments.length !== expected.size) throw new Error('Codex omitted a candidate judgment')
   const newCandidates = output.newCandidates.map((candidate, index) => {
     const label = `Codex newCandidates[${index}]`
     exactKeys(candidate, NEW_CANDIDATE_KEYS, label)
@@ -445,7 +447,8 @@ function runOneInvocation(options, dependencies = {}) {
   try {
     parsed = parseTrace(result.stdout)
     output = validateJudgeOutput(parsed.output, options.candidates.map((candidate) => candidate.id),
-      options.contract, options.contract === CONTRACT_V3)
+      options.contract, options.contract === CONTRACT_V3,
+      (options.knownCandidates || []).map((candidate) => candidate.id))
   } catch (error) {
     error.traceText = String(result.stdout || '')
     error.stderrText = String(result.stderr || '')

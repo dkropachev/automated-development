@@ -395,6 +395,14 @@ test('trace and output validation reject malformed data, model drift, writes, an
   assert.throws(() => runner.validateJudgeOutput(
     judgeOutput([]), ['C1'],
   ), /omitted a candidate judgment/i)
+  const knownContextOutput = judgeOutput([judgment('C1'), judgment('C2')])
+  assert.deepEqual(runner.validateJudgeOutput(knownContextOutput, ['C1'], undefined, false, ['C2'])
+    .judgments.map((entry) => entry.candidateId), ['C1'])
+  assert.throws(() => runner.validateJudgeOutput(knownContextOutput, ['C1']), /unexpected/i)
+  assert.throws(() => runner.validateJudgeOutput(
+    judgeOutput([judgment('C1'), judgment('C2'), judgment('C2')]),
+    ['C1'], undefined, false, ['C2'],
+  ), /duplicate/i)
 })
 
 test('one invocation forwards exact argv, prompt, cwd, timeout, and stdin', () => {
