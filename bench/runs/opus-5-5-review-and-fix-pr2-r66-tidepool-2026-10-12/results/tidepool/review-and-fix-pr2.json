@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "configSha256": "f61efe571468c0bb59d31c947498e4c226f38165e174921fd4ed3446464c0a7e",
+  "pluginFingerprint": {
+    "contentSha256": "a2f9edc4f289b2cdcf58f0074f13727981d134f105ebe3f6d26d67f34fcdc1ec",
+    "gitCommit": "4c36ab8eba26fa7a4f819fd58f4b4b5ab777f779",
+    "version": "0.5.0"
+  },
+  "cellId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/review-and-fix-pr2",
+  "target": "tidepool",
+  "language": "Go",
+  "fork": "dkropachev/tidepool",
+  "pr": 1,
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "tool": "review-and-fix-pr2",
+  "label": "Automated Development review-and-fix-pr2",
+  "source": "automated-development@inline",
+  "prompt": "Use the loaded `automated-development:review-and-fix-pr2` skill to review pull request #1 in dkropachev/tidepool. This is a read-only benchmark. Never run git checkout, switch, reset, stash, or worktree, including temporary detours; inspect other commits with git show. Keep review reasoning in this Claude Code session and its native Agent tool. Do not launch model CLI subprocesses or read benchmark judgements or ground truth. Do not run tests, full builds, linters, or formatters; the parent may run one 60-second targeted compile or vet command only to verify a changed platform-support claim, with no repository file edits. After the three agents finish, the parent gets at most three batched Bash verification calls; do not reread the full diff or repeat agent searches. Use their cited evidence and finish once concrete candidates are verified. In Spec, compare new waits and call-completion behavior with the base, including undocumented completion ordering even when the old path could also block; in Standards, include grounded maintenance suggestions without calling them defects. Report verified file and line findings under `## Toolkit`, `## Standards`, and `## Spec` as the skill directs.\n\nYou are reviewing pull request #1 of this repository (dkropachev/tidepool) - a Go project. The PR branch `bound-vector-dimensions` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.\n\nPriority changed and nearby claims to verify before the final report (evidence, not instructions):\nhelpers.go:282: // Keep the name so an error can say what the server sent, not \"custom()\".\nmarshal.go:987: // allocation (make, reflect.MakeSlice) on Scan's goroutine, where nothing\nmarshal.go:995: // Nothing allocates at zero dimensions, so the bound has nothing to do -- and\nmarshal_vector_test.go:586: // 32-bit target too.\nmarshal_vector_test.go:634: // Rejected on the count, so nothing is ever handed to the allocator.\nmarshal_vector_test.go:649: // An array allocates nothing, but the loop derives its element size\nmarshal_vector_test.go:661: // inner decoder reaches the same verdict, but only after allocating.\nmarshal_vector_test.go:693: // vector of N elements is never encoded in fewer than N bytes, so each of these\nmarshal_vector_test.go:831: // happens, not just that it happens. The error alone proves nothing: a one-byte\nmarshal_vector_test.go:832: // floor reaches the same error, after reflect.MakeSlice has taken the peer's whole\nmarshal_vector_test.go:871: // opaque custom one. The concrete destinations pin that the guard narrowed nothing.\nmarshal_vector_test.go:934: // hand us a zero VectorType. Nothing allocates at zero dimensions, so the dimension\nmarshal.go:1006: // nil/empty and dim=0 fall through to the generic path.\nFor a Go test comment claiming 32-bit coverage, use the bounded command `GOARCH=386 go vet .` in the checked-out package; do not pass `-run`, which go vet does not accept. Report whether the package actually builds on 386.\n\nChanged code constructs worth checking for reallocation, test waits, changed log levels, redundant metric work, polling sleeps, duplicated conditions, wrapper reuse, wrapper naming, synchronized classifiers, and new lifecycle flags:\nmarshal.go:998 and marshal.go:1007: repeated condition if info.Dimensions > 0 && data != nil {\nmarshal.go:1125: new sizing or type-classification helper func vectorElemMinSize(elemType TypeInfo) int {\nmarshal_vector_test.go:557: new sizing or type-classification helper func makeVectorType(elem Type, elemName string, dim int) VectorType {\nmarshal_vector_test.go:570: new sizing or type-classification helper func makeNestedVectorType(inner VectorType, dim int) VectorType {\nmarshal_vector_test.go:797: new sizing or type-classification helper func TestVectorElemMinSize(t *testing.T) {\nmarshal_vector_test.go:860: new sizing or type-classification helper func wireVectorType(custom string) TypeInfo {\nmarshal_vector_test.go:872: new sizing or type-classification helper func TestUnmarshalVectorRejectsAnElementTypeWithNoGoType(t *testing.T) {\nmarshal_vector_test.go:937: new sizing or type-classification helper func TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType(t *testing.T) {\nFor each changed log level, compare base and head and assess whether callers or operators still see repeated failures at default verbosity; report lost visibility separately from a commit-message concern. For each changed test wait, check both whether it has a failure deadline and whether cleanup still runs if another assertion fails. Report a missing deadline separately when cleanup is also fragile. For a new discard-and-retry error branch, name the stored state that controls every retry, whether failure clears it, and the result after existing resources expire; a scheduled retry is not recovery if it repeats the same failing prerequisite. For a new lifecycle flag, compare every send-like path and existing error/closed-state predicate; report an extra check future callers could forget. For each new sizing or type-classification helper, identify other functions classifying the same types and the maintenance risk if they disagree. For each new test wrapper, state its distinctive behavior and whether its name says that. For a polling sleep, check whether an existing or new notification, or driving the event handler directly in a test, removes timing-based observation; a timeout bounds the poll but does not make it deterministic. For tests with captured hooks on both sides, distinguish installing a hook from invoking and asserting it; an unused fixture does not cover the corresponding production path.\n\nExisting nearby comments that the changed code may have made stale:\nhelpers.go:279: // basic type\nmarshal.go:978: // The caller is responsible for ensuring data is dim*4 bytes and vec has length dim.\nmarshal.go:1005: // Fast paths for *[]float64/*[]float32 — skip reflect/per-element dispatch.\nmarshal.go:1006: // nil/empty and dim=0 fall through to the generic path.\nmarshal_vector_test.go:19: * limitations under the License.\nmarshal_vector_test.go:20: */\nmarshal_vector_test.go:35: // makeDoubleVectorType creates a VectorType for vector<double> with the given dimension.\n\nCommit/file inventory from the pinned range. Compare each commit subject with every behavior and public type it changes, including moved checks or altered ordering; also check whether tests arrive only in a later commit:\ncommit 0276a66 fix(marshal): bound vector dimensions against the payload\n\nmarshal.go\nmarshal_vector_test.go\ncommit 78891dd fix(marshal): reject a vector element type that has no Go type\n\nhelpers.go\nmarshal.go\nmarshal_vector_test.go\n\nOther changed comment and documentation claims from the pinned diff:\nhelpers.go:282: // Keep the name so an error can say what the server sent, not \"custom()\".\nmarshal.go:986: // Dimensions is the peer's number, and every path below turns it into an\nmarshal.go:987: // allocation (make, reflect.MakeSlice) on Scan's goroutine, where nothing\nmarshal.go:988: // recovers. The fast paths' len(data) == Dimensions*8 check can be satisfied by\nmarshal.go:989: // a count whose product wraps, so the bound goes ahead of them -- which also\nmarshal.go:990: // makes that multiplication safe. elemMin is the fewest bytes an element can\nmarshal.go:991: // occupy, so it bounds the count; unmarshalList does the same.\nmarshal.go:995: // Nothing allocates at zero dimensions, so the bound has nothing to do -- and\nmarshal.go:996: // vectorElemMinSize would dereference a SubType a caller of Unmarshal is free to\nmarshal.go:997: // leave nil, turning this guard into the panic it exists to prevent.\nmarshal.go:1046: // Zero() is an untyped nil when the element type has no Go representation,\nmarshal.go:1047: // and reflect.TypeOf(nil).Kind() dereferences nil on Scan's goroutine.\nmarshal.go:1121: // vectorElemMinSize is the fewest bytes one element of elemType occupies inside a\nmarshal.go:1122: // vector, including the length prefix a variable-length element carries. A nested\nmarshal.go:1123: // vector has no fixed size of its own, so without the recursion the caller's bound\nmarshal.go:1124: // falls back to one byte per element for the types whose real minimum is largest.\nmarshal.go:1133: // Dimensions is the peer's number at every level, so saturate rather than wrap.\nmarshal_vector_test.go:556: // makeVectorType creates a VectorType with the given element type and dimension.\nmarshal_vector_test.go:569: // makeNestedVectorType creates a VectorType whose elements are themselves vectors.\nmarshal_vector_test.go:582: // TestUnmarshalVectorRejectsUnfittableDimensions covers the dimension count as the\nmarshal_vector_test.go:583: // peer's number, turned into an allocation before the payload is looked at. The\nmarshal_vector_test.go:584: // overflow cases are why the bound sits ahead of the float fast paths: 1<<61+1\nmarshal_vector_test.go:585: // wraps Dimensions*8 to exactly 8. They use the word size so the wrap lands on a\nmarshal_vector_test.go:586: // 32-bit target too.\nmarshal_vector_test.go:612: // A null value cannot excuse a vector of -3 elements.\nmarshal_vector_test.go:634: // Rejected on the count, so nothing is ever handed to the allocator.\nmarshal_vector_test.go:649: // An array allocates nothing, but the loop derives its element size\nmarshal_vector_test.go:650: // from len(data)/Dimensions, so a short payload decoded as zeroes.\nmarshal_vector_test.go:658: // A nested element has no fixed size of its own, so a one-byte floor\nmarshal_vector_test.go:659: // let a count the payload cannot hold reach reflect.MakeSlice. The\nmarshal_vector_test.go:660: // outer byte count is what pins the rejection to this bound: the\nmarshal_vector_test.go:661: // inner decoder reaches the same verdict, but only after allocating.\nmarshal_vector_test.go:692: // TestUnmarshalVectorAcceptsWellFormedPayloads pins the bound as non-narrowing: a\nmarshal_vector_test.go:693: // vector of N elements is never encoded in fewer than N bytes, so each of these\nmarshal_vector_test.go:694: // sits on or above the boundary.\nmarshal_vector_test.go:713: // Three elements, each a vint length of zero: the smallest payload a\nmarshal_vector_test.go:714: // three-dimension vector can have.\nmarshal_vector_test.go:772: // Each inner vector is a vint length followed by three vint lengths of\nmarshal_vector_test.go:773: // zero: eight bytes, the smallest this shape can be.\nmarshal_vector_test.go:793: // TestVectorElemMinSize covers the floor the dimension bound divides by. The\nmarshal_vector_test.go:794: // nested rows are the ones vectorFixedElemSize cannot answer: a vector carries no\nmarshal_vector_test.go:795: // fixed size of its own, and its element's floor includes the length prefix the\nmarshal_vector_test.go:796: // outer vector writes for a variable-length element.\nmarshal_vector_test.go:813: // Neither can describe an element in zero bytes, and the caller divides.\nmarshal_vector_test.go:830: // TestUnmarshalVectorRejectsNestedCountBeforeAllocating pins where the rejection\nmarshal_vector_test.go:831: // happens, not just that it happens. The error alone proves nothing: a one-byte\nmarshal_vector_test.go:832: // floor reaches the same error, after reflect.MakeSlice has taken the peer's whole\nmarshal_vector_test.go:833: // count -- one slice header per claimed element, 25 MB for the megabyte below.\nmarshal_vector_test.go:834: //\nmarshal_vector_test.go:835: // Not parallel: TotalAlloc is the process's, and a parallel sibling would pollute it.\nmarshal_vector_test.go:858: // wireVectorType builds the TypeInfo readTypeInfo resolves a custom column of this\nmarshal_vector_test.go:859: // name to, so the type under test is one a server can actually install.\nmarshal_vector_test.go:867: // TestUnmarshalVectorRejectsAnElementTypeWithNoGoType covers the empty-interface\nmarshal_vector_test.go:868: // destination, the one the generic path resolves through info.Zero(). Both cases\nmarshal_vector_test.go:869: // are reachable from the wire with no malformed metadata: a nested vector's inner\nmarshal_vector_test.go:870: // type resolves from the bare prefix, and an unknown element type degrades to an\nmarshal_vector_test.go:871: // opaque custom one. The concrete destinations pin that the guard narrowed nothing.\nmarshal_vector_test.go:902: // The name matters: it is all a caller has to identify the column.\nmarshal_vector_test.go:933: // VectorType, SubType and Dimensions are all exported, so a caller of Unmarshal can\nmarshal_vector_test.go:934: // hand us a zero VectorType. Nothing allocates at zero dimensions, so the dimension\nmarshal_vector_test.go:935: // bound must not run there -- it would dereference the nil SubType and panic on the\nmarshal_vector_test.go:936: // very goroutine the bound exists to keep alive.\n\nThe final audit marker must map these comment, code-risk, and commit keys to a finding reference or a brief reason for no finding: [\"helpers.go:282\",\"marshal.go:987\",\"marshal.go:995\",\"marshal_vector_test.go:586\",\"marshal_vector_test.go:634\",\"marshal_vector_test.go:649\",\"marshal_vector_test.go:661\",\"marshal_vector_test.go:693\",\"marshal_vector_test.go:831\",\"marshal_vector_test.go:832\",\"marshal_vector_test.go:871\",\"marshal_vector_test.go:934\",\"marshal.go:1006\",\"marshal.go:998\",\"marshal.go:1125\",\"marshal_vector_test.go:557\",\"marshal_vector_test.go:570\",\"marshal_vector_test.go:797\",\"marshal_vector_test.go:860\",\"marshal_vector_test.go:872\",\"marshal_vector_test.go:937\",\"commit:0276a66\",\"commit:78891dd\"]",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 197800,
+  "reportedCostUsd": 2.4597488000000003,
+  "reportedUsage": {
+    "input_tokens": 4,
+    "cache_creation_input_tokens": 5765,
+    "cache_read_input_tokens": 143329,
+    "output_tokens": 4520,
+    "output_tokens_details": {
+      "thinking_tokens": 527
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 5765,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 4167,
+        "cache_read_input_tokens": 72986,
+        "cache_creation_input_tokens": 3122,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 3122
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 58,
+      "outputTokens": 42992,
+      "cacheReadInputTokens": 1189659,
+      "cacheCreationInputTokens": 232230,
+      "webSearchRequests": 0,
+      "costUSD": 2.4597488000000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 18822,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 2,
+  "subagentStats": {
+    "spawned": 3,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 3
+    },
+    "started_in_background": 3,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 3,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "general-purpose": 3
+    }
+  },
+  "sessionId": "6b3a6696-0023-45f7-8394-6b87f3bc7103",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 58,
+    "output": 42992,
+    "thinking": 18822,
+    "cacheRead": 1189659,
+    "cacheCreation": 232230,
+    "costUsd": 2.4597488000000003,
+    "sessions": 1,
+    "models": {
+      "claude-opus-5-5": 2.4597488000000003
+    },
+    "bySession": {
+      "6b3a6696-0023-45f7-8394-6b87f3bc7103": {
+        "costUsd": 2.4597488000000003,
+        "startTime": 1791804656146,
+        "tokens": 1464939
+      }
+    },
+    "rawMessages": 52,
+    "rawOutput": 67804,
+    "rawCacheRead": 2155401,
+    "since": 0,
+    "subagentTranscripts": 3,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-tidepool-runs-opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12-review-and-fix-pr2-attempt-cKmwGb-repo",
+    "byAgent": {
+      "6b3a6696-0023-45f7-8394-6b87f3bc7103.jsonl": {
+        "input": 22,
+        "output": 10341,
+        "cacheRead": 558028,
+        "cacheCreation": 66865,
+        "messages": 11,
+        "total": 635256
+      },
+      "6b3a6696-0023-45f7-8394-6b87f3bc7103/subagents/agent-a0903972c08b3e63b.jsonl": {
+        "input": 12,
+        "output": 32,
+        "cacheRead": 212865,
+        "cacheCreation": 57795,
+        "messages": 6,
+        "total": 270704
+      },
+      "6b3a6696-0023-45f7-8394-6b87f3bc7103/subagents/agent-a6b673e7ca1a6312e.jsonl": {
+        "input": 12,
+        "output": 255,
+        "cacheRead": 233371,
+        "cacheCreation": 62735,
+        "messages": 6,
+        "total": 296373
+      },
+      "6b3a6696-0023-45f7-8394-6b87f3bc7103/subagents/agent-ac862f54406e6e121.jsonl": {
+        "input": 12,
+        "output": 616,
+        "cacheRead": 185395,
+        "cacheCreation": 44835,
+        "messages": 6,
+        "total": 230858
+      }
+    },
+    "total": 1464939
+  },
+  "result": "The PR has no blocking correctness defect, but its \"flat allocation\" claim still has a 24-bytes-per-payload-byte hole, and the 32-bit coverage claim in a test comment is false. Checkout is unchanged (HEAD `78891dd`, clean tree). Waits, timeouts and call-completion order are unchanged from the base.\n\n## Toolkit\n\n1. **Medium — `marshal.go:1141`: inner dimensions of zero or below still let one payload byte become one slice header.**\n   - `vectorElemMinSize` floors any inner vector with `Dimensions <= 0` to 1 byte.\n   - The parser in this checkout accepts those dimensions: `frame.go:861` does `dim, _ := strconv.Atoi(...)`. The `dim < 1` rejection said to land with #1093 is not here.\n   - For `vector<vector<float,-3>,M>` or `vector<vector<float,0>,M>` with an L-byte payload, the guard accepts M = L. `reflect.MakeSlice` then allocates about 24·L bytes before the inner decoder errors.\n   - That is the same 24 B per payload byte the PR body gives as the \"before\" figure. The \"3.5 KB flat\" figure only holds for the tested `vector<vector<float,3>>` shape.\n   - The same cause over-rejects a valid empty payload for `vector<vector<float,0>,M>`, which encodes in 0 bytes.\n\n2. **Low — `marshal_vector_test.go:586`: the 32-bit coverage claim is not true for this package.**\n   - The wrap arithmetic is right on 386: `bits.UintSize` gives `1<<29+1`, which wraps to 8.\n   - But `GOARCH=386 go vet .` exits 1 because dependencies don't compile. Examples: `serialization/varint/unmarshal_ints.go:25: int(-1) << 32 ... overflows int` and `serialization/cqlint/unmarshal_utils.go:13`.\n   - So the package does not build on 386, and these tests can never run there.\n\n3. **Low — `marshal_vector_test.go:813` and `:693`: two comments state false minimums.**\n   - `:813` says \"Neither can describe an element in zero bytes\", but `vector<float,0>` is exactly zero bytes; the 1 is only a divide-by-zero clamp.\n   - `:693` says \"a vector of N elements is never encoded in fewer than N bytes\", which `vector<vector<float,0>,N>` breaks (0 bytes).\n\n4. **Low — `marshal_vector_test.go:772`: one element's size is confused with the whole fixture's.** The comment says \"Each inner vector … eight bytes\". Each inner `vector<text,3>` is 1+3 = 4 bytes; 8 is the size of the two-element payload checked at `:780`.\n\n5. **Low — `marshal.go:1006`: stale comment.** \"nil/empty and dim=0 fall through to the generic path\" no longer holds: with dim > 0, an empty non-nil payload is now rejected at `:1000`, and negative dimensions error at `:992`.\n\n6. **Low — `marshal.go:987`: the claim is too broad.** \"every path below turns it into an allocation\" is false for array destinations, which only compare lengths.\n\n7. **Low — `marshal.go:1047`: a nested vector's error doesn't name its inner type.**\n   - `VectorType` has no `String()`, and a nested type parsed from the wire keeps only the bare `...VectorType` prefix (`helpers.go:271`).\n   - So the new error renders as `custom(org.apache.cassandra.db.marshal.VectorType)`, with no element type or dimension.\n   - Likewise, the bound error at `:1001` doesn't give `elemMin`, so it can't show why a nested count was rejected.\n   - The subtest at `:872` only matches `\"no Go type for element type\"`.\n\n8. **Simplification — `marshal.go:998` / `:1007`: the same condition appears twice.** Both blocks test `info.Dimensions > 0 && data != nil`. The bound could open the fast-path block, which also makes the \"multiplication is safe\" ordering obvious.\n\n## Standards\n\n1. **High — commits 0276a66 and 78891dd, and the PR body: Claude attribution against the user rule.** Both commits carry `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`, and the body ends with `🤖 Generated with [Claude Code]`. The user-level `~/.claude/CLAUDE.md` forbids both.\n\n2. **Medium — PR body: issue references don't resolve.** `gh issue view` finds none of #1085, #1086, #1106, #1093 or #1091 in dkropachev/tidepool, so the out-of-scope and \"lands with\" claims point at nothing.\n\n3. **Low — commit 0276a66 body describes the design the commit replaced.** It says \"Every element takes at least one byte on the wire\", but the commit adds the recursive `vectorElemMinSize` (`marshal.go:1125`), and the test comment at `:831` explains that a one-byte floor is not enough.\n\n4. **Low — commit 78891dd subject leaves out a wider change.** The subject covers only the vector guard. The `helpers.go:282` change (the body does mention it) makes every unknown type name, from every caller (collections, UDTs, tuples, `frame.go`), keep its name in `Custom()`/`String()`. It is tested only through the vector error path.\n\nEach commit's fix lands with its own tests. CONTRIBUTING's \"Patch by\" format and CHANGELOG rule are not followed in practice in this repo (and there is no CHANGELOG.md), so I'm not reporting them.\n\nMaintenance suggestions (not defects):\n- **`marshal.go:1125` — three classifiers must stay in sync.** `vectorElemMinSize`, `vectorFixedElemSize` and `isVectorVariableLengthType` all classify the same element types. A type added to one but not the others silently shifts the bound. A cross-check test, or a doc line naming the dependency, would help.\n- **`marshal.go:1125` — cost grows with nesting depth squared.** Each level calls `isVectorVariableLengthType`, which walks the remaining depth again. The server controls depth through the type string, though the cost is bounded by that string's length.\n- **`marshal_vector_test.go:557` / `:570` — duplicated and slightly misleading builders.**\n  - `makeVectorType` repeats the existing `makeDoubleVectorType` (`:35`), and its separate `elem` and `elemName` arguments can disagree.\n  - `makeNestedVectorType` builds a custom name that differs from what the parser produces (the bare `...VectorType` prefix).\n- **`marshal_vector_test.go:860` — unclear helper name.** `wireVectorType` actually parses through `framer.readTypeInfo`; a name that says so would be clearer.\n- **New tests use `t.Parallel()`; the file's existing tests don't.** Not wrong, just inconsistent within the file.\n- **`marshal_vector_test.go:831` — the allocation test reads process-wide `TotalAlloc`.** Stray background goroutines can add noise. The 128 KiB threshold leaves wide margin, and the \"25 MB\" figure is correct on 64-bit (2^20 × 24 B).\n- **`marshal.go:978` — still accurate.** **`helpers.go:279` — \"// basic type\"** now also covers the fallback to a named custom type.\n\n## Spec\n\n1. **Low — PR body's \"3.5 KB flat\" resource claim.** Allocation is bounded by payload size, not flat; see Toolkit 1. `vector<vector<text,1>,N>` still allocates about 12 B per payload byte before the inner decoder fails.\n\n2. **Low — PR body's \"every new test fails against pristine code\".** This is true only because base fails to compile without `vectorElemMinSize`. On behaviour alone, `TestUnmarshalVectorAcceptsWellFormedPayloads` would pass on base.\n\n3. **Info — \"short or zero-length payload now errors\".** This applies only to fixed-size elements. Variable-length elements already errored on empty data at base, and three empty texts (3 bytes) still decode.\n\nThe spec's main claims hold. The bound runs before the float fast paths, the generic slice path, array destinations and `interface{}`. Negative dimensions error even with NULL data. The nil-`reflect.Type` guard covers nested and unknown element types.\n\nREVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON={\"helpers.go:282\":\"Standards 4\",\"marshal.go:987\":\"Toolkit 6\",\"marshal.go:995\":\"No finding: nonzero-dimension guard does skip vectorElemMinSize at dim 0; the nil-SubType panic with Dimensions>0 predates this PR\",\"marshal_vector_test.go:586\":\"Toolkit 2\",\"marshal_vector_test.go:634\":\"No finding: negative/oversized count rejected at marshal.go:992/1000 before make\",\"marshal_vector_test.go:649\":\"No finding: base array loop derived elemSize from len(data)/Dimensions, so it decoded zeroes; accurate\",\"marshal_vector_test.go:661\":\"No finding: inner decoder errors only after MakeSlice; accurate\",\"marshal_vector_test.go:693\":\"Toolkit 3\",\"marshal_vector_test.go:831\":\"Standards maintenance (TotalAlloc); 2^20 x 24 B = 25 MB is correct\",\"marshal_vector_test.go:832\":\"No finding: a one-byte floor admits the count and MakeSlice allocates before erroring; accurate\",\"marshal_vector_test.go:871\":\"No finding: concrete-destination subtests show the guard narrows nothing\",\"marshal_vector_test.go:934\":\"No finding: VectorType fields are exported and zero dims skips the bound\",\"marshal.go:1006\":\"Toolkit 5\",\"marshal.go:998\":\"Toolkit 8\",\"marshal.go:1125\":\"Toolkit 1; Standards maintenance (classifier sync, depth^2)\",\"marshal_vector_test.go:557\":\"Standards maintenance (duplicates makeDoubleVectorType)\",\"marshal_vector_test.go:570\":\"Standards maintenance (custom name differs from parsed)\",\"marshal_vector_test.go:797\":\"Toolkit 3 (row at :813)\",\"marshal_vector_test.go:860\":\"Standards maintenance (name hides readTypeInfo)\",\"marshal_vector_test.go:872\":\"Toolkit 7\",\"marshal_vector_test.go:937\":\"No finding: covers zero-dim nil SubType as its comment says\",\"commit:0276a66\":\"Standards 1, Standards 3; fix and tests in same commit\",\"commit:78891dd\":\"Standards 1, Standards 4; fix and tests in same commit\"}",
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/tidepool/runs/opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/review-and-fix-pr2/attempt-cKmwGb/repo",
+  "finishedAt": "2026-10-12T11:34:13.998Z"
+}

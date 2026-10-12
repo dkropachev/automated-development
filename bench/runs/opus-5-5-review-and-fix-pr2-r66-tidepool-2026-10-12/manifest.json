@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "configSha256": "f61efe571468c0bb59d31c947498e4c226f38165e174921fd4ed3446464c0a7e",
+  "targets": {
+    "tidepool": {
+      "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+      "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3"
+    }
+  },
+  "targetMetadata": {
+    "tidepool": {
+      "commits": 2,
+      "extraReplacements": {
+        "github.com/gocql/gocql": "github.com/dkropachev/tidepool"
+      },
+      "fork": "dkropachev/tidepool",
+      "forkHead": "bound-vector-dimensions",
+      "forkPr": 1,
+      "forkPrUrl": "https://github.com/dkropachev/tidepool/pull/1",
+      "id": "tidepool",
+      "language": "Go",
+      "localDiffBytes": 18335,
+      "pr": 1094,
+      "preparedAt": "2026-09-20T17:09:11.592Z",
+      "residualLeakFiles": 264,
+      "residualLeakHits": 1534,
+      "rewrittenFiles": 162,
+      "upstream": "scylladb/gocql",
+      "upstreamDiffBytes": 18347,
+      "upstreamPrUrl": "https://github.com/scylladb/gocql/pull/1094",
+      "upstreamTitle": "fix(marshal): stop a vector value from crashing the Scan goroutine"
+    }
+  },
+  "groundtruth": {
+    "tidepool": {
+      "author": "nikagra",
+      "base": "39c9bff2502599c6a410452f8db3bd4b79e0d74d",
+      "diffBytes": 18347,
+      "head": "dc1b4a9c186d990b0fb6b6a70bdecf180e54c97a",
+      "merged": "2026-09-18T19:23:29Z",
+      "pr": 1094,
+      "review": {
+        "inline": [],
+        "issue": [
+          {
+            "body": "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: rate limited by coderabbit.ai -->\n\n> [!WARNING]\n> ## Review limit reached\n> \n> **Next included review available in 19 minutes.**\n> \n> [Check out review usage here](https://app.coderabbit.ai/dashboard/review-capacity?orgId=04f0cd19-0cdd-4e10-aaf1-5f040d526090).\n> \n> <details>\n> <summary>View limit details</summary>\n> \n> **Limit details:** You’ve used all 2 included reviews currently available.\n> \n> You've used all free OSS reviews for now. Wait for the free limit to reset to keep reviewing this public repository.\n> \n> [Learn how review limits work](https://docs.coderabbit.ai/management/plans#rate-limits).\n> \n> **Review configuration:**\n> \n> <details>\n> <summary>⚙️ Run configuration</summary>\n> \n> **Configuration used**: Organization UI\n> \n> **Review profile**: QUIET\n> \n> **Plan**: Advanced\n> \n> **Run ID**: `c43ee064-80c6-486a-bffa-3420683d005f`\n> \n> </details>\n> \n> <details>\n> <summary>📥 Commits</summary>\n> \n> Reviewing files that changed from the base of the PR and between 39c9bff2502599c6a410452f8db3bd4b79e0d74d and dc1b4a9c186d990b0fb6b6a70bdecf180e54c97a.\n> \n> </details>\n> \n> <details>\n> <summary>📒 Files selected for processing (3)</summary>\n> \n> * `helpers.go`\n> * `marshal.go`\n> * `marshal_vector_test.go`\n> \n> </details>\n> \n> </details>\n\n<!-- end of auto-generated comment: rate limited by coderabbit.ai -->\n\n<!-- tips_start -->\n\n---\n\nThanks for using [CodeRabbit](https://coderabbit.ai?utm_source=oss&utm_medium=github&utm_campaign=scylladb/gocql&utm_content=1094)! It's free for OSS, and your support helps us grow. If you like it, consider giving us a shout-out.\n\n<details>\n<summary>❤️ Share</summary>\n\n- [X](https://twitter.com/intent/tweet?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A&url=https%3A//coderabbit.ai)\n- [Mastodon](https://mastodon.social/share?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A%20https%3A%2F%2Fcoderabbit.ai)\n- [Reddit](https://www.reddit.com/submit?title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&text=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code.%20Check%20it%20out%3A%20https%3A//coderabbit.ai)\n- [LinkedIn](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fcoderabbit.ai&mini=true&title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&summary=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code)\n\n</details>\n\n\n<sub>Comment `@coderabbitai help` to get the list of available commands.</sub>\n\n<!-- tips_end -->",
+            "user": "coderabbitai[bot]"
+          }
+        ],
+        "reviews": [
+          {
+            "body": "",
+            "state": "APPROVED",
+            "user": "dkropachev"
+          }
+        ]
+      },
+      "title": "fix(marshal): stop a vector value from crashing the Scan goroutine",
+      "upstream": "scylladb/gocql",
+      "url": "https://github.com/scylladb/gocql/pull/1094"
+    }
+  },
+  "expectedCells": [
+    {
+      "id": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/review-and-fix-pr2",
+      "target": "tidepool",
+      "tool": "review-and-fix-pr2"
+    }
+  ],
+  "toolConfig": {
+    "context": "You are reviewing pull request #{pr} of this repository ({fork}) - a {language} project. The PR branch `{head}` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view {pr}`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.",
+    "tools": [
+      {
+        "cohortOnly": true,
+        "description": "A read-only pull-request review with independent toolkit, Standards, and Spec passes.",
+        "experimental": true,
+        "id": "review-and-fix-pr2",
+        "install": "/plugin marketplace add dkropachev/automated-development\n/plugin install automated-development@automated-development",
+        "invoke": "/automated-development:review-and-fix-pr2 <PR number or URL>",
+        "label": "Automated Development review-and-fix-pr2",
+        "pageUrl": "https://github.com/dkropachev/automated-development/blob/main/skills/review-and-fix-pr2/SKILL.md",
+        "prompt": "Use the loaded `automated-development:review-and-fix-pr2` skill to review pull request #{pr} in {fork}. This is a read-only benchmark. Never run git checkout, switch, reset, stash, or worktree, including temporary detours; inspect other commits with git show. Keep review reasoning in this Claude Code session and its native Agent tool. Do not launch model CLI subprocesses or read benchmark judgements or ground truth. Do not run tests, full builds, linters, or formatters; the parent may run one 60-second targeted compile or vet command only to verify a changed platform-support claim, with no repository file edits. After the three agents finish, the parent gets at most three batched Bash verification calls; do not reread the full diff or repeat agent searches. Use their cited evidence and finish once concrete candidates are verified. In Spec, compare new waits and call-completion behavior with the base, including undocumented completion ordering even when the old path could also block; in Standards, include grounded maintenance suggestions without calling them defects. Report verified file and line findings under `## Toolkit`, `## Standards`, and `## Spec` as the skill directs.\n\n{context}",
+        "repoUrl": "https://github.com/dkropachev/automated-development",
+        "requiresPluginDir": true,
+        "reviewOnly": true,
+        "selfAuthored": true,
+        "source": "automated-development@inline"
+      }
+    ]
+  },
+  "cohortScope": {
+    "tool": "review-and-fix-pr2",
+    "target": "tidepool"
+  },
+  "pluginFingerprint": {
+    "version": "0.5.0",
+    "gitCommit": "4c36ab8eba26fa7a4f819fd58f4b4b5ab777f779",
+    "contentSha256": "a2f9edc4f289b2cdcf58f0074f13727981d134f105ebe3f6d26d67f34fcdc1ec"
+  },
+  "createdAt": "2026-10-12T11:30:54.892Z"
+}

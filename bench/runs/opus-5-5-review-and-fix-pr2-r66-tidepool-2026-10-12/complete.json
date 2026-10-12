@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "runId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "configSha256": "f61efe571468c0bb59d31c947498e4c226f38165e174921fd4ed3446464c0a7e",
+  "pluginFingerprint": {
+    "contentSha256": "a2f9edc4f289b2cdcf58f0074f13727981d134f105ebe3f6d26d67f34fcdc1ec",
+    "gitCommit": "4c36ab8eba26fa7a4f819fd58f4b4b5ab777f779",
+    "version": "0.5.0"
+  },
+  "createdAt": "2026-10-12T11:46:39.448Z",
+  "manifestSha256": "cb93a9961c5450e47756d906f2b88d2e6920fbb78fff21f4cd98e7028b171258",
+  "sealSha256": "affe04f606e472a9b0c73536c4cb1f82578b9029963d8647bb6ac990f7c10ab2",
+  "findings": [
+    {
+      "file": "findings/tidepool/review-and-fix-pr2.json",
+      "sha256": "5978d0ccd345215d9e4385ede5586d271552a3d42d20a42d979c35c82250ebbc"
+    }
+  ],
+  "judgements": [
+    {
+      "file": "judgement/tidepool.json",
+      "sha256": "413da2932557c30f04245276c6f97d52c687738ca87cddb133fe7e7d447bb408"
+    }
+  ]
+}

@@ -371,10 +371,13 @@ try {
   const realIdentityIds = new Set(DASHBOARD_DATA.identityIssues.filter((issue) => issue.verdict === 'real').map((issue) => issue.id))
   const expectedEverFound = new Set(DASHBOARD_DATA.runs.filter((run) => run.status === 'complete').flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
   assert.equal(Number(coverageFor(crossRun.app).everFound.replaceAll(',', '')), expectedEverFound)
-  const r43Rejected = DASHBOARD_DATA.issues.find((issue) => issue.id === 'opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I9')
-  assert.equal(r43Rejected.verdict, 'false-positive')
-  assert.deepEqual(r43Rejected.identityIds, ['quillstone-I022'])
-  assert.equal(DASHBOARD_DATA.identityIssues.find((issue) => issue.id === 'quillstone-I022').verdict, 'real')
+  const rustComparison = render('compare?model=all&compareSkills=anthropic-pr-review%2Creview-and-fix-pr2&languages=Rust')
+  const rustRealFound = new Set(DASHBOARD_DATA.runs.filter((run) => run.status === 'complete' && run.targetId === 'quillstone').flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
+  assert.equal(Number(coverageFor(rustComparison.app).everFound.replaceAll(',', '')), rustRealFound)
+  const locallyRejected = DASHBOARD_DATA.issues.find((issue) => issue.id === 'opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I7')
+  assert.equal(locallyRejected.verdict, 'false-positive')
+  assert.deepEqual(locallyRejected.identityIds, ['ironweave-I014'])
+  assert.equal(DASHBOARD_DATA.identityIssues.find((issue) => issue.id === 'ironweave-I014').verdict, 'real')
 
   const comparison = render('compare/tidepool/builtin-code-review/tidepool/superpowers-review')
   assert.match(comparison.app, /href="#run\/legacy%2Ftidepool%2Fbuiltin-code-review" class="run-link">legacy\/tidepool\/builtin-code-review<\/a>/)

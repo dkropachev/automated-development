@@ -3,6 +3,26 @@
   "description": "Cross-run discovery identities; distinct from sealed canonical model gold. Unmapped records receive provisional identities.",
   "identities": [
     {
+      "id": "ironweave-D001",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Early failure in the parked-sink regression test aborts or hangs cleanup",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "cross-run review"
+    },
+    {
+      "id": "ironweave-D002",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Fix and regression test land in separate commits",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "cross-run review"
+    },
+    {
       "id": "ironweave-I001",
       "targetId": "ironweave",
       "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
@@ -995,6 +1015,22 @@
       "introducedByPr": true
     },
     {
+      "id": "ironweave-I063",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "PR body overstates that the new regression test always fails without the fix",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "Empirically verified: with the _stream_closing guard in connection::send() disabled (simulating pre-fix behavior) and the rest of the series intact, 30 runs of test_stream_send_after_stream_close under the test's actual default (-c 2) produced 1 unexpected pass out of 30, directly contradicting the PR body's claim 'the new test fails without the first commit'. Separately, 'chaining on _outgoing_queue_ready the way send() does' is an imprecise description: stream_close() takes a one-shot std::exchange snapshot of the current value, not send()'s self-extending chain.",
+      "scopeReason": "This is the PR's own description text.",
+      "introducedByPr": true
+    },
+    {
       "id": "quillstone-I001",
       "targetId": "quillstone",
       "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
@@ -1843,6 +1879,38 @@
       "introducedByPr": true
     },
     {
+      "id": "quillstone-I054",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Metric decrement depends on an undocumented asymmetry between connection and keyspace failures",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 895,
+      "kind": "design",
+      "verdictReason": "Only the new Err(ConnectionSetupError::Keyspace(err)) arm (line 900) calls self.metrics.dec_total_connections(), while the Err(ConnectionSetupError::Connection(err)) arm (line 863) does not, because the gauge is only incremented when the underlying connect future succeeds (count_in_metrics, ~line 1046) -- a correct but undocumented asymmetry; both arms also independently repeat the `!self.is_filling() && self.is_empty()` guard (lines 887 and 907), so a future refactor moving the increment point would need to update both branches together.",
+      "scopeReason": "The new Keyspace-error arm and its asymmetric decrement are introduced by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I055",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "PR description omits the log-level downgrade and newly surfaced public error variant",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "The PR description ('A failed USE on a newly opened connection is now returned to the pool as a keyspace setup error...') never mentions the warn!->debug! downgrade (I2) or that ConnectionPoolError::Broken can now surface a new ConnectionError::UseKeyspaceError variant (I3) as an observable behavior change for library consumers, even though the checklist claims the variant is documented -- which is true only as an in-code doc comment ('/// Failed to set a keyspace while initializing a connection.', errors.rs:599), not in the narrative description.",
+      "scopeReason": "This is this PR's own description.",
+      "introducedByPr": true
+    },
+    {
       "id": "tidepool-I001",
       "targetId": "tidepool",
       "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
@@ -2547,24 +2615,36 @@
       "introducedByPr": false
     },
     {
-      "id": "ironweave-D001",
-      "targetId": "ironweave",
-      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
-      "title": "Early failure in the parked-sink regression test aborts or hangs cleanup",
+      "id": "tidepool-I045",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Commit subject describes only vectors despite the wider custom-type change",
       "verdict": "real",
       "severity": "low",
       "scope": "in-scope",
-      "reviewedFrom": "cross-run review"
+      "reviewedFrom": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "Verified the diff: helpers.go:280-284's change (keep an unrecognised type name on the custom type instead of discarding it) applies to getCassandraLongType, which is used for every nested type parse path (collections, UDTs, tuples), not just vectors, yet the subject 'reject a vector element type that has no Go type' and the test coverage only exercise the vector path.",
+      "scopeReason": "The commit message and scope of testing are this PR's own content.",
+      "introducedByPr": true
     },
     {
-      "id": "ironweave-D002",
-      "targetId": "ironweave",
-      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
-      "title": "Fix and regression test land in separate commits",
-      "verdict": "false-positive",
-      "severity": "low",
+      "id": "tidepool-I046",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Basic-type comment now covers a named custom-type fallback",
+      "verdict": "real",
+      "severity": "nit",
       "scope": "in-scope",
-      "reviewedFrom": "cross-run review"
+      "reviewedFrom": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12",
+      "file": "helpers.go",
+      "line": 279,
+      "kind": "docs",
+      "verdictReason": "The pre-existing '// basic type' comment at helpers.go:279 sits directly above both the basic-type return and the PR's new fallback branch (helpers.go:281-284) that preserves an unrecognised type name as a named custom type; the label no longer describes everything underneath it.",
+      "scopeReason": "The new fallback branch was inserted under this pre-existing comment by this PR.",
+      "introducedByPr": true
     }
   ],
   "mappings": [
@@ -3485,418 +3565,460 @@
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/ironweave/I11",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I1",
       "identityIds": [
-        "ironweave-I049"
+        "ironweave-I005",
+        "ironweave-I006"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/ironweave/I16",
-      "identityIds": [
-        "ironweave-I018"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/ironweave/I17",
-      "identityIds": [
-        "ironweave-D002"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/ironweave/I2",
-      "identityIds": [
-        "ironweave-D001"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/ironweave/I21",
-      "identityIds": [
-        "ironweave-I022"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/ironweave/I23",
-      "identityIds": [
-        "ironweave-I026"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/ironweave/I3",
-      "identityIds": [
-        "ironweave-I027"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/ironweave/I5",
-      "identityIds": [
-        "ironweave-I029"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/ironweave/I7",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I10",
       "identityIds": [
         "ironweave-I013"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/ironweave/I8",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I11",
       "identityIds": [
-        "ironweave-I012"
+        "ironweave-I034"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/quillstone/I1",
-      "identityIds": [
-        "quillstone-I001"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/quillstone/I15",
-      "identityIds": [
-        "quillstone-I010"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/quillstone/I2",
-      "identityIds": [
-        "quillstone-I002"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/quillstone/I21",
-      "identityIds": [
-        "quillstone-I014"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/quillstone/I24",
-      "identityIds": [
-        "quillstone-I022"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/quillstone/I28",
-      "identityIds": [
-        "quillstone-I038"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/I13",
-      "identityIds": [
-        "tidepool-I028"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/I19",
-      "identityIds": [
-        "tidepool-I012"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/I21",
-      "identityIds": [
-        "tidepool-I004"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/I22",
-      "identityIds": [
-        "tidepool-I013"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/I5",
-      "identityIds": [
-        "tidepool-I007"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/I8",
-      "identityIds": [
-        "tidepool-I033"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I1",
-      "identityIds": [
-        "ironweave-I024"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I11",
-      "identityIds": [
-        "ironweave-I016"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I12",
-      "identityIds": [
-        "ironweave-I017"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I13",
-      "identityIds": [
-        "ironweave-I018"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I14",
-      "identityIds": [
-        "ironweave-D002"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I17",
-      "identityIds": [
-        "ironweave-I037"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I18",
-      "identityIds": [
-        "ironweave-I049"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I19",
-      "identityIds": [
-        "ironweave-I022"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I2",
-      "identityIds": [
-        "ironweave-I029"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I21",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I12",
       "identityIds": [
         "ironweave-I009"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I22",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I13",
       "identityIds": [
-        "ironweave-I026"
+        "ironweave-I011"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I23",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I14",
       "identityIds": [
         "ironweave-I023"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I24",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I15",
       "identityIds": [
-        "ironweave-I021"
+        "ironweave-I016"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I3",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I16",
       "identityIds": [
-        "ironweave-I013"
+        "ironweave-I017"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I4",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I17",
       "identityIds": [
-        "ironweave-I012"
+        "ironweave-I018",
+        "ironweave-I060"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I5",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I18",
+      "identityIds": [
+        "ironweave-D002"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I19",
+      "identityIds": [
+        "ironweave-I030"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I2",
       "identityIds": [
         "ironweave-I027"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I6",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I20",
+      "identityIds": [
+        "ironweave-I039"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I21",
+      "identityIds": [
+        "ironweave-I035"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I23",
+      "identityIds": [
+        "ironweave-I012"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I24",
+      "identityIds": [
+        "ironweave-I020"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I25",
+      "identityIds": [
+        "ironweave-I021"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I26",
+      "identityIds": [
+        "ironweave-I026"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I27",
+      "identityIds": [
+        "ironweave-I028"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I28",
+      "identityIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I29",
+      "identityIds": [
+        "ironweave-I037",
+        "ironweave-I049"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I3",
       "identityIds": [
         "ironweave-D001"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I7",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I30",
       "identityIds": [
-        "ironweave-I005"
+        "ironweave-I040"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/I8",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I31",
+      "identityIds": [
+        "ironweave-I003"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I32",
+      "identityIds": [
+        "ironweave-I003"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I33",
+      "identityIds": [
+        "ironweave-I019"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I34",
+      "identityIds": [
+        "ironweave-I063"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I4",
+      "identityIds": [
+        "ironweave-D001"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I5",
       "identityIds": [
         "ironweave-I002",
-        "ironweave-I009"
+        "ironweave-I007"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I1",
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I6",
+      "identityIds": [
+        "ironweave-I019"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I7",
+      "identityIds": [
+        "ironweave-I014"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I8",
+      "identityIds": [
+        "ironweave-I014"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I9",
+      "identityIds": [
+        "ironweave-I008",
+        "ironweave-I029"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I1",
       "identityIds": [
         "quillstone-I001"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I12",
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I10",
       "identityIds": [
+        "quillstone-I054"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I11",
+      "identityIds": [
+        "quillstone-I048",
+        "quillstone-I049"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I12",
+      "identityIds": [
+        "quillstone-I038"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I13",
+      "identityIds": [
+        "quillstone-I036",
+        "quillstone-I037",
+        "quillstone-I039"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I14",
+      "identityIds": [
+        "quillstone-I009"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I15",
+      "identityIds": [
+        "quillstone-I012",
+        "quillstone-I013"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I16",
+      "identityIds": [
+        "quillstone-I007",
+        "quillstone-I008",
         "quillstone-I010"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I14",
-      "identityIds": [
-        "quillstone-I030"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I15",
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I17",
       "identityIds": [
         "quillstone-I014"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I17",
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I18",
       "identityIds": [
-        "quillstone-I043"
+        "quillstone-I030"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I18",
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I19",
       "identityIds": [
-        "quillstone-I024"
+        "quillstone-I026",
+        "quillstone-I027"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I2",
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I2",
       "identityIds": [
         "quillstone-I002"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I20",
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I20",
       "identityIds": [
-        "quillstone-I027"
+        "quillstone-I055"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I21",
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I3",
       "identityIds": [
-        "quillstone-I007"
+        "quillstone-I029"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I3",
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I4",
       "identityIds": [
-        "quillstone-I005"
+        "quillstone-I015",
+        "quillstone-I016",
+        "quillstone-I021",
+        "quillstone-I032"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I5",
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I5",
       "identityIds": [
-        "quillstone-I016"
+        "quillstone-I017",
+        "quillstone-I021"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I8",
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I6",
       "identityIds": [
-        "quillstone-I003"
+        "quillstone-I020",
+        "quillstone-I021"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I9",
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I7",
+      "identityIds": [
+        "quillstone-I003",
+        "quillstone-I004"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I8",
       "identityIds": [
         "quillstone-I022"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I11",
+      "recordId": "opus-5-5-review-and-fix-pr2-r64-quillstone-2026-10-12/quillstone/I9",
       "identityIds": [
-        "tidepool-I011"
+        "quillstone-I043"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I13",
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I1",
       "identityIds": [
-        "tidepool-I030"
+        "tidepool-I001"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I14",
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I10",
       "identityIds": [
         "tidepool-I033"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I15",
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I11",
       "identityIds": [
         "tidepool-I004"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I2",
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I12",
       "identityIds": [
-        "tidepool-I015"
+        "tidepool-I037"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I20",
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I13",
       "identityIds": [
-        "tidepool-I034"
+        "tidepool-I045"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I21",
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I14",
       "identityIds": [
         "tidepool-I028"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I22",
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I15",
+      "identityIds": [
+        "tidepool-I040"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I16",
       "identityIds": [
         "tidepool-I030"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I26",
-      "identityIds": [
-        "tidepool-I012"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I28",
-      "identityIds": [
-        "tidepool-I013"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I3",
-      "identityIds": [
-        "tidepool-I016"
-      ]
-    },
-    {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I6",
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I2",
       "identityIds": [
         "tidepool-I032"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I7",
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I20",
       "identityIds": [
-        "tidepool-I006"
+        "tidepool-I024"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I8",
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I22",
       "identityIds": [
-        "tidepool-I007"
+        "tidepool-I046"
       ]
     },
     {
-      "recordId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/I9",
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I23",
       "identityIds": [
-        "tidepool-I022"
+        "tidepool-I012"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I24",
+      "identityIds": [
+        "tidepool-I036"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I3",
+      "identityIds": [
+        "tidepool-I017"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I4",
+      "identityIds": [
+        "tidepool-I017"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I5",
+      "identityIds": [
+        "tidepool-I018"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I6",
+      "identityIds": [
+        "tidepool-I015"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I7",
+      "identityIds": [
+        "tidepool-I016"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I8",
+      "identityIds": [
+        "tidepool-I008",
+        "tidepool-I019"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-review-and-fix-pr2-r66-tidepool-2026-10-12/tidepool/I9",
+      "identityIds": [
+        "tidepool-I027"
       ]
     },
     {
