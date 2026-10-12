@@ -479,6 +479,10 @@ if (typeof module !== 'undefined' && module.exports) {
     run.revisionKey = run.targetPins?.baseSha && run.targetPins?.headSha ? `${run.targetId}/${run.targetPins.baseSha}/${run.targetPins.headSha}` : null
   }
   const runs = new Map(DATA.runs.map((run) => [run.id, run]))
+  // Modern cohorts enter the export only after readComplete verifies every sealed artifact.
+  // Legacy rows remain available in Runs as historical evidence, not discovery credit.
+  const verifiedRuns = DATA.runs.filter((run) => run.cohortId !== 'legacy')
+  const verifiedRunIds = new Set(verifiedRuns.map((run) => run.id))
   const legacyRunAliases = new Map(DATA.runs.filter((run) => run.cohortId === 'legacy').map((run) => [`${run.targetId}/${run.toolId}`, run.id]))
   const targets = new Map(DATA.targets.map((target) => [target.id, target]))
   const tools = new Map(DATA.tools.map((tool) => [tool.id, tool]))
@@ -858,7 +862,8 @@ if (typeof module !== 'undefined' && module.exports) {
 
   function filterBar(params, { search = false, status = false, skills = true, models = true } = {}) {
     const bar = el('section', { class: 'filter-bar', 'aria-label': 'Benchmark filters' })
-    const runsInModel = models ? DATA.runs.filter((run) => matchesSelectedModel(run, params)) : DATA.runs
+    const sourceRuns = status ? DATA.runs : verifiedRuns
+    const runsInModel = models ? sourceRuns.filter((run) => matchesSelectedModel(run, params)) : sourceRuns
     const skillChoices = [...new Map(runsInModel.map((run) => [run.toolId, run.toolLabel])).entries()]
     const targetChoices = [...new Map(runsInModel.map((run) => [run.targetId, targetForRun(run)])).entries()]
     const linkedRuns = values(params, 'runIds')
@@ -903,7 +908,7 @@ if (typeof module !== 'undefined' && module.exports) {
     return DATA.runs.filter((run) => {
       if (selectedRunIds.length && !selectedRunIds.includes(run.id)) return false
       if (!matchesOverviewDimensions(run, params)) return false
-      if (status === 'recommended' && !(run.status === 'complete' && run.metrics.real > 0 && run.usage.total != null && run.usage.total <= DATA.defaultTokenLimit)) return false
+      if (status === 'recommended' && !(run.cohortId !== 'legacy' && run.status === 'complete' && run.metrics.real > 0 && run.usage.total != null && run.usage.total <= DATA.defaultTokenLimit)) return false
       return ['all', 'recommended'].includes(status) || run.status === status
     })
   }
@@ -1093,7 +1098,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const selectedLanguage = languages.includes(requestedLanguage) ? requestedLanguage : 'all'
     const scopeLabels = { all: 'All issues', major: 'Major only', majorMinor: 'Major + minor' }
     const scopeSeverities = { all: ['blocker', 'high', 'medium', 'low', 'nit'], major: ['blocker', 'high'], majorMinor: ['blocker', 'high', 'medium'] }
-    const leaderRuns = DATA.runs.filter((run) => matchesSelectedModel(run, params) && (selectedLanguage === 'all' || targetForRun(run)?.language === selectedLanguage))
+    const leaderRuns = verifiedRuns.filter((run) => matchesSelectedModel(run, params) && (selectedLanguage === 'all' || targetForRun(run)?.language === selectedLanguage))
     const verifiedReal = new Set(leaderRuns.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
     const catalogue = skillCatalogue(leaderRuns)
     const groups = groupedStats(leaderRuns, 'skill', leaderRuns).filter((group) => group.cost > 0)
@@ -1753,7 +1758,7 @@ if (typeof module !== 'undefined' && module.exports) {
   function discoveredModelCoverage(params) {
     const selectedTargets = values(params, 'targets')
     const selectedLanguages = values(params, 'languages')
-    const eligible = DATA.runs.filter((run) => run.status === 'complete' && (!selectedTargets.length || selectedTargets.includes(run.targetId)) && (!selectedLanguages.length || selectedLanguages.includes(targetForRun(run)?.language)))
+    const eligible = verifiedRuns.filter((run) => run.status === 'complete' && (!selectedTargets.length || selectedTargets.includes(run.targetId)) && (!selectedLanguages.length || selectedLanguages.includes(targetForRun(run)?.language)))
     const allReal = new Set(eligible.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issue.id)))
     const body = el('tbody')
     for (const group of groupedStats(eligible, 'model', eligible).sort((a, b) => a.label.localeCompare(b.label))) {
@@ -1783,7 +1788,7 @@ if (typeof module !== 'undefined' && module.exports) {
       return renderModelComparison(canonical)
     }
     if (params.get('tab') === 'models') return renderModelComparison(params)
-    const base = DATA.runs.filter((run) => matchesOverviewDimensions(run, params))
+    const base = verifiedRuns.filter((run) => matchesOverviewDimensions(run, params))
     const requestedGroup = params.get('group') || 'skill'
     const groupBy = ['skill', 'skillModel', 'language'].includes(requestedGroup) ? requestedGroup : 'skill'
     const sort = decisionSortKey(params)
@@ -1815,7 +1820,7 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function compareSelector(params, selected) {
-    return el('section', { class: 'selection-grid' }, DATA.tools.filter((tool) => DATA.runs.some((run) => run.toolId === tool.id)).map((tool) => {
+    return el('section', { class: 'selection-grid' }, DATA.tools.filter((tool) => verifiedRuns.some((run) => run.toolId === tool.id)).map((tool) => {
       const checked = selected.includes(tool.id)
       const box = el('input', { type: 'checkbox', checked, disabled: !checked && selected.length >= 5, onchange: (event) => setComparison(params, tool.id, event.target.checked) })
       return el('label', { class: `selection-card${checked ? ' selected' : ''}` }, box, el('span', {}, el('strong', {}, tool.label), experimentalToolBadge(tool), el('small', {}, tool.source || tool.id)))
@@ -1842,7 +1847,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const selected = selectionFrom(params)
     const dimensionParams = new URLSearchParams(params)
     dimensionParams.delete('skills')
-    const base = DATA.runs.filter((run) => matchesOverviewDimensions(run, dimensionParams))
+    const base = verifiedRuns.filter((run) => matchesOverviewDimensions(run, dimensionParams))
     const displayRows = base.filter((run) => selected.includes(run.toolId))
     const groups = selected.map((toolId) => aggregateRuns(toolId, tools.get(toolId)?.label || toolId, 'Skill', displayRows.filter((run) => run.toolId === toolId), base, true))
     const unionReal = new Set(groups.flatMap((group) => group.realRows.map((row) => issueKey(row.targetId, row.issue))))
@@ -1866,7 +1871,7 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function renderInsights(params) {
-    const visible = DATA.runs.filter((run) => matchesOverviewDimensions(run, params))
+    const visible = verifiedRuns.filter((run) => matchesOverviewDimensions(run, params))
     const completed = visible.filter((run) => run.status === 'complete')
     frame(el('div', {},
       compactHero('Broad analysis', 'See the whole benchmark landscape.', 'Use mixed charts to explore price, quality, robustness, requested models, observed runtime stacks, and target-level variation.'),
@@ -1876,7 +1881,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ))
   }
 
-  function skillCatalogue(sourceRuns = DATA.runs) {
+  function skillCatalogue(sourceRuns = verifiedRuns) {
     const grouped = new Map()
     const visibleTools = [...new Map(sourceRuns.map((run) => {
       const global = tools.get(run.toolId) || {}
@@ -1914,7 +1919,7 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function renderSkills(focusId = null, params = new URLSearchParams()) {
-    const catalogue = skillCatalogue(DATA.runs.filter((run) => matchesSelectedModel(run, params)))
+    const catalogue = skillCatalogue(verifiedRuns.filter((run) => matchesSelectedModel(run, params)))
     const focused = focusId ? catalogue.find((skill) => skill.id === focusId) : null
     if (focusId && !focused) return renderNotFound('Skill not found', focusId)
     const visible = focused ? [focused] : catalogue
@@ -1933,7 +1938,7 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function renderFindings(params) {
-    const matchingRuns = DATA.runs.filter((run) => matchesOverviewDimensions(run, params))
+    const matchingRuns = verifiedRuns.filter((run) => matchesOverviewDimensions(run, params))
     const matchingIds = new Set(matchingRuns.map((run) => run.id))
     const rows = (DATA.identityIssues || DATA.issues).filter((issue) => matchingRuns.some((run) => matchingIds.has(run.id) && run.targetId === issue.targetId && (run.identityIssueIds || run.issueIds).includes(issue.id)))
     const verdict = params.get('verdict') || 'all'
@@ -1968,7 +1973,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const visible = filteredRuns(params)
     const ordered = sortedRuns(visible, params)
     const picked = (params.get('pick') || '').split(',').map(resolveRunId).filter((id) => runs.has(id)).slice(0, 2)
-    const distinctReal = new Set(visible.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
+    const distinctReal = new Set(visible.filter((run) => run.cohortId !== 'legacy').flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
 
     const content = el('div', {},
       compactHero('Run evidence', 'Audit every benchmark run.', 'Inspect cost, time, token composition, extracted claims, and discovered outcomes. Select two rows for a raw run-to-run comparison.'),
@@ -1982,7 +1987,7 @@ if (typeof module !== 'undefined' && module.exports) {
         kpi('Failures', fmt(visible.filter((run) => ['failed', 'dnf'].includes(run.status)).length), 'failed or did not finish'),
       ),
       el('section', { class: 'panel' },
-        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Run matrix'), el('p', {}, 'All runs for the selected model are visible. Use “Useful only” to apply the historical successful, non-zero-yield, token-capped view.'))),
+        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Run matrix'), el('p', {}, 'All stored runs for the selected model are visible. Legacy rows lack a verified complete snapshot and do not enter discovered coverage. “Useful only” shows successful, non-zero-yield, token-capped verified runs.'))),
         runTable(ordered, params, picked),
       ),
       comparisonDock(picked, params),
@@ -2175,7 +2180,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const selectedTargets = values(params, 'targets')
     const selectedLanguages = values(params, 'languages')
     const eligible = new Set()
-    for (const run of DATA.runs) {
+    for (const run of verifiedRuns) {
       if (run.toolId !== toolId || !matchesSelectedModel(run, params)) continue
       const target = targetForRun(run)
       const tool = run.toolSnapshot || tools.get(toolId)
@@ -2190,12 +2195,12 @@ if (typeof module !== 'undefined' && module.exports) {
   function issueKey(targetId, issue) { return issue.id || `${targetId}/${issue.issueId}` }
 
   function reporterCount(issue) {
-    return (issue.reporterIds || issue.reportedByRuns || issue.reportedBy || []).length
+    return (issue.reporterIds || issue.reportedByRuns || issue.reportedBy || []).filter((id) => verifiedRunIds.has(id)).length
   }
 
   function issueUniverse(targetIds, scope, params, cohortTargets = null) {
     const found = new Set()
-    for (const run of DATA.runs) {
+    for (const run of verifiedRuns) {
       if (run.status !== 'complete' || !targetIds.includes(run.targetId) || (cohortTargets && !cohortTargets.has(run.revisionKey)) || (params && !matchesSelectedModel(run, params)) || (params && values(params, 'languages').length && !values(params, 'languages').includes(targetForRun(run)?.language))) continue
       for (const issue of run.issues) {
         if (issue.verdict !== 'real' || (scope === 'in' && issue.scope !== 'in-scope')) continue

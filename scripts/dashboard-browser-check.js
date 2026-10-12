@@ -105,9 +105,8 @@ try {
   assert.match(sonnetHome.app, /<option value="claude-sonnet-5-5" selected="">Claude Sonnet 5\.5<\/option>/)
   assert.match(sonnetHome.app, /<strong>[1-9][0-9]*<\/strong><span>review runs<\/span>/)
 
-  // Pin historical assertions to legacy Opus. `model=all` intentionally changes whenever a new
-  // completed cohort lands, while this slice remains stable before and after that event.
-  const home = render('home?model=claude-opus-5')
+  // Use a verified model for discovered rankings. Legacy Opus stays available as raw run evidence.
+  const home = render('home?model=claude-opus-5-5')
   assert.match(home.app, /Find the code-review skill worth its price\./)
   assert.match(home.app, /discovered real findings/)
   assert.doesNotMatch(home.app, /verified findings|verified issues|verified real/)
@@ -122,8 +121,9 @@ try {
   const valueCards = rankingCards(home.app, 'leader-grid')
   assertTopThree(valueCards)
   assert.doesNotMatch(valueCards, /value-leader-card|class="eyebrow"|See leaderboard/)
-  assert.equal(count(home.app, /class="skill-summary-card"/g), 8)
-  assert.match(home.app, /href="#skills\/superpowers-review\?model=claude-opus-5"/)
+  const opusSkills = new Set(DASHBOARD_DATA.runs.filter((run) => run.cohortId !== 'legacy' && run.modelId === 'claude-opus-5-5').map((run) => run.toolId))
+  assert.equal(count(home.app, /class="skill-summary-card"/g), opusSkills.size)
+  assert.match(home.app, /href="#skills\/superpowers-review\?model=claude-opus-5-5"/)
   assert.doesNotMatch(home.app, /review-bakeoff\.md/)
   assert.match(home.app, /Best coverage · All issues/)
   assert.match(home.app, /class="landing-rank-grid completeness-grid"/)
@@ -135,21 +135,21 @@ try {
   assertTopThree(rankingCards(home.app, 'unique-grid'))
   assert.equal(count(home.app, /class="leader-section"/g), 4)
 
-  const majorHome = render('home?model=claude-opus-5&completeness=major')
+  const majorHome = render('home?model=claude-opus-5-5&completeness=major')
   assert.match(majorHome.app, /Best return for the money · Major only/)
   assert.match(majorHome.app, /[0-9]+\.[0-9]+ findings \/ \$/)
   assert.match(majorHome.app, /Best coverage · Major only/)
   assert.match(majorHome.app, /class="landing-rank-grid completeness-grid"/)
   assertTopThree(rankingCards(majorHome.app, 'leader-grid'))
 
-  const majorMinorHome = render('home?model=claude-opus-5&completeness=majorMinor')
+  const majorMinorHome = render('home?model=claude-opus-5-5&completeness=majorMinor')
   assert.match(majorMinorHome.app, /Best return for the money · Major \+ minor/)
   assert.match(majorMinorHome.app, /[0-9]+\.[0-9]+ findings \/ \$/)
   assert.match(majorMinorHome.app, /Best coverage · Major \+ minor/)
   assert.match(majorMinorHome.app, /class="landing-rank-grid completeness-grid"/)
   assertTopThree(rankingCards(majorMinorHome.app, 'leader-grid'))
 
-  const goHome = render('home?model=claude-opus-5&language=Go')
+  const goHome = render('home?model=claude-opus-5-5&language=Go')
   assert.match(goHome.app, /Best return for the money · All issues · Go/)
   assert.match(goHome.app, /Best coverage · All issues · Go/)
   assert.match(goHome.app, /Fastest useful review · All issues · Go/)
@@ -158,11 +158,11 @@ try {
   assertTopThree(rankingCards(goHome.app, 'completeness-grid'))
   assert.doesNotMatch(rankingCards(goHome.app, 'completeness-grid'), /[23] targets/)
 
-  const rustMajorHome = render('home?model=claude-opus-5&completeness=major&language=Rust')
+  const rustMajorHome = render('home?model=claude-opus-5-5&completeness=major&language=Rust')
   assert.match(rustMajorHome.app, /Fastest useful review · Major only · Rust/)
   assert.match(rustMajorHome.app, /Most unique discoveries · Major only · Rust/)
 
-  const choose = render('choose?model=claude-opus-5')
+  const choose = render('choose?model=claude-opus-5-5')
   assert.match(choose.app, /class="choose-tabs" aria-label="Leaderboard views"/)
   assert.match(choose.app, /aria-current="page" class="active">Skills<\/a>/)
   assert.doesNotMatch(choose.app, /<option value="model">Model under test<\/option>/)
@@ -172,22 +172,22 @@ try {
   }
   assert.equal(count(choose.app, /aria-sort="none"/g), 8, 'the hidden best-value preset must not mark a visible column as sorted')
   assert.match(choose.app, /href="#runs\?runIds=[^"]+" class="runs-link">3 runs<\/a>/)
-  assert.match(choose.app, /href="#skills\/superpowers-review\?model=claude-opus-5" class="skill-info-link">Skill info<\/a>/)
+  assert.match(choose.app, /href="#skills\/superpowers-review\?model=claude-opus-5-5" class="skill-info-link">Skill info<\/a>/)
   assert.match(choose.dom, /class="hint-tooltip" role="tooltip" hidden=""/)
 
-  const candidateAscending = render('choose?model=claude-opus-5&decision=candidate')
+  const candidateAscending = render('choose?model=claude-opus-5-5&decision=candidate')
   const ascendingNames = leaderboardRows(candidateAscending.app)
   assert.deepEqual(ascendingNames, [...ascendingNames].sort((a, b) => a.localeCompare(b)))
   assert.equal(count(candidateAscending.app, /aria-sort="ascending"/g), 1)
   assert.equal(count(candidateAscending.app, /aria-sort="none"/g), 7)
   assert.match(candidateAscending.app, /<option value="candidate" selected="">Candidate<\/option>/)
 
-  const candidateDescending = render('choose?model=claude-opus-5&decision=candidate&decisionDir=desc')
+  const candidateDescending = render('choose?model=claude-opus-5-5&decision=candidate&decisionDir=desc')
   assert.deepEqual(leaderboardRows(candidateDescending.app), [...ascendingNames].reverse())
   assert.equal(count(candidateDescending.app, /aria-sort="descending"/g), 1)
 
-  const costDescending = render('choose?model=claude-opus-5&decision=cost&decisionDir=desc')
-  assert.equal(leaderboardRows(costDescending.app)[0], 'Trail of Bits c-review')
+  const costDescending = render('choose?model=claude-opus-5-5&decision=cost&decisionDir=desc')
+  assert.equal(leaderboardRows(costDescending.app)[0], 'Automated Development review-and-fix-pr')
   assert.match(costDescending.app, /<option value="cost" selected="">Cost<\/option>/)
 
   const models = render('choose?tab=models')
@@ -308,7 +308,7 @@ try {
   assert.equal(count(reviewedRun.app, /Needs reviewer judgment<\/span>/g), 34)
   assert.equal(count(reviewedRun.app, /Codex-confirmed lead<\/span>/g), 19)
 
-  const insights = render('insights?model=claude-opus-5')
+  const insights = render('insights?model=claude-opus-5-5')
   assert.match(insights.app, /non-dominated frontier<span class="hint-mark"/)
   assert.match(insights.app, /Bubble size: <span class="hinted-label">False-positive rate/)
   assert.match(insights.app, /class="chart-link"[^>]*role="link"/)
@@ -319,18 +319,18 @@ try {
   assert.match(findings.app, /Discovered real/)
   assert.doesNotMatch(findings.app, /Verified real|verified real/)
 
-  const skills = render('skills?model=claude-opus-5')
-  assert.equal(count(skills.app, /class="skill-card"/g), 8)
-  assert.equal(count(skills.app, />GitHub ↗<\/a>/g), 8)
-  assert.equal(count(skills.app, />Skill page ↗<\/a>/g), 8)
+  const skills = render('skills?model=claude-opus-5-5')
+  assert.equal(count(skills.app, /class="skill-card"/g), opusSkills.size)
+  assert.equal(count(skills.app, />GitHub ↗<\/a>/g), opusSkills.size)
+  assert.equal(count(skills.app, />Skill page ↗<\/a>/g), opusSkills.size)
   assert.match(skills.app, /The benchmark ran these as Claude Code plugins\./)
 
-  const skillComparison = render('compare?model=claude-opus-5&compareSkills=builtin-code-review%2Csuperpowers-review')
+  const skillComparison = render('compare?model=claude-opus-5-5&compareSkills=builtin-code-review%2Csuperpowers-review')
   for (const label of ['Attempted cost', 'Distinct real', 'Only this skill', 'Shared', 'Total real found', 'Completeness', 'Precision', 'Success']) {
     assert.match(skillComparison.app, new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*?class="hint-mark"`, 's'), `${label} needs a rendered hint`)
   }
   assert.match(skillComparison.app, />6 attempted runs<\/a>/)
-  assert.match(skillComparison.app, /href="#skills\/builtin-code-review\?model=claude-opus-5" class="skill-info-link">Skill info<\/a>/)
+  assert.match(skillComparison.app, /href="#skills\/builtin-code-review\?model=claude-opus-5-5" class="skill-info-link">Skill info<\/a>/)
 
   const unmatchedSkills = render('compare?compareSkills=anthropic-pr-review%2Cmattpocock-review%2Creview-and-fix-pr2%2Creview-and-fix-pr&targets=ironweave')
   assert.match(unmatchedSkills.app, /Completed evidence/)
@@ -358,10 +358,13 @@ try {
   }
   assert.deepEqual(coverageFor(crossRun.app), coverageFor(crossRunPair.app), 'changing selected skills must not change the discovered denominator or completeness')
   const realIdentityIds = new Set(DASHBOARD_DATA.identityIssues.filter((issue) => issue.verdict === 'real').map((issue) => issue.id))
-  const expectedEverFound = new Set(DASHBOARD_DATA.runs.filter((run) => run.status === 'complete').flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
+  const verifiedComplete = DASHBOARD_DATA.runs.filter((run) => run.status === 'complete' && run.cohortId !== 'legacy')
+  const expectedEverFound = new Set(verifiedComplete.flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
   assert.equal(Number(coverageFor(crossRun.app).everFound.replaceAll(',', '')), expectedEverFound)
+  const includingLegacy = new Set(DASHBOARD_DATA.runs.filter((run) => run.status === 'complete').flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
+  assert.ok(includingLegacy > expectedEverFound, 'legacy-only identities must stay outside discovered coverage')
   const rustComparison = render('compare?model=all&compareSkills=anthropic-pr-review%2Creview-and-fix-pr2&languages=Rust')
-  const rustRealFound = new Set(DASHBOARD_DATA.runs.filter((run) => run.status === 'complete' && run.targetId === 'quillstone').flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
+  const rustRealFound = new Set(verifiedComplete.filter((run) => run.targetId === 'quillstone').flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
   assert.equal(Number(coverageFor(rustComparison.app).everFound.replaceAll(',', '')), rustRealFound)
   const locallyRejected = DASHBOARD_DATA.issues.find((issue) => issue.id === 'opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I7')
   assert.equal(locallyRejected.verdict, 'false-positive')

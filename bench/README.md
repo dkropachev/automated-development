@@ -214,10 +214,10 @@ set. `bench/reconcile.js` builds versioned, reviewable gold snapshots. Its defau
 historical `model-comparison-2026-09-30`; the published snapshot is
 `model-comparison-2026-10-08`. Set `GOLD_ID=<id>` when working on another snapshot.
 
-The Models dashboard also lists every hash-verified completed cohort automatically using its own
-judgement snapshot. These cohort-local rows expose recorded quality, cost, runtime, and evidence,
-but do not receive canonical completeness or detection credit until a reviewed gold snapshot maps
-their findings. This keeps new cohorts visible without weakening the sealed comparison.
+The Models dashboard aggregates every hash-verified completed cohort by model in Discovered
+coverage. Its cohort-local judgements remain separate from canonical completeness and detection
+credit until a reviewed gold snapshot maps their findings. Individual runs remain available in
+Runs. Historical legacy rows have no complete snapshot and do not enter discovered coverage.
 
 For a fresh independent comparison, `proposal` runs Opus 5.5 reconciliation per target. The
 published extension of the earlier gold used a deterministic decision file after reviewing all
