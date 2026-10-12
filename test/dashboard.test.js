@@ -287,7 +287,9 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
   assert.ok(data.cohorts.filter((cohort) => !cohort.legacy).every((cohort) => cohort.complete))
   assert.ok(data.cohorts.some((cohort) => cohort.id === 'sonnet-5-5-2026-09-30' && cohort.complete))
   assert.equal(data.targets.length, 3)
-  assert.equal(data.tools.length, 10)
+  assert.equal(data.tools.length, 11)
+  assert.ok(data.tools.some((tool) => tool.id === 'code-review-ad'))
+  assert.ok(data.tools.some((tool) => tool.id === 'review-and-fix-pr2'))
   assert.deepEqual(data.tools.filter((tool) => tool.id === 'review-and-fix-pr').map((tool) => ({
     experimental: tool.experimental,
     selfAuthored: tool.selfAuthored,

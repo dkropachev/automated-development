@@ -618,25 +618,25 @@ test('only successful exact requested-model Claude responses are publishable', (
   }, model), /canonicalModel for subagent-model/)
 })
 
-test('review-and-fix-pr2 records only a complete three-axis report', () => {
-  assert.doesNotThrow(() => runner.assertReviewAndFixPr2Report('## Toolkit\nNo findings\n\n## Standards\nNo findings\n\n## Spec\nNo spec available'))
-  assert.throws(() => runner.assertReviewAndFixPr2Report('The review above is complete and final.'), /missing its Toolkit/)
-  assert.throws(() => runner.assertReviewAndFixPr2Report('## Toolkit\nNo findings\n## Spec\nNo spec available'), /missing its Toolkit/)
+test('code-review-ad records only a complete three-axis report', () => {
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport('## Toolkit\nNo findings\n\n## Standards\nNo findings\n\n## Spec\nNo spec available'))
+  assert.throws(() => runner.assertCodeReviewAdReport('The review above is complete and final.'), /missing its Toolkit/)
+  assert.throws(() => runner.assertCodeReviewAdReport('## Toolkit\nNo findings\n## Spec\nNo spec available'), /missing its Toolkit/)
   const report = '## Toolkit\n1. Finding\n\n## Standards\nNo findings\n\n## Spec\nNo findings'
-  const marker = 'REVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON={"code.go:12":"Toolkit 1"}'
-  assert.doesNotThrow(() => runner.assertReviewAndFixPr2Report(`${report}\n${marker}`, ['code.go:12']))
-  assert.doesNotThrow(() => runner.assertReviewAndFixPr2Report(`${report}\nREVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON={"code.go:12":"T5"}`, ['code.go:12']))
-  assert.doesNotThrow(() => runner.assertReviewAndFixPr2Report(`${report}\nREVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON={"code.go:12":"Spec 4"}`, ['code.go:12']))
-  assert.doesNotThrow(() => runner.assertReviewAndFixPr2Report(`${report}\nREVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON={"code.go:12":"Toolkit 1; Spec 2"}`, ['code.go:12']))
-  assert.doesNotThrow(() => runner.assertReviewAndFixPr2Report(`${report}\nREVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON={"code.go:12":"Standards maintenance suggestion"}`, ['code.go:12']))
-  assert.doesNotThrow(() => runner.assertReviewAndFixPr2Report(`${report}\nREVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON={"code.go:12":"No finding: the check precedes allocation"}`, ['code.go:12']))
-  assert.throws(() => runner.assertReviewAndFixPr2Report(report, ['code.go:12']), /missing its final claim audit/)
-  assert.throws(() => runner.assertReviewAndFixPr2Report(`${report}\n${marker}`, ['other.go:9']), /did not resolve other.go:9/)
-  assert.throws(() => runner.assertReviewAndFixPr2Report(`${report}\nREVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON={"code.go:12":"TBD"}`, ['code.go:12']), /did not resolve code.go:12/)
+  const marker = 'CODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"Toolkit 1"}'
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport(`${report}\n${marker}`, ['code.go:12']))
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport(`${report}\nCODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"T5"}`, ['code.go:12']))
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport(`${report}\nCODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"Spec 4"}`, ['code.go:12']))
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport(`${report}\nCODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"Toolkit 1; Spec 2"}`, ['code.go:12']))
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport(`${report}\nCODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"Standards 1"}`, ['code.go:12']))
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport(`${report}\nCODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"No finding: the check precedes allocation"}`, ['code.go:12']))
+  assert.throws(() => runner.assertCodeReviewAdReport(report, ['code.go:12']), /missing its final claim audit/)
+  assert.throws(() => runner.assertCodeReviewAdReport(`${report}\n${marker}`, ['other.go:9']), /did not resolve other.go:9/)
+  assert.throws(() => runner.assertCodeReviewAdReport(`${report}\nCODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"TBD"}`, ['code.go:12']), /did not resolve code.go:12/)
   assert.equal(extractor.sanitizeExtractionReport(`${report}\n${marker}`), report)
 })
 
-test('review-and-fix-pr2 rejects transient checkout in a native agent transcript', () => {
+test('code-review-ad rejects transient checkout in a native agent transcript', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'review-readonly-'))
   try {
     const subagents = path.join(root, 'subagents')
@@ -645,9 +645,9 @@ test('review-and-fix-pr2 rejects transient checkout in a native agent transcript
       { type: 'tool_use', name: 'Bash', input: { command } },
     ] } }) + '\n'
     fs.writeFileSync(path.join(root, 'main.jsonl'), toolUse('git show HEAD:src/main.go'))
-    assert.doesNotThrow(() => runner.assertReviewAndFixPr2ReadOnly(root))
+    assert.doesNotThrow(() => runner.assertCodeReviewAdReadOnly(root))
     fs.writeFileSync(path.join(subagents, 'agent.jsonl'), toolUse('git checkout -q HEAD^; git checkout -q main'))
-    assert.throws(() => runner.assertReviewAndFixPr2ReadOnly(root), /forbidden git checkout/)
+    assert.throws(() => runner.assertCodeReviewAdReadOnly(root), /forbidden git checkout/)
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }

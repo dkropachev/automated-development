@@ -8,7 +8,7 @@ const ROOT = __dirname
 const TARGETS = ['ironweave', 'quillstone', 'tidepool']
 const BASELINE_TOOLS = ['anthropic-pr-review', 'mattpocock-review']
 const BASELINE_RUN = 'opus-5-5-2026-09-29'
-const REVIEW_TOOL = 'review-and-fix-pr2'
+const REVIEW_TOOL = 'code-review-ad'
 
 function readTotal(root, run, target, tool) {
   const file = path.join(root, 'runs', run, 'results', target, `${tool}.json`)

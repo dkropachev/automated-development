@@ -183,16 +183,16 @@ Same three pieces, same driver, told `--domain commit`. What differs:
 references — with testing, sign-off, breaking-change and co-authors only where a rule requires them
 or the repo's own commits carry them.
 
-### `review-and-fix-pr2`
+### `code-review-ad`
 
 Runs a read-only PR review through three independent native Claude passes: one consolidated
 PR toolkit pass, one repository Standards pass, and one Spec pass. It needs no installed source
-review plugins and reports verified file and line findings in separate sections. If the PR has no
+review plugins and reports verified issues with file and line evidence in separate sections. If the PR has no
 meaningful specification, the Spec section says `No spec available`. It never edits code or posts
 to GitHub.
 
 ```
-/review-and-fix-pr2 1234
+/code-review-ad 1234
 ```
 
 ### `review-and-fix-pr`

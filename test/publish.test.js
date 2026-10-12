@@ -80,7 +80,7 @@ test('expected publication keeps dashboard-only skill cohorts in both dashboard 
     readComplete: (_root, runId) => ({ manifest: {
       runId,
       expectedCells: runId === 'dashboard-only'
-        ? [{ tool: 'review-and-fix-pr2' }, { tool: 'builtin-code-review' }]
+        ? [{ tool: 'code-review-ad' }, { tool: 'builtin-code-review' }]
         : [{ tool: 'builtin-code-review' }],
     }, complete: { runId } }),
     renderReport: (_root, runId) => { renderedReports.push(runId); return `report for ${runId}\n` },

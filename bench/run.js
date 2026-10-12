@@ -918,32 +918,32 @@ function assertPublishableResponse(response, parsed, requestedModel) {
   return validateClaudeResponse(response, parsed, requestedModel, { allowEmptyResult: true })
 }
 
-function assertReviewAndFixPr2Report(result, requiredClaims = []) {
+function assertCodeReviewAdReport(result, requiredClaims = []) {
   const headings = [...result.matchAll(/^## (Toolkit|Standards|Spec)\s*$/gm)].map((match) => match[1])
   if (headings.join(',') !== 'Toolkit,Standards,Spec') {
-    throw new Error('review-and-fix-pr2 result is missing its Toolkit, Standards, or Spec report; refusing to record a trailing status message')
+    throw new Error('code-review-ad result is missing its Toolkit, Standards, or Spec report; refusing to record a trailing status message')
   }
   if (!requiredClaims.length) return
   const marker = result.trimEnd().split('\n').at(-1)
-  const prefix = 'REVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON='
-  if (!marker.startsWith(prefix)) throw new Error('review-and-fix-pr2 result is missing its final claim audit')
+  const prefix = 'CODE_REVIEW_AD_CLAIM_AUDIT_JSON='
+  if (!marker.startsWith(prefix)) throw new Error('code-review-ad result is missing its final claim audit')
   let audit
   try { audit = JSON.parse(marker.slice(prefix.length)) } catch {
-    throw new Error('review-and-fix-pr2 claim audit is invalid JSON')
+    throw new Error('code-review-ad claim audit is invalid JSON')
   }
   if (!audit || typeof audit !== 'object' || Array.isArray(audit)) {
-    throw new Error('review-and-fix-pr2 claim audit must be an object')
+    throw new Error('code-review-ad claim audit must be an object')
   }
   for (const location of requiredClaims) {
     const resolution = audit[location]
     if (typeof resolution !== 'string' || resolution.trim().length < 2 ||
         /^(?:tbd|unknown|unchecked|placeholder)$/i.test(resolution.trim())) {
-      throw new Error(`review-and-fix-pr2 claim audit did not resolve ${location}`)
+      throw new Error(`code-review-ad claim audit did not resolve ${location}`)
     }
   }
 }
 
-function assertReviewAndFixPr2ReadOnly(transcriptDir) {
+function assertCodeReviewAdReadOnly(transcriptDir) {
   const pending = [transcriptDir]
   while (pending.length) {
     const directory = pending.pop()
@@ -959,7 +959,7 @@ function assertReviewAndFixPr2ReadOnly(transcriptDir) {
           const command = block.input && block.input.command
           if (typeof command !== 'string') continue
           const mutation = /\bgit(?:\s+-C\s+\S+)?\s+(checkout|switch|reset|stash|worktree|add|commit|push)\b/.exec(command)
-          if (mutation) throw new Error(`review-and-fix-pr2 used forbidden git ${mutation[1]} in its read-only review`)
+          if (mutation) throw new Error(`code-review-ad used forbidden git ${mutation[1]} in its read-only review`)
         }
       }
     }
@@ -1038,7 +1038,7 @@ async function execPair(pair, context, dependencies = {}) {
     let checkout, response, parsed, attempts, authorization = null, codexReceipt = null
     for (attempts = 1; ; attempts += 1) {
       checkout = prepareCheckout(root, target, tool, cohort.runId, cohort.targets[target.id])
-      if (tool.id === 'review-and-fix-pr2') {
+      if (tool.id === 'code-review-ad') {
         const diff = diffForReview(checkout)
         const inventory = parseAddedCommentInventory(diff)
         const nearby = nearbyCommentInventory(checkout.repo, diff)
@@ -1130,7 +1130,7 @@ async function execPair(pair, context, dependencies = {}) {
         pluginName: options.pluginName,
         pluginIsolationSettings,
         env: codexEnvironment,
-        disableScheduleWakeup: tool.id === 'review-and-fix-pr' || tool.id === 'review-and-fix-pr2',
+        disableScheduleWakeup: tool.id === 'review-and-fix-pr' || tool.id === 'code-review-ad',
         disableMonitor: tool.reviewProtocol === 'six-pass',
       })
       assertPluginDirectoryCurrent(options)
@@ -1159,7 +1159,7 @@ async function execPair(pair, context, dependencies = {}) {
       await waitFor(wait * 60_000)
     }
     assertPublishableResponse(response, parsed, cohort.requestedModel)
-    if (tool.id === 'review-and-fix-pr2') assertReviewAndFixPr2Report(parsed.result, requiredClaims)
+    if (tool.id === 'code-review-ad') assertCodeReviewAdReport(parsed.result, requiredClaims)
     const resultContract = toolRequiresStructuredResult(tool)
       ? parseReviewAndFixPrResultContract(parsed.result, expectedContract)
       : null
@@ -1191,7 +1191,7 @@ async function execPair(pair, context, dependencies = {}) {
     }
     const usage = readUsage(checkout.repo)
     assertTranscriptUsage(usage, cohort.requestedModel)
-    if (tool.id === 'review-and-fix-pr2') assertReviewAndFixPr2ReadOnly(usage.transcriptDir)
+    if (tool.id === 'code-review-ad') assertCodeReviewAdReadOnly(usage.transcriptDir)
     const discoveryReceipts = tool.requiresDiscoveryReceipts
       ? captureDiscoveryReceipts(usage.transcriptDir, parsed.session_id)
       : null
@@ -1409,8 +1409,8 @@ module.exports = {
   hitLimit,
   normalizeCodexPreflight,
   assertPublishableResponse,
-  assertReviewAndFixPr2Report,
-  assertReviewAndFixPr2ReadOnly,
+  assertCodeReviewAdReport,
+  assertCodeReviewAdReadOnly,
   assertRequestedModelUsage,
   assertTranscriptUsage,
   assertParkedScope,

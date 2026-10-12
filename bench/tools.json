@@ -98,20 +98,20 @@
       "prompt": "/mattpocock-skills:code-review main\n\n{context}"
     },
     {
-      "id": "review-and-fix-pr2",
-      "label": "Automated Development review-and-fix-pr2",
+      "id": "code-review-ad",
+      "label": "Automated Development code-review-ad",
       "source": "automated-development@inline",
       "description": "A read-only pull-request review with independent toolkit, Standards, and Spec passes.",
       "install": "/plugin marketplace add dkropachev/automated-development\n/plugin install automated-development@automated-development",
-      "invoke": "/automated-development:review-and-fix-pr2 <PR number or URL>",
+      "invoke": "/automated-development:code-review-ad <PR number or URL>",
       "repoUrl": "https://github.com/dkropachev/automated-development",
-      "pageUrl": "https://github.com/dkropachev/automated-development/blob/main/skills/review-and-fix-pr2/SKILL.md",
+      "pageUrl": "https://github.com/dkropachev/automated-development/blob/main/skills/code-review-ad/SKILL.md",
       "experimental": true,
       "selfAuthored": true,
       "reviewOnly": true,
       "cohortOnly": true,
       "requiresPluginDir": true,
-      "prompt": "Use the loaded `automated-development:review-and-fix-pr2` skill to review pull request #{pr} in {fork}. This is a read-only benchmark. Never run git checkout, switch, reset, stash, or worktree, including temporary detours; inspect other commits with git show. Keep review reasoning in this Claude Code session and its native Agent tool. Do not launch model CLI subprocesses or read benchmark judgements or ground truth. Do not run tests, full builds, linters, or formatters; the parent may run one 60-second targeted compile or vet command only to verify a changed platform-support claim, with no repository file edits. After the three agents finish, the parent gets at most three batched Bash verification calls; do not reread the full diff or repeat agent searches. Use their cited evidence and finish once concrete candidates are verified. In Spec, compare new waits and call-completion behavior with the base, including undocumented completion ordering even when the old path could also block; in Standards, include grounded maintenance suggestions without calling them defects. Report verified file and line findings under `## Toolkit`, `## Standards`, and `## Spec` as the skill directs.\n\n{context}"
+      "prompt": "Use the loaded `automated-development:code-review-ad` skill to review pull request #{pr} in {fork}. This is a read-only benchmark. Never run git checkout, switch, reset, stash, or worktree, including temporary detours; inspect other commits with git show. Keep review reasoning in this Claude Code session and its native Agent tool. Do not launch model CLI subprocesses or read benchmark judgements or ground truth. Do not run tests, full builds, linters, or formatters; the parent may run one 60-second targeted compile or vet command only to verify a changed platform-support claim, with no repository file edits. After the three agents finish, the parent gets at most three batched Bash verification calls; do not reread the full diff or repeat agent searches. Use their cited evidence and finish once concrete candidates are verified. In Spec, compare new waits and call-completion behavior with the base, including undocumented completion ordering even when the old path could also block; in Standards, report only verified rule violations or concrete issues. Do not suggest fixes or speculative improvements. Report verified file and line findings under `## Toolkit`, `## Standards`, and `## Spec` as the skill directs.\n\n{context}"
     },
     {
       "id": "review-and-fix-pr",

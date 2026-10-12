@@ -2,7 +2,7 @@
 
 Nine configured review tools and three real pull requests in three languages, published as a
 report and an offline dashboard. The default active matrix remains 19 cells; experimental
-`review-and-fix-pr` and `review-and-fix-pr2` are cohort-only, and parked
+`review-and-fix-pr` and `code-review-ad` are cohort-only, and parked
 `ironweave/tob-c-review` is excluded:
 
 - [`docs/review-bakeoff.md`](../docs/review-bakeoff.md) is the narrative report.
@@ -68,7 +68,7 @@ changed. Use a new `RUN` to extend the matrix, rerun a cell, or make any fresh m
 creates `complete.json` only after every sealed finding and target judgement exists. Reports and the
 dashboard accept new cohorts only through that hash-verified complete snapshot. `make bench-publish`
 discovers every such modern cohort without a model allow-list, renders standalone reports except
-for cohorts containing `review-and-fix-pr2`, and renders both dashboards. It leaves the
+for cohorts containing `code-review-ad`, and renders both dashboards. It leaves the
 hand-written legacy report untouched. `make bench-publish-check`
 fails on a missing or stale generated file. `ARGS`
 passes other flags through, for example `make bench-run ARGS="--only ironweave --concurrency 2"`.
@@ -84,7 +84,7 @@ before treating provisional counts as deduplicated.
 
 ## Scoped cohorts and local plugins
 
-`review-and-fix-pr2` is a separate read-only protocol with toolkit, Standards, and Spec reports.
+`code-review-ad` is a separate read-only protocol with toolkit, Standards, and Spec reports.
 It does not use the `review-and-fix-pr` completion marker. Run it from this plugin checkout with
 `--plugin-dir .` and a fresh `RUN`; the default matrix does not include it. After all three Opus 5.5
 results exist, run `node bench/check-review-tokens.js <RUN>`. This checks each result's recorded
@@ -162,7 +162,7 @@ make bench-judge RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--only tidepool
 ```
 
 After `complete.json` validates, `make bench-publish` discovers the cohort from its verified
-snapshot without a model allow-list. `review-and-fix-pr2` results appear in both dashboard exports
+snapshot without a model allow-list. `code-review-ad` results appear in both dashboard exports
 without a standalone Markdown report. `make bench-publish-check` must pass before the generated
 dashboard is committed. Cohort publication alone is local; canonical inclusion requires
 a separately reviewed, accepted, and sealed gold snapshot.

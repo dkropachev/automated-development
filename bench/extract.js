@@ -36,6 +36,7 @@ const MACHINE_REPORT_PREFIXES = Object.freeze([
   'REVIEW_AND_FIX_PR_RESULT_JSON=',
   'REVIEW_AND_FIX_PR_CODEX_RECEIPT_JSON=',
   'REVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON=',
+  'CODE_REVIEW_AD_CLAIM_AUDIT_JSON=',
 ])
 
 const INSTRUCTIONS = `You are given one code-review report. Extract every distinct finding it makes.

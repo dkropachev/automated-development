@@ -19,12 +19,12 @@ test('review token gate checks every target and rejects missing usage', () => {
     for (const target of ['ironweave', 'quillstone', 'tidepool']) {
       put('opus-5-5-2026-09-29', target, 'anthropic-pr-review', 50)
       put('opus-5-5-2026-09-29', target, 'mattpocock-review', 50)
-      put('new', target, 'review-and-fix-pr2', 120)
+      put('new', target, 'code-review-ad', 120)
     }
     assert.ok(compare(root, 'new').every((row) => row.pass))
-    put('new', 'tidepool', 'review-and-fix-pr2', 121)
+    put('new', 'tidepool', 'code-review-ad', 121)
     assert.deepEqual(compare(root, 'new').map((row) => row.pass), [true, true, false])
-    fs.rmSync(path.join(root, 'runs/new/results/quillstone/review-and-fix-pr2.json'))
+    fs.rmSync(path.join(root, 'runs/new/results/quillstone/code-review-ad.json'))
     assert.throws(() => compare(root, 'new'), /missing result/)
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
