@@ -68,12 +68,6 @@ function modelRows(text) {
   }))
 }
 
-function completedCohortRows(text) {
-  const section = text.match(/<section class="panel completed-cohort-panel"[\s\S]*?<tbody>([\s\S]*?)<\/tbody><\/table>[\s\S]*?<\/section>/)
-  assert.ok(section, 'the Models tab must render completed cohorts')
-  return [...section[1].matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map((match) => match[1])
-}
-
 function leaderboardRows(text) {
   const table = text.match(/<h2>Decision leaderboard<\/h2>[\s\S]*?<table>[\s\S]*?<tbody>([\s\S]*?)<\/tbody><\/table>/)
   assert.ok(table, 'the decision leaderboard must render candidate rows')
@@ -213,16 +207,11 @@ try {
   assert.match(models.app, /href="#runs\?runIds=[^"]+" class="runs-link"/)
   assert.match(models.app, /historical\/inferred|historical \/ inferred/)
   assert.match(models.app, /issues\/42/)
-  const completedRows = completedCohortRows(models.app)
-  const completedCohorts = DASHBOARD_DATA.cohorts.filter((cohort) => cohort.complete && !cohort.legacy)
-  assert.equal(completedRows.length, completedCohorts.length, 'every completed modern cohort must appear automatically')
-  for (const cohort of completedCohorts) {
-    const row = completedRows.find((html) => html.includes(`<strong>${cohort.id}</strong>`))
-    assert.ok(row, `completed cohort ${cohort.id} must appear in Models`)
-    const runCount = DASHBOARD_DATA.runs.filter((run) => run.cohortId === cohort.id).length
-    assert.match(row, new RegExp(`>${runCount} runs?<\\/a>`))
-  }
-  assert.ok(completedRows.some((html) => /Claude Sonnet 5\.5/.test(html) && /sonnet-5-5-2026-09-30/.test(html)))
+  assert.doesNotMatch(models.app, /Completed cohorts|completed-cohort-panel/)
+  const discoveredPanel = models.app.match(/<h2>Discovered coverage<\/h2>[\s\S]*?<\/section>/)
+  assert.ok(discoveredPanel, 'Models must retain aggregate results from completed runs')
+  assert.match(discoveredPanel[0], /Claude Sonnet 5\.5/)
+  assert.match(discoveredPanel[0], /Claude Opus 5\.5/)
   const denominators = modelCompletenessDenominators(models.app)
   assert.deepEqual(modelRows(models.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1', 'Claude Opus 5'])
   assert.equal(denominators.length, 3, 'the table includes only the three matched models')

@@ -1472,81 +1472,6 @@ if (typeof module !== 'undefined' && module.exports) {
     return DATA.runs.filter((run) => cohortIds.has(run.cohortId))
   }
 
-  function matchesModelPageDimensions(run, params) {
-    const selectedTools = values(params, 'skills')
-    const selectedTargets = values(params, 'targets')
-    const selectedLanguages = values(params, 'languages')
-    if (selectedTools.length && !selectedTools.includes(run.toolId)) return false
-    if (selectedTargets.length && !selectedTargets.includes(run.targetId)) return false
-    const language = targetForRun(run)?.language
-    return !selectedLanguages.length || selectedLanguages.includes(language)
-  }
-
-  function completedCohortStats(params) {
-    const allRows = completedCohortRuns()
-    return completedModernCohorts().map((cohort) => {
-      const cohortId = cohort.id || cohort.runId
-      const cohortRows = allRows.filter((run) => run.cohortId === cohortId)
-      const rows = cohortRows.filter((run) => matchesModelPageDimensions(run, params))
-      const modelId = cohort.requestedModel || cohort.observedModel || cohortRows[0]?.modelId || null
-      const configured = configuredModels.find((model) => model.id === modelId)
-      const stats = aggregateRuns(cohortId, cohort.label || cohortId, 'Completed cohort', rows, rows)
-      return {
-        ...stats,
-        cohortId,
-        cohortRows,
-        createdAt: cohort.createdAt || null,
-        modelId,
-        modelLabel: cohort.modelLabel || configured?.label || cohortRows[0]?.modelLabel || modelId || 'Model unavailable',
-        modelProvenance: cohort.modelProvenance || (cohort.requestedModel ? 'requested' : cohort.observedModel ? 'observed' : 'unavailable'),
-        claudeVersion: cohort.claudeVersion || 'Version unavailable',
-        medianWall: median(rows.map((run) => run.wallMs)),
-      }
-    })
-  }
-
-  function completedCohortTable(stats) {
-    const body = el('tbody')
-    for (const row of stats) {
-      const created = row.createdAt ? String(row.createdAt).slice(0, 10) : null
-      body.append(el('tr', {},
-        el('td', {}, el('strong', {}, row.modelLabel), experimentalToolBadge(row.cohortRows), el('span', { class: 'subline' }, `${row.modelId || 'model unavailable'} · ${row.modelProvenance}`)),
-        el('td', {}, el('strong', {}, row.cohortId), created ? el('span', { class: 'subline' }, `created ${created}`) : null),
-        el('td', {}, row.claudeVersion),
-        el('td', { class: 'num' }, fmt(row.real)),
-        el('td', { class: 'num' }, fmt(row.highMedium)),
-        el('td', { class: 'num' }, fmt(row.precision, 'percent')),
-        el('td', { class: 'num' }, fmt(row.realPerDollar)),
-        el('td', { class: 'num' }, fmt(row.cost, 'money')),
-        el('td', { class: 'num' }, fmt(row.medianCost, 'money')),
-        el('td', { class: 'num' }, fmt(row.medianWall, 'minutes')),
-        el('td', { class: 'num' }, fmt(row.successRate, 'percent')),
-        el('td', { class: 'num' }, runCountLink(row.rows)),
-      ))
-    }
-    const headings = [
-      ['Model', null], ['Cohort', null], ['Claude Code version', null],
-      ['Cohort-local real', metricHints['Cohort-local real']], ['High + med', metricHints['High + med']], ['Precision', metricHints.Precision], ['Local real / review $', metricHints['Local real / review $']],
-      ['Review spend', metricHints['Review spend']], ['Median review cost', metricHints['Median review cost']], ['Median runtime', metricHints['Median runtime']], ['Success', metricHints.Success], ['Evidence', metricHints.Evidence],
-    ]
-    const table = el('table', { class: 'model-comparison-table completed-cohort-table' },
-      el('thead', {}, el('tr', {}, headings.map(([label, hint], index) => el('th', { scope: 'col', class: index >= 3 ? 'num' : '' }, hint ? metricLabel(label, hint) : label)))),
-      body,
-    )
-    return el('div', { class: 'table-wrap model-table-wrap' }, stats.length ? table : el('div', { class: 'empty' }, 'No sealed, completed modern cohorts are available.'))
-  }
-
-  function completedCohortPanel(params) {
-    const stats = completedCohortStats(params)
-    return el('section', { class: 'panel completed-cohort-panel', 'aria-labelledby': 'completed-cohorts-title' },
-      el('div', { class: 'panel-head' }, el('div', {},
-        el('h2', { id: 'completed-cohorts-title' }, 'Completed cohorts'),
-        el('p', {}, 'Every sealed modern cohort appears automatically. These metrics use each cohort’s own judgements and are not a cross-model ranking or part of the canonical gold snapshot.'),
-      )),
-      completedCohortTable(stats),
-    )
-  }
-
   function filteredComparisonSources(snapshot, scope, params) {
     const selectedTools = values(params, 'skills')
     const selectedTargets = values(params, 'targets')
@@ -1782,11 +1707,11 @@ if (typeof module !== 'undefined' && module.exports) {
     const snapshot = modelComparisonSnapshot()
     if (!snapshot || !snapshot.scopes.length) {
       return frame(el('div', {},
-        compactHero('Choose a reviewer', 'Review completed model cohorts.', 'Completed cohort evidence is published automatically. A separate canonical ranking appears only when a gold snapshot has been sealed.'),
+        compactHero('Choose a reviewer', 'Review model results.', 'Completed runs appear in discovered coverage. A separate canonical ranking appears only when a gold snapshot has been sealed.'),
         chooseTabs(params, 'models'),
         modelComparisonFilterBar(params, null, null),
-        completedCohortPanel(params),
-        el('div', { class: 'notice info evidence-note' }, 'The published gold-standard model comparison is unavailable in this dashboard export. Completed cohort metrics remain visible, but must not be compared as canonical scores.'),
+        discoveredModelCoverage(params),
+        el('div', { class: 'notice info evidence-note' }, 'The published gold-standard model comparison is unavailable in this dashboard export. Discovered coverage is separate from canonical scores.'),
       ))
     }
     const requestedScope = params.get('scope')
@@ -1816,7 +1741,6 @@ if (typeof module !== 'undefined' && module.exports) {
         modelWinnerCard('Lowest median cost', costWinner, (row) => fmt(row.medianCost, 'money'), (row) => `${row.attempts} matched attempt${row.attempts === 1 ? '' : 's'}`),
         modelWinnerCard('Fastest median runtime', runtimeWinner, (row) => fmt(row.medianWall, 'minutes'), (row) => `${fmt(row.successRate, 'percent')} success rate`),
       ),
-      completedCohortPanel(params),
       discoveredModelCoverage(params),
       analysisPanel('Cost versus completeness', 'The Pareto frontier shows models for which no cheaper model is at least as complete. Select a point to open its exact contributing runs.', paretoChart(stats, {
         completeness: modelMetricHints.Completeness,

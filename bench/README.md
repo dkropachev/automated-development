@@ -25,7 +25,7 @@ make bench-run       # run the default claude-opus-5-5 cohort
 make bench-extract   # seal the complete result matrix, then extract comparable JSON findings
 make bench-judge     # merge, verify, classify, and mark the full cohort complete
 make bench-report RUN=<completed-run> # verify one snapshot and render its cohort report
-make bench-publish   # regenerate every completed cohort report and both Pages exports
+make bench-publish   # regenerate cohort reports and both Pages exports
 make bench-publish-check # fail if a generated publication file is missing or stale
 make bench-reconcile # propose, review, seal, or validate the canonical model-comparison gold
 make bench-dashboard # render every cohort into docs/index.html and docs/run-explorer.html
@@ -67,8 +67,9 @@ A repeated run command resumes cells in that cohort's original expected matrix. 
 changed. Use a new `RUN` to extend the matrix, rerun a cell, or make any fresh measurement. Judging
 creates `complete.json` only after every sealed finding and target judgement exists. Reports and the
 dashboard accept new cohorts only through that hash-verified complete snapshot. `make bench-publish`
-discovers every such modern cohort without an allow-list, renders its cohort-specific report and
-both dashboards, and leaves the hand-written legacy report untouched. `make bench-publish-check`
+discovers every such modern cohort without a model allow-list, renders standalone reports except
+for cohorts containing `review-and-fix-pr2`, and renders both dashboards. It leaves the
+hand-written legacy report untouched. `make bench-publish-check`
 fails on a missing or stale generated file. `ARGS`
 passes other flags through, for example `make bench-run ARGS="--only ironweave --concurrency 2"`.
 
@@ -161,8 +162,9 @@ make bench-judge RUN=opus-5-5-review-and-fix-pr-2026-10-01 ARGS="--only tidepool
 ```
 
 After `complete.json` validates, `make bench-publish` discovers the cohort from its verified
-snapshot without a model allow-list. `make bench-publish-check` must pass before the generated
-report or dashboard is committed. Cohort publication alone is local; canonical inclusion requires
+snapshot without a model allow-list. `review-and-fix-pr2` results appear in both dashboard exports
+without a standalone Markdown report. `make bench-publish-check` must pass before the generated
+dashboard is committed. Cohort publication alone is local; canonical inclusion requires
 a separately reviewed, accepted, and sealed gold snapshot.
 
 ## Why each PR is republished
@@ -320,7 +322,8 @@ token-heavy runs. Skill, requested-model, language, and target filters narrow ch
 The **Choose** view has URL-backed **Skills** and **Models** tabs. `#choose` remains the skill
 leaderboard; `#choose?tab=models` opens the canonical model comparison. Historical
 `#choose?group=model` links are treated as aliases for the Models tab, and model comparison omits
-the single-model picker while retaining skill, language, and target filters.
+the single-model picker while retaining skill, language, and target filters. Its Discovered coverage
+panel aggregates every completed run by model; individual cohort records remain in Runs.
 
 Model completeness is the number of distinct canonical real issues credited to a model divided by
 all canonical real issues on the selected targets; that denominator is fixed across the compared
@@ -334,6 +337,6 @@ gold manifest.
 
 `docs/index.html` and `docs/run-explorer.html` are committed so the dashboard works from a checkout
 or static docs host. After any completed-cohort or dashboard change, run `make bench-publish`; the
-test suite fails if any modern cohort report or either tracked dashboard export has drifted. A
+test suite fails if any required cohort report or either tracked dashboard export has drifted. A
 GitHub Actions workflow runs the same publisher, verifies it, and deploys `docs/` on pushes to
 `main`.

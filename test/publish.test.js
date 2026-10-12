@@ -65,25 +65,59 @@ test('propagates corruption from a cohort that claims to be complete', () => {
   }
 })
 
-test('expected publication has one report per completed cohort and both dashboard aliases', () => {
+test('expected publication keeps dashboard-only skill cohorts in both dashboard aliases', () => {
   const completeFile = path.join('/fixture', 'runs', 'complete-one', 'complete.json')
+  const dashboardOnlyFile = path.join('/fixture', 'runs', 'dashboard-only', 'complete.json')
+  const renderedReports = []
   const expected = publish.expectedPublication({ root: '/fixture', docs: '/site' }, {
     discoverCohorts: () => [
       { runId: 'legacy', legacy: true, paths: { complete: null } },
       { runId: 'in-progress', legacy: false, paths: { complete: '/missing/complete.json' } },
       { runId: 'complete-one', legacy: false, paths: { complete: completeFile } },
+      { runId: 'dashboard-only', legacy: false, paths: { complete: dashboardOnlyFile } },
     ],
-    existsSync: (file) => file === completeFile,
-    readComplete: (_root, runId) => ({ manifest: { runId }, complete: { runId } }),
-    renderReport: (_root, runId) => `report for ${runId}\n`,
+    existsSync: (file) => [completeFile, dashboardOnlyFile].includes(file),
+    readComplete: (_root, runId) => ({ manifest: {
+      runId,
+      expectedCells: runId === 'dashboard-only'
+        ? [{ tool: 'review-and-fix-pr2' }, { tool: 'builtin-code-review' }]
+        : [{ tool: 'builtin-code-review' }],
+    }, complete: { runId } }),
+    renderReport: (_root, runId) => { renderedReports.push(runId); return `report for ${runId}\n` },
     renderDashboard: () => '<html>dashboard</html>\n',
   })
 
-  assert.deepEqual(expected.cohorts.map((cohort) => cohort.runId), ['complete-one'])
+  assert.deepEqual(expected.cohorts.map((cohort) => cohort.runId), ['complete-one', 'dashboard-only'])
+  assert.deepEqual(renderedReports, ['complete-one'])
   assert.deepEqual(expected.files.map((entry) => path.basename(entry.file)), [
     'review-bakeoff-complete-one.md', 'index.html', 'run-explorer.html',
   ])
   assert.equal(expected.files[1].content, expected.files[2].content)
+})
+
+test('publisher removes a standalone report for a dashboard-only cohort', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-publish-dashboard-only-'))
+  const docs = path.join(root, 'docs')
+  const runId = 'review-and-fix-pr2-run'
+  const completeFile = path.join(root, 'runs', runId, 'complete.json')
+  const oldReport = path.join(docs, `review-bakeoff-${runId}.md`)
+  try {
+    writeJson(completeFile, {})
+    fs.mkdirSync(docs, { recursive: true })
+    fs.writeFileSync(oldReport, `**Cohort:** \`${runId}\`\n`)
+    const dependencies = {
+      discoverCohorts: () => [{ runId, legacy: false, paths: { complete: completeFile } }],
+      readComplete: () => ({ manifest: { runId, expectedCells: [{ tool: 'review-and-fix-pr2' }] }, complete: { runId } }),
+      renderReport: () => { throw new Error('dashboard-only cohort must not render a report') },
+      renderDashboard: () => '<html>dashboard</html>\n',
+    }
+    const result = publish.publish('write', { root, docs }, dependencies)
+    assert.deepEqual(result.files.map((entry) => path.basename(entry.file)), ['index.html', 'run-explorer.html'])
+    assert.equal(fs.existsSync(oldReport), false)
+    assert.equal(publish.publish('check', { root, docs }, dependencies).ok, true)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
 })
 
 test('inspection catches missing and stale exports and atomic writes make them current', () => {
@@ -140,6 +174,21 @@ test('check detects and write removes orphaned generated cohort reports', () => 
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
+})
+
+test('manual report writing refuses dashboard-only skill cohorts', () => {
+  const cohort = publish.discoverCompletedCohorts(BENCH).find((entry) =>
+    entry.snapshot.manifest.expectedCells.length &&
+    entry.snapshot.manifest.expectedCells.every((cell) => cell.tool === 'review-and-fix-pr2'))
+  assert.ok(cohort, 'a completed dashboard-only cohort must exist in the benchmark')
+  const report = path.join(REPO, 'docs', `review-bakeoff-${cohort.runId}.md`)
+  const result = spawnSync(process.execPath, [path.join(BENCH, 'report.js'), '--run', cohort.runId, '--write'], {
+    cwd: REPO,
+    encoding: 'utf8',
+  })
+  assert.equal(result.status, 2)
+  assert.match(result.stderr, /dashboard-only; no standalone report is written/)
+  assert.equal(fs.existsSync(report), false)
 })
 
 test('checked-in reports and both Pages exports match all complete cohorts', () => {

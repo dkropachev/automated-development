@@ -120,7 +120,7 @@ test('experimental metadata survives tool, run, and cohort dashboard snapshots',
   }
 })
 
-test('cohort-local skill, run, and completed-cohort renderers show the experimental badge', () => {
+test('cohort-local skill and run renderers show the experimental badge', () => {
   const source = fs.readFileSync(path.join(ROOT, 'bench', 'dashboard', 'app.js'), 'utf8')
   const functionBody = (name, next) => source.slice(source.indexOf(`function ${name}`), source.indexOf(`function ${next}`))
 
@@ -137,8 +137,8 @@ test('cohort-local skill, run, and completed-cohort renderers show the experimen
   assert.match(functionBody('compareRun', 'comparisonTable'), /experimentalToolBadge\(run\)/)
   assert.match(functionBody('toolChart', 'reporterCount'), /experimental · self-authored/)
   assert.match(functionBody('analysisLabel', 'metricOrder'), /experimentalToolBadge\(group\.runs\)/)
-  assert.match(functionBody('completedCohortStats', 'completedCohortTable'), /cohortRows/)
-  assert.match(functionBody('completedCohortTable', 'completedCohortPanel'), /experimentalToolBadge\(row\.cohortRows\)/)
+  assert.doesNotMatch(source, /function completedCohortPanel/)
+  assert.match(functionBody('renderModelComparison', 'discoveredModelCoverage'), /discoveredModelCoverage\(params\)/)
 
   // Canonical gold rows remain separate and receive no cohort-local authorship label.
   assert.doesNotMatch(functionBody('modelComparisonTable', 'modelEvidencePanel'), /experimentalToolBadge/)

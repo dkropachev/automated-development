@@ -63,6 +63,11 @@ try {
   console.error(selectedRun === 'legacy' ? error.message : `cannot report cohort ${selectedRun}: ${error.message}`)
   process.exit(2)
 }
+if (writeReport && !cohort.legacy &&
+    cohort.expectedCells.some((cell) => cell.tool === 'review-and-fix-pr2')) {
+  console.error(`cohort ${selectedRun} is dashboard-only; no standalone report is written`)
+  process.exit(2)
+}
 // Legacy predates snapshots and deliberately keeps its live inputs. New cohorts must remain
 // reproducible even after state.json or tools.json changes, so every display field comes from the
 // manifest copies used to run the matrix.

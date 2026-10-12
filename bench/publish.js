@@ -57,13 +57,18 @@ function renderDashboard(root, dependencies = {}) {
   return renderer.render(renderer.loadArtifacts(root), path.join(root, 'dashboard'))
 }
 
+function publishesStandaloneReport(cohort) {
+  const cells = cohort.snapshot.manifest.expectedCells || []
+  return !cells.some((cell) => cell.tool === 'review-and-fix-pr2')
+}
+
 function expectedPublication(options = {}, dependencies = {}) {
   const root = options.root || ROOT
   const docs = options.docs || path.join(path.dirname(root), 'docs')
   const cohorts = discoverCompletedCohorts(root, dependencies)
   const reportRenderer = dependencies.renderReport || renderReport
   const dashboardRenderer = dependencies.renderDashboard || renderDashboard
-  const files = cohorts.map((cohort) => ({
+  const files = cohorts.filter(publishesStandaloneReport).map((cohort) => ({
     file: path.join(docs, `review-bakeoff-${cohort.runId}.md`),
     content: reportRenderer(root, cohort.runId, dependencies),
     kind: 'cohort-report',
