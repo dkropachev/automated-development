@@ -183,24 +183,32 @@ Same three pieces, same driver, told `--domain commit`. What differs:
 references — with testing, sign-off, breaking-change and co-authors only where a rule requires them
 or the repo's own commits carry them.
 
+### `review-and-fix-pr2`
+
+Runs a read-only PR review through three independent native Claude passes: one consolidated
+PR toolkit pass, one repository Standards pass, and one Spec pass. It needs no installed source
+review plugins and reports verified file and line findings in separate sections. If the PR has no
+meaningful specification, the Spec section says `No spec available`. It never edits code or posts
+to GitHub.
+
+```
+/review-and-fix-pr2 1234
+```
+
 ### `review-and-fix-pr`
 
-Reviews a frozen whole-PR scope through independent mandatory lanes, audits their coverage, runs
-one targeted gap round, and sends atomic candidates through required OpenAI Codex adjudication. It runs directly in the
-parent session: there is no nested Workflow, checkpoint store, resume machinery, transcript meter,
-or internal finding/token budget. Nothing is pushed, posted, reverted, or reset.
+Reviews a frozen whole-PR scope in the invoking Claude Code session. Native Claude agents inspect
+six independent lanes; fresh native agents verify findings and audit coverage. The skill uses the
+display-only added-code diff for its first scan and opens the original diff when removed code
+matters. It never launches another model CLI, API, or Workflow. Nothing is pushed, posted,
+reverted, or reset.
 
 ```
 /review-and-fix-pr 1234
 ```
 
-Exactly once per review cycle and before discovery, the typed
-`automated-development:review-lane-controller` reads the frozen PR context and assigns focus areas,
-important intersections, and optional specialists. It has only Read, Grep, and Glob, cannot predict
-findings or omit any core lane, and a missing or malformed response fails the review instead of
-falling back to a generic agent. These six core lanes always run independently and read-only,
-without seeing one another's findings. Optional specialists or shards must own a distinct inventory
-surface or question that ordinary lane prioritization does not adequately cover:
+The native `automated-development:review-lane-controller` assigns focus before discovery. Six core
+lanes review the same PR independently and read-only, without seeing one another's findings:
 
 ```text
 root-cause/fix-completeness
@@ -211,36 +219,19 @@ contracts/compatibility/risk (including security and performance)
 standards/docs/maintainability
 ```
 
-The ten files under `skills/review-and-fix-pr/lenses/` are review methods, not ten separately
-metered agents. The parent supplies their fixed mapping to the core lanes; the controller assigns
-focus within that mapping and may add loaded review skills or domain specialists when the change
-warrants it. Additions never replace core coverage. Missing or unsafe optional skills are reported
-instead of silently weakening the review.
+The ten files under `skills/review-and-fix-pr/lenses/` are review methods applied across those
+lanes, not ten separately metered agents.
 
-The parent session freezes the PR identity and source material, then inventories exact changed
-paths, hunks, and non-text changes with deterministic helpers. Coverage also tracks stated
-requirements, contracts, tests, documentation, and repository rules. Every lane gets the same
-separately delimited, verbatim PR title/body, commit messages, remote/upstream identity, canonical
-patch/inventory, and applicable base/head rules; summaries never replace fetched evidence. A blind auditor sees that
-inventory plus review receipts—not finding prose—requests at most one targeted gap round, then
-re-audits. `coverage: complete` means this protocol closed; it never claims the PR is bug-free.
+The parent session freezes PR evidence and inventories exact changed paths, hunks, and non-text
+changes with deterministic helpers. Every lane receives the same evidence paths and filtered patch;
+the exact patch remains available for targeted reads. A fresh native agent checks candidate claims
+and another audits coverage. `coverage: complete` means the protocol closed, not that the PR is
+bug-free.
 
-Scope is a label, not a filter. A defect this PR did not cause is reported and marked out-of-scope
-rather than suppressed, so you can tell "you broke this" from "this was already broken". With
-explicit fix authority, Codex-real findings are fixed in small serial batches, validated, and all six
-core lanes rerun against the changed tree. Without explicit fix authority the review remains
-read-only. Discovery admits only atomic candidates with an exact claim/rule or reachable trigger,
-one mechanism, and a concrete consequence. Disproved, impact-free, inapplicable-rule, base-parity,
-and counterfactual observations remain in `checked_nonissues` coverage but skip paid judgment.
-
-The script-backed judge runs Codex CLI 0.149.0 or newer as fresh, ephemeral, read-only
-`gpt-5.6-sol` high-reasoning invocations with structured JSON output. Codex sees neither Claude lane
-identity/support/disposition nor benchmark answers. A Codex-proposed lead is deduplicated and judged
-by a different invocation until no lead remains. The receipt binds every candidate, invocation,
-verdict, new-lead resolution, target pin, model/version, and usage; a missing/tampered receipt,
-write attempt, or incomplete lead makes verification incomplete. There is no Claude self-judgment
-fallback. Reports disclose the provider boundary: Claude discovers and audits coverage; OpenAI
-Codex adjudicates. New runs emit schema-v2 markers; v1 remains readable only for historical results.
+Scope is a label, not a filter. With explicit fix authority, confirmed in-scope findings are fixed,
+validated, and reviewed again on the changed tree. Without that authority the review stays
+read-only. New benchmark runs use the schema-v1 completion marker; historical v2/v3 Codex-backed
+cohorts remain readable as their original, separate protocol.
 
 ## Layout
 
@@ -252,7 +243,9 @@ agents/                  subagents the skills spawn, typed automated-development
 bin/promptgen-driver.js  the CLI: the two state machines and the orchestrator's verbs, --domain pr|issue|commit
 bin/review-and-fix-pr-scope.js   exact GitHub/source identity and merge-base preflight
 bin/review-and-fix-pr-diff.js    deterministic changed-path, hunk, and non-text inventory
-bin/review-and-fix-pr-codex.js   fixed-point read-only Codex adjudication and closure receipt
+bin/added-code-diff.js           display-only Git diff with removed lines omitted
+bin/review-and-fix-pr-fast.js   historical cross-harness review engine; not called by the skill
+bin/review-and-fix-pr-codex.js  historical Codex adjudication helper; not called by the skill
 lib/domains.js           everything that differs between the three domains: paths, keys, source files,
                          which checks apply, and every instruction that talks about "the diff" or "the maintainer"
 lib/prompt-gate.js       coverage gate for a learned prompt, per kind where kinds exist; frontmatter helpers
@@ -269,6 +262,24 @@ evals/                   `claude plugin eval` cases: a scaffolded repo, determin
 test/                    node --test: lib unit tests and end-to-end driver tests
 .github/workflows/       ci (test, lint, validate), pages (main), release (manual), eval (manual + weekly)
 ```
+
+To give a model a compact view of added code, pipe a Git patch through
+`node bin/added-code-diff.js` or pass a patch file as its argument:
+
+```sh
+git diff --no-color BASE...HEAD | node bin/added-code-diff.js
+node bin/added-code-diff.js change.patch
+```
+
+The output starts with a notice explaining that a counted marker such as
+`-[3 removed lines omitted]` stands for one consecutive run of hidden removed lines from a
+replacement. The model must run `git diff` manually to inspect that code. Removal-only blocks show
+their actual removed lines. This distinction applies to each contiguous change block, even when a
+hunk has both kinds of removal. Hunk ranges are adjusted to match the displayed lines, and each
+hunk heading identifies the number of hidden replacement lines. A deleted file appears as
+`diff --git ...` followed by
+`deleted file mode ...`; its old contents are omitted. This is a display-only view and must not be
+applied as a patch. The review protocol above still uses the canonical patch for evidence.
 
 ## Development
 

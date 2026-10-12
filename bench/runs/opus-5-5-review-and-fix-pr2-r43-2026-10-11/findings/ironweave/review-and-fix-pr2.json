@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "configSha256": "f61efe571468c0bb59d31c947498e4c226f38165e174921fd4ed3446464c0a7e",
+  "pluginFingerprint": {
+    "contentSha256": "ba68576f17db7d2ebfbc22ed45d4a038d37d71934d2c9da8ba700f6138647349",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "cellId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/review-and-fix-pr2",
+  "target": "ironweave",
+  "tool": "review-and-fix-pr2",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "801cf3d6c508887c51dacab4dc42f4c0f54bd19f88c62155d8eef4786f793175",
+  "label": "Automated Development review-and-fix-pr2",
+  "findings": [
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2031,
+      "title": "Test comment misattributes failure mode to assertion instead of BOOST_REQUIRE",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The test comment at rpc_test.cc:2031-2033 says that without the fix, ~output_stream() asserts, but the wrapper's put() forwards to _inner.put() (line 1887), so the late write is flushed and the real failure without the fix is the BOOST_REQUIRE_MESSAGE at line 2030, not the assertion. The PR body itself correctly states the assertion only happens if the late put() is left unresolved.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 109,
+      "title": "Docs understate that dropping an unclosed sink aborts the process",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The doc statement 'Dropping an unclosed sink is an error' (rpc-streaming.md:109) reads like a recoverable error, but ~sink_impl runs SEASTAR_ASSERT(...sink_closed()) (rpc_impl.hh:935) which aborts the process.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "title": "Doc overstates that the stream's connection shuts down only when both halves close",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The claim 'The stream's connection is shut down only once both halves are closed' (rpc-streaming.md:115) contradicts the doc's own lines 49-50, which say closing the client aborts the stream, and ignores that abort() on a send failure, read errors, and client::abort_all_streams() (rpc.cc ~line 1072) also shut the connection down earlier. The sentence only holds for an orderly close.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "title": "Comment claims nothing waits on _outgoing_queue_ready when stop_send_loop still does",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment 'Nothing else waits for _outgoing_queue_ready from here on' (rpc.cc:559-561) is not literally true: stop_send_loop() still runs when_all(std::move(_outgoing_queue_ready), ...) (rpc.cc:225). The wait is harmless only because of the ready placeholder std::exchange installs at line 562, which the comment should state.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "title": "Test's condition-variable wait has no deadline and can hang until harness timeout",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "close_entered_cv.wait(pred) at rpc_test.cc:2011 is unbounded. If stream_close() never reaches data_sink::close(), the test hangs until the 300s harness timeout instead of failing with a clear error.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "title": "Test cleanup is skipped if anything fails part-way, causing an abort or a hang",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "If BOOST_REQUIRE_EQUAL at line 2000 fails, or anything throws before the sink is closed, the unwind drops an unclosed sink, tripping the rpc_impl.hh:935 assert so the process aborts instead of reporting the test failure. Separately, if anything throws between lines 2011 and 2026, release_close.set_value() never runs, so the parked close, sink_closed, and server_done futures never resolve and teardown hangs. A defer that releases the close and drains both futures would fix both hazards.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "title": "Test never asserts the refused frame actually throws closed_error",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The try/catch at rpc_test.cc:2016-2020 accepts both success and closed_error, so the fix's actual contract that send() fails with closed_error is never checked; the test relies only on put_after_close. BOOST_REQUIRE_THROW(..., rpc::closed_error) would check it directly.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "Queue-drain wait branch and server-side stream hook are never exercised by the test",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The eof frame is already awaited before close_sink() runs, so queue_drained is always ready in this test, leaving the wait-for-queued-entries branch and the exceptional then_wrapped swallow path (rpc.cc:562-569) untested. Also, server_factory captures hooks that are never invoked or asserted, so the server-side stream connection (rpc.cc:1103, test at rpc_test.cc:1966/:2001) has no stimulus.",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 386,
+      "title": "Doc comment wrongly claims there is no other way to tear down the source",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The statement 'there is no other way to do it' (rpc_types.hh:386-387) is inaccurate because closing or aborting the client also tears the source down, as the new doc text at rpc-streaming.md:49 itself states.",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 302,
+      "title": "Existing _sink_closed_future comment is now stale given the new queue-drain window",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The existing comment on _sink_closed_future (rpc.hh:302-303) is now staler: the future really tracks 'write buffer closed', and its not-ready window now also covers the queue drain introduced by the fix.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body and all three commits carry Claude/Anthropic attribution forbidden by user rules",
+      "severity": "high",
+      "kind": "style",
+      "claim": "The PR body ends with '🤖 Generated with Claude Code' and all three commits carry Co-Authored-By: Claude trailers (commits f545c28a, 5e25ebdb, and two trailers on 69da8f5b), which the user's ~/.claude/CLAUDE.md explicitly forbids.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/contributing.md",
+      "line": 6,
+      "title": "Commits lack required DCO Signed-off-by trailer",
+      "severity": "medium",
+      "kind": "style",
+      "claim": "None of the three commits has a Signed-off-by line, which doc/contributing.md:6,10 requires via git commit -s.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR and commit bodies reference broken/wrong issue numbers",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "'Fixes #3663' and 'Refs #3653' (in the f545c28a body and the PR body) don't resolve in dkropachev/ironweave; gh issue view can't find them, so on merge they could auto-link or close the wrong items in that repo. They should be qualified as scylladb/seastar#… .",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Fix commit ships with no test, so it cannot be validated standalone",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "Commit f545c28a changes behaviour but its regression test only arrives in the later commit 5e25ebdb, so the fix can't be validated on its own and the two commits must be backported together.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 557,
+      "title": "Fix commit subject understates the change by omitting the stream_close() reorder",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The f545c28a subject and the PR title only say 'refuse to send', but the commit also reorders stream_close() so it now waits on _outgoing_queue_ready and swallows its failure before write_buf.close() (rpc.cc:557-569).",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 307,
+      "title": "New _stream_closing flag is checked only in send(), not in error() or sink_closed()",
+      "severity": "nit",
+      "kind": "design",
+      "claim": "_stream_closing (rpc.hh:307) is checked only in send() (rpc.cc:293); error() and sink_closed() ignore it, so a future send-like path guarded by error() would miss the closing window. A single closing() predicate would avoid that.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1877,
+      "title": "Pass-through test wrapper classes have generic names that hide their distinctive behaviour",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "test_data_sink_impl, test_connected_socket_impl and test_socket_impl (rpc_test.cc:1877, :1900, :1922) are about 60 lines of forwarding code mirroring the loopback wrappers and rpc_socket_impl. Their only distinctive behaviour is parking close() and recording put() calls after it, which the generic names don't convey; a name like close_parking_data_sink would.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1895,
+      "title": "buffer_size() returns a hard-coded 8192 instead of forwarding to the inner sink",
+      "severity": "nit",
+      "kind": "bug",
+      "claim": "buffer_size() in the test wrapper (rpc_test.cc:1895) returns a hard-coded 8192 instead of forwarding to the wrapped sink.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "title": "const_cast used to mutate this inside a const negotiate() is a code smell",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "Mutating this inside a const negotiate() via const_cast (rpc_test.cc:1957) is a smell; the neighbouring factory at lines 1801-1811 handles the same need with a tracker&, and a mutable member would also work here.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1953,
+      "title": "is_server parameter of negotiate() is unused",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The is_server parameter at rpc_test.cc:1953 is unused.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1966,
+      "title": "server_factory's captured hooks are dead fixture state never invoked or asserted",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "server_factory is needed for negotiation, but its captured hooks (rpc_test.cc:1966, :1970) are dead fixture state that is never invoked or asserted; a comment or a no-op factory would make that clear.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2001,
+      "title": "Reference into a growing vector can be invalidated by a later push_back",
+      "severity": "nit",
+      "kind": "bug",
+      "claim": "auto& … = hooks.back() (rpc_test.cc:2001) is invalidated by any later push_back, for example on a reconnect; copying the std::function costs nothing and avoids the hazard.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2022,
+      "title": "Fixed 10-iteration yield() loop is a magic-count poll instead of a real notification",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The for (10) yield() loop (rpc_test.cc:2022) is a count-based heuristic rather than a notification; the assertion depends on put_after_close, which is set synchronously, so the loop only matters for the no-fix assert path. It should be removed or documented why it is needed.",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 337,
+      "title": "New doc comment blocks are separated from their declarations by older comment lines",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The older '// send data Out...' and '// receive data In...' lines (rpc_types.hh:343, :390) sit between the new doc blocks (rpc_types.hh:337, :384) and the template lines they document.",
+      "selfRejected": false
+    },
+    {
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 337,
+      "title": "Shutdown contract is documented three times, risking the copies drifting apart",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The shutdown contract is written three times — in the rpc_types.hh header, in doc/rpc-streaming.md:104-118, and in the test comment — so the copies can drift apart over time.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 557,
+      "title": "New completion-order dependency on queued writes before close is undocumented and untested",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Before the fix, stream_close() closed the write buffer (flushing, which can block) then ran stop(); after the fix, whichever call closes the second half of the stream completes only after every entry already queued in _outgoing_queue is written (no deadline), then write_buf.close(), then stop(). Neither the 'Closing a stream' doc section, the rpc_types.hh doc blocks, nor the PR body states that these calls can now wait on earlier queued frames, peer backpressure, or slow I/O, and no test covers this wait.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 14148,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 42695,
+      "webSearchRequests": 0,
+      "costUSD": 0.312264,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 9031,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-11T18:12:34.144Z"
+}

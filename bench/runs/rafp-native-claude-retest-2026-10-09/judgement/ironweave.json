@@ -1,0 +1,565 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-native-claude-retest-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "0e9f376996d93eec53b7b9f14eb85cc94faefe9d66a5e4a79893889e2afeafeb",
+  "pluginFingerprint": {
+    "contentSha256": "8dea71b3e5aee10a75d5dd83e500ead1f2e9b7520112d46b06b2fc99fe1e9673",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "target": "ironweave",
+  "language": "C++",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "rawFindings": 21,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "New test data-sink override breaks build at Seastar_API_LEVEL<9",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "data_sink_impl::put() is a different pure virtual per SEASTAR_API_LEVEL (include/seastar/core/iostream.hh:110-127); other test doubles (tests/unit/loopback_socket.hh:144) guard their put() override with #if SEASTAR_API_LEVEL >= 9, but the new test_data_sink_impl::put(std::span...) is unguarded. I reproduced the failure by configuring a build with -DSeastar_API_LEVEL=7 and compiling tests/unit/rpc_test.cc.o: it fails with 'marked override but does not override' and 'invalid new-expression of abstract class type test_data_sink_impl'.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test file and its API-level-unguarded override are wholly new in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Test won't compile below API level 9: missing SEASTAR_API_LEVEL guard on put(std::span)..."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "Test won't compile below API level 9: missing SEASTAR_API_LEVEL guard on put(std::span)…"
+      }
+    },
+    {
+      "id": "I2",
+      "title": "New regression test never exercises stream_close()'s queue-drain wait",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "sink_impl::close() (include/seastar/rpc/rpc_impl.hh:903-924) awaits con->send(eof_marker) to fully complete via .finally() before calling close_sink()->stream_close(), so by the time stream_close() runs, _outgoing_queue_ready is already resolved in the one path the test exercises; the queue-drain wait added at src/rpc/rpc.cc:562-570 for entries accepted just before _stream_closing is set is not covered by any assertion in the new test.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both the production code (the wait) and the only regression test for it were added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Test never exercises the drain half of the fix (stream_close queue wait)"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "sink_impl::close() waits for the end-of-stream send before calling close_sink(), so the queue is always empty when stream_close() runs; the test would stay green if the std::exchange(_outgoing_queue_ready…) wait at src/rpc/rpc.cc:562-570 were reverted."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "New test tolerates both refusal and silent acceptance of the racy send",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "At this point in the test _stream_closing is already set synchronously before the mocked write_buf.close() can block (src/rpc/rpc.cc:554 runs before any suspension point), so stream_send_empty_frame() should deterministically throw closed_error; the test only catches that type instead of requiring it (e.g. via BOOST_REQUIRE_THROW), so a regression that silently accepts and queues the frame without it reaching put() before release_close.set_value() would still pass.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test assertion is new in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Test never asserts the refusal; accepts both success and closed_error"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "tests/unit/rpc_test.cc:2016-2019 accepts both success and closed_error outcomes; the test fails only if the batch-flush poller later writes, so a regression that accepts the frame but defers or drops it would pass."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Claim that the yield() loop doesn't drive the batch-flush poller",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2020,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "yield() itself doesn't poll I/O, but each yield().get() inside a seastar::thread suspends the fiber back to the reactor's main loop (src/core/reactor.cc:3433-3442), which calls poll_once() unconditionally every iteration (src/core/reactor.cc:3539-3546), running every registered poller including batch_flush_poller (src/core/reactor.cc:3359). The 10-iteration loop therefore does give the batch flush poller real chances to run, matching the comment's intent.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new in this PR, even though the verdict is that it is not actually wrong.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "\"Let the batch flush poller run\" comment is wrong; yield() doesn't poll for I/O"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "yield() queues a task and does not poll for I/O (include/seastar/util/later.hh:41-44), so the loop doesn't run the poller; on base, detection depends on later .get() calls happening to poll, otherwise on the destructor assert."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "New test can hang or SIGABRT instead of failing cleanly on a regression",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "SEASTAR_ASSERT is active in all build modes (include/seastar/util/assert.hh:29-36) and ~sink_impl() asserts sink_closed() (include/seastar/rpc/rpc_impl.hh:931-936); the test doesn't use deferred_close(sink) the way later tests in the same file do (tests/unit/rpc_test.cc:2131,2158), so an earlier BOOST_REQUIRE failure (e.g. at line 2000) unwinds through an unclosed sink and aborts the process. Separately, catching only rpc::closed_error around stream_send_empty_frame().get() means any other exception type skips st.release_close.set_value(), leaving test_data_sink_impl::close() parked forever.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test's exception-safety gaps are new in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Test failures hang or abort instead of reporting cleanly"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "close_entered_cv.wait at :2011 has no timeout; if BOOST_REQUIRE_EQUAL at :2000 fails, the sink is dropped unclosed and ~sink_impl's SEASTAR_ASSERT aborts the process; if the hook throws anything other than closed_error, release_close is never set; existing stream tests avoid this with deferred_close(sink)."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Cross-shard data race on hook_capturing_compressor_factory::hooks vector",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "negotiate() does const_cast + hooks.push_back() with no synchronization, and is invoked per-connection on whichever shard the connection lands on. I built the PR and ran test_stream_send_after_stream_close repeatedly with -- -c 2 (matching this project's documented default --smp of 2 for test.py): it crashed or threw an unexpected seastar::rpc::stream_closed exception in roughly 1 in 8 runs, consistent with heap corruption from concurrent push_back on the shared server_factory.hooks vector across shards; it never failed over 40+ runs at -c 1.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The racy helper class is new test code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Cross-shard data race in hook_capturing_compressor_factory::negotiate"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "negotiate (:1957) pushes into one shard-0 std::vector; with -c 2, loopback round-robin accepts the parent connection on shard 0 and the stream connection on shard 1, so both server-side negotiations write to it unsynchronized; recording only when !is_server fixes it since server hooks are never used."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "New comment misstates when _outgoing_queue_ready becomes exceptional",
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "connection::send()'s continuation (src/rpc/rpc.cc:333-338) calls abort() on a failed send_entry() but then unconditionally calls p->done.set_value() (not set_exception), so a failed send does not make the chained _outgoing_queue_ready future exceptional; it only becomes exceptional via withdraw()'s ex path during stop_send_loop(). The code is harmless either way since f.ignore_ready_future() handles both cases.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "New comment misstates the cause of _outgoing_queue_ready becoming exceptional"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "src/rpc/rpc.cc:566-567 says _outgoing_queue_ready \"is exceptional if an entry failed,\" but a failed send_entry calls abort() and then p->done.set_value() (:333-338); the future only becomes exceptional through stop_send_loop while _negotiated is still pending. The code itself is harmless."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "New rpc_types.hh doc overstates that an unmarshall exception always closes the source",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 384,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "source_impl::operator()'s fast path (include/seastar/rpc/rpc_impl.hh:940-947) calls unmarshall() directly on already-buffered data; if it throws, the exception propagates synchronously without ever calling close_source(), unlike the refill path which does call close_source() on failure (rpc_impl.hh:957-960). So 'reading until it throws... closes it' is not true for every throw, and an application that stops reading after such an exception leaves the source open, which is exactly the leak the new docs warn about.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This doc paragraph is new in this PR, even though the underlying source_impl code is untouched.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Docs wrongly claim reading a source until it throws always closes it"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "include/seastar/rpc/rpc_types.hh:384-389 and doc/rpc-streaming.md:110-112 say reading a source until it throws closes it, but an unmarshall exception in source_impl::operator() (rpc_impl.hh:948) propagates without close_source(); an application that stops reading after never triggers stream_close(), which is the leak these docs warn about."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "New doc overstates that the stream connection shuts down 'only once' both halves close",
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "client::abort_all_streams() and server::connection::abort_all_streams() (src/rpc/rpc.cc:848,1324, called from the stop paths at :1072 and :1295) also tear down stream connections, independent of stream_check_twoway_closed(); the connection can likewise go down on peer EOF or error. 'only once both halves are closed' omits these paths.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This sentence is new text added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Docs overstate that the connection is shut down \"only once\" both halves are closed"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "doc/rpc-streaming.md:115 says the connection is shut down only once both halves are closed, but it is also shut down on peer EOF, on error, and through abort_all_streams."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "New doc understates dropping an unclosed sink as merely 'an error'",
+      "file": "doc/rpc-streaming.md",
+      "line": 109,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "~sink_impl() calls SEASTAR_ASSERT(sink_closed()), and SEASTAR_ASSERT is active in all build modes and calls assert_fail(), which aborts the process (include/seastar/util/assert.hh:29-36, include/seastar/rpc/rpc_impl.hh:931-936) -- not a recoverable 'error' as the wording implies.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This doc sentence is new text added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Docs understate the consequence of dropping an unclosed sink"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "doc/rpc-streaming.md:109 says \"Dropping an unclosed sink is an error,\" but it is an always-on SEASTAR_ASSERT that aborts the process."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "Claim that the new stream_close() wait is an unbounded regression",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The tool itself flagged this candidate as self-rejected; queue_drained resolves through the same per-entry send_entry()/send() machinery that already bounded the prior direct write_buf.close() call, so it is not a new unbounded wait.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns code newly added by this PR, even though no defect was found.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "New wait in stream_close() claimed to be a regression/unbounded"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "A claim that the new wait in stream_close() is a problem; rejected because it is bounded the same way base write_buf.close() was, so it is not a regression."
+      }
+    },
+    {
+      "id": "I12",
+      "title": "Claim of a close-vs-shutdown race in the new stream_close() logic",
+      "file": "src/rpc/rpc.cc",
+      "line": 548,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Self-rejected by the originating tool; the serialization via _sink_closed_future that already existed for the base write_buf.close() call continues to cover the new code path, so no new race is introduced.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns code newly added by this PR, even though no defect was found.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Close-vs-shutdown race claimed as a problem"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "A claim about a close-vs-shutdown race; rejected because it is bounded the same way base write_buf.close() was, so it is not a regression."
+      }
+    },
+    {
+      "id": "I13",
+      "title": "Claim that the parent client still has an unfixed write-after-close path",
+      "file": "",
+      "line": 0,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Self-rejected by the originating tool; the 141-byte frame cited is ordinary in-flight state on the parent connection, not evidence of an unfixed path, and the parent connection's own send() is already guarded by _error the same way it always was.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "No real defect was identified in the parent client path.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Parent client in the PR body claimed to have an unfixed write-after-close path"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "A claim that the parent client has an unfixed write-after-close path, citing a 141-byte frame; rejected because the parent has no unfixed path and the frame is ordinary in-flight state."
+      }
+    },
+    {
+      "id": "I14",
+      "title": "Claim that error() callers can still reach send() on a closing stream connection",
+      "file": "src/rpc/rpc.cc",
+      "line": 293,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Self-rejected by the originating tool; connection::send()'s guard is `!_error && !_stream_closing`, and no caller that invokes error()-triggering paths can still reach send() once stream_close() has set _stream_closing.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns the new _stream_closing guard added by this PR, even though no defect was found.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "error() callers claimed able to reach send() on a closing stream connection"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "A claim about error() callers versus the new _stream_closing flag; rejected because none of the callers can reach send() on a closing stream connection."
+      }
+    },
+    {
+      "id": "I15",
+      "title": "Bare '#3663' issue reference flagged as a commit convention problem",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "git log on main shows prior commits using bare references such as 'Closes #3660' and 'Closes #3654', so 'Fixes #3663' / 'Refs #3653' follow existing repo precedent.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Matches pre-existing commit-message conventions in this repository.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Bare #3663 issue references flagged as a convention problem"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "Bare #3663 refs flagged as a commit/PR convention issue; rejected as following repository precedent or preference."
+      }
+    },
+    {
+      "id": "I16",
+      "title": "Missing DCO sign-off flagged as a commit convention problem",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Checked the last 30 commits on main: only 3 carry a Signed-off-by trailer, so DCO sign-off is not an enforced convention in this repository.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "No DCO requirement exists in this repository to violate.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Missing DCO sign-off flagged as a convention problem"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "Missing DCO sign-off flagged as a commit/PR convention issue; rejected as following repository precedent or preference."
+      }
+    },
+    {
+      "id": "I17",
+      "title": "Jira links in the PR body flagged as a convention problem",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The PR body's scylladb.atlassian.net references are supplementary 'Refs' links alongside the GitHub 'Fixes #3663'/'Refs #3653'; nothing in this repo's conventions forbids linking internal tracking tickets.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "No repository convention is violated by including Jira reference links.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Jira links flagged as a convention problem"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "Jira links flagged as a commit/PR convention issue; rejected as following repository precedent or preference."
+      }
+    },
+    {
+      "id": "I18",
+      "title": "'rpc_test:' commit prefix flagged as a convention problem",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "git log on main is full of 'component: description' prefixes (tests:, thread:, core:, docs:, chore:), so 'rpc_test:' and 'rpc:' match the established convention.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Matches pre-existing commit-message conventions in this repository.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "\"rpc_test:\" prefix flagged as a convention problem"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "The rpc_test: prefix flagged as a commit/PR convention issue; rejected as following repository precedent or preference."
+      }
+    },
+    {
+      "id": "I19",
+      "title": "Comment placement flagged as a style convention problem",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Self-rejected by the originating tool as following repository precedent; no specific location or rule was identified that the PR's comment placement violates.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "No repository convention is identified as violated.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Comment placement flagged as a convention problem"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "Comment placement flagged as a convention issue; rejected as following repository precedent or preference."
+      }
+    },
+    {
+      "id": "I20",
+      "title": "Socket-wrapper boilerplate in the new test flagged as a style problem",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1875,
+      "kind": "style",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "verdictReason": "test_connected_socket_impl/test_socket_impl forward almost every member to an inner implementation because net::connected_socket_impl/net::socket_impl require full interface implementations; this mirrors how other test doubles in this file and loopback_socket.hh are written, so it is not an avoidable style defect.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The boilerplate is new code added by this PR, even though it isn't a defect.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Socket-wrapper boilerplate flagged as a convention problem"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "Socket-wrapper boilerplate flagged as a convention issue; rejected as following repository precedent or preference."
+      }
+    },
+    {
+      "id": "I21",
+      "title": "Claude co-authorship trailers and PR footer flagged as a convention problem",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "git log on main shows 13 prior commits already carrying 'Co-Authored-By: Claude ...' trailers, so this is an established pattern in the repository's history, not a rule this PR violates.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Matches pre-existing precedent in this repository's commit history.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Commits/PR carry Claude attribution trailers and footer"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr": "The commits carry Co-Authored-By: Claude trailers and the PR body has a \"Generated with Claude Code\" footer; no repository rule forbids that, and base history already has 19 such trailers."
+      }
+    }
+  ],
+  "judgeCostUsd": 2.7107962,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 150,
+      "outputTokens": 56424,
+      "cacheReadInputTokens": 7467421,
+      "cacheCreationInputTokens": 163193,
+      "webSearchRequests": 0,
+      "costUSD": 2.7107962,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 29877,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/ironweave/runs/rafp-native-claude-retest-2026-10-09/_judge/attempt-TEhhXl/repo",
+  "judgedAt": "2026-10-09T12:43:16.867Z"
+}

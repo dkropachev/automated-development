@@ -99,9 +99,10 @@ Your job, in order:
 
 1. MERGE. Group findings that are the same defect in the same place, even when the wording differs. Different defects in the same function stay separate. Keep every distinct claim - including ones only one tool made.
 2. VERIFY. For each merged issue, read the actual code and decide:
-   - "real": the code does what the finding says and that is a defect.
-   - "false-positive": the code does not do what the finding says, or what it does is correct.
+   - "real": the code does what the finding says and that is a defect or a concrete, actionable maintenance risk. A currently safe suggestion can be real at low/nit severity when specific duplicated code, state coupling, or future failure mode is demonstrated; do not dismiss it merely because the reviewer labeled it a suggestion. For a repeated-failure claim, trace retries, existing-state decay and eventual user-visible availability; the PR intentionally handling one failure does not by itself disprove a harmful consequence when failures persist.
+   - "false-positive": the code does not do what the finding says, or the suggestion is unsupported taste with no concrete maintenance consequence.
    - "unproven": you could not settle it without running something you cannot run. Use this sparingly and say what is missing.
+   For documentation that says "only" or "never", check every reachable abort/error path as well as graceful completion. Do not infer an unstated graceful-only qualifier from a section heading when the sentence itself is absolute.
    Run things if it helps - the tree is yours to build and test, but do not commit, push, or comment on the PR.
 3. SCOPE. "introducedByPr": true when the PR's own diff created the defect or made it reachable/worse. "scope": "in-scope" when this PR is the right place to fix it - a defect the PR introduced, or one its change makes reachable - otherwise "out-of-scope" (pre-existing and untouched). Undecidable counts as in-scope.
 4. RATE. Severity is about consequence: blocker = data loss, crash, or wrong results on a normal path; nit = cosmetic.

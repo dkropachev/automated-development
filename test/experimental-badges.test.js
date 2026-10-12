@@ -42,7 +42,7 @@ test('review-and-fix-pr is a local review-only experimental benchmark tool', () 
     reviewOnly: true,
     requiresPluginDir: true,
     cohortOnly: true,
-    resultContract: 'review-and-fix-pr-v3',
+    resultContract: 'review-and-fix-pr-v1',
   })
   assert.match(tool.description, /whole-pull-request review/i)
   assert.match(tool.install, /marketplace add dkropachev\/automated-development/)
@@ -51,11 +51,10 @@ test('review-and-fix-pr is a local review-only experimental benchmark tool', () 
   assert.equal(tool.repoUrl, 'https://github.com/dkropachev/automated-development')
   assert.equal(tool.pageUrl, 'https://github.com/dkropachev/automated-development/blob/main/skills/review-and-fix-pr/SKILL.md')
   assert.match(tool.prompt, /^Use the loaded `automated-development:review-and-fix-pr` skill/)
-  assert.match(tool.prompt, /runner-frozen pull request/)
-  assert.match(tool.prompt, /do not refetch or rebuild that context/)
-  assert.match(tool.prompt, /trusted `review-and-fix-pr-fast\.js` helper/)
-  assert.match(tool.prompt, /exact task ID or output file/)
-  assert.match(tool.prompt, /one `REVIEW_AND_FIX_PR_RESULT_JSON=` v3 marker/)
+  assert.match(tool.prompt, /review pull request/)
+  assert.match(tool.prompt, /native Agent tool/)
+  assert.doesNotMatch(tool.prompt, /review-and-fix-pr-fast\.js/)
+  assert.match(tool.prompt, /one `REVIEW_AND_FIX_PR_RESULT_JSON=` schema-v1 marker/)
   assert.match(tool.prompt, /final nonempty line/)
   assert.doesNotMatch(tool.prompt, /Wait for the workflow result|relay that result|stopAt|workflow `model`/)
   assert.match(tool.prompt, /REVIEW_AND_FIX_PR_RESULT_JSON=/)
@@ -99,7 +98,7 @@ test('experimental metadata survives tool, run, and cohort dashboard snapshots',
     assert.equal(globalTool.selfAuthored, true)
     assert.equal(globalTool.reviewOnly, true)
     assert.equal(globalTool.requiresPluginDir, true)
-    assert.equal(globalTool.resultContract, 'review-and-fix-pr-v3')
+    assert.equal(globalTool.resultContract, 'review-and-fix-pr-v1')
 
     assert.equal(data.runs.length, 1)
     const run = data.runs[0]
@@ -107,7 +106,7 @@ test('experimental metadata survives tool, run, and cohort dashboard snapshots',
     assert.equal(run.experimental, true)
     assert.equal(run.selfAuthored, true)
     assert.equal(run.reviewOnly, true)
-    assert.equal(run.resultContract, 'review-and-fix-pr-v3')
+    assert.equal(run.resultContract, 'review-and-fix-pr-v1')
     assert.deepEqual(globalTool.snapshots.legacy, snapshot)
 
     assert.equal(data.cohorts.length, 1)

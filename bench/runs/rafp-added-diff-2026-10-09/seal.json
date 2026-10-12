@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "runId": "rafp-added-diff-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "e00037e7e363a273c1d73d0d66469b33f1c5a2409152eae0494fe050b632470c",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "createdAt": "2026-10-09T08:12:24.525Z",
+  "cells": [
+    {
+      "id": "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr",
+      "target": "ironweave",
+      "tool": "review-and-fix-pr",
+      "file": "results/ironweave/review-and-fix-pr.json",
+      "sha256": "b3301a0e3fd6045d3b6e1c1ea40dcd0ba62ab8e934170c32c0d3184809df73de"
+    },
+    {
+      "id": "rafp-added-diff-2026-10-09/quillstone/review-and-fix-pr",
+      "target": "quillstone",
+      "tool": "review-and-fix-pr",
+      "file": "results/quillstone/review-and-fix-pr.json",
+      "sha256": "c8d80ce73a73dfd5b4566c35f9235e856d8caf6bad5f79a74529192f213d5618"
+    },
+    {
+      "id": "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr",
+      "target": "tidepool",
+      "tool": "review-and-fix-pr",
+      "file": "results/tidepool/review-and-fix-pr.json",
+      "sha256": "2713ccbc9b2145f3bbb1d62d7ff537b2ca87fb50f4792d742e3da0c21322e291"
+    }
+  ]
+}

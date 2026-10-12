@@ -35,6 +35,7 @@ const TITLE_LIMIT = 90
 const MACHINE_REPORT_PREFIXES = Object.freeze([
   'REVIEW_AND_FIX_PR_RESULT_JSON=',
   'REVIEW_AND_FIX_PR_CODEX_RECEIPT_JSON=',
+  'REVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON=',
 ])
 
 const INSTRUCTIONS = `You are given one code-review report. Extract every distinct finding it makes.
@@ -42,11 +43,11 @@ const INSTRUCTIONS = `You are given one code-review report. Extract every distin
 Rules:
 - One row per distinct claim about the code. A finding repeated in a summary and again in a detail section is ONE row.
 - Copy the tool's own claim; do not verify it, do not add findings of your own, do not drop findings you disagree with.
-- "file" and "line" as the report gives them ("" and 0 if it gives none).
+- "file" as the report gives it, or "" if none. "line" must be one nonnegative integer: use the first cited line of a range or list, or 0 if no line is cited. Never put a range or list in "line".
 - "title": <=90 chars, the defect, not the fix.
 - "severity": one of blocker, high, medium, low, nit - map the report's own wording onto that scale.
 - "kind": one of bug, security, test-gap, style, docs, perf, design, question.
-- "claim": one or two sentences stating what the tool says is wrong.
+- "claim": preserve the report's triggering path, duration or repetition, and consequence in up to three concise sentences. For retries, keep the stored state that makes the next attempt repeat the same failure and whether it clears on failure. Do not reduce a persistent-failure or recovery scenario to the intended behavior of one event. Keep any condition that distinguishes the reported defect from the PR's stated fix.
 - "selfRejected": true if the report explicitly says it checked this and it is NOT a problem, or that it is out of scope and was not investigated.
 Return ONLY a JSON array, no prose, no code fences. An empty report is [].
 
@@ -129,15 +130,22 @@ function normalizeTitle(title) {
   return (atWord || prefix.trimEnd()) + '…'
 }
 
+function normalizeLine(line) {
+  if (typeof line !== 'string') return line
+  const clean = line.trim()
+  // Reports can cite several ranges for one claim. Preserve strict validation for other malformed
+  // values, but use the first cited line when the extractor copies a numeric range/list verbatim.
+  const match = /^:?(\d+)(?:\s*[-–—]\s*\d+)?(?:\s*[,;]\s*\d+(?:\s*[-–—]\s*\d+)?)*$/.exec(clean)
+  return match ? Number(match[1]) : line
+}
+
 function normalizeFindings(findings) {
   return findings.map((finding) => (
     finding && typeof finding === 'object' && !Array.isArray(finding)
       ? {
           ...finding,
           title: normalizeTitle(finding.title),
-          line: typeof finding.line === 'string' && /^\d+(?:-\d+)?$/.test(finding.line.trim())
-            ? Number(finding.line.trim().split('-')[0])
-            : finding.line,
+          line: normalizeLine(finding.line),
         }
       : finding
   ))
@@ -309,7 +317,7 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
 
 module.exports = {
   DEFAULT_TIMEOUT_MS, EXTRACTOR_MODEL, TITLE_LIMIT, assertRecordCohort, extractOne, extractorArgs, main,
-  normalizeFindings, normalizeTitle, parseArgs, sanitizeExtractionReport, structuredV3Findings,
+  normalizeFindings, normalizeLine, normalizeTitle, parseArgs, sanitizeExtractionReport, structuredV3Findings,
 }
 
 if (require.main === module) {

@@ -254,9 +254,9 @@ test('dashboard metric import stays side-effect free when CommonJS has a DOM glo
   assert.equal(imported.status, 0, imported.stderr)
 })
 
-test('comparison overlap uses stable IDs only for the same target', () => {
-  const left = { targetId: 'a', issues: [{ id: 'I1' }, { id: 'I2' }] }
-  const right = { targetId: 'a', issues: [{ id: 'I2' }, { id: 'I3' }] }
+test('comparison overlap uses identities on the same pinned revision across cohorts', () => {
+  const left = { targetId: 'a', targetPins: { baseSha: 'base', headSha: 'head' }, issues: [{ id: 'I1' }, { id: 'I2' }] }
+  const right = { targetId: 'a', targetPins: { baseSha: 'base', headSha: 'head' }, issues: [{ id: 'I2' }, { id: 'I3' }] }
   const overlap = dashboard.comparisonFor(left, right)
   assert.equal(overlap.compatible, true)
   assert.deepEqual(overlap.shared.map((issue) => issue.id), ['I2'])
@@ -270,8 +270,8 @@ test('comparison overlap uses stable IDs only for the same target', () => {
     { ...left, cohortId: 'old' },
     { ...right, cohortId: 'new' },
   )
-  assert.equal(crossCohort.compatible, false)
-  assert.match(crossCohort.reason, /different judgement snapshots/)
+  assert.equal(crossCohort.compatible, true)
+  assert.equal(dashboard.comparisonFor(left, { ...right, targetPins: { baseSha: 'base', headSha: 'other' } }).compatible, false)
 })
 
 test('artifact loader reads the complete tracked matrix without runtime transcript accounting', () => {
@@ -287,7 +287,7 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
   assert.ok(data.cohorts.filter((cohort) => !cohort.legacy).every((cohort) => cohort.complete))
   assert.ok(data.cohorts.some((cohort) => cohort.id === 'sonnet-5-5-2026-09-30' && cohort.complete))
   assert.equal(data.targets.length, 3)
-  assert.equal(data.tools.length, 9)
+  assert.equal(data.tools.length, 10)
   assert.deepEqual(data.tools.filter((tool) => tool.id === 'review-and-fix-pr').map((tool) => ({
     experimental: tool.experimental,
     selfAuthored: tool.selfAuthored,
@@ -301,7 +301,7 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
     reviewOnly: true,
     requiresPluginDir: true,
     cohortOnly: true,
-    resultContract: 'review-and-fix-pr-v3',
+    resultContract: 'review-and-fix-pr-v1',
   }])
   const legacyRuns = data.runs.filter((run) => run.cohortId === 'legacy')
   const legacyIssues = data.issues.filter((issue) => issue.cohortId === 'legacy')
@@ -492,7 +492,7 @@ test('HTML export is deterministic, self-contained, and script-data safe', () =>
 
 test('dashboard metric hints are visible, concise, and keyboard reachable', () => {
   const html = dashboard.render(dashboard.loadArtifacts())
-  assert.match(html, /'Real \/ run': 'Distinct cohort-adjudicated real issues divided by complete runs\.'/)
+  assert.match(html, /'Real \/ run': 'Distinct discovered real issues divided by complete runs\.'/)
   assert.match(html, /Salvaged discovery-only records are excluded/)
   assert.match(html, /'Precision': 'Real issues divided by real issues plus false positives; unproven issues are excluded\.'/)
   assert.match(html, /false-positive and unproven verdicts are excluded/)
@@ -526,7 +526,7 @@ test('dashboard model picker defaults to requested model and keeps observed stac
   assert.match(html, /summaryItem\('Model under test'/)
   assert.match(html, /summaryItem\('Observed model stack'/)
   assert.match(html, /legacyRunAliases/)
-  assert.match(html, /different judgement snapshots/)
+  assert.match(html, /same target and pinned base\/head commits/)
   assert.doesNotMatch(html, /selectedModels.*usage\.models/)
 })
 

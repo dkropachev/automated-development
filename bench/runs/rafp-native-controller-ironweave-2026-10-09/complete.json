@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "runId": "rafp-native-controller-ironweave-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "0e9f376996d93eec53b7b9f14eb85cc94faefe9d66a5e4a79893889e2afeafeb",
+  "pluginFingerprint": {
+    "contentSha256": "2cd92aa25a4277827f88ecf58822ca0173f30fc23dd45aa101c0d5dcfd428a3d",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "createdAt": "2026-10-09T13:35:30.846Z",
+  "manifestSha256": "4aecba2b2b9e22f7fca433140e09f4ce1905af39f6a8734253d6e9566e7b68e2",
+  "sealSha256": "3035c10fbed490f8373f8b514acf12e319fda3a58ef99f0afbfeb672124d011d",
+  "findings": [
+    {
+      "file": "findings/ironweave/review-and-fix-pr.json",
+      "sha256": "8f8e213f3b4bbca7cc0949da36b07f474588218f0c2b39c01213a683298c5afd"
+    }
+  ],
+  "judgements": [
+    {
+      "file": "judgement/ironweave.json",
+      "sha256": "96c1a07b7e4509bf39feeb02bf26de3190ba743b81a7a16c25fa4d3ef0275e81"
+    }
+  ]
+}

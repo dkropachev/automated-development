@@ -1,0 +1,3334 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-added-diff-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "e00037e7e363a273c1d73d0d66469b33f1c5a2409152eae0494fe050b632470c",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "cellId": "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr",
+  "target": "tidepool",
+  "language": "Go",
+  "fork": "dkropachev/tidepool",
+  "pr": 1,
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "tool": "review-and-fix-pr",
+  "label": "Automated Development review-and-fix-pr",
+  "source": "automated-development@inline",
+  "prompt": "Use the loaded `automated-development:review-and-fix-pr` skill to review the runner-frozen pull request #1 in dkropachev/tidepool. The runner already validated the clean head, PR scope, linked evidence, rules, and exact diff; do not refetch or rebuild that context. Invoke the trusted `review-and-fix-pr-fast.js` helper immediately as the skill directs, in one foreground Bash command with `run_in_background: false` and `timeout: 600000`. If Bash supervises it in the background, wait by its exact task ID or output file; do not poll by process-name text or schedule a Monitor or reminder. After the helper exits, return its complete human report and its one `REVIEW_AND_FIX_PR_RESULT_JSON=` v3 marker as the final nonempty line, without an extra status turn. Do not invoke a Workflow or modify the PR.",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 1297486,
+  "reportedCostUsd": 0.6279382,
+  "reportedUsage": {
+    "input_tokens": 4,
+    "cache_creation_input_tokens": 14405,
+    "cache_read_input_tokens": 68317,
+    "output_tokens": 13940,
+    "output_tokens_details": {
+      "thinking_tokens": 63
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 14405,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 13721,
+        "cache_read_input_tokens": 34452,
+        "cache_creation_input_tokens": 13818,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 13818
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 10,
+      "outputTokens": 14315,
+      "cacheReadInputTokens": 142751,
+      "cacheCreationInputTokens": 39131,
+      "webSearchRequests": 0,
+      "costUSD": 0.6279382,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 170,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 2,
+  "subagentStats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "sessionId": "bc50428b-49a8-4529-8135-6f38dc81ac2e",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 152,
+    "output": 95871,
+    "thinking": 40773,
+    "cacheRead": 3355058,
+    "cacheCreation": 305424,
+    "costUsd": 5.032431600000001,
+    "sessions": 7,
+    "models": {
+      "claude-opus-5-5": 5.032431600000001
+    },
+    "bySession": {
+      "21ad0747-73ae-43aa-b1f7-5e17e789108f": {
+        "costUsd": 0.6311800000000001,
+        "startTime": 1791532241988,
+        "tokens": 454731
+      },
+      "29e19434-6ebd-4c5c-b7f1-5c410bd1a8c0": {
+        "costUsd": 0.932677,
+        "startTime": 1791532241959,
+        "tokens": 982578
+      },
+      "5be5885a-8aa3-4a23-b4a9-95059e93f5fd": {
+        "costUsd": 0.7858644,
+        "startTime": 1791532241972,
+        "tokens": 530846
+      },
+      "90c3c33f-7fc9-4974-a46f-076cd656180a": {
+        "costUsd": 0.2503722,
+        "startTime": 1791532241993,
+        "tokens": 111408
+      },
+      "bc50428b-49a8-4529-8135-6f38dc81ac2e": {
+        "costUsd": 0.6279382,
+        "startTime": 1791532234714,
+        "tokens": 196207
+      },
+      "d055f622-4cb0-4cc6-822d-5aae60358d9b": {
+        "costUsd": 0.7469654,
+        "startTime": 1791532241991,
+        "tokens": 507434
+      },
+      "ebc56731-b6cc-4f6b-a0b4-b52cfdbd5174": {
+        "costUsd": 1.0574344,
+        "startTime": 1791532241980,
+        "tokens": 973301
+      }
+    },
+    "rawMessages": 149,
+    "rawOutput": 191568,
+    "rawCacheRead": 6606031,
+    "since": 0,
+    "subagentTranscripts": 0,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-tidepool-runs-rafp-added-diff-2026-10-09-review-and-fix-pr-attempt-dlYrph-repo",
+    "byAgent": {
+      "21ad0747-73ae-43aa-b1f7-5e17e789108f.jsonl": {
+        "input": 20,
+        "output": 11713,
+        "cacheRead": 403480,
+        "cacheCreation": 39518,
+        "messages": 10,
+        "total": 454731
+      },
+      "29e19434-6ebd-4c5c-b7f1-5c410bd1a8c0.jsonl": {
+        "input": 38,
+        "output": 17411,
+        "cacheRead": 914965,
+        "cacheCreation": 50164,
+        "messages": 19,
+        "total": 982578
+      },
+      "5be5885a-8aa3-4a23-b4a9-95059e93f5fd.jsonl": {
+        "input": 22,
+        "output": 15930,
+        "cacheRead": 468202,
+        "cacheCreation": 46692,
+        "messages": 11,
+        "total": 530846
+      },
+      "90c3c33f-7fc9-4974-a46f-076cd656180a.jsonl": {
+        "input": 6,
+        "output": 2430,
+        "cacheRead": 85901,
+        "cacheCreation": 23071,
+        "messages": 3,
+        "total": 111408
+      },
+      "bc50428b-49a8-4529-8135-6f38dc81ac2e.jsonl": {
+        "input": 10,
+        "output": 14315,
+        "cacheRead": 142751,
+        "cacheCreation": 39131,
+        "messages": 5,
+        "total": 196207
+      },
+      "d055f622-4cb0-4cc6-822d-5aae60358d9b.jsonl": {
+        "input": 20,
+        "output": 13427,
+        "cacheRead": 445327,
+        "cacheCreation": 48660,
+        "messages": 10,
+        "total": 507434
+      },
+      "ebc56731-b6cc-4f6b-a0b4-b52cfdbd5174.jsonl": {
+        "input": 36,
+        "output": 20645,
+        "cacheRead": 894432,
+        "cacheCreation": 58188,
+        "messages": 18,
+        "total": 973301
+      }
+    },
+    "total": 3756505
+  },
+  "result": "The review of PR #1 confirmed 18 findings. The most serious is that a zero-dimension vector whose element type is nil still panics when decoded into `*any`, even though the new test and comment say it is safe. Six Claude Opus passes found the issues and OpenAI Codex judged each one. HEAD is still `78891dd78461a2758585ce3545de0d55f2c114a3` and the working tree is clean, so the PR was not changed.\n\nReview of dkropachev/tidepool at 78891dd78461a2758585ce3545de0d55f2c114a3\n\nFix completeness: reviewed against PR intent and tests; see findings for remaining gaps.\nCoverage: six independent Claude passes completed (holistic, standards, spec-test, contracts, maintenance, api-commit).\nOpenAI Codex independently judged every admitted candidate and new lead.\n\n### Confirmed findings\n- [C3] TestUnmarshalVectorAcceptsWellFormedPayloads includes a 'payload with a trailing byte' case: a 13-byte int vector with 3 dimensions. That payload is malformed, yet the test asserts it decodes without error. The float fast paths reject any length other than Dimensions*size. (marshal_vector_test.go:724; low)\n- [C4] The new comment says every path below turns Dimensions into an allocation. The array destination path allocates nothing, and the PR's own test comment says so. (marshal.go:986; low)\n- [C7] Commits do not follow CONTRIBUTING.md's commit-message format: the subjects start lowercase with a conventional-commit prefix, and neither commit has the required `Patch by <authors>; reviewed by <Reviewers> for #####` line. (CONTRIBUTING.md:28; low)\n- [C9] A notable behaviour change ships without the CHANGELOG/godoc documentation CONTRIBUTING requires: unknown custom type names now keep their name, and vectors are newly rejected on dimension bounds and on element types with no Go type. (helpers.go:280; low)\n- [C20] vectorElemMinSize's saturation branch (`return math.MaxInt32`) has no test row, although the overflow handling is a stated purpose of the function. (marshal.go:1136; low)\n- [C22] The test comment says the overflow cases \"use the word size so the wrap lands on a 32-bit target too\". On a 32-bit target, though, the unit-tagged gocql test package cannot compile, so that path is never built or run. (marshal_vector_test.go:585; low)\n- [C23] The PR says \"Every new test fails against pristine marshal.go/helpers.go\". Several new tests pass on the base behaviour, so this is false. (marshal_vector_test.go:935; low)\n- [C24] TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType and the guard comment say a zero VectorType with a nil SubType is safe at zero dimensions. That only holds for a concrete-slice destination: with an *any destination, unmarshalVector still calls info.Zero(), which dereferences the nil SubType. (marshal.go:1044; medium)\n- [C25] The headline behaviour change (\"a short or zero-length non-NULL payload ... now errors\") has no test for the zero-length case. No test passes a non-nil empty payload with Dimensions > 0. (marshal.go:998; low)\n- [C28] getCassandraLongType now returns NativeType with `custom` set to the full class name for every unrecognised type, not only vector elements. That changes the public TypeInfo.Custom() and String() output for collection, tuple, UDT and vector-subtype metadata across the driver, and neither the commit nor the PR body calls it a contract change. (helpers.go:281; medium)\n- [C31] The new comment says every path below turns Dimensions into an allocation, but the array path allocates nothing. The PR's own test comment says so. (marshal.go:986; low)\n- [N1] A zero-dimensional VectorType with a nil SubType still panics when unmarshaled into *any, despite the new test and comment claiming the subtype is untouched. (marshal.go:1044; high)\n- [N4] The overflow-saturation branch in vectorElemMinSize is unprotected by a test case. (marshal.go:1136; low)\n- [N5] The allocation-regression test uses process-wide TotalAlloc and can be polluted by allocations from unrelated background goroutines. (marshal_vector_test.go:835; low)\n- [N6] The test comment claims its word-size expressions exercise wrapping on 32-bit targets, but the unit test package cannot compile there because another unit test compares an int with math.MaxUint32. (marshal_vector_test.go:585; low)\n- [N7] The PR statement that every new test fails on the pristine implementation is false. (marshal_vector_test.go:690; low)\n- [N8] The advertised rejection of a zero-length non-NULL payload with positive dimensions has no direct regression test. (marshal.go:998; low)\n- [N9] Preserving every unknown class name changes the public TypeInfo.Custom() and String() results for all metadata callers, not only vector error diagnostics. (helpers.go:281; medium)\n\n### Needs reviewer judgment\n- [C33] The new t==nil guard reports that a nested vector element has \"no Go type\", and the new test pins that message. But the failure comes from helpers.go storing… (marshal.go:1048)\n  Needs judgment: The current error accurately reflects that the parsed subtype cannot infer a Go type, while concrete destinations can still decode because…\n- [C18] makeNestedVectorType gives the inner vector a full `VectorType(<sub>, N)` custom string, but the production parser gives inner nested vectors the bare prefix.… (marshal_vector_test.go:570)\n  Needs judgment: The hand-built nested fixture stores a complete custom specification whereas the production parser stores only the bare VectorType name.…\n- [C5] The getCassandraLongType change is not limited to vectors. Every unknown type nested in a list, set, map, tuple, UDT, frozen type or vector now keeps its class… (helpers.go:281)\n  Needs judgment: The shared fallback branch is indirectly exercised by the unknown vector-element test, so the current implementation is not wholly…\n- [C6] The new makeVectorType helper duplicates the existing makeDoubleVectorType and makeFloat32VectorType builders in the same file instead of replacing them. (marshal_vector_test.go:557)\n  Needs judgment: The generic builder overlaps two existing fixed-type builders. Current behavior is coherent, but changes to test VectorType construction…\n- [C10] The same `info.Dimensions > 0 && data != nil` guard appears twice in a row, opening two adjacent blocks. (marshal.go:998)\n  Needs judgment: The adjacent blocks currently use identical guards and are correct, but the fast-path multiplication relies on the preceding block…\n- [C11] Overflow safety at the fast-path multiplication is implicit. It depends on vectorFixedElemSize returning exactly 8 and 4 for double and float, and nothing at… (marshal.go:1011)\n  Needs judgment: The multiplication is presently safe because the preceding bound uses matching element sizes for the two fast-pathed types. That…\n- [C12] Element-type classification is now spread over three parallel switches: vectorFixedElemSize, isVectorVariableLengthType, and the new vectorElemMinSize, which… (marshal.go:1125)\n  Needs judgment: The classifiers are not wholly parallel—vectorElemMinSize deliberately composes the existing fixed- and variable-length classifiers—so…\n- [C14] The header comment describes `elemMin` and the bound above the negative-dimension check, apart from the block that defines elemMin. It also says 'unmarshalList… (marshal.go:991)\n  Needs judgment: “Does the same” can reasonably mean that both decoders derive a safe count bound from the payload, so this is not a verified semantic…\n- [C41] getCassandraLongType now keeps an unknown type's name only in its final basic-type branch. Its sibling degrade-to-custom returns (map arity error, vector… (helpers.go:282)\n  Needs judgment: The new fallback intentionally preserves an unknown basic type’s name, while the cited malformed-map and malformed-vector fallbacks remain…\n- [C17] makeVectorType duplicates the existing makeDoubleVectorType/makeFloat32VectorType (and vector_bench_test.go's makeFloatVectorType). It also takes the element… (marshal_vector_test.go:557)\n  Needs judgment: No supplied call currently passes contradictory element identifiers, so there is no present failing fixture. The independent Type and…\n- [C19] Test comments claim more than their assertions show. The 'pins the bound as non-narrowing' suite checks six sample shapes, and 'The concrete destinations pin… (marshal_vector_test.go:692)\n  Needs judgment: A test suite necessarily demonstrates representative cases rather than proving the property for every type, so “pins” is not by itself a…\n- [C26] TestUnmarshalVectorRejectsNestedCountBeforeAllocating measures process-wide runtime.MemStats.TotalAlloc. Allocations by other goroutines in the unit test… (marshal_vector_test.go:835)\n  Needs judgment: TotalAlloc is process-wide, so omitting t.Parallel does not exclude allocations from unrelated background goroutines. The 128 KiB allowance…\n- [C29] The new bound error 'unmarshal vector: %d dimensions do not fit in %d bytes' fires before the fast path's exact-length error. For a payload that is short but… (marshal.go:1000)\n  Needs judgment: The changed diagnostic ordering is real and the PR explicitly discloses it, but no supplied contract guarantees the previous exact error…\n- [C30] The new bound comment says unmarshalList \"does the same\", but unmarshalList uses a fixed 4-byte floor, applies it only to slices, and checks after the size… (marshal.go:991)\n  Needs judgment: “Does the same” is defensible as saying both decoders bound a count by payload length, but it obscures material differences in minimum…\n- [C34] The *any destination in vectors is resolved through info.Zero(), which discards the NewWithError error, plus a new nil check. The sibling unmarshalList… (marshal.go:1044)\n  Needs judgment: The vector path currently avoids a panic, but it resolves an interface element type through Zero(), which suppresses NewWithError's cause,…\n- [C35] The new test fixtures makeVectorType/makeNestedVectorType copy the existing makeFloat32VectorType/makeDoubleVectorType bodies. makeVectorType takes the Type… (marshal_vector_test.go:557)\n  Needs judgment: The helpers duplicate existing construction logic, accept independently inconsistent type/name inputs, and build nested custom metadata…\n- [C38] The new dimension bound runs before unmarshalVector validates the destination (non-pointer, non-empty interface, unsupported kind, array-length mismatch), so a… (marshal.go:999)\n  Needs judgment: A short payload can now mask non-pointer, unsupported-destination, or array-length errors with a payload diagnosis. No supplied API…\n- [C39] The new 'no Go type for element type %v' error renders a nested vector element as 'custom(org.apache.cassandra.db.marshal.VectorType)', with no inner element… (marshal.go:1048)\n  Needs judgment: For nested vectors the diagnostic identifies only a custom VectorType, not the inner type or dimensions, so it does not uniquely identify…\n- [C40] The new nil-Zero guard replaces the specific error that SubType.NewWithError produced (VectorType.Zero swallows it) with a generic string. The sibling… (marshal.go:1045)\n  Needs judgment: The new guard prevents the crash, but its generic message loses the actual type-resolution error that VectorType.Zero suppresses and…\n- [C42] The PR body's 'Behaviour change' section omits that a NULL value for a vector with negative dimensions now returns an error. Previously it decoded to a nil… (marshal.go:992)\n  Needs judgment: The negative-dimension check does change NULL handling, but negative dimensions are invalid metadata and the PR discusses rejecting…\n- [C44] Commit 0276a66's message says the bound relies on every element taking at least one byte. The commit actually adds a recursive per-type minimum… (marshal.go:1125)\n  Needs judgment: The commit message's one-byte statement is true as a lower bound, but it omits that the implementation deliberately uses larger fixed and…\n- [N2] The comment saying unmarshalList uses the same bound is inaccurate: lists use a fixed length-prefix floor, whereas vectors use a recursive type-dependent… (marshal.go:991)\n  Needs judgment: Both decoders conceptually bound a count by available bytes, so “does the same” is not literally false at that abstraction level. However,…\n- [N3] makeVectorType accepts the logical element Type and its Cassandra class-name suffix independently, allowing internally contradictory fixtures. (marshal_vector_test.go:557)\n  Needs judgment: Current callers may pass matching values, but the helper API independently accepts two representations of one element identity. A future…\n- [N10] The new payload bound runs before destination validation and can replace a caller-programming error with a payload-size diagnosis. (marshal.go:999)\n  Needs judgment: When both payload and destination are invalid, choosing which error wins is a diagnostic-policy judgment rather than a correctness failure.…\n- [N11] Unknown-name preservation is inconsistent across parser fallback branches: the new basic-type fallback retains the name, while malformed map and vector… (helpers.go:282)\n  Needs judgment: The current branches can legitimately represent different parser failures, so inconsistent retained identity is not by itself a present…\n\n### Unresolved\n- [C8] Both commits carry a `Co-Authored-By: Claude Opus 5 (1M context)` trailer, which the governing user instructions forbid.: The supplied commit messages establish that the Claude trailers exist, but the alleged governing user prohibition is not included among the…\n- [C45] The commit messages carry 'Co-Authored-By: Claude Opus 5' trailers and the PR body ends with '🤖 Generated with Claude Code', which violates the applicable…: The supplied commit and PR metadata verify that the attribution text is present, but the alleged governing prohibition is not among the…\n\nConfirmed: 18; suggestions: 25; rejected: 2; unresolved: 2.\nSuggestions are never fixed automatically. Coverage complete means this review protocol finished, not that the PR is bug-free.\nFull claims, evidence, and judgments: /extra/dkropachev/automated-development/bench/work/codex-receipts/rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr/c1a8393a-10db-4ddc-9a04-6fffa520f6ab.json\n\nREVIEW_AND_FIX_PR_RESULT_JSON={\"schemaVersion\":3,\"coverage\":\"complete\",\"verification\":\"complete\",\"fix\":\"not-requested\",\"stopTrigger\":\"none\",\"stopReason\":\"completed\",\"fixRequested\":false,\"completedLenses\":[\"correctness\",\"spec\",\"standards\",\"security\",\"reliability\",\"contracts\",\"testing\",\"performance\",\"comments\",\"maintainability\"],\"skippedLenses\":[],\"failedLenses\":[],\"coverageGapCount\":0,\"findings\":{\"confirmed\":18,\"provisional\":47,\"rejected\":2,\"suggestion\":25,\"unresolved\":2},\"candidateLedger\":[{\"candidateId\":\"C33\",\"claimHash\":\"6070a39d823c28c2c7e61d58c8b1fbc5e65456b221c8d937c2d8908cb9a8fa4e\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C18\",\"claimHash\":\"41113a9aea200dff5cbbdf20dced8c28dbd0a6b59f78056a2814d180834b1aff\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C3\",\"claimHash\":\"7fc0ac511cd3b036668278f46c76950f5357450c746c534686f113457fef44e8\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C4\",\"claimHash\":\"cb9a0544c291d8471c1a0d53cff539f801e4663c14a09dddca3bbb51213232dc\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C5\",\"claimHash\":\"cb071f3e1c3d3ee37bd6331d328f87922e2b28186aaa247719ba282b6c552d0e\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C6\",\"claimHash\":\"168338d3a9efe694103ff7b5db8e06a0782bfbc85b1cdbe146bc5f8a652f1f03\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C7\",\"claimHash\":\"f9d940c7d06ffaa9bdc8351561a31746b885e2affca751d2217f73e8e0794a3b\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C8\",\"claimHash\":\"fd716654fa7e8bcbf72ac51b8f11805975a8f9d58b9fbccc705076136e5be644\",\"finalDisposition\":\"unresolved\",\"judgeInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"originInvocationId\":null,\"verdict\":\"unresolved\"},{\"candidateId\":\"C9\",\"claimHash\":\"89f9b59a0cf5e7be098dd2977b8aea0f010e37b0e23eb9fb7621996b38c8c238\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C10\",\"claimHash\":\"8f0257b5b87b0f982dd19ade6a70d7fa278315e8a1f09a2f28a85e2c85ed687a\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C11\",\"claimHash\":\"597f0c716cb6649259fe961e0d19a9ef176f268941fc1e1d29118f1067d51fc3\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C12\",\"claimHash\":\"d6e21191dd5f3d886e7ef86180dea095f838ace113a7f6eea795a11ed746b047\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C36\",\"claimHash\":\"2faaf699b02c75b7b594ce2122a7525db435c7a5c333633b0d1d378496834c46\",\"finalDisposition\":\"rejected\",\"judgeInvocationId\":\"01a11fb0-9bae-7380-8cce-d393f31c92c7\",\"originInvocationId\":null,\"verdict\":\"false_positive\"},{\"candidateId\":\"C14\",\"claimHash\":\"4a1ddf209487051b0b8e16d1c1fbdc23659a7d9b833856f651f15c42ff31040b\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb0-9bae-7380-8cce-d393f31c92c7\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C41\",\"claimHash\":\"7ec85d8f0061dcb9055b50575ebb9e5fac4906db3547d5245a7b69eeacd90e21\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb0-9bae-7380-8cce-d393f31c92c7\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C16\",\"claimHash\":\"fa2f736a7ab2c8a5da05631d10d06d8aa6808c7bd921bcca7ca7079fcfa530cc\",\"finalDisposition\":\"rejected\",\"judgeInvocationId\":\"01a11fb0-9bae-7380-8cce-d393f31c92c7\",\"originInvocationId\":null,\"verdict\":\"false_positive\"},{\"candidateId\":\"C17\",\"claimHash\":\"57129afb099ea382abd5967677364e3c96611e50ce70663e9cd1532a90cfe2de\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb0-9bae-7380-8cce-d393f31c92c7\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C19\",\"claimHash\":\"69020dcdded7758ae83e140d726b8bbe08d2cc6908fd3b543646787396da086c\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb0-9bae-7380-8cce-d393f31c92c7\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C20\",\"claimHash\":\"e8dc7617d560a24099200b0dcde27c8965821b3e982b06d21b4cd832e050e7bd\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb0-9bae-7380-8cce-d393f31c92c7\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C26\",\"claimHash\":\"d9506e6af78f00f124bed4394f3cba53b31d5189dd05593920686d3db9c1c527\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb0-9bae-7380-8cce-d393f31c92c7\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C22\",\"claimHash\":\"64d305a4f7a532b123c35d76f9faae7815c05c21808a8a4d68512ada104b8fb7\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb0-9bae-7380-8cce-d393f31c92c7\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C23\",\"claimHash\":\"fb5dacd50ddc8192ea59b41b8193ba4a6fe8757a61538b7e5283bd986cd1448c\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb0-9bae-7380-8cce-d393f31c92c7\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C24\",\"claimHash\":\"8a913410ef5dd2195d33fae2d65113f7fd58b8705a13d0adae38fe91991593f2\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb0-9bae-7380-8cce-d393f31c92c7\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C25\",\"claimHash\":\"4af4c6cc6c7f48c30d2dd580b012eb668859e6ef9f227e92afcd93dd8370250f\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb0-9bae-7380-8cce-d393f31c92c7\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C45\",\"claimHash\":\"f138832526f8eed65d7e4cd50242cd713cf4a80150f22489fd6a0a4801cb816b\",\"finalDisposition\":\"unresolved\",\"judgeInvocationId\":\"01a11fb2-9c32-7701-9b83-29f336751ec1\",\"originInvocationId\":null,\"verdict\":\"unresolved\"},{\"candidateId\":\"C28\",\"claimHash\":\"4a005c320d8ac41415f9f122c133bda81983d7afd85d558bde33c3deb4ea0c00\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb2-9c32-7701-9b83-29f336751ec1\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C29\",\"claimHash\":\"e751a37b44ef31e616c5f291beb0d7070351131488cd7072c703833c82f62056\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb2-9c32-7701-9b83-29f336751ec1\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C30\",\"claimHash\":\"defebd216b4ca907d22bab8217ac25eb84edcea468910b3a7207804f72580ab4\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb2-9c32-7701-9b83-29f336751ec1\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C31\",\"claimHash\":\"492240f4794a0de360931bb9d271cc39091d59f2cd38e7c9b29255ba7c08f8b6\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb2-9c32-7701-9b83-29f336751ec1\",\"originInvocationId\":null,\"verdict\":\"real\"},{\"candidateId\":\"C34\",\"claimHash\":\"30388f5dc3a9c35a2b033e944b7e988a4e685fe9c34ed23bdebeeabfd33b10bb\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb2-9c32-7701-9b83-29f336751ec1\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C35\",\"claimHash\":\"c78de4fb3c3b2d432a0f31469573bc9e4355aba7ff6dacf3a92d36fe0b83c394\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb2-9c32-7701-9b83-29f336751ec1\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C38\",\"claimHash\":\"775d1bafb9ecf6edfcdc2a9ced634ba70e478c347c0901ab01027f7ff4d296b0\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb2-9c32-7701-9b83-29f336751ec1\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C39\",\"claimHash\":\"cff8685c7b1811e276e4f8a4a92d8e1eec1399ccab051c692322a0ab6616d26c\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb2-9c32-7701-9b83-29f336751ec1\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C40\",\"claimHash\":\"6d0aab0a19a2263744a77e5b9b4781ac0df412851bdfcb9778483ca168aba466\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb2-9c32-7701-9b83-29f336751ec1\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C42\",\"claimHash\":\"9b2c1465888cbce674d4e164de6926f01b50e17632383906eb925f73cb14526d\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb2-9c32-7701-9b83-29f336751ec1\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"C44\",\"claimHash\":\"3e401ea88e517e891c4aaaf686aeae9aa2ee1e7c80dac656bdd387454ceacc37\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb2-9c32-7701-9b83-29f336751ec1\",\"originInvocationId\":null,\"verdict\":\"suggestion\"},{\"candidateId\":\"N1\",\"claimHash\":\"6ddb22f7f8d903033ea51f8ae16cbab8d60d6a7bed528272331877164c888942\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"verdict\":\"real\"},{\"candidateId\":\"N2\",\"claimHash\":\"c38194db44511c72e6242d13ee7aa8687d0c1545279da7b665659317073ac7ef\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"verdict\":\"suggestion\"},{\"candidateId\":\"N3\",\"claimHash\":\"2017300871d9e2b38d3dbd74999d32853f377ab58634ee2eec82562b7e1acac9\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"verdict\":\"suggestion\"},{\"candidateId\":\"N4\",\"claimHash\":\"5032be722f36b58fd8190880d56f7b5923e84bdd623f81f17b29c9b1405fca49\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"verdict\":\"real\"},{\"candidateId\":\"N5\",\"claimHash\":\"014a43867c28218863642a5556fede3fef4d66ce037073e38aa23d73fbae4996\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"verdict\":\"real\"},{\"candidateId\":\"N6\",\"claimHash\":\"4760169c80b5e256cdc2965bf85ad1351ea2607577067da8e4b17cd0355aa9a8\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"verdict\":\"real\"},{\"candidateId\":\"N7\",\"claimHash\":\"c70470bc27e95d5460501c3684c3591b1b98de4f9b30e752261edf3d0fe777d4\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"verdict\":\"real\"},{\"candidateId\":\"N8\",\"claimHash\":\"83ba42b0f5e00d8f17fe8baa2537fe0e233f566d83cbf10c5392f95c97ba5704\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"verdict\":\"real\"},{\"candidateId\":\"N9\",\"claimHash\":\"68e64d5e34cd5219480aa2927732f62670b4d1c0d18da32631d66f5565d9c463\",\"finalDisposition\":\"confirmed\",\"judgeInvocationId\":\"01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"verdict\":\"real\"},{\"candidateId\":\"N10\",\"claimHash\":\"332ab6d6f69de59a0075ccfb62c64dac0deaf5d9c6c1705fd71448ae1e4e367e\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"verdict\":\"suggestion\"},{\"candidateId\":\"N11\",\"claimHash\":\"b9d40a142841a046b94dc9b058e2a6b4a807c5e16e0b84736698f377997c2b57\",\"finalDisposition\":\"suggestion\",\"judgeInvocationId\":\"01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"verdict\":\"suggestion\"}],\"newLeadResolutions\":[{\"candidateId\":\"N1\",\"claimHash\":\"6ddb22f7f8d903033ea51f8ae16cbab8d60d6a7bed528272331877164c888942\",\"leadId\":\"lead-fd63f548ea4e3fb0edf0159258416ce1f6c5750b7adb7d969db35d48ed498f83\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"resolution\":\"admitted\"},{\"candidateId\":\"N2\",\"claimHash\":\"c38194db44511c72e6242d13ee7aa8687d0c1545279da7b665659317073ac7ef\",\"leadId\":\"lead-3e3e2f564e18c0d1269ab0d9f0b50725ced4c3ba2254997cac1000c231912e47\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"resolution\":\"admitted\"},{\"candidateId\":\"N3\",\"claimHash\":\"2017300871d9e2b38d3dbd74999d32853f377ab58634ee2eec82562b7e1acac9\",\"leadId\":\"lead-4c56d40f5d22d00959935dddc5a10cc6218c655056ed27351351a31c276730de\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"resolution\":\"admitted\"},{\"candidateId\":\"N4\",\"claimHash\":\"5032be722f36b58fd8190880d56f7b5923e84bdd623f81f17b29c9b1405fca49\",\"leadId\":\"lead-317626059ba51efc8caca6b917cb93ccd7ff9ceeced13dc3b308d764a7a816d9\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"resolution\":\"admitted\"},{\"candidateId\":\"N5\",\"claimHash\":\"014a43867c28218863642a5556fede3fef4d66ce037073e38aa23d73fbae4996\",\"leadId\":\"lead-8a5fa420ebddc278870a56dd0a50b95df2c8b8f6f544787decfcf9a176ccf9d4\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"resolution\":\"admitted\"},{\"candidateId\":\"N6\",\"claimHash\":\"4760169c80b5e256cdc2965bf85ad1351ea2607577067da8e4b17cd0355aa9a8\",\"leadId\":\"lead-8506b559162d17f804177c42609ee1ba49facec956d22d5ab8dc3e06e2b4296e\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"resolution\":\"admitted\"},{\"candidateId\":\"N7\",\"claimHash\":\"c70470bc27e95d5460501c3684c3591b1b98de4f9b30e752261edf3d0fe777d4\",\"leadId\":\"lead-7bd5dc92b76b36dd5c75161b39a809d1b942fbb6d5dedb99ba39bed8fe3aa4ce\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"resolution\":\"admitted\"},{\"candidateId\":\"N8\",\"claimHash\":\"83ba42b0f5e00d8f17fe8baa2537fe0e233f566d83cbf10c5392f95c97ba5704\",\"leadId\":\"lead-d5abcb9f9fbcba73dbe1fa37006b7def55f97b3bd33ea6300eb6eba2c41c3985\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"resolution\":\"admitted\"},{\"candidateId\":\"N9\",\"claimHash\":\"68e64d5e34cd5219480aa2927732f62670b4d1c0d18da32631d66f5565d9c463\",\"leadId\":\"lead-232d43c2367980138468dc57af438d94be3f09094a2163c6bba2aa39fc21dec2\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"resolution\":\"admitted\"},{\"candidateId\":\"N10\",\"claimHash\":\"332ab6d6f69de59a0075ccfb62c64dac0deaf5d9c6c1705fd71448ae1e4e367e\",\"leadId\":\"lead-ec9478a9e6d3bec40fde5baf0a0ca3d7cc58069afd1b30f3e17cbdf85bb29aa8\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"resolution\":\"admitted\"},{\"candidateId\":\"N11\",\"claimHash\":\"b9d40a142841a046b94dc9b058e2a6b4a807c5e16e0b84736698f377997c2b57\",\"leadId\":\"lead-833232d8e8d27d1daec4175f02f1459f254cb0da3c23a80b1851f3763516b6f7\",\"originInvocationId\":\"01a11fa8-ce3d-7e21-9306-89a851bb9fc9\",\"resolution\":\"admitted\"}],\"codex\":{\"cliVersion\":\"0.156.0\",\"model\":\"gpt-5.6-sol\",\"provider\":\"openai\",\"reasoningEffort\":\"high\",\"receiptSha256\":\"18cf1780197791f89994609fb87fb2e2e9899b533d63ce4ddfe9a3c96dacbc5b\"}}",
+  "resultContract": {
+    "candidateLedger": [
+      {
+        "candidateId": "C33",
+        "claimHash": "6070a39d823c28c2c7e61d58c8b1fbc5e65456b221c8d937c2d8908cb9a8fa4e",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C18",
+        "claimHash": "41113a9aea200dff5cbbdf20dced8c28dbd0a6b59f78056a2814d180834b1aff",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C3",
+        "claimHash": "7fc0ac511cd3b036668278f46c76950f5357450c746c534686f113457fef44e8",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C4",
+        "claimHash": "cb9a0544c291d8471c1a0d53cff539f801e4663c14a09dddca3bbb51213232dc",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C5",
+        "claimHash": "cb071f3e1c3d3ee37bd6331d328f87922e2b28186aaa247719ba282b6c552d0e",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C6",
+        "claimHash": "168338d3a9efe694103ff7b5db8e06a0782bfbc85b1cdbe146bc5f8a652f1f03",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C7",
+        "claimHash": "f9d940c7d06ffaa9bdc8351561a31746b885e2affca751d2217f73e8e0794a3b",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C8",
+        "claimHash": "fd716654fa7e8bcbf72ac51b8f11805975a8f9d58b9fbccc705076136e5be644",
+        "finalDisposition": "unresolved",
+        "judgeInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "originInvocationId": null,
+        "verdict": "unresolved"
+      },
+      {
+        "candidateId": "C9",
+        "claimHash": "89f9b59a0cf5e7be098dd2977b8aea0f010e37b0e23eb9fb7621996b38c8c238",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C10",
+        "claimHash": "8f0257b5b87b0f982dd19ade6a70d7fa278315e8a1f09a2f28a85e2c85ed687a",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C11",
+        "claimHash": "597f0c716cb6649259fe961e0d19a9ef176f268941fc1e1d29118f1067d51fc3",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C12",
+        "claimHash": "d6e21191dd5f3d886e7ef86180dea095f838ace113a7f6eea795a11ed746b047",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C36",
+        "claimHash": "2faaf699b02c75b7b594ce2122a7525db435c7a5c333633b0d1d378496834c46",
+        "finalDisposition": "rejected",
+        "judgeInvocationId": "01a11fb0-9bae-7380-8cce-d393f31c92c7",
+        "originInvocationId": null,
+        "verdict": "false_positive"
+      },
+      {
+        "candidateId": "C14",
+        "claimHash": "4a1ddf209487051b0b8e16d1c1fbdc23659a7d9b833856f651f15c42ff31040b",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb0-9bae-7380-8cce-d393f31c92c7",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C41",
+        "claimHash": "7ec85d8f0061dcb9055b50575ebb9e5fac4906db3547d5245a7b69eeacd90e21",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb0-9bae-7380-8cce-d393f31c92c7",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C16",
+        "claimHash": "fa2f736a7ab2c8a5da05631d10d06d8aa6808c7bd921bcca7ca7079fcfa530cc",
+        "finalDisposition": "rejected",
+        "judgeInvocationId": "01a11fb0-9bae-7380-8cce-d393f31c92c7",
+        "originInvocationId": null,
+        "verdict": "false_positive"
+      },
+      {
+        "candidateId": "C17",
+        "claimHash": "57129afb099ea382abd5967677364e3c96611e50ce70663e9cd1532a90cfe2de",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb0-9bae-7380-8cce-d393f31c92c7",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C19",
+        "claimHash": "69020dcdded7758ae83e140d726b8bbe08d2cc6908fd3b543646787396da086c",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb0-9bae-7380-8cce-d393f31c92c7",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C20",
+        "claimHash": "e8dc7617d560a24099200b0dcde27c8965821b3e982b06d21b4cd832e050e7bd",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb0-9bae-7380-8cce-d393f31c92c7",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C26",
+        "claimHash": "d9506e6af78f00f124bed4394f3cba53b31d5189dd05593920686d3db9c1c527",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb0-9bae-7380-8cce-d393f31c92c7",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C22",
+        "claimHash": "64d305a4f7a532b123c35d76f9faae7815c05c21808a8a4d68512ada104b8fb7",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb0-9bae-7380-8cce-d393f31c92c7",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C23",
+        "claimHash": "fb5dacd50ddc8192ea59b41b8193ba4a6fe8757a61538b7e5283bd986cd1448c",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb0-9bae-7380-8cce-d393f31c92c7",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C24",
+        "claimHash": "8a913410ef5dd2195d33fae2d65113f7fd58b8705a13d0adae38fe91991593f2",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb0-9bae-7380-8cce-d393f31c92c7",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C25",
+        "claimHash": "4af4c6cc6c7f48c30d2dd580b012eb668859e6ef9f227e92afcd93dd8370250f",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb0-9bae-7380-8cce-d393f31c92c7",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C45",
+        "claimHash": "f138832526f8eed65d7e4cd50242cd713cf4a80150f22489fd6a0a4801cb816b",
+        "finalDisposition": "unresolved",
+        "judgeInvocationId": "01a11fb2-9c32-7701-9b83-29f336751ec1",
+        "originInvocationId": null,
+        "verdict": "unresolved"
+      },
+      {
+        "candidateId": "C28",
+        "claimHash": "4a005c320d8ac41415f9f122c133bda81983d7afd85d558bde33c3deb4ea0c00",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb2-9c32-7701-9b83-29f336751ec1",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C29",
+        "claimHash": "e751a37b44ef31e616c5f291beb0d7070351131488cd7072c703833c82f62056",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb2-9c32-7701-9b83-29f336751ec1",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C30",
+        "claimHash": "defebd216b4ca907d22bab8217ac25eb84edcea468910b3a7207804f72580ab4",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb2-9c32-7701-9b83-29f336751ec1",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C31",
+        "claimHash": "492240f4794a0de360931bb9d271cc39091d59f2cd38e7c9b29255ba7c08f8b6",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb2-9c32-7701-9b83-29f336751ec1",
+        "originInvocationId": null,
+        "verdict": "real"
+      },
+      {
+        "candidateId": "C34",
+        "claimHash": "30388f5dc3a9c35a2b033e944b7e988a4e685fe9c34ed23bdebeeabfd33b10bb",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb2-9c32-7701-9b83-29f336751ec1",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C35",
+        "claimHash": "c78de4fb3c3b2d432a0f31469573bc9e4355aba7ff6dacf3a92d36fe0b83c394",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb2-9c32-7701-9b83-29f336751ec1",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C38",
+        "claimHash": "775d1bafb9ecf6edfcdc2a9ced634ba70e478c347c0901ab01027f7ff4d296b0",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb2-9c32-7701-9b83-29f336751ec1",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C39",
+        "claimHash": "cff8685c7b1811e276e4f8a4a92d8e1eec1399ccab051c692322a0ab6616d26c",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb2-9c32-7701-9b83-29f336751ec1",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C40",
+        "claimHash": "6d0aab0a19a2263744a77e5b9b4781ac0df412851bdfcb9778483ca168aba466",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb2-9c32-7701-9b83-29f336751ec1",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C42",
+        "claimHash": "9b2c1465888cbce674d4e164de6926f01b50e17632383906eb925f73cb14526d",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb2-9c32-7701-9b83-29f336751ec1",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "C44",
+        "claimHash": "3e401ea88e517e891c4aaaf686aeae9aa2ee1e7c80dac656bdd387454ceacc37",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb2-9c32-7701-9b83-29f336751ec1",
+        "originInvocationId": null,
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "N1",
+        "claimHash": "6ddb22f7f8d903033ea51f8ae16cbab8d60d6a7bed528272331877164c888942",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "verdict": "real"
+      },
+      {
+        "candidateId": "N2",
+        "claimHash": "c38194db44511c72e6242d13ee7aa8687d0c1545279da7b665659317073ac7ef",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "N3",
+        "claimHash": "2017300871d9e2b38d3dbd74999d32853f377ab58634ee2eec82562b7e1acac9",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "N4",
+        "claimHash": "5032be722f36b58fd8190880d56f7b5923e84bdd623f81f17b29c9b1405fca49",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "verdict": "real"
+      },
+      {
+        "candidateId": "N5",
+        "claimHash": "014a43867c28218863642a5556fede3fef4d66ce037073e38aa23d73fbae4996",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "verdict": "real"
+      },
+      {
+        "candidateId": "N6",
+        "claimHash": "4760169c80b5e256cdc2965bf85ad1351ea2607577067da8e4b17cd0355aa9a8",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "verdict": "real"
+      },
+      {
+        "candidateId": "N7",
+        "claimHash": "c70470bc27e95d5460501c3684c3591b1b98de4f9b30e752261edf3d0fe777d4",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "verdict": "real"
+      },
+      {
+        "candidateId": "N8",
+        "claimHash": "83ba42b0f5e00d8f17fe8baa2537fe0e233f566d83cbf10c5392f95c97ba5704",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "verdict": "real"
+      },
+      {
+        "candidateId": "N9",
+        "claimHash": "68e64d5e34cd5219480aa2927732f62670b4d1c0d18da32631d66f5565d9c463",
+        "finalDisposition": "confirmed",
+        "judgeInvocationId": "01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "verdict": "real"
+      },
+      {
+        "candidateId": "N10",
+        "claimHash": "332ab6d6f69de59a0075ccfb62c64dac0deaf5d9c6c1705fd71448ae1e4e367e",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "verdict": "suggestion"
+      },
+      {
+        "candidateId": "N11",
+        "claimHash": "b9d40a142841a046b94dc9b058e2a6b4a807c5e16e0b84736698f377997c2b57",
+        "finalDisposition": "suggestion",
+        "judgeInvocationId": "01a11fb4-dfbe-7fa0-ac9e-6ba7a07df963",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "verdict": "suggestion"
+      }
+    ],
+    "codex": {
+      "cliVersion": "0.156.0",
+      "model": "gpt-5.6-sol",
+      "provider": "openai",
+      "reasoningEffort": "high",
+      "receiptSha256": "18cf1780197791f89994609fb87fb2e2e9899b533d63ce4ddfe9a3c96dacbc5b"
+    },
+    "completedLenses": [
+      "correctness",
+      "spec",
+      "standards",
+      "security",
+      "reliability",
+      "contracts",
+      "testing",
+      "performance",
+      "comments",
+      "maintainability"
+    ],
+    "coverage": "complete",
+    "coverageGapCount": 0,
+    "failedLenses": [],
+    "findings": {
+      "confirmed": 18,
+      "provisional": 47,
+      "rejected": 2,
+      "suggestion": 25,
+      "unresolved": 2
+    },
+    "fix": "not-requested",
+    "fixRequested": false,
+    "newLeadResolutions": [
+      {
+        "candidateId": "N1",
+        "claimHash": "6ddb22f7f8d903033ea51f8ae16cbab8d60d6a7bed528272331877164c888942",
+        "leadId": "lead-fd63f548ea4e3fb0edf0159258416ce1f6c5750b7adb7d969db35d48ed498f83",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N2",
+        "claimHash": "c38194db44511c72e6242d13ee7aa8687d0c1545279da7b665659317073ac7ef",
+        "leadId": "lead-3e3e2f564e18c0d1269ab0d9f0b50725ced4c3ba2254997cac1000c231912e47",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N3",
+        "claimHash": "2017300871d9e2b38d3dbd74999d32853f377ab58634ee2eec82562b7e1acac9",
+        "leadId": "lead-4c56d40f5d22d00959935dddc5a10cc6218c655056ed27351351a31c276730de",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N4",
+        "claimHash": "5032be722f36b58fd8190880d56f7b5923e84bdd623f81f17b29c9b1405fca49",
+        "leadId": "lead-317626059ba51efc8caca6b917cb93ccd7ff9ceeced13dc3b308d764a7a816d9",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N5",
+        "claimHash": "014a43867c28218863642a5556fede3fef4d66ce037073e38aa23d73fbae4996",
+        "leadId": "lead-8a5fa420ebddc278870a56dd0a50b95df2c8b8f6f544787decfcf9a176ccf9d4",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N6",
+        "claimHash": "4760169c80b5e256cdc2965bf85ad1351ea2607577067da8e4b17cd0355aa9a8",
+        "leadId": "lead-8506b559162d17f804177c42609ee1ba49facec956d22d5ab8dc3e06e2b4296e",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N7",
+        "claimHash": "c70470bc27e95d5460501c3684c3591b1b98de4f9b30e752261edf3d0fe777d4",
+        "leadId": "lead-7bd5dc92b76b36dd5c75161b39a809d1b942fbb6d5dedb99ba39bed8fe3aa4ce",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N8",
+        "claimHash": "83ba42b0f5e00d8f17fe8baa2537fe0e233f566d83cbf10c5392f95c97ba5704",
+        "leadId": "lead-d5abcb9f9fbcba73dbe1fa37006b7def55f97b3bd33ea6300eb6eba2c41c3985",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N9",
+        "claimHash": "68e64d5e34cd5219480aa2927732f62670b4d1c0d18da32631d66f5565d9c463",
+        "leadId": "lead-232d43c2367980138468dc57af438d94be3f09094a2163c6bba2aa39fc21dec2",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N10",
+        "claimHash": "332ab6d6f69de59a0075ccfb62c64dac0deaf5d9c6c1705fd71448ae1e4e367e",
+        "leadId": "lead-ec9478a9e6d3bec40fde5baf0a0ca3d7cc58069afd1b30f3e17cbdf85bb29aa8",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "resolution": "admitted"
+      },
+      {
+        "candidateId": "N11",
+        "claimHash": "b9d40a142841a046b94dc9b058e2a6b4a807c5e16e0b84736698f377997c2b57",
+        "leadId": "lead-833232d8e8d27d1daec4175f02f1459f254cb0da3c23a80b1851f3763516b6f7",
+        "originInvocationId": "01a11fa8-ce3d-7e21-9306-89a851bb9fc9",
+        "resolution": "admitted"
+      }
+    ],
+    "schemaVersion": 3,
+    "skippedLenses": [],
+    "stopReason": "completed",
+    "stopTrigger": "none",
+    "verification": "complete"
+  },
+  "codexReceiptId": "c1a8393a-10db-4ddc-9a04-6fffa520f6ab",
+  "codexReceiptProof": {
+    "candidateCount": 47,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "inputSha256": "e3b25d1a6e014ef4afde1bc8a52ceccef809c1bc537a3614d06629f055c913e8",
+    "invocationCount": 4,
+    "judgeModel": "gpt-5.6-sol",
+    "judgeProvider": "openai",
+    "reasoningEffort": "high",
+    "receiptSha256": "18cf1780197791f89994609fb87fb2e2e9899b533d63ce4ddfe9a3c96dacbc5b",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5",
+    "schemaVersion": 2,
+    "sourceProvider": "anthropic",
+    "usage": {
+      "cacheWriteInputTokens": 0,
+      "cachedInputTokens": 50560,
+      "inputTokens": 155147,
+      "outputTokens": 22142,
+      "reasoningOutputTokens": 11728,
+      "totalTokens": 177289
+    }
+  },
+  "codexUsage": {
+    "inputTokens": 155147,
+    "cachedInputTokens": 50560,
+    "cacheWriteInputTokens": 0,
+    "outputTokens": 22142,
+    "reasoningOutputTokens": 11728,
+    "totalTokens": 177289
+  },
+  "discoveryLedger": {
+    "schemaVersion": 2,
+    "candidates": [
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-1",
+        "claim": "For a nested vector like vector<vector<float,3>,2>, decoding into an empty interface now fails with 'no Go type for element type', even though the element has a Go type ([]float32). The real cause is still there: getCassandraLongType builds the inner VectorType with only the bare '...VectorType' prefix as its custom name, and VectorType has no NewWithError method of its own.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C33",
+        "canonicalId": "C33"
+      },
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-2",
+        "claim": "makeNestedVectorType gives the outer and inner VectorType a full 'VectorType(<sub>, <dim>)' custom name. The wire path gives an inner vector only the bare prefix. So the nested fixtures take a different Go-type resolution path from production.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C18",
+        "canonicalId": "C18"
+      },
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-3",
+        "claim": "TestUnmarshalVectorAcceptsWellFormedPayloads includes a 'payload with a trailing byte' case: a 13-byte int vector with 3 dimensions. That payload is malformed, yet the test asserts it decodes without error. The float fast paths reject any length other than Dimensions*size.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C3"
+      },
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-4",
+        "claim": "The new comment says every path below turns Dimensions into an allocation. The array destination path allocates nothing, and the PR's own test comment says so.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C4"
+      },
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-5",
+        "claim": "The getCassandraLongType change is not limited to vectors. Every unknown type nested in a list, set, map, tuple, UDT, frozen type or vector now keeps its class name as the custom name. No test checks getCassandraLongType directly.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C5"
+      },
+      {
+        "sourceId": "P1",
+        "candidateId": "P1-6",
+        "claim": "The new makeVectorType helper duplicates the existing makeDoubleVectorType and makeFloat32VectorType builders in the same file instead of replacing them.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C6"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-1",
+        "claim": "Commits do not follow CONTRIBUTING.md's commit-message format: the subjects start lowercase with a conventional-commit prefix, and neither commit has the required `Patch by <authors>; reviewed by <Reviewers> for #####` line.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C7"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-2",
+        "claim": "Both commits carry a `Co-Authored-By: Claude Opus 5 (1M context)` trailer, which the governing user instructions forbid.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C8"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-3",
+        "claim": "A notable behaviour change ships without the CHANGELOG/godoc documentation CONTRIBUTING requires: unknown custom type names now keep their name, and vectors are newly rejected on dimension bounds and on element types with no Go type.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C9"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-4",
+        "claim": "The same `info.Dimensions > 0 && data != nil` guard appears twice in a row, opening two adjacent blocks.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C10"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-5",
+        "claim": "Overflow safety at the fast-path multiplication is implicit. It depends on vectorFixedElemSize returning exactly 8 and 4 for double and float, and nothing at the multiplication site says so.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C11"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-6",
+        "claim": "Element-type classification is now spread over three parallel switches: vectorFixedElemSize, isVectorVariableLengthType, and the new vectorElemMinSize, which composes them and recurses on VectorType.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C12"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-7",
+        "claim": "The comment says a caller may leave SubType nil, but nil SubType is only tolerated at zero dimensions. With Dimensions > 0, vectorElemMinSize(nil) still panics.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C36",
+        "canonicalId": "C36"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-8",
+        "claim": "The header comment describes `elemMin` and the bound above the negative-dimension check, apart from the block that defines elemMin. It also says 'unmarshalList does the same', but unmarshalList divides by a fixed 4 rather than an element minimum.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C14"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-9",
+        "claim": "Keeping the unknown type's name was applied to only one of getCassandraLongType's TypeCustom fallbacks. The map-parse and vector-dimension-parse failures still return a nameless custom type.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C41",
+        "canonicalId": "C41"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-10",
+        "claim": "The getCassandraLongType change is an unrelated parser behaviour change bundled into a `fix(marshal)` commit, while the function's `TODO: Cover with unit tests` stays and the new branch has no direct test.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C16"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-11",
+        "claim": "makeVectorType duplicates the existing makeDoubleVectorType/makeFloat32VectorType (and vector_bench_test.go's makeFloatVectorType). It also takes the element as two separate values, a Type and a class-name string, that must agree.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C17"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-12",
+        "claim": "makeNestedVectorType gives the inner vector a full `VectorType(<sub>, N)` custom string, but the production parser gives inner nested vectors the bare prefix. The fixture therefore models a type the wire never produces.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C18"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-13",
+        "claim": "Test comments claim more than their assertions show. The 'pins the bound as non-narrowing' suite checks six sample shapes, and 'The concrete destinations pin that the guard narrowed nothing' covers a single concrete destination ([][]float32).",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C19"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-14",
+        "claim": "vectorElemMinSize's saturation branch (`return math.MaxInt32`) has no test row, although the overflow handling is a stated purpose of the function.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C20"
+      },
+      {
+        "sourceId": "P2",
+        "candidateId": "P2-15",
+        "claim": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating measures the process-wide MemStats.TotalAlloc. Staying non-parallel only excludes t.Parallel siblings, not background goroutines left by other tests in the package.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C26",
+        "canonicalId": "C26"
+      },
+      {
+        "sourceId": "P3",
+        "candidateId": "P3-1",
+        "claim": "The test comment says the overflow cases \"use the word size so the wrap lands on a 32-bit target too\". On a 32-bit target, though, the unit-tagged gocql test package cannot compile, so that path is never built or run.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C22"
+      },
+      {
+        "sourceId": "P3",
+        "candidateId": "P3-2",
+        "claim": "The PR says \"Every new test fails against pristine marshal.go/helpers.go\". Several new tests pass on the base behaviour, so this is false.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C23"
+      },
+      {
+        "sourceId": "P3",
+        "candidateId": "P3-3",
+        "claim": "TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType and the guard comment say a zero VectorType with a nil SubType is safe at zero dimensions. That only holds for a concrete-slice destination: with an *any destination, unmarshalVector still calls info.Zero(), which dereferences the nil SubType.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C24"
+      },
+      {
+        "sourceId": "P3",
+        "candidateId": "P3-4",
+        "claim": "The headline behaviour change (\"a short or zero-length non-NULL payload ... now errors\") has no test for the zero-length case. No test passes a non-nil empty payload with Dimensions > 0.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C25"
+      },
+      {
+        "sourceId": "P3",
+        "candidateId": "P3-5",
+        "claim": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating measures process-wide runtime.MemStats.TotalAlloc. Allocations by other goroutines in the unit test binary count against its 128 KiB threshold.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C26"
+      },
+      {
+        "sourceId": "P4",
+        "candidateId": "P4-1",
+        "claim": "The commits carry `Co-Authored-By: Claude Opus 5` trailers and the PR body ends with a \"Generated with Claude Code\" line, which the governing author instructions forbid.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C45",
+        "canonicalId": "C45"
+      },
+      {
+        "sourceId": "P4",
+        "candidateId": "P4-2",
+        "claim": "getCassandraLongType now returns NativeType with `custom` set to the full class name for every unrecognised type, not only vector elements. That changes the public TypeInfo.Custom() and String() output for collection, tuple, UDT and vector-subtype metadata across the driver, and neither the commit nor the PR body calls it a contract change.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C28"
+      },
+      {
+        "sourceId": "P4",
+        "candidateId": "P4-3",
+        "claim": "The new bound error 'unmarshal vector: %d dimensions do not fit in %d bytes' fires before the fast path's exact-length error. For a payload that is short but non-wrapping, the user-visible message changes from the precise expected byte count to a dimension-count message. Sibling decoders still report exact byte expectations.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C29"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-1",
+        "claim": "The new bound comment says unmarshalList \"does the same\", but unmarshalList uses a fixed 4-byte floor, applies it only to slices, and checks after the size prefix. The vector bound uses a per-type recursive minimum and also covers arrays.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C30"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-2",
+        "claim": "The new comment says every path below turns Dimensions into an allocation, but the array path allocates nothing. The PR's own test comment says so.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C31"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-3",
+        "claim": "The new bound block repeats the guard `info.Dimensions > 0 && data != nil` from the fast-path block directly below it. The fast paths' `Dimensions*8`/`*4` multiplications are now safe only because of the separate earlier block. The old fast-path comment (\"nil/empty and dim=0 fall through\") was not updated to mention that dependency or the new negative-dimension early return.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C10",
+        "canonicalId": "C10"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-4",
+        "claim": "The new t==nil guard reports that a nested vector element has \"no Go type\", and the new test pins that message. But the failure comes from helpers.go storing the inner VectorType's custom name as just the bare prefix, so asVectorType/goType cannot resolve it. Nested vectors do have a Go type: the same test decodes them into [][]float32.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C33"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-5",
+        "claim": "The *any destination in vectors is resolved through info.Zero(), which discards the NewWithError error, plus a new nil check. The sibling unmarshalList resolves the same thing through goType(info.Elem) and propagates its error. There are now two different classifiers for \"element has a Go type\".",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C34"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-6",
+        "claim": "The new test fixtures makeVectorType/makeNestedVectorType copy the existing makeFloat32VectorType/makeDoubleVectorType bodies. makeVectorType takes the Type and the class name as independent arguments, so they can disagree. makeNestedVectorType gives the inner vector a fully qualified custom name, unlike the wire path (helpers.go:271), which stores only the bare prefix. A third builder, wireVectorType, builds the real shape.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C35"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-7",
+        "claim": "The zero-dimension comment says a caller of Unmarshal is \"free to leave nil\" SubType. That only holds at zero dimensions: with Dimensions>0 and a nil SubType, both the new bound (vectorElemMinSize) and the fast-path switch still call SubType.Type() and panic.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C36"
+      },
+      {
+        "sourceId": "P5",
+        "candidateId": "P5-8",
+        "claim": "helpers.go now gives unknown basic types a NativeType that carries the class name. Other TypeCustom fallbacks in the same function (map split failure, vector-dimension parse failure) still return NewNativeType(protoVer, TypeCustom) with no name, so the stated goal of naming \"what the server sent\" applies only on one path.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C41",
+        "canonicalId": "C41"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-1",
+        "claim": "The new dimension bound runs before unmarshalVector validates the destination (non-pointer, non-empty interface, unsupported kind, array-length mismatch), so a short payload now reports \"N dimensions do not fit in M bytes\" instead of the caller's programming error.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C38"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-2",
+        "claim": "The new 'no Go type for element type %v' error renders a nested vector element as 'custom(org.apache.cassandra.db.marshal.VectorType)', with no inner element type or dimension. That contradicts the PR's claim that the error now says which type the server sent.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C39"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-3",
+        "claim": "The new nil-Zero guard replaces the specific error that SubType.NewWithError produced (VectorType.Zero swallows it) with a generic string. The sibling unmarshalList surfaces its element-type error as 'unmarshal list: cannot determine element type: %v'.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C40"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-4",
+        "claim": "getCassandraLongType now keeps an unknown type's name only in its final basic-type branch. Its sibling degrade-to-custom returns (map arity error, vector dimension parse error) still return NewNativeType(TypeCustom) with an empty name.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C41"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-5",
+        "claim": "The PR body's 'Behaviour change' section omits that a NULL value for a vector with negative dimensions now returns an error. Previously it decoded to a nil slice with a nil error.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C42"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-6",
+        "claim": "The PR body's statement that every new test fails against pristine marshal.go/helpers.go is false. Several added tests pass on the base, and TestVectorElemMinSize cannot compile there.",
+        "disposition": "merged",
+        "reason": "semantic cluster represented by C23",
+        "canonicalId": "C23"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-7",
+        "claim": "Commit 0276a66's message says the bound relies on every element taking at least one byte. The commit actually adds a recursive per-type minimum (vectorElemMinSize), so the message misdescribes the mechanism it introduces.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C44"
+      },
+      {
+        "sourceId": "P6",
+        "candidateId": "P6-8",
+        "claim": "The commit messages carry 'Co-Authored-By: Claude Opus 5' trailers and the PR body ends with '🤖 Generated with Claude Code', which violates the applicable instruction against Claude/Anthropic attribution.",
+        "disposition": "admitted",
+        "reason": "atomic structured review lead with concrete consequence",
+        "canonicalId": "C45"
+      }
+    ],
+    "checkedNonissues": []
+  },
+  "reviewPasses": {
+    "schemaVersion": 1,
+    "target": {
+      "repository": "dkropachev/tidepool",
+      "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+      "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3"
+    },
+    "model": "claude-opus-5-5",
+    "passes": [
+      {
+        "id": "holistic",
+        "sourceId": "P1",
+        "findings": [
+          {
+            "id": "P1-1",
+            "claim": "For a nested vector like vector<vector<float,3>,2>, decoding into an empty interface now fails with 'no Go type for element type', even though the element has a Go type ([]float32). The real cause is still there: getCassandraLongType builds the inner VectorType with only the bare '...VectorType' prefix as its custom name, and VectorType has no NewWithError method of its own.",
+            "basisType": "claim",
+            "basis": "Commit 78891dd says a nested vector 'has no Go representation' and turns the panic into an error. The adjacent asVectorType doc says it 'also works recursively (nested vectors)', and the same column decodes fine into [][]float32.",
+            "mechanisms": [
+              "VectorType.Zero() calls SubType.NewWithError(). For a VectorType sub-type that call goes to the embedded NativeType whose custom name is only the bare prefix. asVectorType needs the prefix followed by '(', so goType fails, Zero() returns nil, and the new guard reports the type as unrepresentable."
+            ],
+            "consequence": "A Scan of a nested-vector column into *any always fails, and the error message wrongly says the type has no Go representation. The new test pins this failure as intended behavior, so a later fix to VectorType's Go-type resolution has to change the test too.",
+            "defectClass": "symptom-masking error instead of root-cause fix",
+            "category": "correctness",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 1048
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 1048,
+                "detail": "returns 'unmarshal vector: no Go type for element type %v' whenever Zero() is nil"
+              },
+              {
+                "path": "helpers.go",
+                "line": 268,
+                "detail": "VectorType built with NewCustomType(protoVer, TypeCustom, prefix+'VectorType'); the custom name has no '(' and no element spec"
+              },
+              {
+                "path": "helpers.go",
+                "line": 55,
+                "detail": "asVectorType requires the custom name to start with the prefix followed by '(', so the bare prefix is rejected"
+              },
+              {
+                "path": "helpers.go",
+                "line": 45,
+                "detail": "doc: 'It also works recursively (nested vectors).'"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 889,
+                "detail": "the nested-vector-into-interface subtest asserts the 'no Go type' error, so the gap is pinned as expected behavior"
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          },
+          {
+            "id": "P1-2",
+            "claim": "makeNestedVectorType gives the outer and inner VectorType a full 'VectorType(<sub>, <dim>)' custom name. The wire path gives an inner vector only the bare prefix. So the nested fixtures take a different Go-type resolution path from production.",
+            "basisType": "trigger",
+            "basis": "The review checks for test fixtures that bypass production behavior.",
+            "mechanisms": [
+              "With the fixture, the inner VectorType's embedded NativeType has a full spec, so asVectorType and goType succeed. With a type from readTypeInfo or getCassandraLongType they fail, which is the case found in the previous finding."
+            ],
+            "consequence": "Any nested-vector test built with makeNestedVectorType, for example decoding into *any, would pass while production fails. The nested acceptance and allocation tests do not cover the type shape the server actually sends.",
+            "defectClass": "fixture diverges from production type construction",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 570
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 575,
+                "detail": "custom set to prefix + 'VectorType(' + inner.custom + ', ' + dim + ')'"
+              },
+              {
+                "path": "helpers.go",
+                "line": 268,
+                "detail": "production inner VectorType custom name is only prefix + 'VectorType'"
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          },
+          {
+            "id": "P1-3",
+            "claim": "TestUnmarshalVectorAcceptsWellFormedPayloads includes a 'payload with a trailing byte' case: a 13-byte int vector with 3 dimensions. That payload is malformed, yet the test asserts it decodes without error. The float fast paths reject any length other than Dimensions*size.",
+            "basisType": "rule",
+            "basis": "Test names and comments must match what the test asserts literally.",
+            "mechanisms": [
+              "The generic path computes elemSize as len(data)/Dimensions = 4 and silently drops the 13th byte. The test locks in that leniency and calls the input well-formed."
+            ],
+            "consequence": "The test name and doc misdescribe the case, and silently truncating a malformed vector is now pinned as intended. A later change that rejects trailing bytes, matching the float fast paths, would look like a regression.",
+            "defectClass": "test name/doc contradicts asserted input",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 724
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 692,
+                "detail": "doc: 'a vector of N elements is never encoded in fewer than N bytes, so each of these sits on or above the boundary' under a 'WellFormed' test name"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 728,
+                "detail": "make([]byte, 13) for a 3-dimension int vector is expected to succeed"
+              },
+              {
+                "path": "marshal.go",
+                "line": 1010,
+                "detail": "the float fast path rejects len(data) != Dimensions*8, so the two paths treat trailing bytes differently"
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          },
+          {
+            "id": "P1-4",
+            "claim": "The new comment says every path below turns Dimensions into an allocation. The array destination path allocates nothing, and the PR's own test comment says so.",
+            "basisType": "rule",
+            "basis": "Changed comments must match the code literally.",
+            "mechanisms": [
+              "For reflect.Array the code only compares rv.Len() with Dimensions. There is no make or reflect.MakeSlice call."
+            ],
+            "consequence": "The comment misstates why the bound applies to arrays. The real reason is that elemSize = len(data)/Dimensions becomes 0 for a short payload. Readers get a wrong rationale.",
+            "defectClass": "inaccurate comment",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 986
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 986,
+                "detail": "'every path below turns it into an allocation (make, reflect.MakeSlice)'"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 649,
+                "detail": "'An array allocates nothing, but the loop derives its element size from len(data)/Dimensions'"
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          },
+          {
+            "id": "P1-5",
+            "claim": "The getCassandraLongType change is not limited to vectors. Every unknown type nested in a list, set, map, tuple, UDT, frozen type or vector now keeps its class name as the custom name. No test checks getCassandraLongType directly.",
+            "basisType": "trigger",
+            "basis": "Check adjacent code whose assumptions changed, and check that tests cover the promised result.",
+            "mechanisms": [
+              "The basic-type branch now returns NewCustomType(protoVer, TypeCustom, name) instead of NativeType with an empty custom name. String() and equality change for every caller, including frame.go readTypeInfo and asVectorType."
+            ],
+            "consequence": "TypeInfo values for unknown types now compare unequal to the old ones, and String() prints the class name instead of 'custom()'. The only check is a substring match on the vector error message, so a regression in other callers would go unnoticed.",
+            "defectClass": "cross-cutting behavior change without direct test",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "helpers.go",
+                "line": 281
+              }
+            ],
+            "evidence": [
+              {
+                "path": "helpers.go",
+                "line": 283,
+                "detail": "return NewCustomType(protoVer, TypeCustom, name)"
+              },
+              {
+                "path": "frame.go",
+                "line": 860,
+                "detail": "readTypeInfo resolves vector sub-types through getCassandraLongType"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 908,
+                "detail": "the only check is strings.Contains(err.Error(), p+'FooType')"
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          },
+          {
+            "id": "P1-6",
+            "claim": "The new makeVectorType helper duplicates the existing makeDoubleVectorType and makeFloat32VectorType builders in the same file instead of replacing them.",
+            "basisType": "trigger",
+            "basis": "Code-smell baseline: duplicated code.",
+            "mechanisms": [
+              "Three helpers now build the same VectorType literal. The two old ones are makeVectorType with fixed arguments."
+            ],
+            "consequence": "A change to how test VectorTypes are built, such as matching the production custom name, has to be made in three places.",
+            "defectClass": "duplicated test helper",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 557
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 36,
+                "detail": "makeDoubleVectorType builds the same struct shape"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 49,
+                "detail": "makeFloat32VectorType builds the same struct shape"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 557,
+                "detail": "new generic makeVectorType"
+              }
+            ],
+            "sourceIds": [
+              "P1"
+            ]
+          }
+        ],
+        "coverage": "Commits 0276a66 and 78891dd on bound-vector-dimensions against main, the same head as pr. I reviewed all three changed files and the adjacent code: asVectorType and goType in helpers.go, readTypeInfo in frame.go, unmarshalList, VectorType.Zero, NativeType, isVectorVariableLengthType, and the existing vector test helpers. I checked CONTRIBUTING.md and the commit conventions in git log, which use the conventional-commit style seen here.",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "wallMs": 168805,
+        "costUsd": 0.932677,
+        "reportedUsage": {
+          "input_tokens": 38,
+          "cache_creation_input_tokens": 50164,
+          "cache_read_input_tokens": 914965,
+          "output_tokens": 17411,
+          "output_tokens_details": {
+            "thinking_tokens": 7362
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 50164,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 3174,
+              "cache_read_input_tokens": 63243,
+              "cache_creation_input_tokens": 1203,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 1203
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "resultSha256": "cb3357203de7c90e54e4e134ca2c76b46000ccc409d8f1db99ddc46f82dc650c"
+      },
+      {
+        "id": "standards",
+        "sourceId": "P2",
+        "findings": [
+          {
+            "id": "P2-1",
+            "claim": "Commits do not follow CONTRIBUTING.md's commit-message format: the subjects start lowercase with a conventional-commit prefix, and neither commit has the required `Patch by <authors>; reviewed by <Reviewers> for #####` line.",
+            "basisType": "rule",
+            "basis": "CONTRIBUTING.md 'Commit Message' section: format ends with 'Patch by ...; reviewed by ... for #####'; short description should 'Start with a capital letter'.",
+            "mechanisms": [
+              "Subjects `fix(marshal): bound vector dimensions against the payload` and `fix(marshal): reject a vector element type that has no Go type` start lowercase, and their bodies end with a Co-Authored-By trailer instead of a Patch-by/reviewed-by line."
+            ],
+            "consequence": "A maintainer who checks the documented checklist will reject or rewrite the commits, and the missing Patch-by line leaves no reviewer or issue reference in history. Counter-evidence: recent history at the merge base (e.g. 24c789e, 39c9bff) uses the same conventional-commit style, so the written rule looks stale. Either way the rule and practice disagree.",
+            "defectClass": "documented-rule violation",
+            "category": "standards",
+            "locations": [
+              {
+                "path": "CONTRIBUTING.md",
+                "line": 28
+              }
+            ],
+            "evidence": [
+              {
+                "path": "CONTRIBUTING.md",
+                "line": 30,
+                "detail": "Required format includes 'Patch by <authors>; reviewed by <Reviewers> for #####'; short description must start with a capital letter."
+              },
+              {
+                "path": "marshal.go",
+                "line": 985,
+                "detail": "Commits 0276a66 and 78891dd use the subjects 'fix(marshal): ...' with no Patch-by line (git log 24c789e..HEAD)."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-2",
+            "claim": "Both commits carry a `Co-Authored-By: Claude Opus 5 (1M context)` trailer, which the governing user instructions forbid.",
+            "basisType": "rule",
+            "basis": "User global instructions: 'Never add Claude/Anthropic attribution ... No Co-Authored-By: Claude ... trailer in commits.'",
+            "mechanisms": [
+              "Both commit bodies (0276a66, 78891dd) end with 'Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'."
+            ],
+            "consequence": "If the branch is merged as is, the forbidden attribution is published into permanent history. Counter-evidence: earlier commits on the base also carry such trailers (18 occurrences in the last 30).",
+            "defectClass": "process-rule violation",
+            "category": "standards",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 985
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 985,
+                "detail": "git log 24c789e..HEAD shows the Co-Authored-By Claude trailer on both commits that touch this function."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-3",
+            "claim": "A notable behaviour change ships without the CHANGELOG/godoc documentation CONTRIBUTING requires: unknown custom type names now keep their name, and vectors are newly rejected on dimension bounds and on element types with no Go type.",
+            "basisType": "rule",
+            "basis": "CONTRIBUTING.md checklist: 'Notable changes (i.e. new features or changed behavior, bugfixes) are appropriately documented in CHANGELOG.md, functional changes also in godoc'.",
+            "mechanisms": [
+              "getCassandraLongType now returns NewCustomType(..., name), so `TypeInfo.String()`/`Custom()` for unknown columns changes from `custom()` to `custom(<name>)`. Unmarshal also returns new errors. No CHANGELOG entry or godoc change accompanies either."
+            ],
+            "consequence": "Callers that matched on `custom()` strings or on empty `Custom()` see changed output with no release note. Counter-evidence: there is no CHANGELOG.md at the merge base, so the rule cannot currently be met as written.",
+            "defectClass": "missing changelog/godoc for behaviour change",
+            "category": "docs",
+            "locations": [
+              {
+                "path": "helpers.go",
+                "line": 280
+              }
+            ],
+            "evidence": [
+              {
+                "path": "helpers.go",
+                "line": 282,
+                "detail": "Unknown basic type now returns NewCustomType(protoVer, TypeCustom, name) instead of NativeType{typ: TypeCustom}."
+              },
+              {
+                "path": "CONTRIBUTING.md",
+                "line": 24,
+                "detail": "Checklist item requires CHANGELOG.md and godoc documentation for changed behaviour."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-4",
+            "claim": "The same `info.Dimensions > 0 && data != nil` guard appears twice in a row, opening two adjacent blocks.",
+            "basisType": "trigger",
+            "basis": "duplicated guard logic",
+            "mechanisms": [
+              "The bound block at marshal.go:998 and the fast-path block at marshal.go:1007 open with identical conditions and could be one block."
+            ],
+            "consequence": "A future edit to one condition but not the other can let the fast path's `info.Dimensions * 8` run unbounded. Example: relaxing the bound for `data == nil` or for a new zero-length encoding. That reopens the wrapped-length check the bound exists to close.",
+            "defectClass": "duplicated guard",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 998
+              },
+              {
+                "path": "marshal.go",
+                "line": 1007
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 998,
+                "detail": "if info.Dimensions > 0 && data != nil { elemMin := vectorElemMinSize(...)"
+              },
+              {
+                "path": "marshal.go",
+                "line": 1007,
+                "detail": "if info.Dimensions > 0 && data != nil { switch info.SubType.Type() { ... expected := info.Dimensions * 8"
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-5",
+            "claim": "Overflow safety at the fast-path multiplication is implicit. It depends on vectorFixedElemSize returning exactly 8 and 4 for double and float, and nothing at the multiplication site says so.",
+            "basisType": "trigger",
+            "basis": "hidden coupling between classifier and fast path",
+            "mechanisms": [
+              "`expected := info.Dimensions * 8` (and `* 4`) is safe only because the earlier bound divided by vectorElemMinSize, and that size comes from vectorFixedElemSize's TypeDouble/TypeFloat cases. The only note is in the function header comment."
+            ],
+            "consequence": "Two edits can bring the wrapped-length bug back: adding a fast path for a type whose vectorFixedElemSize is 0 (e.g. TypeSmallInt into *[]int16 with `* 2`), or moving the fast path above the bound for speed. A crafted dimension then passes `len(data) == expected`.",
+            "defectClass": "implicit cross-function invariant",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 1011
+              },
+              {
+                "path": "marshal.go",
+                "line": 1022
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 988,
+                "detail": "Header comment: 'the bound goes ahead of them -- which also makes that multiplication safe'."
+              },
+              {
+                "path": "marshal.go",
+                "line": 1153,
+                "detail": "vectorFixedElemSize: TypeBigInt, TypeDouble, TypeTimestamp return 8; the fast path hard-codes its own 8 and 4."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-6",
+            "claim": "Element-type classification is now spread over three parallel switches: vectorFixedElemSize, isVectorVariableLengthType, and the new vectorElemMinSize, which composes them and recurses on VectorType.",
+            "basisType": "trigger",
+            "basis": "repeated switches/classifiers, shotgun surgery",
+            "mechanisms": [
+              "vectorElemMinSize gets its result from vectorFixedElemSize > 0, else isVectorVariableLengthType, plus its own `elemType.(VectorType)` recursion. isVectorVariableLengthType has its own VectorType recursion at marshal.go:1191."
+            ],
+            "consequence": "Adding a CQL type (or fixing Cassandra's fixed/variable classification) means editing several switches in step. Example: listing a type in vectorFixedElemSize with a size larger than its real wire minimum makes the bound reject valid payloads, i.e. a narrowing bug.",
+            "defectClass": "shotgun surgery across type classifiers",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 1125
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 1126,
+                "detail": "vectorElemMinSize first calls vectorFixedElemSize, then isVectorVariableLengthType, then type-asserts VectorType."
+              },
+              {
+                "path": "marshal.go",
+                "line": 1190,
+                "detail": "isVectorVariableLengthType has its own TypeCustom/VectorType recursion."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-7",
+            "claim": "The comment says a caller may leave SubType nil, but nil SubType is only tolerated at zero dimensions. With Dimensions > 0, vectorElemMinSize(nil) still panics.",
+            "basisType": "trigger",
+            "basis": "comment overclaims supported input",
+            "mechanisms": [
+              "vectorElemMinSize calls vectorFixedElemSize(elemType), which calls elemType.Type() on a nil interface. The guard only skips this when Dimensions == 0."
+            ],
+            "consequence": "A caller who relies on the comment and passes VectorType{Dimensions: 3} with nil SubType panics on Scan's goroutine, the outcome the comment says the guard prevents. Counter-evidence: before this change the fast path's info.SubType.Type() panicked the same way, so this is not a regression.",
+            "defectClass": "misleading comment",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 995
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 996,
+                "detail": "'vectorElemMinSize would dereference a SubType a caller of Unmarshal is free to leave nil'"
+              },
+              {
+                "path": "marshal.go",
+                "line": 1148,
+                "detail": "vectorFixedElemSize begins with `switch elemType.Type()`, which panics on a nil interface."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-8",
+            "claim": "The header comment describes `elemMin` and the bound above the negative-dimension check, apart from the block that defines elemMin. It also says 'unmarshalList does the same', but unmarshalList divides by a fixed 4 rather than an element minimum.",
+            "basisType": "trigger",
+            "basis": "comment placement / inaccurate cross-reference",
+            "mechanisms": [
+              "The comment at marshal.go:985-991 refers to elemMin, a variable introduced eight lines later in a separate block. unmarshalList's bound at marshal.go:835 is `n > len(data)/4`, a per-element length-prefix floor, not a type-derived minimum."
+            ],
+            "consequence": "If either block is moved or edited, the comment drifts. A reader who trusts 'does the same' may also copy the fixed-4 floor into the vector path, where elements have no 4-byte prefix, and reject valid boolean vectors.",
+            "defectClass": "misplaced/inaccurate comment",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 991
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 991,
+                "detail": "'elemMin is the fewest bytes ... unmarshalList does the same.'"
+              },
+              {
+                "path": "marshal.go",
+                "line": 835,
+                "detail": "unmarshalList: `if n > len(data)/4`"
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-9",
+            "claim": "Keeping the unknown type's name was applied to only one of getCassandraLongType's TypeCustom fallbacks. The map-parse and vector-dimension-parse failures still return a nameless custom type.",
+            "basisType": "trigger",
+            "basis": "inconsistent fallback behaviour",
+            "mechanisms": [
+              "helpers.go:282 returns NewCustomType(..., name), but helpers.go:222 and helpers.go:267 still return NewNativeType(protoVer, TypeCustom)."
+            ],
+            "consequence": "Errors for those malformed columns still render as `custom()`, the problem the new comment says it fixes, so a caller cannot tell which column failed. A future edit that wants consistent naming has to find three sites.",
+            "defectClass": "partial fix / divergent fallbacks",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "helpers.go",
+                "line": 282
+              },
+              {
+                "path": "helpers.go",
+                "line": 222
+              },
+              {
+                "path": "helpers.go",
+                "line": 267
+              }
+            ],
+            "evidence": [
+              {
+                "path": "helpers.go",
+                "line": 282,
+                "detail": "// Keep the name so an error can say what the server sent, not \"custom()\"."
+              },
+              {
+                "path": "helpers.go",
+                "line": 267,
+                "detail": "vector dimension parse failure: return NewNativeType(protoVer, TypeCustom)"
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-10",
+            "claim": "The getCassandraLongType change is an unrelated parser behaviour change bundled into a `fix(marshal)` commit, while the function's `TODO: Cover with unit tests` stays and the new branch has no direct test.",
+            "basisType": "trigger",
+            "basis": "divergent change / commit scope",
+            "mechanisms": [
+              "Commit 78891dd changes helpers.go type parsing, which affects every metadata consumer, under a marshal-scoped subject. The new branch is exercised only indirectly via wireVectorType inside a vector unmarshal test."
+            ],
+            "consequence": "Reverting or bisecting the marshal fix also reverts the type-name change, which hits metadata String() output. A regression in the parser branch for non-vector columns (e.g. a CollectionType Elem now carrying a custom name) has no direct test to catch it.",
+            "defectClass": "mixed-scope commit",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "helpers.go",
+                "line": 280
+              }
+            ],
+            "evidence": [
+              {
+                "path": "helpers.go",
+                "line": 204,
+                "detail": "// TODO: Cover with unit tests. (unchanged above the edited function)"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 860,
+                "detail": "Only coverage of the new branch is via wireVectorType in a vector test."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-11",
+            "claim": "makeVectorType duplicates the existing makeDoubleVectorType/makeFloat32VectorType (and vector_bench_test.go's makeFloatVectorType). It also takes the element as two separate values, a Type and a class-name string, that must agree.",
+            "basisType": "trigger",
+            "basis": "duplicated test fixtures, data clump/primitive obsession",
+            "mechanisms": [
+              "makeVectorType(elem Type, elemName string, dim) builds the same struct as the two older helpers, but nothing ties `elem` to `elemName`."
+            ],
+            "consequence": "A caller writing makeVectorType(TypeInt, \"FloatType\", 3) silently gets a fixture whose custom string says float while SubType says int. Changes to the VectorType shape (e.g. how custom is built) must also be made in four helpers.",
+            "defectClass": "duplicated fixture / data clump",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 557
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 36,
+                "detail": "makeDoubleVectorType builds the identical structure for TypeDouble."
+              },
+              {
+                "path": "vector_bench_test.go",
+                "line": 19,
+                "detail": "makeFloatVectorType is a third copy."
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 557,
+                "detail": "func makeVectorType(elem Type, elemName string, dim int)"
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-12",
+            "claim": "makeNestedVectorType gives the inner vector a full `VectorType(<sub>, N)` custom string, but the production parser gives inner nested vectors the bare prefix. The fixture therefore models a type the wire never produces.",
+            "basisType": "trigger",
+            "basis": "fixture diverges from production shape",
+            "mechanisms": [
+              "helpers.go:269 sets NativeType: NewCustomType(protoVer, TypeCustom, prefix+\"VectorType\") for parsed vectors. The test fixture sets custom to apacheCassandraTypePrefix+\"VectorType(\"+inner.custom+...)."
+            ],
+            "consequence": "A future change that keys behaviour on the inner vector's Custom() string (as asVectorType and frame.go already do with HasPrefix checks) would pass these tests and fail on real nested columns. The commit message itself says the bare-prefix form is what reaches Zero().",
+            "defectClass": "unrepresentative fixture",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 575
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 575,
+                "detail": "custom: apacheCassandraTypePrefix + \"VectorType(\" + inner.custom + \", \" + strconv.Itoa(dim) + \")\""
+              },
+              {
+                "path": "helpers.go",
+                "line": 269,
+                "detail": "Parsed vector NativeType custom is the bare prefix+\"VectorType\"."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-13",
+            "claim": "Test comments claim more than their assertions show. The 'pins the bound as non-narrowing' suite checks six sample shapes, and 'The concrete destinations pin that the guard narrowed nothing' covers a single concrete destination ([][]float32).",
+            "basisType": "trigger",
+            "basis": "test comment overclaims coverage",
+            "mechanisms": [
+              "TestUnmarshalVectorAcceptsWellFormedPayloads asserts only float, text, int32+trailing, null, and two nested shapes. It also justifies itself with 'a vector of N elements is never encoded in fewer than N bytes', while the bound actually divides by elemMin, which can be up to 16 or saturate."
+            ],
+            "consequence": "A future narrowing bug for an untested element type passes the suite while the comment says the property is pinned. Example: UUID or boolean minima, or a nested variable-length inner vector of decimals. A reviewer may skip adding coverage on the strength of that comment.",
+            "defectClass": "overclaiming test comment",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 692
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 871
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 692,
+                "detail": "'pins the bound as non-narrowing: a vector of N elements is never encoded in fewer than N bytes'"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 871,
+                "detail": "'The concrete destinations pin that the guard narrowed nothing.' Only one concrete-destination subtest follows."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-14",
+            "claim": "vectorElemMinSize's saturation branch (`return math.MaxInt32`) has no test row, although the overflow handling is a stated purpose of the function.",
+            "basisType": "trigger",
+            "basis": "untested defensive branch",
+            "mechanisms": [
+              "TestVectorElemMinSize rows stop at vector<vector<float,3>,4> = 48. No row builds a nested dimension product above MaxInt32."
+            ],
+            "consequence": "A future edit that breaks the `(math.MaxInt32-size)/per` arithmetic, or drops the int64 widening, would wrap on a 32-bit target. elemMin could then be ≤0, and the caller's `len(data)/elemMin` would divide by zero or go negative, with no test failing.",
+            "defectClass": "test gap on overflow path",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 1136
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 816
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 1136,
+                "detail": "if int64(vec.Dimensions) > (math.MaxInt32-size)/per { return math.MaxInt32 }"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 816,
+                "detail": "Last table row is 'unknown custom'; no saturation case."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          },
+          {
+            "id": "P2-15",
+            "claim": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating measures the process-wide MemStats.TotalAlloc. Staying non-parallel only excludes t.Parallel siblings, not background goroutines left by other tests in the package.",
+            "basisType": "trigger",
+            "basis": "global-state assertion in unit test",
+            "mechanisms": [
+              "TotalAlloc counts every goroutine. The comment blames only 'a parallel sibling', but the package also runs session/connection tests that may leave goroutines allocating, against a 128 KiB threshold (payload/8)."
+            ],
+            "consequence": "Adding a test that leaks an allocating goroutine (e.g. a heartbeat or event loop) can push this test over threshold intermittently. The resulting flake would be blamed on the vector bound.",
+            "defectClass": "flaky global-state measurement",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 835
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 852
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 835,
+                "detail": "'Not parallel: TotalAlloc is the process's, and a parallel sibling would pollute it.'"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 852,
+                "detail": "allocated > payload/8 asserted on process-wide TotalAlloc delta."
+              }
+            ],
+            "sourceIds": [
+              "P2"
+            ]
+          }
+        ],
+        "coverage": "Reviewed both commits from 24c789e (merge base with main; pr == HEAD) to 78891dd: helpers.go, marshal.go and marshal_vector_test.go. Also read the commit messages, CONTRIBUTING.md, the related code (asVectorType, frame.go readTypeInfo vector parsing, unmarshalList bound, vectorFixedElemSize, isVectorVariableLengthType, VectorType.Zero, NativeType.String) and the existing test helpers (makeDoubleVectorType, makeFloat32VectorType, vector_bench_test makeFloatVectorType). No PR description was available locally, and no CHANGELOG.md exists. Nothing was built or run.",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "wallMs": 151378,
+        "costUsd": 0.7858644,
+        "reportedUsage": {
+          "input_tokens": 22,
+          "cache_creation_input_tokens": 46692,
+          "cache_read_input_tokens": 468202,
+          "output_tokens": 15930,
+          "output_tokens_details": {
+            "thinking_tokens": 6117
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 46692,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 8141,
+              "cache_read_input_tokens": 59531,
+              "cache_creation_input_tokens": 1443,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 1443
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "resultSha256": "7fb6438aed9217d0529e64b04115c248d73cfe10ecab516e0434600dbfa639e8"
+      },
+      {
+        "id": "spec-test",
+        "sourceId": "P3",
+        "findings": [
+          {
+            "id": "P3-1",
+            "claim": "The test comment says the overflow cases \"use the word size so the wrap lands on a 32-bit target too\". On a 32-bit target, though, the unit-tagged gocql test package cannot compile, so that path is never built or run.",
+            "basisType": "claim",
+            "basis": "marshal_vector_test.go:582-586 comment: \"They use the word size so the wrap lands on a 32-bit target too.\"",
+            "mechanisms": [
+              "marshal_test.go:1098 compares `totalLen` (an int) with the untyped constant `math.MaxUint32`. On GOARCH=386/arm, 4294967295 overflows int, which is a compile error. marshal_test.go carries the same `//go:build unit` tag and package as marshal_vector_test.go, so the whole test binary fails to build there. CI (.github/workflows/main.yml) only has amd64 and arm64 lanes."
+            ],
+            "consequence": "The 32-bit wrap cases (1<<29+1 doubles and 1<<30+1 floats) cannot be exercised. The comment claims coverage that does not exist.",
+            "defectClass": "unverifiable-platform-claim",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 585
+              },
+              {
+                "path": "marshal_test.go",
+                "line": 1098
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal_test.go",
+                "line": 1098,
+                "detail": "`if totalLen > math.MaxUint32 {` where totalLen := 0 (int): constant overflows int on 32-bit"
+              },
+              {
+                "path": "marshal_test.go",
+                "line": 1,
+                "detail": "//go:build unit — same build set as marshal_vector_test.go"
+              },
+              {
+                "path": ".github/workflows/main.yml",
+                "line": 135,
+                "detail": "matrix arch is amd64/arm64 only; no 32-bit lane"
+              }
+            ],
+            "sourceIds": [
+              "P3"
+            ]
+          },
+          {
+            "id": "P3-2",
+            "claim": "The PR says \"Every new test fails against pristine marshal.go/helpers.go\". Several new tests pass on the base behaviour, so this is false.",
+            "basisType": "claim",
+            "basis": "PR body: \"Every new test fails against pristine `marshal.go`/`helpers.go`\"",
+            "mechanisms": [
+              "On base, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType passes: at dims 0 the fast path is skipped, the generic path returns nil for nil data and MakeSlice(0) for empty data, and SubType is never touched. All TestUnmarshalVectorAcceptsWellFormedPayloads subtests decode on base too, as do the two 'still decodes' subtests in TestUnmarshalVectorRejectsAnElementTypeWithNoGoType. Only the reject cases fail on base."
+            ],
+            "consequence": "The PR overstates its regression proof. Reviewers may think every test pins a base defect when several are only non-regression guards for code the PR itself added.",
+            "defectClass": "factual-mismatch",
+            "category": "docs",
+            "locations": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 935
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 690
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 1060,
+                "detail": "base generic path: nil data → return nil; dims 0 + empty → MakeSlice(t,0,0): ZeroDimensions test passes on base"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 690,
+                "detail": "TestUnmarshalVectorAcceptsWellFormedPayloads: positive cases that base already decodes"
+              }
+            ],
+            "sourceIds": [
+              "P3"
+            ]
+          },
+          {
+            "id": "P3-3",
+            "claim": "TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType and the guard comment say a zero VectorType with a nil SubType is safe at zero dimensions. That only holds for a concrete-slice destination: with an *any destination, unmarshalVector still calls info.Zero(), which dereferences the nil SubType.",
+            "basisType": "claim",
+            "basis": "marshal.go:995-997: \"vectorElemMinSize would dereference a SubType a caller of Unmarshal is free to leave nil, turning this guard into the panic it exists to prevent\"",
+            "mechanisms": [
+              "The interface branch at marshal.go:1044 calls info.Zero(). VectorType.Zero (marshal.go:2046) calls v.SubType.NewWithError() before any Dimensions check, so `Unmarshal(VectorType{}, []byte{}, new(any))` still makes a nil-interface method call. The test only uses `*[]float64`."
+            ],
+            "consequence": "The input the comment says callers may legitimately pass still panics on the Scan goroutine. The test name 'DoesNotTouchSubType' overstates what it proves.",
+            "defectClass": "incomplete-guard-coverage",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 1044
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 936
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 2046,
+                "detail": "t, e := v.SubType.NewWithError() — nil SubType panics"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 949,
+                "detail": "only `var dst []float64` destination is exercised"
+              }
+            ],
+            "sourceIds": [
+              "P3"
+            ]
+          },
+          {
+            "id": "P3-4",
+            "claim": "The headline behaviour change (\"a short or zero-length non-NULL payload ... now errors\") has no test for the zero-length case. No test passes a non-nil empty payload with Dimensions > 0.",
+            "basisType": "claim",
+            "basis": "PR body: \"`vector<int,3>` over an empty payload gave `[0 0 0], nil` — and now errors.\"",
+            "mechanisms": [
+              "The bound is gated on `data != nil` (marshal.go:998). If that gate were weakened to `len(data) > 0`, an empty payload would skip the bound and decode to zero values again. The only empty-payload test uses dims 0, and the short-payload cases use 2 bytes, so the suite would still pass."
+            ],
+            "consequence": "The zero-length vs NULL distinction the PR advertises could regress without any test failing.",
+            "defectClass": "test-gap",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 998
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 641
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 641,
+                "detail": "short payload cases use []byte{0x01,0x02}; no []byte{} with dim>0"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 943,
+                "detail": "empty payload only exercised with VectorType{} (dim 0)"
+              }
+            ],
+            "sourceIds": [
+              "P3"
+            ]
+          },
+          {
+            "id": "P3-5",
+            "claim": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating measures process-wide runtime.MemStats.TotalAlloc. Allocations by other goroutines in the unit test binary count against its 128 KiB threshold.",
+            "basisType": "trigger",
+            "basis": "marshal_vector_test.go comment: \"Not parallel: TotalAlloc is the process's, and a parallel sibling would pollute it.\"",
+            "mechanisms": [
+              "Not using t.Parallel only stops paused parallel tests. Background goroutines left by earlier sequential unit tests (connection or timer goroutines) can still allocate between the two ReadMemStats calls, and TotalAlloc counts them."
+            ],
+            "consequence": "The test can flake in rare cases. The risk is low, because the window is short and the threshold (payload/8) is well above the expected few KB.",
+            "defectClass": "flaky-measurement",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 826
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 835,
+                "detail": "runtime.ReadMemStats(&before) ... unmarshalVector ... runtime.ReadMemStats(&after); threshold payload/8"
+              }
+            ],
+            "sourceIds": [
+              "P3"
+            ]
+          }
+        ],
+        "coverage": "Reviewed merge-base 24c789e..HEAD: commits 0276a66 and 78891dd. Covered helpers.go getCassandraLongType; marshal.go unmarshalVector, vectorElemMinSize, VectorType.Zero, Unmarshal dispatch, marshalVector and the unmarshalList bound; frame.go readTypeInfo vector parsing; asVectorType; and every new test in marshal_vector_test.go, traced against base behaviour. Also checked the 32-bit compile blockers in unit-tagged test files and the CI arch matrix. Nothing was run.",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "wallMs": 200703,
+        "costUsd": 1.0574344,
+        "reportedUsage": {
+          "input_tokens": 36,
+          "cache_creation_input_tokens": 58188,
+          "cache_read_input_tokens": 894432,
+          "output_tokens": 20645,
+          "output_tokens_details": {
+            "thinking_tokens": 14295
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 58188,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 2854,
+              "cache_read_input_tokens": 67081,
+              "cache_creation_input_tokens": 5389,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 5389
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "resultSha256": "85afc957d2c2112b57df6481ad084b8e46e80a1b5c822aa68ab1c712b3eb0dd2"
+      },
+      {
+        "id": "contracts",
+        "sourceId": "P4",
+        "findings": [
+          {
+            "id": "P4-1",
+            "claim": "The commits carry `Co-Authored-By: Claude Opus 5` trailers and the PR body ends with a \"Generated with Claude Code\" line, which the governing author instructions forbid.",
+            "basisType": "rule",
+            "basis": "The user's global instructions: never add Claude/Anthropic attribution; no Co-Authored-By trailer and no 'Generated with Claude Code' line in PR descriptions.",
+            "mechanisms": [
+              "The commit messages for 0276a66 and 78891dd, and the frozen PR body, include AI attribution lines."
+            ],
+            "consequence": "The commit history and the PR description that get published break the author's attribution rule. Fixing it means rewording both commits and editing the PR body.",
+            "defectClass": "attribution-rule-violation",
+            "category": "standards",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 985
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 985,
+                "detail": "Commits 0276a66 and 78891dd, which introduce this code, end with 'Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'. The PR body ends with '🤖 Generated with [Claude Code]'."
+              }
+            ],
+            "sourceIds": [
+              "P4"
+            ]
+          },
+          {
+            "id": "P4-2",
+            "claim": "getCassandraLongType now returns NativeType with `custom` set to the full class name for every unrecognised type, not only vector elements. That changes the public TypeInfo.Custom() and String() output for collection, tuple, UDT and vector-subtype metadata across the driver, and neither the commit nor the PR body calls it a contract change.",
+            "basisType": "claim",
+            "basis": "The PR body describes the helpers.go change only as letting the vector error name the server's type. getCassandraLongType is shared by frame.go:860 and helpers.go:72 and by the set/list/map/tuple/UDT branches.",
+            "mechanisms": [
+              "The basic-type fallback branch in the shared parser now calls NewCustomType(proto, TypeCustom, name) for all callers."
+            ],
+            "consequence": "Before, Custom() returned \"\" and String() rendered \"custom()\". Both now carry the full Java class name, so application code or schema-metadata consumers that compare those strings or switch on them change behaviour silently.",
+            "defectClass": "undocumented-public-contract-change",
+            "category": "contracts",
+            "locations": [
+              {
+                "path": "helpers.go",
+                "line": 281
+              }
+            ],
+            "evidence": [
+              {
+                "path": "helpers.go",
+                "line": 281,
+                "detail": "The fallback now does `if typ == TypeCustom { return NewCustomType(protoVer, TypeCustom, name) }`."
+              },
+              {
+                "path": "marshal.go",
+                "line": 2009,
+                "detail": "Custom() returns t.custom, and the String() code at marshal.go:2016 formats it as `%s(%s)`."
+              },
+              {
+                "path": "helpers.go",
+                "line": 211,
+                "detail": "The set, list, map, tuple and UDT branches (lines 211-250) and frame.go:860 all route element types through this fallback."
+              }
+            ],
+            "sourceIds": [
+              "P4"
+            ]
+          },
+          {
+            "id": "P4-3",
+            "claim": "The new bound error 'unmarshal vector: %d dimensions do not fit in %d bytes' fires before the fast path's exact-length error. For a payload that is short but non-wrapping, the user-visible message changes from the precise expected byte count to a dimension-count message. Sibling decoders still report exact byte expectations.",
+            "basisType": "claim",
+            "basis": "The PR body admits the bound replaces 'expected 24 bytes, got 16' when it fires first. Error wording is a cross-path contract.",
+            "mechanisms": [
+              "The pre-fast-path bound check divides by vectorElemMinSize and returns its own wording first."
+            ],
+            "consequence": "Callers or tests that match on the 'expected N bytes' text for float vectors get a different message for short payloads. Error wording is now inconsistent between short payloads, which get the bound message, and long payloads, which get the fast-path exact-size message.",
+            "defectClass": "error-message-contract-change",
+            "category": "contracts",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 1000
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 1000,
+                "detail": "`return unmarshalErrorf(\"unmarshal vector: %d dimensions do not fit in %d bytes\", ...)` runs ahead of the fast paths at line 1005 onward."
+              }
+            ],
+            "sourceIds": [
+              "P4"
+            ]
+          }
+        ],
+        "coverage": "Covered the diff for helpers.go and marshal.go, both commit messages, the PR body, the callers of getCassandraLongType, and NativeType.Custom/String. The new tests were read only for intent. No builds or tests were run.",
+        "model": "claude-opus-5-5",
+        "effort": "low",
+        "wallMs": 31170,
+        "costUsd": 0.2503722,
+        "reportedUsage": {
+          "input_tokens": 6,
+          "cache_creation_input_tokens": 23071,
+          "cache_read_input_tokens": 85901,
+          "output_tokens": 2430,
+          "output_tokens_details": {
+            "thinking_tokens": 529
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 23071,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 1782,
+              "cache_read_input_tokens": 36554,
+              "cache_creation_input_tokens": 799,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 799
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "resultSha256": "8754d1e93af438359e8c4fee09d47eb65cc1192fd8941d9adcf68cf73ef21932"
+      },
+      {
+        "id": "maintenance",
+        "sourceId": "P5",
+        "findings": [
+          {
+            "id": "P5-1",
+            "claim": "The new bound comment says unmarshalList \"does the same\", but unmarshalList uses a fixed 4-byte floor, applies it only to slices, and checks after the size prefix. The vector bound uses a per-type recursive minimum and also covers arrays.",
+            "basisType": "claim",
+            "basis": "Literal comment claim compared with unmarshalList code",
+            "mechanisms": [
+              "Comment describes two guards as equivalent when they use different floors and cover different destinations"
+            ],
+            "consequence": "Someone tightening or fixing one guard (for example, adding an array bound to lists or changing the list floor) will trust the comment that the two match. The two bounds will then drift further apart without anyone noticing.",
+            "defectClass": "comment-drift",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 991
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 991,
+                "detail": "\"elemMin is the fewest bytes an element can occupy, so it bounds the count; unmarshalList does the same.\""
+              },
+              {
+                "path": "marshal.go",
+                "line": 834,
+                "detail": "unmarshalList: the bound `if n > len(data)/4` sits only in the non-array branch and uses a fixed 4 bytes, not a per-element-type minimum"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-2",
+            "claim": "The new comment says every path below turns Dimensions into an allocation, but the array path allocates nothing. The PR's own test comment says so.",
+            "basisType": "claim",
+            "basis": "Comment claim vs array branch code and test comment",
+            "mechanisms": [
+              "Overbroad rationale comment contradicted by the array branch"
+            ],
+            "consequence": "The comment justifies the bound only by allocation. A maintainer could move the bound below the array branch, or skip it for arrays, and bring back the short-payload-decoded-as-zeroes bug the array test case pins.",
+            "defectClass": "comment-drift",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 986
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 986,
+                "detail": "\"every path below turns it into an allocation (make, reflect.MakeSlice)\""
+              },
+              {
+                "path": "marshal.go",
+                "line": 1080,
+                "detail": "array branch only compares rv.Len() with Dimensions; there is no MakeSlice"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 649,
+                "detail": "\"An array allocates nothing, but the loop derives its element size from len(data)/Dimensions\""
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-3",
+            "claim": "The new bound block repeats the guard `info.Dimensions > 0 && data != nil` from the fast-path block directly below it. The fast paths' `Dimensions*8`/`*4` multiplications are now safe only because of the separate earlier block. The old fast-path comment (\"nil/empty and dim=0 fall through\") was not updated to mention that dependency or the new negative-dimension early return.",
+            "basisType": "rule",
+            "basis": "Repeated condition across adjacent guards; old comment left under a changed control flow",
+            "mechanisms": [
+              "Parallel guard with duplicated condition whose safety depends on ordering"
+            ],
+            "consequence": "If someone edits one condition (for example, lets the fast path handle empty data, or reorders the blocks), the other has to change in step. Otherwise the wrapped `expected` multiplication becomes reachable again, and a peer-controlled count reaches vectorSliceReuse.",
+            "defectClass": "duplicated-guard",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 998
+              },
+              {
+                "path": "marshal.go",
+                "line": 1006
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 998,
+                "detail": "if info.Dimensions > 0 && data != nil { elemMin := vectorElemMinSize(...)"
+              },
+              {
+                "path": "marshal.go",
+                "line": 1007,
+                "detail": "identical `if info.Dimensions > 0 && data != nil {` for the fast paths, with `expected := info.Dimensions * 8`"
+              },
+              {
+                "path": "marshal.go",
+                "line": 1006,
+                "detail": "old comment \"nil/empty and dim=0 fall through to the generic path\" does not mention the bound it now relies on"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-4",
+            "claim": "The new t==nil guard reports that a nested vector element has \"no Go type\", and the new test pins that message. But the failure comes from helpers.go storing the inner VectorType's custom name as just the bare prefix, so asVectorType/goType cannot resolve it. Nested vectors do have a Go type: the same test decodes them into [][]float32.",
+            "basisType": "claim",
+            "basis": "Error text and test comment vs actual root cause in type resolution",
+            "mechanisms": [
+              "Error message and test codify a type-resolution limitation as a property of the element type"
+            ],
+            "consequence": "If helpers.go:271 is later fixed to keep the full inner vector spec, Zero() resolves and the \"nested vector into an interface\" subtest fails. The test then blocks a correct fix, and users meanwhile get a misleading diagnosis.",
+            "defectClass": "misleading-error-and-overpinned-test",
+            "category": "correctness",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 1048
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 889
+              }
+            ],
+            "evidence": [
+              {
+                "path": "helpers.go",
+                "line": 271,
+                "detail": "nested VectorType gets NewCustomType(protoVer, TypeCustom, prefix+\"VectorType\") (bare prefix, with no subtype or dimension)"
+              },
+              {
+                "path": "helpers.go",
+                "line": 55,
+                "detail": "asVectorType requires the custom string to start with vectorTypePrefix+\"(\", so the bare prefix never resolves"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 870,
+                "detail": "comment admits that the \"inner type resolves from the bare prefix\""
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 889,
+                "detail": "asserts \"no Go type for element type\" for the nested vector"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-5",
+            "claim": "The *any destination in vectors is resolved through info.Zero(), which discards the NewWithError error, plus a new nil check. The sibling unmarshalList resolves the same thing through goType(info.Elem) and propagates its error. There are now two different classifiers for \"element has a Go type\".",
+            "basisType": "rule",
+            "basis": "Compare new guard with nearby older equivalent in unmarshalList",
+            "mechanisms": [
+              "Parallel classifier for element Go-type resolution with a swallowed error"
+            ],
+            "consequence": "If goType/NewWithError gains support for a type (or returns a more specific error), lists pick it up and report the cause, while vectors keep going through Zero() and only give the generic \"no Go type\" message. Every such fix has to be made in two places.",
+            "defectClass": "parallel-classifier",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 1044
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 2046,
+                "detail": "VectorType.Zero: `t, e := v.SubType.NewWithError(); if e != nil { return nil }`, so the error is dropped"
+              },
+              {
+                "path": "marshal.go",
+                "line": 802,
+                "detail": "unmarshalList: `elemGoType, err := goType(info.Elem)` and returns \"cannot determine element type: %v\", err"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-6",
+            "claim": "The new test fixtures makeVectorType/makeNestedVectorType copy the existing makeFloat32VectorType/makeDoubleVectorType bodies. makeVectorType takes the Type and the class name as independent arguments, so they can disagree. makeNestedVectorType gives the inner vector a fully qualified custom name, unlike the wire path (helpers.go:271), which stores only the bare prefix. A third builder, wireVectorType, builds the real shape.",
+            "basisType": "rule",
+            "basis": "Copied fixtures and fixtures that exercise a different object than production",
+            "mechanisms": [
+              "Duplicated fixture builders with a shape that diverges from the wire-resolved TypeInfo"
+            ],
+            "consequence": "A change to how VectorType is built (for example proto version or custom-name format) has to be made in four builders. Tests built with makeNestedVectorType exercise an inner type that Zero()/asVectorType can resolve, while production's cannot, so nested-vector tests may pass on an object the server never produces.",
+            "defectClass": "copied-fixture",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 557
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 570
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 860
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 49,
+                "detail": "existing makeFloat32VectorType has the same body as makeVectorType(TypeFloat, \"FloatType\", dim)"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 575,
+                "detail": "makeNestedVectorType: custom built from inner.custom, the full qualified string"
+              },
+              {
+                "path": "helpers.go",
+                "line": 271,
+                "detail": "the wire-parsed nested inner vector uses only prefix+\"VectorType\""
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-7",
+            "claim": "The zero-dimension comment says a caller of Unmarshal is \"free to leave nil\" SubType. That only holds at zero dimensions: with Dimensions>0 and a nil SubType, both the new bound (vectorElemMinSize) and the fast-path switch still call SubType.Type() and panic.",
+            "basisType": "claim",
+            "basis": "Comment claim vs guarded code paths",
+            "mechanisms": [
+              "Comment overstates the nil-SubType contract the guard actually provides"
+            ],
+            "consequence": "A reader can conclude that nil SubType is a supported input and rely on it. A future test or caller with Dimensions>0 and nil SubType then panics on the Scan goroutine the comment says the guard protects.",
+            "defectClass": "comment-overclaim",
+            "category": "comments",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 996
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 996,
+                "detail": "\"vectorElemMinSize would dereference a SubType a caller of Unmarshal is free to leave nil\""
+              },
+              {
+                "path": "marshal.go",
+                "line": 999,
+                "detail": "vectorElemMinSize(info.SubType) is called for any Dimensions>0, with no nil check"
+              },
+              {
+                "path": "marshal.go",
+                "line": 1008,
+                "detail": "fast path `switch info.SubType.Type()` under the same condition"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          },
+          {
+            "id": "P5-8",
+            "claim": "helpers.go now gives unknown basic types a NativeType that carries the class name. Other TypeCustom fallbacks in the same function (map split failure, vector-dimension parse failure) still return NewNativeType(protoVer, TypeCustom) with no name, so the stated goal of naming \"what the server sent\" applies only on one path.",
+            "basisType": "claim",
+            "basis": "New comment's rationale vs sibling fallbacks in same function",
+            "mechanisms": [
+              "Inconsistent fallback constructors for the same unknown/custom outcome"
+            ],
+            "consequence": "Errors for a malformed vector or map type still print \"custom()\". Anyone extending the naming behaviour has to find each NewNativeType(TypeCustom) fallback, and String() output differs by path.",
+            "defectClass": "inconsistent-fallback",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "helpers.go",
+                "line": 282
+              }
+            ],
+            "evidence": [
+              {
+                "path": "helpers.go",
+                "line": 282,
+                "detail": "\"Keep the name so an error can say what the server sent, not \\\"custom()\\\".\""
+              },
+              {
+                "path": "helpers.go",
+                "line": 267,
+                "detail": "vector dimension parse failure returns NewNativeType(protoVer, TypeCustom) with no name"
+              },
+              {
+                "path": "helpers.go",
+                "line": 222,
+                "detail": "another TypeCustom fallback with no name"
+              }
+            ],
+            "sourceIds": [
+              "P5"
+            ]
+          }
+        ],
+        "coverage": "Diffed main (24c789e) to HEAD (78891dd); `pr` equals HEAD, so it was not used as the base. Covered helpers.go, marshal.go and marshal_vector_test.go. Compared the changes with unmarshalList, VectorType.Zero/NewWithError, goType/asVectorType, readTypeInfo and the existing vector fixtures. Checked the wraparound arithmetic and the minimum-size values in the test claims; they are correct. Did not report the TotalAlloc non-parallel rationale, which is accurate under Go's sequential-then-parallel scheduling of top-level tests.",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "wallMs": 120382,
+        "costUsd": 0.6311800000000001,
+        "reportedUsage": {
+          "input_tokens": 20,
+          "cache_creation_input_tokens": 39518,
+          "cache_read_input_tokens": 403480,
+          "output_tokens": 11713,
+          "output_tokens_details": {
+            "thinking_tokens": 5238
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 39518,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 4348,
+              "cache_read_input_tokens": 52306,
+              "cache_creation_input_tokens": 1494,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 1494
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "resultSha256": "19fdec3a28a971a58ed917014bdd6d4844d8c4bcaabbc76c86af91bfcf5ce735"
+      },
+      {
+        "id": "api-commit",
+        "sourceId": "P6",
+        "findings": [
+          {
+            "id": "P6-1",
+            "claim": "The new dimension bound runs before unmarshalVector validates the destination (non-pointer, non-empty interface, unsupported kind, array-length mismatch), so a short payload now reports \"N dimensions do not fit in M bytes\" instead of the caller's programming error.",
+            "basisType": "trigger",
+            "basis": "Check moved ahead of destination validation; unmarshalList, cited as precedent, bounds only after pointer/kind/array checks and only for slices.",
+            "mechanisms": [
+              "Bound at marshal.go:999-1003 precedes the rv.Kind()!=Ptr check at 1036, the interface check at 1041, the array-size check at 1078 and the 'Accepted types' fallback at 1118."
+            ],
+            "consequence": "A user who passes a non-pointer, a [2]int32 for a vector<int,3>, or an unsupported type gets a payload-size diagnosis that points them at the server data instead of at their Scan destination. The comment's claim that 'unmarshalList does the same' will mislead a later edit about where the bound belongs.",
+            "defectClass": "diagnostic-masking-by-reordered-check",
+            "category": "contracts",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 999
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 1001,
+                "detail": "returns 'unmarshal vector: %d dimensions do not fit in %d bytes' before any destination check"
+              },
+              {
+                "path": "marshal.go",
+                "line": 1036,
+                "detail": "non-pointer check now runs only after the bound"
+              },
+              {
+                "path": "marshal.go",
+                "line": 1078,
+                "detail": "array size mismatch error is now unreachable for short payloads"
+              },
+              {
+                "path": "marshal.go",
+                "line": 834,
+                "detail": "unmarshalList's bound 'n > len(data)/4' applies only to slices, after the pointer/interface/array checks"
+              },
+              {
+                "path": "marshal.go",
+                "line": 991,
+                "detail": "comment says 'unmarshalList does the same'"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-2",
+            "claim": "The new 'no Go type for element type %v' error renders a nested vector element as 'custom(org.apache.cassandra.db.marshal.VectorType)', with no inner element type or dimension. That contradicts the PR's claim that the error now says which type the server sent.",
+            "basisType": "claim",
+            "basis": "The PR body says getCassandraLongType keeps the name 'so the error can say which type the server sent'. Only the unknown-type case gets this; nested vectors are built with the bare prefix.",
+            "mechanisms": [
+              "getCassandraLongType's VectorType branch builds the inner VectorType's NativeType with custom = prefix+\"VectorType\" (no args). VectorType has no String(), so %v uses NativeType.String, which prints custom(<bare prefix>)."
+            ],
+            "consequence": "A user diagnosing a vector<vector<float,3>,2> column cannot tell from the error which nested shape failed. The test only checks the generic prefix for the nested case, so a future fix to the rendering is not pinned.",
+            "defectClass": "error-message-loses-identifying-detail",
+            "category": "correctness",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 1048
+              }
+            ],
+            "evidence": [
+              {
+                "path": "helpers.go",
+                "line": 271,
+                "detail": "NativeType: NewCustomType(protoVer, TypeCustom, prefix+\"VectorType\") with no element or dimension"
+              },
+              {
+                "path": "marshal.go",
+                "line": 2016,
+                "detail": "NativeType.String renders custom as \"%s(%s)\""
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 889,
+                "detail": "nested case asserts only 'no Go type for element type', not the type name"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-3",
+            "claim": "The new nil-Zero guard replaces the specific error that SubType.NewWithError produced (VectorType.Zero swallows it) with a generic string. The sibling unmarshalList surfaces its element-type error as 'unmarshal list: cannot determine element type: %v'.",
+            "basisType": "rule",
+            "basis": "Compare with the sibling handling of the same event (no Go type for an element) in the same module.",
+            "mechanisms": [
+              "VectorType.Zero discards the error from v.SubType.NewWithError() and returns nil; the new check at marshal.go:1045 cannot recover the cause and invents its own wording, unlike unmarshalList's goType error passthrough."
+            ],
+            "consequence": "List and vector now describe the same failure in different words, and the vector error drops the underlying cause from goType. A future edit that changes one family's wording, or a user grepping for 'cannot determine element type', will miss the vector variant.",
+            "defectClass": "sibling-message-drift",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 1045
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 2046,
+                "detail": "Zero(): t, e := v.SubType.NewWithError(); if e != nil { return nil }, so the error is dropped"
+              },
+              {
+                "path": "marshal.go",
+                "line": 803,
+                "detail": "unmarshalList: 'unmarshal list: cannot determine element type: %v' with err"
+              },
+              {
+                "path": "marshal.go",
+                "line": 1048,
+                "detail": "new vector message 'unmarshal vector: no Go type for element type %v'"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-4",
+            "claim": "getCassandraLongType now keeps an unknown type's name only in its final basic-type branch. Its sibling degrade-to-custom returns (map arity error, vector dimension parse error) still return NewNativeType(TypeCustom) with an empty name.",
+            "basisType": "rule",
+            "basis": "Compare sibling return paths in the same function that produce the same 'degraded custom type' result.",
+            "mechanisms": [
+              "The new branch at helpers.go:281-284 uses NewCustomType(..., name), while helpers.go:221 and helpers.go:267 still return NewNativeType(protoVer, TypeCustom)."
+            ],
+            "consequence": "Errors for a malformed map or vector element type still render as bare 'custom()', so the same 'unrecognized element' diagnosis gives different detail depending on which branch degraded. A later change that relies on Custom() being the server's name will be inconsistent.",
+            "defectClass": "inconsistent-sibling-fallback",
+            "category": "maintainability",
+            "locations": [
+              {
+                "path": "helpers.go",
+                "line": 281
+              }
+            ],
+            "evidence": [
+              {
+                "path": "helpers.go",
+                "line": 283,
+                "detail": "return NewCustomType(protoVer, TypeCustom, name)"
+              },
+              {
+                "path": "helpers.go",
+                "line": 221,
+                "detail": "map arity error: return NewNativeType(protoVer, TypeCustom)"
+              },
+              {
+                "path": "helpers.go",
+                "line": 267,
+                "detail": "vector dim parse error: return NewNativeType(protoVer, TypeCustom)"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-5",
+            "claim": "The PR body's 'Behaviour change' section omits that a NULL value for a vector with negative dimensions now returns an error. Previously it decoded to a nil slice with a nil error.",
+            "basisType": "claim",
+            "basis": "The PR body lists only short or zero-length non-NULL payloads and the replaced byte-count message as behaviour changes.",
+            "mechanisms": [
+              "The Dimensions<0 check at marshal.go:992 runs before the data==nil early return in the generic path, so NULL is no longer accepted for such types."
+            ],
+            "consequence": "Readers of the PR, and anyone relying on #1093's parser coverage, are not told that NULL rows of such columns now fail Scan. readTypeInfo still parses the dimension with an ignored error (frame.go:861), so a fallback dimension stays possible on that path.",
+            "defectClass": "undocumented-behavior-change",
+            "category": "docs",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 992
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 992,
+                "detail": "if info.Dimensions < 0 { return unmarshalErrorf(... negative dimensions ...) } runs regardless of data == nil"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 613,
+                "detail": "test 'negative dimensions with a null value' pins the new error"
+              },
+              {
+                "path": "marshal.go",
+                "line": 1058,
+                "detail": "pre-existing NULL path returns nil for slices"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-6",
+            "claim": "The PR body's statement that every new test fails against pristine marshal.go/helpers.go is false. Several added tests pass on the base, and TestVectorElemMinSize cannot compile there.",
+            "basisType": "claim",
+            "basis": "PR body: 'Every new test fails against pristine marshal.go/helpers.go'.",
+            "mechanisms": [
+              "TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType exercise paths that pristine code handles without error (dim 0 skips the fast path; well-formed payloads decode). TestVectorElemMinSize references a function that only exists after the change."
+            ],
+            "consequence": "The claimed regression evidence overstates what the suite demonstrates. A reviewer relying on it may not realise that the non-narrowing and zero-dimension tests are pins, not reproducers.",
+            "defectClass": "pr-claim-mismatch",
+            "category": "tests",
+            "locations": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 937
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal_vector_test.go",
+                "line": 695,
+                "detail": "well-formed payload tests that succeed on pristine code"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 937,
+                "detail": "zero-dimension VectorType{}; pristine skips the fast path at dim 0 and the generic path returns nil"
+              },
+              {
+                "path": "marshal_vector_test.go",
+                "line": 797,
+                "detail": "TestVectorElemMinSize calls vectorElemMinSize, which does not exist on the base"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-7",
+            "claim": "Commit 0276a66's message says the bound relies on every element taking at least one byte. The commit actually adds a recursive per-type minimum (vectorElemMinSize), so the message misdescribes the mechanism it introduces.",
+            "basisType": "claim",
+            "basis": "Commit message vs. code in the same commit.",
+            "mechanisms": [
+              "The message reads 'Every element takes at least one byte on the wire, so a count the buffer cannot hold is rejected', but the code divides by vectorElemMinSize, which returns fixed sizes (4/8/16) and recursive nested minimums."
+            ],
+            "consequence": "Someone bisecting or reading history will think the bound is a 1-byte floor. The PR body and test comments explicitly call the 1-byte floor insufficient for nested vectors.",
+            "defectClass": "commit-message-mismatch",
+            "category": "docs",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 1125
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 1000,
+                "detail": "elemMin := vectorElemMinSize(info.SubType)"
+              },
+              {
+                "path": "marshal.go",
+                "line": 1125,
+                "detail": "vectorElemMinSize: fixed size or recursive nested minimum, not one byte"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          },
+          {
+            "id": "P6-8",
+            "claim": "The commit messages carry 'Co-Authored-By: Claude Opus 5' trailers and the PR body ends with '🤖 Generated with Claude Code', which violates the applicable instruction against Claude/Anthropic attribution.",
+            "basisType": "rule",
+            "basis": "User global instructions: no Co-Authored-By Claude trailer in commits and no 'Generated with Claude Code' line in PR descriptions.",
+            "mechanisms": [
+              "Attribution trailers are present in both commits 0276a66 and 78891dd and in the PR body."
+            ],
+            "consequence": "Commits and the PR must be amended or rewritten before merge to meet the attribution rule.",
+            "defectClass": "attribution-rule-violation",
+            "category": "standards",
+            "locations": [
+              {
+                "path": "marshal.go",
+                "line": 985
+              }
+            ],
+            "evidence": [
+              {
+                "path": "marshal.go",
+                "line": 985,
+                "detail": "unmarshalVector changes land in commits 0276a66/78891dd, whose messages end with 'Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>'"
+              }
+            ],
+            "sourceIds": [
+              "P6"
+            ]
+          }
+        ],
+        "coverage": "Reviewed both commits (0276a66, 78891dd) against base 24c789e: marshal.go unmarshalVector, vectorElemMinSize, VectorType.Zero, and the sibling unmarshalList; helpers.go getCassandraLongType, asVectorType and goType; frame.go readTypeInfo; the marshal_vector_test.go additions and their unit build tag; the Makefile test-unit recipe (-tags unit, so the new tests do run); and CONTRIBUTING.md (there is no CHANGELOG.md, so its changelog rule can't apply). No log lines are added. The added error strings are 'negative dimensions', 'do not fit in' and 'no Go type'. Read-only inspection: nothing was built or run.",
+        "model": "claude-opus-5-5",
+        "effort": "medium",
+        "wallMs": 137354,
+        "costUsd": 0.7469654,
+        "reportedUsage": {
+          "input_tokens": 20,
+          "cache_creation_input_tokens": 48660,
+          "cache_read_input_tokens": 445327,
+          "output_tokens": 13427,
+          "output_tokens_details": {
+            "thinking_tokens": 7062
+          },
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 48660,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "inference_geo": "not_available",
+          "iterations": [
+            {
+              "input_tokens": 2,
+              "output_tokens": 4284,
+              "cache_read_input_tokens": 61803,
+              "cache_creation_input_tokens": 1139,
+              "cache_creation": {
+                "ephemeral_5m_input_tokens": 0,
+                "ephemeral_1h_input_tokens": 1139
+              },
+              "type": "message"
+            }
+          ],
+          "speed": "standard",
+          "fallback_credit": null
+        },
+        "resultSha256": "956ee43beeababf84de4cbe324a59e60ceec1542ed8941c1df7e1a970cfdd26f"
+      }
+    ],
+    "cluster": {
+      "groups": [
+        {
+          "representativeId": "C33",
+          "memberIds": [
+            "C1",
+            "C33"
+          ],
+          "reason": "Both identify the bare-prefix inner VectorType as the reason nested vectors fail through *any and the misleading error/test as masking and pinning that limitation."
+        },
+        {
+          "representativeId": "C18",
+          "memberIds": [
+            "C2",
+            "C18"
+          ],
+          "reason": "Both report that makeNestedVectorType constructs a resolvable full inner custom name unlike the bare-prefix shape produced by the wire parser."
+        },
+        {
+          "representativeId": "C3",
+          "memberIds": [
+            "C3"
+          ],
+          "reason": "Unique lead about a trailing-byte payload being mislabeled and pinned as well-formed."
+        },
+        {
+          "representativeId": "C4",
+          "memberIds": [
+            "C4"
+          ],
+          "reason": "Distinct present-tense comment inaccuracy: the array path performs no allocation."
+        },
+        {
+          "representativeId": "C5",
+          "memberIds": [
+            "C5"
+          ],
+          "reason": "Unique test-coverage lead for the parser-wide unknown-type naming change."
+        },
+        {
+          "representativeId": "C6",
+          "memberIds": [
+            "C6"
+          ],
+          "reason": "Narrow duplication lead concerning three same-file vector fixture builders."
+        },
+        {
+          "representativeId": "C7",
+          "memberIds": [
+            "C7"
+          ],
+          "reason": "Unique violation of CONTRIBUTING.md's documented commit-message format."
+        },
+        {
+          "representativeId": "C8",
+          "memberIds": [
+            "C8"
+          ],
+          "reason": "Commit-trailer-only attribution violation, kept separate from leads that also cover the PR body."
+        },
+        {
+          "representativeId": "C9",
+          "memberIds": [
+            "C9"
+          ],
+          "reason": "Unique CHANGELOG and godoc obligation covering several behavior changes."
+        },
+        {
+          "representativeId": "C10",
+          "memberIds": [
+            "C10",
+            "C32"
+          ],
+          "reason": "Both concern the adjacent duplicated guard and the risk that editing or reordering one block makes the fast-path multiplication unsafe again."
+        },
+        {
+          "representativeId": "C11",
+          "memberIds": [
+            "C11"
+          ],
+          "reason": "Unique hidden invariant between fixed-size classification, the earlier bound, and fast-path multiplication."
+        },
+        {
+          "representativeId": "C12",
+          "memberIds": [
+            "C12"
+          ],
+          "reason": "Unique shotgun-surgery lead about three parallel element-type classifiers."
+        },
+        {
+          "representativeId": "C36",
+          "memberIds": [
+            "C13",
+            "C36"
+          ],
+          "reason": "Both say the nil-SubType comment overclaims support because positive dimensions still dereference SubType and panic."
+        },
+        {
+          "representativeId": "C14",
+          "memberIds": [
+            "C14"
+          ],
+          "reason": "Distinct lead combining misplaced elemMin commentary with the risk of copying unmarshalList's fixed-four-byte floor."
+        },
+        {
+          "representativeId": "C41",
+          "memberIds": [
+            "C15",
+            "C37",
+            "C41"
+          ],
+          "reason": "All identify the same inconsistent degraded-custom fallbacks: the final branch preserves the name while map and vector parse failures do not."
+        },
+        {
+          "representativeId": "C16",
+          "memberIds": [
+            "C16"
+          ],
+          "reason": "Unique mixed-commit-scope lead about bundling a shared parser behavior change into a marshal fix."
+        },
+        {
+          "representativeId": "C17",
+          "memberIds": [
+            "C17"
+          ],
+          "reason": "Distinct fixture-design lead combining duplication with independently supplied Type and class-name values."
+        },
+        {
+          "representativeId": "C19",
+          "memberIds": [
+            "C19"
+          ],
+          "reason": "Unique overclaim that a few sampled test shapes prove the bound is universally non-narrowing."
+        },
+        {
+          "representativeId": "C20",
+          "memberIds": [
+            "C20"
+          ],
+          "reason": "Unique missing test for vectorElemMinSize's saturation branch."
+        },
+        {
+          "representativeId": "C26",
+          "memberIds": [
+            "C21",
+            "C26"
+          ],
+          "reason": "Both describe the same flake risk from measuring process-wide TotalAlloc while unrelated background goroutines may allocate."
+        },
+        {
+          "representativeId": "C22",
+          "memberIds": [
+            "C22"
+          ],
+          "reason": "Unique unverifiable 32-bit coverage claim caused by the unit test package failing to compile there."
+        },
+        {
+          "representativeId": "C23",
+          "memberIds": [
+            "C23",
+            "C43"
+          ],
+          "reason": "Both refute the same PR claim that every new test fails on pristine code, citing added tests that already pass on the base."
+        },
+        {
+          "representativeId": "C24",
+          "memberIds": [
+            "C24"
+          ],
+          "reason": "Unique zero-dimension *any path where info.Zero still dereferences nil SubType despite the concrete-slice test."
+        },
+        {
+          "representativeId": "C25",
+          "memberIds": [
+            "C25"
+          ],
+          "reason": "Unique missing regression test for a non-nil empty payload with positive dimensions."
+        },
+        {
+          "representativeId": "C45",
+          "memberIds": [
+            "C27",
+            "C45"
+          ],
+          "reason": "Both cover the same attribution-rule violation across both commit trailers and the generated-with-Claude PR-body line."
+        },
+        {
+          "representativeId": "C28",
+          "memberIds": [
+            "C28"
+          ],
+          "reason": "Unique undocumented public TypeInfo.Custom and String contract change across metadata consumers."
+        },
+        {
+          "representativeId": "C29",
+          "memberIds": [
+            "C29"
+          ],
+          "reason": "Unique error-message contract change for short fixed-width vector payloads."
+        },
+        {
+          "representativeId": "C30",
+          "memberIds": [
+            "C30"
+          ],
+          "reason": "Distinct future-drift risk from falsely describing the list and vector bounds as equivalent despite different floors and destination coverage."
+        },
+        {
+          "representativeId": "C31",
+          "memberIds": [
+            "C31"
+          ],
+          "reason": "Distinct future-edit risk that the allocation rationale could cause the bound to be skipped for arrays."
+        },
+        {
+          "representativeId": "C34",
+          "memberIds": [
+            "C34"
+          ],
+          "reason": "Unique parallel-classifier lead contrasting vector info.Zero with list goType resolution."
+        },
+        {
+          "representativeId": "C35",
+          "memberIds": [
+            "C35"
+          ],
+          "reason": "Broader composite fixture lead spanning copied builders, independently supplied type data, production-shape divergence, and a third wire builder."
+        },
+        {
+          "representativeId": "C38",
+          "memberIds": [
+            "C38"
+          ],
+          "reason": "Unique diagnostic-ordering defect where payload bounds mask invalid destination errors."
+        },
+        {
+          "representativeId": "C39",
+          "memberIds": [
+            "C39"
+          ],
+          "reason": "Unique loss of nested element and dimension detail in the rendered error type."
+        },
+        {
+          "representativeId": "C40",
+          "memberIds": [
+            "C40"
+          ],
+          "reason": "Unique sibling-message drift caused by swallowing NewWithError's specific cause and inventing vector-only wording."
+        },
+        {
+          "representativeId": "C42",
+          "memberIds": [
+            "C42"
+          ],
+          "reason": "Unique omitted PR behavior change for NULL vectors with negative dimensions."
+        },
+        {
+          "representativeId": "C44",
+          "memberIds": [
+            "C44"
+          ],
+          "reason": "Unique commit-message mismatch between a claimed one-byte floor and the implemented recursive per-type minimum."
+        }
+      ],
+      "model": "gpt-5.6-sol",
+      "usage": {
+        "inputTokens": 22438,
+        "cachedInputTokens": 9600,
+        "cacheWriteInputTokens": 0,
+        "outputTokens": 3660,
+        "reasoningOutputTokens": 2352,
+        "totalTokens": 26098
+      },
+      "invocationId": "01a11fa7-a81a-79d0-ac5d-a03520e1387f",
+      "promptSha256": "81eb4f12610a7da9f4fa93a6f56d13e20e17c4d4147dcaaddea53d71bada7464",
+      "traceSha256": "37d579bd8c14ce8054b2742cc912377e73ff6a0c8bbc3fdfb6b1a17ed83d33ff",
+      "resultSha256": "59e8150c6e25bf2b3d6c6c3cd3f112900221be06a6099917d39cac42ce0cd5c7",
+      "rawResultSha256": "59e8150c6e25bf2b3d6c6c3cd3f112900221be06a6099917d39cac42ce0cd5c7",
+      "wallMs": 75311
+    },
+    "createdAt": "2026-10-09T07:55:18.043Z"
+  },
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/tidepool/runs/rafp-added-diff-2026-10-09/review-and-fix-pr/attempt-dlYrph/repo",
+  "finishedAt": "2026-10-09T08:12:12.623Z"
+}

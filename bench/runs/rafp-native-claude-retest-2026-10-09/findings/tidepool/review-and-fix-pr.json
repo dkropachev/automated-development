@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-native-claude-retest-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "0e9f376996d93eec53b7b9f14eb85cc94faefe9d66a5e4a79893889e2afeafeb",
+  "pluginFingerprint": {
+    "contentSha256": "8dea71b3e5aee10a75d5dd83e500ead1f2e9b7520112d46b06b2fc99fe1e9673",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "cellId": "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr",
+  "target": "tidepool",
+  "tool": "review-and-fix-pr",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "5d0fa6db85be757ebc449392030fa5c68e2d151eb7f746d69acb81840a6bca37",
+  "label": "Automated Development review-and-fix-pr",
+  "findings": [
+    {
+      "file": "helpers.go",
+      "line": 105,
+      "title": "Vector element name without marshal prefix panics via unchecked type assertion",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "A vector whose element type name lacks the org.apache.cassandra.db.marshal. prefix resolves to a type with no element type; goType does an unchecked type assertion and panics inside info.Zero(), before the PR's new nil check, and nothing recovers it on the Scan path.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1125,
+      "title": "vectorElemMinSize re-walks nesting at every level, costly for deeply nested types",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "vectorElemMinSize recomputes the remaining nesting repeatedly, giving roughly 5e8 operations for a hostile type nested ~1400 deep versus ~1e6 on base; computing variable-length and minimum size in one pass would fix it.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1140,
+      "title": "Zero-dimension inner vector minimum size wrongly counted as 1 byte instead of 0",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "vector<float,0> takes 0 bytes per element but is counted as 1, so vector<vector<float,0>,N> with an empty payload that decoded on base now errors, contradicting the PR's claim that the check never rejects valid data; reachable from the wire since frame.go:861 accepts dimension 0.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 986,
+      "title": "Comment overstates that every path becomes an allocation and that unmarshalList behaves…",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The comment claiming every path below turns into an allocation is false for the array path, and the claim that unmarshalList does the same overstates it since unmarshalList uses a constant /4 bound on slices only.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1005,
+      "title": "Stale nil/empty comment and duplicated Dimensions>0 && data!=nil guard",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The comment about nil/empty falling through no longer matches the code, and the Dimensions > 0 && data != nil guard now appears twice in a row.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1011,
+      "title": "Float/double length-mismatch errors now unreachable except for overlong payloads,…",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The \"expected N bytes, got M\" errors now fire only for payloads that are too long, but the code doesn't say so; only the PR body explains it.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1048,
+      "title": "Nested-vector error message omits inner type and dimension",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The error prints custom(org.apache.cassandra.db.marshal.VectorType) without the inner type or dimension; the commit message implies the error names the server-sent type, which is true only for unknown element types.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body's claim that every new test fails against pristine code is false",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Several new tests (TestUnmarshalVectorAcceptsWellFormedPayloads, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType, two \"still decodes\" subtests) pass on base, and TestVectorElemMinSize doesn't fail on base — it doesn't even compile there.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit 0276a66 justifies bound with a floor its own tests call a bug",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The commit justifies the size bound with a one-byte-per-element floor, then replaces that floor with the recursive minimum, while its own tests call the one-byte floor the bug.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commits lack Refs trailers despite PR body citing issue #1091 and DRIVER-954",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "Neither commit has a Refs: trailer even though the PR body cites issue #1091 and DRIVER-954; 17 of the 40 prior commits use such trailers.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 724,
+      "title": "Test locks in surplus-trailing-byte behaviour slated to change under a different issue",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The \"payload with a trailing byte\" test calls a 13-byte vector<int,3> well-formed, locking in surplus-bytes behaviour the PR defers to #1086, which will require the test to change when #1086 lands.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "No test covers an empty non-NULL payload with dimensions > 0",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The headline behaviour change has no direct test: no case covers an empty non-NULL payload ([]byte{}) with dimensions greater than 0.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1135,
+      "title": "No test reaches the MaxInt32 saturation branch",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test reaches the MaxInt32 saturation branch at marshal.go:1135-1137.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "makeVectorType duplicates makeFloat32VectorType and makeDoubleVectorType",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "makeVectorType duplicates the logic already present in makeFloat32VectorType and makeDoubleVectorType.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Tests pair TypeText with UTF8Type though the parser maps that to TypeVarchar",
+      "severity": "nit",
+      "kind": "test-gap",
+      "claim": "Tests pair TypeText with UTF8Type, but the parser actually maps UTF8Type to TypeVarchar.",
+      "selfRejected": false
+    },
+    {
+      "file": "helpers.go",
+      "line": 222,
+      "title": "Pre-existing: type name dropped on malformed metadata unlike new unknown-type handling",
+      "severity": "nit",
+      "kind": "bug",
+      "claim": "helpers.go:222 and :267 still drop the type name on malformed metadata, unlike the PR's new behaviour for unknown types.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Keeping the custom name on unknown types is not a user-visible break",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "Keeping the custom name on unknown types is not a user-visible break because only the vector-parsing paths call it, and nothing compares type values.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "The allocation test is not likely to flake",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The allocation test is not likely to flake.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Nil SubType does not crash on any input base handled safely",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A nil SubType doesn't crash on any input that base handled safely; head crashes on fewer inputs than base.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "vectorElemMinSize assumes no type is both fixed-size and variable-length",
+      "severity": "low",
+      "kind": "design",
+      "claim": "vectorElemMinSize assumes no type is both fixed-size and variable-length; this only matters if a vector element can ever be empty, which could not be established.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 6731,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 40288,
+      "webSearchRequests": 0,
+      "costUSD": 0.228466,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3699,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-09T12:30:48.236Z"
+}

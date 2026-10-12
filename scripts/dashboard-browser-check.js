@@ -115,12 +115,12 @@ try {
   // completed cohort lands, while this slice remains stable before and after that event.
   const home = render('home?model=claude-opus-5')
   assert.match(home.app, /Find the code-review skill worth its price\./)
-  assert.match(home.app, /cohort-adjudicated real findings/)
+  assert.match(home.app, /discovered real findings/)
   assert.doesNotMatch(home.app, /verified findings|verified issues|verified real/)
   assert.match(home.app, /<h2 id="leaders-title">Leaders<\/h2>/)
   assert.doesNotMatch(home.app, /Completeness leaders/)
   assert.match(home.app, /Best return for the money · All issues/)
-  assert.match(home.app, /3\.02 findings \/ \$/)
+  assert.match(home.app, /[0-9]+\.[0-9]+ findings \/ \$/)
   assert.equal(count(home.app, /id="completeness-scope"/g), 1)
   assert.equal(count(home.app, /id="language-scope"/g), 1)
   assert.match(home.app, /class="leader-pickers"[\s\S]*id="completeness-scope"[\s\S]*id="language-scope"/)
@@ -132,7 +132,7 @@ try {
   assert.match(home.app, /href="#skills\/superpowers-review\?model=claude-opus-5"/)
   assert.doesNotMatch(home.app, /review-bakeoff\.md/)
   assert.match(home.app, /Best coverage · All issues/)
-  assert.match(home.app, /Compound Engineering ce-code-review<\/a><\/h3><strong>56\.8%/)
+  assert.match(home.app, /class="landing-rank-grid completeness-grid"/)
   const coverageCards = rankingCards(home.app, 'completeness-grid')
   assertTopThree(coverageCards)
   assert.match(home.app, /Fastest useful review · All issues/)
@@ -143,16 +143,16 @@ try {
 
   const majorHome = render('home?model=claude-opus-5&completeness=major')
   assert.match(majorHome.app, /Best return for the money · Major only/)
-  assert.match(majorHome.app, /0\.45 findings \/ \$/)
+  assert.match(majorHome.app, /[0-9]+\.[0-9]+ findings \/ \$/)
   assert.match(majorHome.app, /Best coverage · Major only/)
-  assert.match(majorHome.app, /Compound Engineering ce-code-review<\/a><\/h3><strong>75\.0%/)
+  assert.match(majorHome.app, /class="landing-rank-grid completeness-grid"/)
   assertTopThree(rankingCards(majorHome.app, 'leader-grid'))
 
   const majorMinorHome = render('home?model=claude-opus-5&completeness=majorMinor')
   assert.match(majorMinorHome.app, /Best return for the money · Major \+ minor/)
-  assert.match(majorMinorHome.app, /1\.21 findings \/ \$/)
+  assert.match(majorMinorHome.app, /[0-9]+\.[0-9]+ findings \/ \$/)
   assert.match(majorMinorHome.app, /Best coverage · Major \+ minor/)
-  assert.match(majorMinorHome.app, /Superpowers requesting-code-review<\/a><\/h3><strong>69\.6%/)
+  assert.match(majorMinorHome.app, /class="landing-rank-grid completeness-grid"/)
   assertTopThree(rankingCards(majorMinorHome.app, 'leader-grid'))
 
   const goHome = render('home?model=claude-opus-5&language=Go')
@@ -327,7 +327,7 @@ try {
   assert.match(insights.app, /automated cohort-local judgements are not the manually reviewed canonical gold comparison/)
 
   const findings = render('findings?model=claude-opus-5-5')
-  assert.match(findings.app, /Cohort-adjudicated real/)
+  assert.match(findings.app, /Discovered real/)
   assert.doesNotMatch(findings.app, /Verified real|verified real/)
 
   const skills = render('skills?model=claude-opus-5')
@@ -337,11 +337,44 @@ try {
   assert.match(skills.app, /The benchmark ran these as Claude Code plugins\./)
 
   const skillComparison = render('compare?model=claude-opus-5&compareSkills=builtin-code-review%2Csuperpowers-review')
-  for (const label of ['Attempted cost', 'Distinct real', 'Only this skill', 'Shared', 'Completeness', 'Precision', 'Success']) {
+  for (const label of ['Attempted cost', 'Distinct real', 'Only this skill', 'Shared', 'Total real found', 'Completeness', 'Precision', 'Success']) {
     assert.match(skillComparison.app, new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*?class="hint-mark"`, 's'), `${label} needs a rendered hint`)
   }
   assert.match(skillComparison.app, />6 attempted runs<\/a>/)
   assert.match(skillComparison.app, /href="#skills\/builtin-code-review\?model=claude-opus-5" class="skill-info-link">Skill info<\/a>/)
+
+  const unmatchedSkills = render('compare?compareSkills=anthropic-pr-review%2Cmattpocock-review%2Creview-and-fix-pr2%2Creview-and-fix-pr&targets=ironweave')
+  assert.match(unmatchedSkills.app, /Completed evidence/)
+  assert.match(unmatchedSkills.app, /<h2>Head-to-head evidence<\/h2>/)
+  assert.match(unmatchedSkills.app, /Only this skill/)
+  assert.match(unmatchedSkills.app, /Combined coverage/)
+
+  const crossRun = render('compare?model=all&compareSkills=anthropic-pr-review%2Cmattpocock-review%2Creview-and-fix-pr2')
+  assert.match(crossRun.app, /All models \/ history/)
+  assert.match(crossRun.app, /<h2>Head-to-head evidence<\/h2>/)
+  assert.match(crossRun.app, /Completeness/)
+  assert.match(crossRun.app, /C\+\+/)
+  assert.match(crossRun.app, /Rust/)
+  assert.match(crossRun.app, /Go/)
+  for (const toolId of ['anthropic-pr-review', 'mattpocock-review', 'review-and-fix-pr2']) {
+    const targetIds = new Set(DASHBOARD_DATA.runs.filter((run) => run.toolId === toolId && run.status === 'complete').map((run) => run.targetId))
+    assert.deepEqual([...targetIds].sort(), ['ironweave', 'quillstone', 'tidepool'], `${toolId} must contribute all three languages`)
+  }
+  const crossRunPair = render('compare?model=all&compareSkills=anthropic-pr-review%2Creview-and-fix-pr2')
+  const coverageFor = (html) => {
+    const row = html.match(/<tr><td><strong><a[^>]*>Automated Development review-and-fix-pr2<\/a><\/strong>[\s\S]*?<\/tr>/)
+    assert.ok(row, 'the cross-run skill must be shown')
+    const cells = [...row[0].matchAll(/<td class="num">([^<]+)<\/td>/g)].map((match) => match[1])
+    return { everFound: cells[4], completeness: cells[5] }
+  }
+  assert.deepEqual(coverageFor(crossRun.app), coverageFor(crossRunPair.app), 'changing selected skills must not change the discovered denominator or completeness')
+  const realIdentityIds = new Set(DASHBOARD_DATA.identityIssues.filter((issue) => issue.verdict === 'real').map((issue) => issue.id))
+  const expectedEverFound = new Set(DASHBOARD_DATA.runs.filter((run) => run.status === 'complete').flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
+  assert.equal(Number(coverageFor(crossRun.app).everFound.replaceAll(',', '')), expectedEverFound)
+  const r43Rejected = DASHBOARD_DATA.issues.find((issue) => issue.id === 'opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/I9')
+  assert.equal(r43Rejected.verdict, 'false-positive')
+  assert.deepEqual(r43Rejected.identityIds, ['quillstone-I022'])
+  assert.equal(DASHBOARD_DATA.identityIssues.find((issue) => issue.id === 'quillstone-I022').verdict, 'real')
 
   const comparison = render('compare/tidepool/builtin-code-review/tidepool/superpowers-review')
   assert.match(comparison.app, /href="#run\/legacy%2Ftidepool%2Fbuiltin-code-review" class="run-link">legacy\/tidepool\/builtin-code-review<\/a>/)

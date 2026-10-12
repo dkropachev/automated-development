@@ -128,15 +128,11 @@ test('review-and-fix-pr uses one dedicated structurally read-only lane controlle
     skill.indexOf('## 3. Audit coverage'))
   const refRoute = ref.slice(ref.indexOf('## Lane controller'),
     ref.indexOf('## Core lane instructions'))
-  const readmeRoute = readme.slice(readme.indexOf('Exactly once per review cycle'),
-    readme.indexOf('These six core lanes'))
   const failureRules = [
     ['SKILL.md', skillRoute,
       /If this typed agent is unavailable or malformed, fail with\s+`lane-error`; do not use a generic agent, retry a controller, or route the lanes yourself\./gi],
     ['reference.md', refRoute,
       /If the typed agent is unavailable or its response is malformed, stop the\s+review with `lane-error`; never fall back to a generic agent, a second controller invocation, or\s+parent-authored routing\./gi],
-    ['README.md', readmeRoute,
-      /a missing or malformed response fails the review instead of\s+falling back to a generic agent\./gi],
     ['review-lane-controller.md', agent,
       /Missing or malformed input is a controller failure;\s+return exactly `CONTROLLER_INPUT_ERROR` so the parent rejects the response as malformed\. Never\s+invent missing input, recommend a generic agent, or imply a degraded review\./gi],
   ]
@@ -607,18 +603,19 @@ test('a skill body stays under the size a whole invocation pays for it', () => {
   }
 })
 
-test('current review skill uses the isolated six-pass engine and one terminal marker', () => {
+test('current review skill stays within the Claude harness and uses the filtered diff', () => {
   const skill = rd('skills/review-and-fix-pr/SKILL.md')
-  const reference = rd('skills/review-and-fix-pr/reference-fast.md')
   const tool = JSON.parse(rd('bench/tools.json')).tools.find(({ id }) => id === 'review-and-fix-pr')
-  assert.match(skill, /review-and-fix-pr-fast\.js/)
-  assert.match(skill, /six independent Claude Opus discovery passes/)
-  assert.match(skill, /Do not schedule wakeups or reminders/)
-  assert.match(skill, /never poll for the helper by process-name text/)
+  assert.match(skill, /native `Agent` tool/)
+  assert.match(skill, /bin\/added-code-diff\.js/)
+  assert.match(skill, /six independent lanes/)
+  assert.match(skill, /Never launch a\s+model through Bash, Node/)
+  assert.doesNotMatch(skill, /node "\$\{CLAUDE_PLUGIN_ROOT\}\/bin\/review-and-fix-pr-(?:fast|codex)\.js"/)
   assert.match(skill, /REVIEW_AND_FIX_PR_RESULT_JSON=/)
-  assert.match(reference, /original rows, sources, groups/)
-  assert.match(reference, /Suggestions appear under \*\*Needs reviewer judgment\*\*/)
-  assert.equal(tool.reviewProtocol, 'six-pass')
+  assert.equal(tool.reviewProtocol, undefined)
   assert.equal(tool.requiresDiscoveryReceipts, false)
-  assert.match(tool.prompt, /do not poll by process-name text or schedule a Monitor or reminder/i)
+  assert.equal(tool.resultContract, 'review-and-fix-pr-v1')
+  assert.match(tool.prompt, /native Agent tool/)
+  assert.doesNotMatch(tool.prompt, /review-and-fix-pr-fast\.js/i)
+  assert.match(tool.prompt, /Do not launch Claude or Codex CLI subprocesses/)
 })

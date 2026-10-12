@@ -2,7 +2,7 @@
 
 Nine configured review tools and three real pull requests in three languages, published as a
 report and an offline dashboard. The default active matrix remains 19 cells; experimental
-`review-and-fix-pr` is cohort-only, and parked
+`review-and-fix-pr` and `review-and-fix-pr2` are cohort-only, and parked
 `ironweave/tob-c-review` is excluded:
 
 - [`docs/review-bakeoff.md`](../docs/review-bakeoff.md) is the narrative report.
@@ -72,7 +72,26 @@ both dashboards, and leaves the hand-written legacy report untouched. `make benc
 fails on a missing or stale generated file. `ARGS`
 passes other flags through, for example `make bench-run ARGS="--only ironweave --concurrency 2"`.
 
+The dashboard's Choose, Compare, Insights, Findings, and run-overlap views use the separate
+`issue-identities.json` cross-run catalog. Reviewed mappings can assign more than one underlying
+identity to a cohort judgement and can give a finding a reviewed verdict that differs from its
+local judge. The original judgement remains visible in the run evidence. New findings without a
+reviewed mapping appear immediately under distinct provisional identities. Discovered coverage
+uses all completed, hash-verified runs on the selected pinned PR revisions; the Models tab labels
+this coverage separately from the sealed canonical gold ranking. Review new matches in the catalog
+before treating provisional counts as deduplicated.
+
 ## Scoped cohorts and local plugins
+
+`review-and-fix-pr2` is a separate read-only protocol with toolkit, Standards, and Spec reports.
+It does not use the `review-and-fix-pr` completion marker. Run it from this plugin checkout with
+`--plugin-dir .` and a fresh `RUN`; the default matrix does not include it. After all three Opus 5.5
+results exist, run `node bench/check-review-tokens.js <RUN>`. This checks each result's recorded
+transcript input, output, cache-read, and cache-creation total against 120% of the matching
+`anthropic-pr-review` plus `mattpocock-review` results from `opus-5-5-2026-09-29`. A missing usage
+record or one over-limit target fails. Then extract, judge, complete, and publish that cohort using
+the commands below with the new tool ID. Keep its judgements cohort-local unless a new gold
+snapshot is separately reviewed and sealed.
 
 With no cohort-scope flags, `bench-run` retains the default 19-cell matrix. Cohort-only experimental
 tools do not enter it merely because they are registered. On the first invocation
@@ -102,36 +121,17 @@ multi-command cohort, so inspect and report recorded usage after each cell.
 
 ### `review-and-fix-pr` publication contract
 
-`review-and-fix-pr` is registered as a review-only, experimental, self-authored tool. Its cohort
-cells are publishable only when the final response ends with the structured
-`REVIEW_AND_FIX_PR_RESULT_JSON` marker and that contract proves all of the following:
+`review-and-fix-pr` is a review-only, experimental, self-authored Claude skill. Current runs keep
+all review reasoning in the invoking Claude Code session and its native agents. They use the
+schema-v1 `REVIEW_AND_FIX_PR_RESULT_JSON` marker. The parser admits a result only when all ten
+methodology IDs are complete, verification and coverage are complete, no gaps or failed lanes
+remain, fixing was not requested, and provisional findings partition into confirmed, rejected,
+and unresolved counts. The marker must be the final nonempty line.
 
-- the stateless coverage audit and finding verification are complete, with no remaining coverage
-  gaps;
-- all ten stable methodology IDs mapped from the six mandatory execution lanes completed, with no
-  skipped, failed, or unknown IDs;
-- fixing was not requested and the fix status is `not-requested`;
-- the response reports normal completion; and
-- finding counts are present and non-negative; `provisional` counts atomic candidates, including
-  unique Codex leads, and confirmed, rejected, plus unresolved dispositions partition that set;
-- the schema-v2 candidate ledger and new-lead mappings prove fixed-point closure, including that no
-  lead was judged by the Codex invocation which originated it; and
-- the embedded discovery ledger retains admitted, merged, and screened lane leads with reasons,
-  and the runner snapshots final subagent receipts so every checked-nonissue observation stays
-  inspectable even if the compact ledger omits one; and
-- a hash-bound external receipt proves authenticated OpenAI Codex `gpt-5.6-sol` adjudication with
-  high reasoning, CLI 0.149.0 or newer, read-only execution, unchanged target/plugin identity, and
-  no pending work. Codex usage is stored separately from Claude cost and token accounting.
-
-The runner writes the receipt outside the reviewed target, rejects the response before writing a
-result if the marker and receipt are absent, partial, tampered, or inconsistent, and rechecks the
-external receipt before sealing. Completed snapshots retain its normalized hash, closure proof,
-and usage rather than depending on mutable trace paths. Historical schema-v1 manifests/results stay
-readable but new runs require v2. The dashboard visibly labels this tool experimental and self-authored in
-cohort-local views; those labels and a completed cohort do not make it part of canonical gold.
-The skill runs directly in the benchmark process: it must not invoke or relay a nested Workflow.
-Its human-readable report must contain exactly one contract marker, and that marker must be the
-final nonempty line. The benchmark parser enforces both conditions before admitting the result.
+Earlier cohorts with schema-v2/v3 markers and external Codex receipts remain readable as
+historical measurements of the former cross-harness protocol. Their sealed results are not
+reinterpreted as native Claude-skill runs. Cohort-local judgements remain separate from the
+manually reviewed canonical gold comparison.
 
 ### Three-cell Opus 5.5 cohort
 

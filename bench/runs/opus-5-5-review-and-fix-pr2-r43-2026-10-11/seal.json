@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "runId": "opus-5-5-review-and-fix-pr2-r43-2026-10-11",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "configSha256": "f61efe571468c0bb59d31c947498e4c226f38165e174921fd4ed3446464c0a7e",
+  "pluginFingerprint": {
+    "contentSha256": "ba68576f17db7d2ebfbc22ed45d4a038d37d71934d2c9da8ba700f6138647349",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "createdAt": "2026-10-11T18:10:37.722Z",
+  "cells": [
+    {
+      "id": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/ironweave/review-and-fix-pr2",
+      "target": "ironweave",
+      "tool": "review-and-fix-pr2",
+      "file": "results/ironweave/review-and-fix-pr2.json",
+      "sha256": "801cf3d6c508887c51dacab4dc42f4c0f54bd19f88c62155d8eef4786f793175"
+    },
+    {
+      "id": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/quillstone/review-and-fix-pr2",
+      "target": "quillstone",
+      "tool": "review-and-fix-pr2",
+      "file": "results/quillstone/review-and-fix-pr2.json",
+      "sha256": "e6f419a85c12aa9b12a66dc215ee9ad880939933836cc5da9bc16896ba5374d7"
+    },
+    {
+      "id": "opus-5-5-review-and-fix-pr2-r43-2026-10-11/tidepool/review-and-fix-pr2",
+      "target": "tidepool",
+      "tool": "review-and-fix-pr2",
+      "file": "results/tidepool/review-and-fix-pr2.json",
+      "sha256": "c3df7e05f59a29f734134edb1c8e6e371d717a63152e319000accb8d507ccdce"
+    }
+  ]
+}

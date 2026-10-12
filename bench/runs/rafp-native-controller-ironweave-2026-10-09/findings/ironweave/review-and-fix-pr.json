@@ -1,0 +1,223 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-native-controller-ironweave-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "0e9f376996d93eec53b7b9f14eb85cc94faefe9d66a5e4a79893889e2afeafeb",
+  "pluginFingerprint": {
+    "contentSha256": "2cd92aa25a4277827f88ecf58822ca0173f30fc23dd45aa101c0d5dcfd428a3d",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "cellId": "rafp-native-controller-ironweave-2026-10-09/ironweave/review-and-fix-pr",
+  "target": "ironweave",
+  "tool": "review-and-fix-pr",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "84b600e2416f901c1afcd8304b2cf8764f5b05075d3f3e554d180f59c881a25b",
+  "label": "Automated Development review-and-fix-pr",
+  "findings": [
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1965,
+      "title": "Test doesn't exercise the queue-drain path in stream_close()",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "When stream_close() runs in this test, the eof entry has already finished, so queue_drained is ready and only the gate at rpc.cc:293 is exercised; dropping the drain at rpc.cc:557-570 would still pass even though a hook frame queued just before the mark can reach it.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2014,
+      "title": "Base-case test failure mode depends on scheduling, may abort instead of throwing as…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The try/catch accepts the hook succeeding, and the 10 yield() calls don't force the batch-flush poller despite the comment, so outside debug builds base can abort in ~output_stream instead of failing with the BOOST message the commit claims; BOOST_REQUIRE_THROW(stream_send_empty_frame().get(), rpc::closed_error) would fail on base every time.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Claim that window is 'held open deterministically' is overstated",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The server keeps draining while close() is parked, so the client's _error could be set first; base would then refuse via _error and pass, though this is unlikely in practice.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 110,
+      "title": "Docs wrongly say reading a source until it throws is sufficient to close it",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The docs say reading until it 'throws' closes a source, but an unmarshall failure in process_one_buffer never calls close_source(), so an application that follows the docs and stops there never triggers stream_close().",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "title": "Docs wrongly claim connection shuts down only once both halves are closed",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Peer eof, loop errors, and abort_all_streams() all stop the connection without both halves being closed, contradicting the commit's claim of 'never shut down' otherwise.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "title": "Comment wrongly says path is only exceptional if an entry failed",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment states the path is '(exceptional if an entry failed)', but a failed send_entry calls abort() and then done.set_value(), not an exception.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 557,
+      "title": "Comment wrongly claims nothing else waits on _outgoing_queue_ready",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "stop_send_loop() still waits on _outgoing_queue_ready in when_all (rpc.cc:225); it just now gets the ready placeholder.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 551,
+      "title": "Comment overclaims that _error is only set by the stop() that follows",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "abort() and loop errors can also set _error during the new drain wait, contradicting the comment's claim that only the following stop() sets it.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "title": "New put(std::span) test override lacks API-level guard, breaks build at API levels 7/8",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The put(std::span) override has no #if SEASTAR_API_LEVEL >= 9 guard, unlike loopback_socket.hh:144, so rpc_test stops compiling at API levels 7/8, which CMakeLists.txt still allows.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "title": "close_entered_cv.wait has no timeout, regression could hang until 300s harness timeout",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "A regression that never reaches close() hangs until the 300 second harness timeout because close_entered_cv.wait has no timeout of its own.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Early test assertion failure leaves sink unclosed, aborting the process instead of…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "A failing BOOST_REQUIRE_EQUAL(hooks.size(), 2u) (or any earlier throw) drops the unclosed sink, and ~sink_impl's assert aborts instead of reporting; existing stream tests share this issue, and deferred_close(sink) would avoid it.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 330,
+      "title": "const_cast used in hook_capturing_compressor_factory::negotiate instead of existing…",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The same file uses a mutable member (cfactory, rpc_test.cc:330) for this purpose elsewhere, making the const_cast inconsistent.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Backport claim only partly holds for branches lacking put(std::span)",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The test's put(std::span) (added 2025-10) won't apply to branches from 2023-10 to 2025-10 which have the bug, though the fix commit itself is self-contained.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commits lack Signed-off-by DCO line required by contributing docs",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "None of the three commits has a Signed-off-by line, though doc/contributing.md asks for a DCO sign-off (though repo history mostly skips it).",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commits and PR contain Claude attribution trailers, violating user's CLAUDE.md policy",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "All three commits carry Co-Authored-By: Claude trailers and the PR body ends with 'Generated with Claude Code', which the global CLAUDE.md forbids.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Fixes/Refs issue links may resolve against the wrong repo, risking auto-close of wrong…",
+      "severity": "low",
+      "kind": "question",
+      "claim": "Fixes #3663 / Refs #3653 resolve against dkropachev/ironweave, whose links base 5cc62de6 repointed; they likely mean upstream issues but this couldn't be confirmed because the fetch failed, and if so, merging could auto-close the wrong local issue.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "_stream_closing flag claimed as a hazard",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The _stream_closing flag is not a hazard because enqueue_zero_frame only runs from the constructor.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Size of test's socket wrappers questioned",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The size of the test's socket wrappers is justified.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Parent-client connection claimed to have an equivalent race window",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The parent-client connection has no equivalent window, because stop_send_loop() sets _error before closing.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Audit's claimed use-after-free on st does not happen",
+      "severity": "low",
+      "kind": "security",
+      "claim": "The audit's use-after-free on st doesn't happen: the broken shared_promise resolves the parked close.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 11551,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 40264,
+      "webSearchRequests": 0,
+      "costUSD": 0.27657,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 8431,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-09T13:21:25.268Z"
+}

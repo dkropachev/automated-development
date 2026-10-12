@@ -1,0 +1,324 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-added-diff-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "e00037e7e363a273c1d73d0d66469b33f1c5a2409152eae0494fe050b632470c",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "target": "tidepool",
+  "language": "Go",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "rawFindings": 18,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Zero-dim VectorType with nil SubType still panics when unmarshaled into *any",
+      "file": "marshal.go",
+      "line": 1033,
+      "kind": "bug",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "Reproduced directly: unmarshalVector(VectorType{}, []byte{}, &dst) with dst any panics with a nil-pointer dereference because t.Kind()==reflect.Interface unconditionally calls info.Zero(), which calls v.SubType.NewWithError() on a nil SubType interface (marshal.go:2045) regardless of Dimensions==0; the new dimension bound only guards the elemMin computation, not this path, and the new test TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType only exercises a *[]float64 destination.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "The PR's own stated goal is to stop unmarshalVector from crashing the Scan goroutine on attacker/peer-controlled input, and explicitly claims (via a new test and comment) that zero-dimension vectors with a nil SubType are now safe; this residual panic on the *any path undermines that exact claim and belongs in the same fix.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType and the guard comment say a zero VectorType with a nil SubType is safe at zero dimensions. That only holds for a concrete-slice destination: with an *any destination, unmarshalVector still calls info.Zero(), which dereferences the nil SubType."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr": "TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType and the guard comment say a zero VectorType with a nil SubType is safe at zero dimensions. That only holds for a concrete-slice destination: with an *any destination, unmarshalVector still calls info.Zero(), which dereferences the nil SubType.; A zero-dimensional VectorType with a nil SubType still panics when unmarshaled into *any, despite the new test and comment claiming the subtype is untouched."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "getCassandraLongType's custom-name change silently alters TypeInfo for all unrecognized…",
+      "file": "helpers.go",
+      "line": 280,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "getCassandraLongType is the general recursive class-name parser used for list/set/map elems, tuple fields, UDT fields, and vector subtypes (helpers.go:211-277); the new branch at helpers.go:280-284 applies to every 'basic type' fallthrough, not just vector elements, so TypeInfo.Custom() (previously empty string) and String() (previously 'custom()') now report the full class name everywhere an unrecognized type appears, not only inside vectors.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The behavior change is new code added by this PR's diff to helpers.go, and its blast radius (all metadata consumers of TypeInfo) is wider than the PR describes (only vector error messages), so it is this PR's responsibility to document or narrow.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "getCassandraLongType now returns NativeType with `custom` set to the full class name for every unrecognised type, not only vector elements. That changes the public TypeInfo.Custom() and String() output for collection, tuple, UDT and vector-subtype metadata across the driver, and neither the commit nor the PR body calls it a contract change."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr": "getCassandraLongType now returns NativeType with `custom` set to the full class name for every unrecognised type, not only vector elements. That changes the public TypeInfo.Custom() and String() output for collection, tuple, UDT and vector-subtype metadata across the driver, and neither the commit nor the PR body calls it a contract change.; Preserving every unknown class name changes the public TypeInfo.Custom() and String() results for all metadata callers, not only vector error diagnostics."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "PR body's 'every new test fails against pristine marshal.go/helpers.go' claim is false",
+      "file": "marshal_vector_test.go",
+      "line": 937,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Reproduced: restoring main's marshal.go/helpers.go (plus only the new vectorElemMinSize helper, needed to compile) and running the new tests shows TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType passes in full against the pristine implementation, directly contradicting the PR description's claim that every new test fails there; in reality most of the new file fails to even compile (undefined vectorElemMinSize) rather than failing per-test with the three cited runtime errors.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The inaccurate claim is written in this PR's own description text.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The PR says \"Every new test fails against pristine marshal.go/helpers.go\". Several new tests pass on the base behaviour, so this is false."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr": "The PR says \"Every new test fails against pristine marshal.go/helpers.go\". Several new tests pass on the base behaviour, so this is false.; The PR statement that every new test fails on the pristine implementation is false."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "32-bit wrap-test comment is false: the unit-tagged test package cannot compile on 32-bit",
+      "file": "marshal_vector_test.go",
+      "line": 585,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Confirmed with GOARCH=386 go test -tags unit -c: the package fails to compile on 32-bit for multiple pre-existing reasons (e.g. int(-1)<<32 overflowing int in serialization/varint, and marshal_test.go:1098 comparing an int against the untyped constant math.MaxUint32), so the claim that the word-size expressions 'exercise wrapping on a 32-bit target too' is untestable in practice -- that path never builds.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The misleading comment asserting a 32-bit wrap guarantee was added by this PR, even though the underlying 32-bit compile failure predates it.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The test comment says the overflow cases \"use the word size so the wrap lands on a 32-bit target too\". On a 32-bit target, though, the unit-tagged gocql test package cannot compile, so that path is never built or run."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr": "The test comment says the overflow cases \"use the word size so the wrap lands on a 32-bit target too\". On a 32-bit target, though, the unit-tagged gocql test package cannot compile, so that path is never built or run.; The test comment claims its word-size expressions exercise wrapping on 32-bit targets, but the unit test package cannot compile there because another unit test compares an int with math.MaxUint32."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "vectorElemMinSize's int32-overflow saturation branch has no test",
+      "file": "marshal.go",
+      "line": 1137,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "TestVectorElemMinSize (marshal_vector_test.go:797) only exercises Dimensions up to 4 (e.g. vector<vector<float,3>,4> = 48), never a Dimensions/SubType combination large enough to hit the `return math.MaxInt32` branch at marshal.go:1137, even though the comment calls overflow handling a stated purpose of the function.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize and its test are new code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "vectorElemMinSize's saturation branch (`return math.MaxInt32`) has no test row, although the overflow handling is a stated purpose of the function."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr": "vectorElemMinSize's saturation branch (`return math.MaxInt32`) has no test row, although the overflow handling is a stated purpose of the function.; The overflow-saturation branch in vectorElemMinSize is unprotected by a test case."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "No regression test for a zero-length non-NULL payload with Dimensions > 0",
+      "file": "marshal.go",
+      "line": 998,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Searched marshal_vector_test.go for a case using a non-nil empty []byte{} payload together with a positive-Dimensions VectorType: the only []byte{} payload used is for VectorType{} (Dimensions==0, line 944); the headline behaviour change the PR body advertises -- 'vector<int,3> over an empty payload gave [0 0 0], nil -- and now errors' -- has no case pinning info.Dimensions>0 with data=[]byte{}.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The behaviour change and its test suite are both introduced by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The headline behaviour change (\"a short or zero-length non-NULL payload ... now errors\") has no test for the zero-length case. No test passes a non-nil empty payload with Dimensions > 0."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr": "The headline behaviour change (\"a short or zero-length non-NULL payload ... now errors\") has no test for the zero-length case. No test passes a non-nil empty payload with Dimensions > 0.; The advertised rejection of a zero-length non-NULL payload with positive dimensions has no direct regression test."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "New comment overstates that every path below unmarshalVector allocates",
+      "file": "marshal.go",
+      "line": 986,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The comment at marshal.go:986-991 says 'every path below turns it into an allocation'; the k==reflect.Array branch (marshal.go ~1050s) only checks rv.Len() against info.Dimensions and never calls make or reflect.MakeSlice, so it allocates nothing, matching the PR's own test comment ('An array allocates nothing...', marshal_vector_test.go line ~648).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The inaccurate comment was added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new comment says every path below turns Dimensions into an allocation. The array destination path allocates nothing, and the PR's own test comment says so."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr": "The new comment says every path below turns Dimensions into an allocation. The array destination path allocates nothing, and the PR's own test comment says so.; The new comment says every path below turns Dimensions into an allocation, but the array path allocates nothing. The PR's own test comment says so."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "Commit messages don't follow CONTRIBUTING.md's required format",
+      "file": "CONTRIBUTING.md",
+      "line": 28,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "CONTRIBUTING.md:28-41 requires a short description starting with a capital letter and a trailing 'Patch by <authors>; reviewed by <Reviewers> for #####' line; both PR commits ('fix(marshal): reject...', 'fix(marshal): bound...') start lowercase with a conventional-commit prefix instead, and neither has the required Patch-by/reviewed-by trailer.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is about the format of the PR's own two commits.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Commits do not follow CONTRIBUTING.md's commit-message format: the subjects start lowercase with a conventional-commit prefix, and neither commit has the required `Patch by <authors>; reviewed by <Reviewers> for #####` line."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr": "Commits do not follow CONTRIBUTING.md's commit-message format: the subjects start lowercase with a conventional-commit prefix, and neither commit has the required `Patch by <authors>; reviewed by <Reviewers> for #####` line."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "Behaviour changes ship without CHANGELOG/godoc documentation CONTRIBUTING.md requires",
+      "file": "helpers.go",
+      "line": 280,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "CONTRIBUTING.md:25 requires notable behaviour changes to be documented in CHANGELOG.md and functional changes in godoc; this repo has no CHANGELOG.md file at all, and no exported godoc (e.g. on VectorType, NativeType.Custom/String, or Unmarshal) was updated to describe the new dimension-bound rejection or the unknown-type-name preservation, even though both are real behaviour changes a caller could observe.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The undocumented behaviour changes are exactly what this PR introduces.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "A notable behaviour change ships without the CHANGELOG/godoc documentation CONTRIBUTING requires: unknown custom type names now keep their name, and vectors are newly rejected on dimension bounds and on element types with no Go type."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr": "A notable behaviour change ships without the CHANGELOG/godoc documentation CONTRIBUTING requires: unknown custom type names now keep their name, and vectors are newly rejected on dimension bounds and on element types with no Go type."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "'Payload with a trailing byte' test mislabels a malformed payload as well-formed",
+      "file": "marshal_vector_test.go",
+      "line": 724,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The subtest feeds a 13-byte payload to a 3-dimension, 4-byte-fixed int vector (not evenly divisible by 3) and asserts success under TestUnmarshalVectorAcceptsWellFormedPayloads's banner that 'a vector of N elements is never encoded in fewer than N bytes' -- 13 bytes is not a valid encoding of 3 int32s; the generic (non-float-fast-path) decode loop derives elemSize via integer division (len(data)/Dimensions) and never checks for leftover bytes, so it silently accepts it while the float32/float64 fast paths would reject the same mismatch outright. This looseness itself predates the PR and is the PR body's explicitly out-of-scope issue (#1086), so the test is accurately pinning current behaviour, but its 'well-formed' framing is inaccurate.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test and its misleading framing are new in this PR, even though the underlying trailing-bytes leniency is pre-existing and was explicitly declared out of scope by the PR author.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "TestUnmarshalVectorAcceptsWellFormedPayloads includes a 'payload with a trailing byte' case: a 13-byte int vector with 3 dimensions. That payload is malformed, yet the test asserts it decodes without error. The float fast paths reject any length other than Dimensions*size."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr": "TestUnmarshalVectorAcceptsWellFormedPayloads includes a 'payload with a trailing byte' case: a 13-byte int vector with 3 dimensions. That payload is malformed, yet the test asserts it decodes without error. The float fast paths reject any length other than Dimensions*size."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "Allocation-regression test uses process-wide TotalAlloc, vulnerable to…",
+      "file": "marshal_vector_test.go",
+      "line": 836,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating reads runtime.MemStats.TotalAlloc (process-wide) around the call under test; its own comment notes it deliberately avoids t.Parallel() with sibling subtests in the same file, but that does not stop allocations from unrelated goroutines already running in the process (GC workers, finalizers, other packages' init/background work) from being counted in TotalAlloc, which is a real if generally low-probability source of flakiness for this specific assertion style.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This test is new in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The allocation-regression test uses process-wide TotalAlloc and can be polluted by allocations from unrelated background goroutines."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/tidepool/review-and-fix-pr": "The allocation-regression test uses process-wide TotalAlloc and can be polluted by allocations from unrelated background goroutines."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.1991126,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 68,
+      "outputTokens": 28762,
+      "cacheReadInputTokens": 2652023,
+      "cacheCreationInputTokens": 95238,
+      "webSearchRequests": 0,
+      "costUSD": 1.1991126,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 13166,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/tidepool/runs/rafp-added-diff-2026-10-09/_judge/attempt-JO6PQ1/repo",
+  "judgedAt": "2026-10-09T08:31:24.020Z"
+}

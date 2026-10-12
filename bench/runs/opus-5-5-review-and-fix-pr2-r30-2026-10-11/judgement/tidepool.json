@@ -1,0 +1,715 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-review-and-fix-pr2-r30-2026-10-11",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "configSha256": "7dc2700a78de2deb145371e08a4b8dade583c2ce1853ddf9ded27bf87ca077ca",
+  "pluginFingerprint": {
+    "contentSha256": "c09cc8f4c821ee95c075e6a41c82f42befa1d54d5aeb4a44833a0c358ca53f78",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "target": "tidepool",
+  "language": "Go",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "rawFindings": 27,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Negative-dimensions test allegedly expects the wrong error message",
+      "file": "marshal_vector_test.go",
+      "line": 598,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "The actual subtest at line 598 has want: \"negative dimensions\", matching the code's negative-dimensions check at marshal.go:992-994; `go test -tags unit . -run TestUnmarshalVectorRejectsUnfittableDimensions -v` passes, including this subtest.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "No such defect exists in the diff or test file.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Negative-dimensions test case expects the wrong error message"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "The case expects \"do not fit in 4 bytes\" but the code checks for negative dimensions first and returns \"negative dimensions -3\", so the subtest fails."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "Test comment's 32-bit wrap claim is never exercised because 386 fails to build",
+      "file": "marshal_vector_test.go",
+      "line": 586,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "`GOARCH=386 go vet -tags unit .` fails in serialization/varint and serialization/cqlint (pre-existing, unrelated to this PR) with constant-overflow errors, so the root package never builds under 386 and the comment's claim about a 32-bit wrap is unverifiable.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The misleading comment asserting 32-bit coverage was added by this PR, even though the underlying 386 build breakage is pre-existing elsewhere.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Test comment's 32-bit wrap claim is never actually exercised"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "The comment claims the constants make the wrap land on a 32-bit target, but GOARCH=386 go vet fails on a dependency so the package never builds on 32-bit and this coverage never runs."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "NULL scanned into *any with an unrepresentable element type now errors instead of…",
+      "file": "marshal.go",
+      "line": 1044,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The `t == nil` check at marshal.go:1045-1049 runs unconditionally before the `data == nil` branch inside the Slice/Array switch, so a NULL vector value with an unresolvable SubType now returns an error instead of leaving the destination interface nil, even though on base (pre-PR) this same path panicked for both NULL and non-NULL data (reflect.TypeOf(nil).Kind() dereferences nil) -- so it is an improvement over base, but introduces a narrower asymmetry against resolvable-type NULL handling that is untested.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The guard and its ordering relative to the NULL check were added by this PR's second commit.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "NULL scanned into *any now errors instead of decoding to nil"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "The new t == nil guard runs before the data == nil handling, so a NULL value for an element type with no Go type now errors instead of decoding to nil; no test covers this."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Nested-vector \"no Go type\" error doesn't name the inner element type or dimension",
+      "file": "marshal.go",
+      "line": 1048,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Confirmed by running Unmarshal on a wire-parsed vector<vector<float,3>,2>: the error is `unmarshal vector: no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)` because VectorType.Zero() swallows NewWithError's error and VectorType has no String() override, so %v falls back to NativeType.String() which only prints the bare Java class name, not the inner SubType or Dimensions.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The error message and the Zero()/NewWithError() path it relies on are part of this PR's new guard.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Nested-vector error message doesn't name the inner element type"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "Zero() discards the error from NewWithError, so the message for a nested vector names neither the inner element type nor the dimension."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Saturation branch in vectorElemMinSize is untested",
+      "file": "marshal.go",
+      "line": 1133,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "TestVectorElemMinSize's cases (float, uuid, text, several vector/nested-vector shapes, dim 0 and -3, unknown custom) never drive vec.Dimensions large enough to hit the `> (math.MaxInt32-size)/per` saturation branch at marshal.go:1136-1138; no MaxInt32 assertion appears anywhere in the test file.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize is new code added by this PR, and the saturation branch inside it has zero coverage.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Saturation branch in vectorElemMinSize has no test"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "The saturation branch in vectorElemMinSize is untested."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "getCassandraLongType's unknown-type-name behavior has no direct unit test",
+      "file": "helpers.go",
+      "line": 280,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The new custom-type-name-preservation branch at helpers.go:280-284 is only exercised indirectly in marshal_vector_test.go via wireVectorType/readTypeInfo (e.g. the \"unknown\" vector element case at line 879); grepping the test files shows no call that invokes getCassandraLongType directly with an unknown type name.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This PR changed getCassandraLongType's basic-type branch and added only indirect coverage for it.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "getCassandraLongType has no direct test for unknown type names"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "getCassandraLongType is only reached indirectly through wireVectorType and lacks a direct test for unknown names."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "unmarshalVector repeats the same guard condition in two adjacent blocks",
+      "file": "marshal.go",
+      "line": 998,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "marshal.go:998 and marshal.go:1007 both gate on the identical `info.Dimensions > 0 && data != nil` condition for the bound check and the float fast path respectively; they could share one guard.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both blocks are new/adjacent code from this PR's first commit.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Duplicate guard condition in two branches could be merged"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "marshal.go:998 and marshal.go:1007 share the identical guard info.Dimensions > 0 && data != nil; one block could do the bound check and then the fast-path switch."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "PR commits and body carry Claude/Anthropic attribution against the user's standing…",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "`git log` shows both commits 0276a66 and 78891dd end with `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`, and `gh pr view 1` shows the body ends with \"🤖 Generated with [Claude Code](https://claude.com/claude-code)\" -- verified directly, not merely asserted.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The attribution lives entirely in this PR's own commits and description.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Commits and PR body carry AI attribution against the user's global rule"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "Commits 0276a66 and 78891dd carry a Co-Authored-By: Claude trailer, and the PR body ends with a \"Generated with Claude Code\" line."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "Behavior change isn't recorded in CHANGELOG.md or mentioned in Unmarshal/VectorType godoc",
+      "file": "marshal.go",
+      "line": 260,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "CHANGELOG.md was deliberately removed from this fork (`git log --all -- CHANGELOG.md` shows commit \"Remove upstream's CHANGELOG.md\"), so that half of CONTRIBUTING.md's guidance is stale and not practically actionable here; however the Unmarshal godoc table at marshal.go:260-296 and VectorType's doc never mention vectors at all, let alone the new error/rejection behavior, which is a genuine gap.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new rejection behavior this PR adds is undocumented in the nearest godoc, independent of the moot CHANGELOG.md point.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Behavior change not recorded in CHANGELOG or godoc as CONTRIBUTING.md requires"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "CONTRIBUTING.md asks for changed behaviour to be recorded in CHANGELOG.md and functional changes in godoc, but CHANGELOG.md doesn't exist and neither Unmarshal nor VectorType godoc mentions the change."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "Commits don't use CONTRIBUTING.md's \"Patch by ...; reviewed by ... for #####\" format",
+      "file": "CONTRIBUTING.md",
+      "line": 37,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "CONTRIBUTING.md:37 documents that trailer format, and neither commit uses it or references an issue number; but `git log --oneline main -10` shows the 10 most recent commits on main already use conventional-commit subjects instead, so this PR matches actual current practice even though it diverges from the written (and apparently stale) guide.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Whether to add an issue reference is a property of this PR's own commits.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Commits don't reference an issue as CONTRIBUTING.md's format expects"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "Neither commit has a \"Patch by …; reviewed by … for #####\" line or references an issue, though the conventional subject style matches recent practice on main."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "Stale \"nil/empty and dim=0 fall through\" comment no longer fully describes the fast-path…",
+      "file": "marshal.go",
+      "line": 1006,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "An empty but non-nil payload with Dimensions > 0 is now rejected by the new bound check at marshal.go:998-1003 before ever reaching the fast-path comment at line 1006, so only nil data or dim=0 still fall through as the comment says -- an empty non-nil payload no longer does.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new bound check this PR added above the comment is what makes the comment's description stale.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Stale comment: \"nil/empty and dim=0 fall through\" no longer fully accurate"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "The comment says nil/empty and dim=0 fall through to the generic path, but an empty non-nil payload with dim>0 is now rejected by the bound, so only nil data and dim=0 actually fall through."
+      }
+    },
+    {
+      "id": "I12",
+      "title": "\"// basic type\" comment in helpers.go now also covers the new custom-type branch",
+      "file": "helpers.go",
+      "line": 279,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "helpers.go:279's `// basic type` comment sits directly above the new `if typ == TypeCustom { return NewCustomType(...) }` branch added by this PR, which returns an opaque custom type, not a basic one.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new branch the stale comment now covers was added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Stale \"// basic type\" comment now also covers the opaque custom-type branch"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "The \"// basic type\" comment now also covers the branch that returns an opaque named custom type."
+      }
+    },
+    {
+      "id": "I13",
+      "title": "vectorElemMinSize, vectorFixedElemSize and isVectorVariableLengthType must be kept in…",
+      "file": "marshal.go",
+      "line": 1125,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "All three functions independently switch on elemType.Type() to classify the same set of CQL types; adding a type to one but not the others would silently produce a wrong minimum-size bound, and TestVectorElemMinSize only samples a subset of types (float, uuid, text, and vector shapes).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize is new in this PR and creates the three-way duplication.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Three type-switches classifying vector element types must be kept in sync"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "vectorElemMinSize, vectorFixedElemSize and isVectorVariableLengthType all classify the same types; adding a type to one but not the others makes the computed lower bound wrong, and TestVectorElemMinSize covers only some types."
+      }
+    },
+    {
+      "id": "I14",
+      "title": "New makeVectorType test helper takes a redundant elem/elemName pair that could disagree",
+      "file": "marshal_vector_test.go",
+      "line": 557,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "makeVectorType(elem Type, elemName string, dim int) stores elem in SubType.typ but embeds elemName verbatim into the custom wire-format string, generalizing the pre-existing makeDoubleVectorType/makeFloat32VectorType (which keep that invariant hardcoded); nothing prevents a caller from passing a TypeFloat with elemName \"DoubleType\".",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "makeVectorType is new test code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "New makeVectorType test helper overlaps with existing helpers and can disagree with itself"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "makeVectorType(elem, elemName, dim) generalizes the existing makeDoubleVectorType and makeFloat32VectorType, but taking both elem and elemName lets the two disagree."
+      }
+    },
+    {
+      "id": "I15",
+      "title": "wireVectorType's name doesn't convey that it parses through readTypeInfo",
+      "file": "marshal_vector_test.go",
+      "line": 860,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "wireVectorType builds a framer, writes TypeCustom and the name, and calls f.readTypeInfo() to resolve a real wire-parsed TypeInfo, which is a meaningfully different construction path from the hand-built makeVectorType/makeNestedVectorType, but the name alone doesn't signal that distinction.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "wireVectorType is new test code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "wireVectorType helper name doesn't convey that it parses via readTypeInfo"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "wireVectorType parses a type through readTypeInfo rather than building one by hand, but its name doesn't say that."
+      }
+    },
+    {
+      "id": "I16",
+      "title": "The wrap-overflow rationale is restated nearly verbatim in code, test comments, and the…",
+      "file": "marshal.go",
+      "line": 986,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The same \"dimension wraps the length check, so the bound must sit ahead of the fast paths\" explanation appears in the marshal.go:986-991 comment, the TestUnmarshalVectorRejectsUnfittableDimensions doc comment, and the PR body's Scope section -- harmless but redundant.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "All three copies of the explanation were written for this PR.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Wrap rationale is explained redundantly in three separate places"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "The wrap rationale appears in marshal.go:986-991, again in the test comment, and again in the PR body."
+      }
+    },
+    {
+      "id": "I17",
+      "title": "vectorElemMinSize godoc explains rationale against a hypothetical rather than describing…",
+      "file": "marshal.go",
+      "line": 1121,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The godoc at marshal.go:1121-1124 is phrased as \"without the recursion... falls back to one byte per element,\" explaining why recursion matters rather than stating what the function returns; there is no actual prior version of this brand-new function, so the phrasing is a style complaint more than a factual inaccuracy.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize and its godoc are new in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "vectorElemMinSize godoc describes prior behavior rather than current function"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "The godoc explains what happened before the change (\"without the recursion…\") rather than describing what the function does now."
+      }
+    },
+    {
+      "id": "I18",
+      "title": "TotalAlloc-based allocation test is theoretically sensitive to leaked goroutines from…",
+      "file": "marshal_vector_test.go",
+      "line": 836,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "TestUnmarshalVectorRejectsNestedCountBeforeAllocating correctly avoids t.Parallel() specifically to keep sibling parallel tests from polluting runtime.MemStats.TotalAlloc, but any background goroutine left running by an earlier test could still allocate during its measurement window; the 128 KiB margin (payload/8) makes this unlikely to flake in practice.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a new test added by the PR.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "TotalAlloc test is non-parallel but measures a process-wide counter"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "The test measures a process-wide allocation counter; flakiness risk is low given the 128 KiB margin, but goroutines leaked by earlier tests can inflate the count."
+      }
+    },
+    {
+      "id": "I19",
+      "title": "PR body overclaims that every new test fails against pristine code with specific panic…",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Copying marshal_vector_test.go onto main and running it fails at compile time (undefined: vectorElemMinSize) before any test executes, so the PR body's specific claim of \"reflect.MakeSlice: negative len, allocation size out of range, and two nil-pointer dereferences\" for every test cannot be literally accurate; tracing the logic for well-formed-payload and concrete-destination subtests (e.g. float/text vectors at exact size, nested vector into a concrete slice, a resolvable type into an interface) shows they exercise pre-existing, unchanged code paths that already worked correctly on base.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The inaccurate claim is in this PR's own description of its own tests.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "PR body's claim that every new test fails against pristine is false for several tests"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "Several new tests (TestUnmarshalVectorAcceptsWellFormedPayloads, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType, and the concrete-destination control subtests) would pass on base as intended non-regression guards, contradicting the PR body."
+      }
+    },
+    {
+      "id": "I20",
+      "title": "PR body misdescribes how short-payload cases actually fail on base (silent zero values,…",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Tracing the base (pre-PR) code for the \"short payload into a slice\" case (vector<int,3> over 2 bytes): elemSize = len(data)/Dimensions = 2/3 = 0, so each of the 3 elements decodes 0 bytes via cqlint.Unmarshal (which treats 0-length data as a valid zero value), yielding []int32{0,0,0} with err == nil -- silent corruption, not a panic -- which matches the PR body's own earlier \"Behaviour change\" paragraph but contradicts its closing claim that this test fails with one of the three listed panic messages.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The inconsistency is between two parts of this PR's own description.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "PR body misdescribes how short-payload cases fail against base"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "The short-payload cases fail on base by returning zero values, not with the panic messages the PR body lists."
+      }
+    },
+    {
+      "id": "I21",
+      "title": "PR body's linked issue numbers don't resolve on this repository",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "`gh issue view` returns \"Could not resolve to an issue or pull request\" for #1085, #1086, #1091, #1093 and #1106 against this repo, confirming none of the PR body's Refs:/Out:/Lands-with links resolve.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The broken links are in this PR's own description.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "PR body's linked issues don't resolve"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "gh issue view returns \"Could not resolve\" for #1091 (the Refs: link), #1085, #1086, #1106 and #1093, so the \"Lands with #1093\" dependency claim points at nothing and the PR body is the only spec."
+      }
+    },
+    {
+      "id": "I22",
+      "title": "PR body's \"Behaviour change\" section omits that NULL with negative dimensions now also…",
+      "file": "marshal.go",
+      "line": 992,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The negative-dimensions check at marshal.go:992-994 runs unconditionally, so a NULL (nil data) vector value with negative Dimensions now errors instead of decoding to nil, as confirmed by the passing \"negative dimensions with a null value\" subtest; the PR body's Behaviour-change paragraph only mentions short or empty non-NULL payloads.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The undocumented behavior change is in this PR's own first commit.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Behavior change for NULL with negative dimensions is undescribed in PR body"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "A NULL value with negative dimensions now errors instead of decoding to a nil slice, but the PR body's \"Behaviour change\" paragraph mentions only short or empty non-NULL payloads."
+      }
+    },
+    {
+      "id": "I23",
+      "title": "PR body's \"keeps that name\" claim for unknown types only holds on the basic-type…",
+      "file": "helpers.go",
+      "line": 222,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "helpers.go:222 (malformed MapType) and :267 (unparsable vector dimension) still return a bare NewNativeType(protoVer, TypeCustom) with no custom name on parse failure; only the basic-type else-branch at helpers.go:280-284 was changed to preserve the name, so the PR body's blanket claim is accurate for just one of the parse-error paths.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The overclaim describes this PR's own change.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "PR body's \"keeps that name\" claim for unknown types holds on only one path"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "helpers.go:222 and :267 still return an unnamed NewNativeType(TypeCustom) on parse errors, so the body's claim that unknown type names are kept holds only for the branch at helpers.go:280-284."
+      }
+    },
+    {
+      "id": "I24",
+      "title": "Claim \"no new blocking or cancellation paths\" is a correctness confirmation, not a defect",
+      "file": "",
+      "line": 0,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "This is a positive observation about the change (it only adds early error returns on the calling goroutine), not a description of any wrong behavior; the tool itself flagged it selfRejected.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Not a defect, so there is nothing in this PR to fix.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "No new blocking or cancellation paths affecting when calls complete"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "There are no new waits, blocking or cancellation paths; decoding only returns errors earlier on the same goroutine."
+      }
+    },
+    {
+      "id": "I25",
+      "title": "Claim \"dimension bound prevents overflow\" describes the fix working as intended, not a…",
+      "file": "marshal.go",
+      "line": 992,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "This restates that the bound correctly prevents the multiplication overflow it was designed to prevent -- that is the intended, correct behavior of the fix, not a bug; the tool itself flagged it selfRejected.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Describes correct behavior, so there is nothing to fix.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Dimension bound check runs before every use of Dimensions, preventing overflow"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "The bound runs before every use of Dimensions, and after it the fast-path multiplications can't overflow."
+      }
+    },
+    {
+      "id": "I26",
+      "title": "Claim \"nested vector into interface{} now errors instead of crashing\" describes the…",
+      "file": "marshal.go",
+      "line": 1044,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Converting a crash into a clean error for this exact case is precisely what commit 78891dd is for; this is a correct description of the intended improvement, not a bug report; the tool itself flagged it selfRejected.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Describes correct, intended behavior.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Nested vector scanned into interface{} now errors instead of crashing"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "A nested vector scanned into interface{} now errors instead of crashing."
+      }
+    },
+    {
+      "id": "I27",
+      "title": "Claim \"error message names the unknown type\" describes correct behavior for that one…",
+      "file": "helpers.go",
+      "line": 280,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "For the basic-type fallback path this is true and intentional (confirmed by the passing \"unknown element type into an interface\" test asserting the error contains the FooType name); it is a positive confirmation, not a defect, and the tool itself flagged it selfRejected.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "Describes correct, intended behavior.",
+      "reportedBy": [
+        "review-and-fix-pr2"
+      ],
+      "reportedByRuns": [
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr2": "Error message names the unknown type"
+      },
+      "reportedAsByRun": {
+        "opus-5-5-review-and-fix-pr2-r30-2026-10-11/tidepool/review-and-fix-pr2": "The error message names the unknown type."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.8134111999999996,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 98,
+      "outputTokens": 47638,
+      "cacheReadInputTokens": 4263216,
+      "cacheCreationInputTokens": 121048,
+      "webSearchRequests": 0,
+      "costUSD": 1.8134111999999996,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 23624,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/tidepool/runs/opus-5-5-review-and-fix-pr2-r30-2026-10-11/_judge/attempt-ZDGJy7/repo",
+  "judgedAt": "2026-10-11T14:29:29.316Z"
+}

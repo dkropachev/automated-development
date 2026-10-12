@@ -9,6 +9,7 @@ const path = require('node:path')
 const {
   assertRecordMetadata, cellId, discoverCohorts, loadModelConfig, readComplete,
 } = require('./lib/artifacts')
+const { applyIdentities, loadCatalog, revisionKey } = require('./issue-identities')
 
 const ROOT = __dirname
 const ASSET_DIR = path.join(ROOT, 'dashboard')
@@ -237,22 +238,18 @@ function metricsFor(issues, claims, usage, wallMs) {
 
 function comparisonFor(left, right) {
   if (!left || !right) return { compatible: false, reason: 'Two runs are required.', shared: [], leftOnly: [], rightOnly: [] }
-  if (left.cohortId && right.cohortId && left.cohortId !== right.cohortId) {
-    return {
-      compatible: false,
-      reason: 'Issue overlap is unavailable because these runs use different judgement snapshots.',
-      shared: [], leftOnly: [], rightOnly: [],
-    }
-  }
   if (left.targetId !== right.targetId) {
+    return { compatible: false, reason: 'Issue overlap is unavailable because these runs reviewed different targets.', shared: [], leftOnly: [], rightOnly: [] }
+  }
+  if (!revisionKey(left) || revisionKey(left) !== revisionKey(right)) {
     return {
       compatible: false,
-      reason: 'Issue overlap is unavailable because these runs reviewed different targets.',
+      reason: 'Issue overlap requires the same target and pinned base/head commits.',
       shared: [], leftOnly: [], rightOnly: [],
     }
   }
-  const leftById = new Map(left.issues.map((issue) => [issue.id, issue]))
-  const rightById = new Map(right.issues.map((issue) => [issue.id, issue]))
+  const leftById = new Map(left.issues.flatMap((issue) => (issue.identityIds || [issue.id]).map((id) => [id, { ...issue, id }])))
+  const rightById = new Map(right.issues.flatMap((issue) => (issue.identityIds || [issue.id]).map((id) => [id, { ...issue, id }])))
   return {
     compatible: true,
     reason: null,
@@ -555,6 +552,10 @@ function loadArtifacts(root = ROOT) {
   const stateFile = path.join(root, 'state.json')
   const toolsFile = path.join(root, 'tools.json')
   const state = fs.existsSync(stateFile) ? readJson(stateFile) : { targets: {} }
+  const goldIndexFile = path.join(root, 'gold', 'index.json')
+  const goldId = fs.existsSync(goldIndexFile) ? readJson(goldIndexFile).published : null
+  const legacyPinFile = goldId ? path.join(root, 'gold', goldId, 'source-manifest.json') : null
+  const legacyPins = legacyPinFile && fs.existsSync(legacyPinFile) ? (readJson(legacyPinFile).targets || {}) : {}
   const liveToolFile = fs.existsSync(toolsFile) ? readJson(toolsFile) : { context: '', tools: [] }
   const groundtruthFor = (targetId) => {
     const file = path.join(root, 'groundtruth', `${targetId}.json`)
@@ -664,6 +665,7 @@ function loadArtifacts(root = ROOT) {
           cohortId,
           cohortLabel: cohort.label || cohortId,
           targetId: target.id,
+          targetPins: cohort.targets?.[target.id] || (cohort.legacy ? legacyPins[target.id] : null),
           targetLabel: `${target.id} · ${target.language}`,
           targetSnapshot: snapshot,
           toolId: record.tool,
@@ -728,7 +730,7 @@ function loadArtifacts(root = ROOT) {
     if (!cohortToolSnapshots.has(run.cohortId)) cohortToolSnapshots.set(run.cohortId, new Map())
     cohortToolSnapshots.get(run.cohortId).set(run.toolId, run.toolSnapshot)
   }
-  return {
+  return applyIdentities({
     schemaVersion: 3,
     defaultTokenLimit: DEFAULT_TOKEN_LIMIT,
     defaultModel: modelConfig.defaultModel || (models[0] && models[0].id) || null,
@@ -758,7 +760,7 @@ function loadArtifacts(root = ROOT) {
     issues,
     runs,
     modelComparison,
-  }
+  }, loadCatalog(root))
 }
 
 function escapeScriptJson(value) {
@@ -768,6 +770,8 @@ function escapeScriptJson(value) {
 function render(data, assets = ASSET_DIR) {
   const css = fs.readFileSync(path.join(assets, 'styles.css'), 'utf8').trim()
   const js = fs.readFileSync(path.join(assets, 'app.js'), 'utf8').trim()
+  const publicData = { ...data }
+  delete publicData.omittedCohorts
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -781,7 +785,7 @@ function render(data, assets = ASSET_DIR) {
 <body>
 <a class="skip-link" href="#app">Skip to dashboard</a>
 <div id="app"><noscript>This dashboard requires JavaScript, but makes no network requests.</noscript></div>
-<script id="dashboard-data" type="application/json">${escapeScriptJson(data)}</script>
+<script id="dashboard-data" type="application/json">${escapeScriptJson(publicData)}</script>
 <script>\n${js}\n</script>
 </body>
 </html>\n`

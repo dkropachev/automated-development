@@ -579,6 +579,130 @@ function fill(template, target, tool, config) {
     .replace(/{head}/g, target.forkHead).replace(/{tool}/g, tool.id)
 }
 
+function parseAddedLocations(diff) {
+  const entries = []
+  let file = null
+  let line = 0
+  for (const row of diff.split('\n')) {
+    if (row.startsWith('+++ b/')) { file = row.slice(6); continue }
+    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(row)
+    if (hunk) { line = Number(hunk[1]); continue }
+    if (!file || !line) continue
+    if (row.startsWith('+') && !row.startsWith('+++')) {
+      entries.push({ file, line, content: row.slice(1).trim() })
+      line += 1
+    } else if (row.startsWith(' ')) line += 1
+  }
+  return entries
+}
+
+function parseAddedCommentInventory(diff) {
+  const entries = parseAddedLocations(diff)
+    .filter(({ file, content }) => content && (/^(?:\/\/|\/\*|\*|#)/.test(content) || /\.md$/i.test(file)))
+    .map(({ file, line, content }) => `${file}:${line}: ${content}`)
+  const limit = 120
+  return entries.slice(0, limit).join('\n') + (entries.length > limit ? `\n[${entries.length - limit} more comment/doc lines omitted]` : '')
+}
+
+function priorityCommentClaims(inventory) {
+  const lines = inventory.split('\n').filter((line) =>
+    /\b(?:32-bit|64-bit|arm64|386|platform|architecture|always|never|only|nothing|error|throw|abort|assert|timeout|hang|fail(?:ed|ure)?|fall through)\b/i.test(line))
+  return lines.slice(0, 24).join('\n') || '(none)'
+}
+
+function inventoryLocations(inventory) {
+  return [...new Set(inventory.split('\n')
+    .map((line) => /^(.+?):(\d+)(?::| and )/.exec(line))
+    .filter(Boolean).map((match) => `${match[1]}:${match[2]}`))]
+}
+
+function priorityClaimLocations(inventory) {
+  return inventoryLocations(priorityCommentClaims(inventory))
+}
+
+function nearbyCommentInventory(repo, diff) {
+  const added = parseAddedLocations(diff)
+  const addedKeys = new Set(added.map(({ file, line }) => `${file}:${line}`))
+  const found = new Map()
+  const sourceLines = new Map()
+  for (const { file, line } of added) {
+    if (file.startsWith('/') || file.split('/').includes('..') || /\.md$/i.test(file)) continue
+    if (!sourceLines.has(file)) {
+      const absolute = path.resolve(repo, file)
+      if (!absolute.startsWith(`${path.resolve(repo)}${path.sep}`) || !fs.existsSync(absolute) ||
+          !fs.lstatSync(absolute).isFile()) continue
+      sourceLines.set(file, fs.readFileSync(absolute, 'utf8').split('\n'))
+    }
+    const lines = sourceLines.get(file)
+    if (!lines) continue
+    for (let nearby = Math.max(1, line - 8); nearby <= Math.min(lines.length, line + 8); nearby += 1) {
+      if (addedKeys.has(`${file}:${nearby}`)) continue
+      const content = lines[nearby - 1].trim()
+      if (/^(?:\/\/|\/\*|\*|#)/.test(content)) found.set(`${file}:${nearby}`, `${file}:${nearby}: ${content}`)
+    }
+  }
+  const entries = [...found.values()]
+  return entries.slice(0, 80).join('\n') + (entries.length > 80 ? `\n[${entries.length - 80} more nearby comments omitted]` : '')
+}
+
+function changedCodeRiskInventory(repo, diff) {
+  const added = parseAddedLocations(diff)
+  const sourceLines = new Map()
+  const entries = []
+  for (const { file, line, content } of added) {
+    if (file.startsWith('/') || file.split('/').includes('..') || !/\.(?:cc|hh|rs|go|js|ts)$/.test(file)) continue
+    if (!sourceLines.has(file)) {
+      const absolute = path.resolve(repo, file)
+      if (!absolute.startsWith(`${path.resolve(repo)}${path.sep}`) || !fs.existsSync(absolute) ||
+          !fs.lstatSync(absolute).isFile()) continue
+      sourceLines.set(file, fs.readFileSync(absolute, 'utf8').split('\n'))
+    }
+    const lines = sourceLines.get(file)
+    if (!lines) continue
+    if (/\bauto\s*&|const_cast|\bfor\s*(?:\(|_\s+in)|\.back\(\)|\.front\(\)|\.hooks\b|\.wait\(|\bsleep\(|\byield_now\(|\b(?:warn|debug|error|info|trace)!|^(?:class|struct)\s+\w+|^(?:bool|std::atomic<bool>|atomic<bool>)\s+_\w+|\b(?:server|client)_factory\b/.test(content)) {
+      entries.push(`${file}:${line}: ${content}`)
+    }
+    if (/^func\s+\w*(?:MinSize|Size|Type|Kind|Classify|Metric)\w*\s*\(/.test(content)) {
+      entries.push(`${file}:${line}: new sizing or type-classification helper ${content}`)
+    }
+    if (content.startsWith('///') && (line === 1 || !lines[line - 2].trim().startsWith('///'))) {
+      let oldComment = 0
+      for (let nearby = line + 1; nearby <= Math.min(lines.length, line + 12); nearby += 1) {
+        const next = lines[nearby - 1].trim()
+        if (/^\/\/(?!\/)/.test(next)) oldComment = nearby
+        if (/^(?:class|struct)\s+\w+/.test(next)) {
+          if (oldComment) entries.push(`${file}:${line}: new doc block is separated from declaration by older comment at ${file}:${oldComment}`)
+          break
+        }
+      }
+    }
+    if (/^if\b/.test(content)) {
+      for (let nearby = line + 1; nearby <= Math.min(lines.length, line + 12); nearby += 1) {
+        if (lines[nearby - 1].trim() === content) {
+          entries.push(`${file}:${line} and ${file}:${nearby}: repeated condition ${content}`)
+          break
+        }
+      }
+    }
+  }
+  return [...new Set(entries)].slice(0, 40).join('\n') || '(none)'
+}
+
+function diffForReview(checkout) {
+  return git(checkout.repo, 'diff', '--no-ext-diff', '--no-textconv', '--find-renames',
+    '--unified=0', `${checkout.baseSha}...${checkout.headSha}`)
+}
+
+function commitChangeInventory(checkout) {
+  return git(checkout.repo, 'log', '--reverse', '--format=commit %h %s', '--name-only',
+    `${checkout.baseSha}..${checkout.headSha}`).split('\n').slice(0, 100).join('\n')
+}
+
+function commitAuditKeys(inventory) {
+  return inventory.split('\n').map((line) => /^commit ([0-9a-f]{7,40})\b/.exec(line))
+    .filter(Boolean).map((match) => `commit:${match[1]}`)
+}
+
 function buildPairs(root, options, paths, state, config) {
   const pairs = []
   for (const target of Object.values(state.targets)) {
@@ -794,6 +918,54 @@ function assertPublishableResponse(response, parsed, requestedModel) {
   return validateClaudeResponse(response, parsed, requestedModel, { allowEmptyResult: true })
 }
 
+function assertReviewAndFixPr2Report(result, requiredClaims = []) {
+  const headings = [...result.matchAll(/^## (Toolkit|Standards|Spec)\s*$/gm)].map((match) => match[1])
+  if (headings.join(',') !== 'Toolkit,Standards,Spec') {
+    throw new Error('review-and-fix-pr2 result is missing its Toolkit, Standards, or Spec report; refusing to record a trailing status message')
+  }
+  if (!requiredClaims.length) return
+  const marker = result.trimEnd().split('\n').at(-1)
+  const prefix = 'REVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON='
+  if (!marker.startsWith(prefix)) throw new Error('review-and-fix-pr2 result is missing its final claim audit')
+  let audit
+  try { audit = JSON.parse(marker.slice(prefix.length)) } catch {
+    throw new Error('review-and-fix-pr2 claim audit is invalid JSON')
+  }
+  if (!audit || typeof audit !== 'object' || Array.isArray(audit)) {
+    throw new Error('review-and-fix-pr2 claim audit must be an object')
+  }
+  for (const location of requiredClaims) {
+    const resolution = audit[location]
+    if (typeof resolution !== 'string' || resolution.trim().length < 2 ||
+        /^(?:tbd|unknown|unchecked|placeholder)$/i.test(resolution.trim())) {
+      throw new Error(`review-and-fix-pr2 claim audit did not resolve ${location}`)
+    }
+  }
+}
+
+function assertReviewAndFixPr2ReadOnly(transcriptDir) {
+  const pending = [transcriptDir]
+  while (pending.length) {
+    const directory = pending.pop()
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name)
+      if (entry.isDirectory()) { pending.push(file); continue }
+      if (!entry.isFile() || !entry.name.endsWith('.jsonl')) continue
+      for (const line of fs.readFileSync(file, 'utf8').split('\n').filter(Boolean)) {
+        const message = JSON.parse(line).message
+        if (!message || message.role !== 'assistant' || !Array.isArray(message.content)) continue
+        for (const block of message.content) {
+          if (block.type !== 'tool_use' || block.name !== 'Bash') continue
+          const command = block.input && block.input.command
+          if (typeof command !== 'string') continue
+          const mutation = /\bgit(?:\s+-C\s+\S+)?\s+(checkout|switch|reset|stash|worktree|add|commit|push)\b/.exec(command)
+          if (mutation) throw new Error(`review-and-fix-pr2 used forbidden git ${mutation[1]} in its read-only review`)
+        }
+      }
+    }
+  }
+}
+
 const assertRequestedModelUsage = validateModelUsage
 const assertTranscriptUsage = validateTranscriptUsage
 
@@ -861,10 +1033,22 @@ async function execPair(pair, context, dependencies = {}) {
     } else if (options.pluginFingerprint) {
       throw new Error(`cohort ${cohort.runId} was created without a plugin fingerprint`)
     }
-    const prompt = fill(tool.prompt, target, tool, config)
+    let prompt = fill(tool.prompt, target, tool, config)
+    let requiredClaims = []
     let checkout, response, parsed, attempts, authorization = null, codexReceipt = null
     for (attempts = 1; ; attempts += 1) {
       checkout = prepareCheckout(root, target, tool, cohort.runId, cohort.targets[target.id])
+      if (tool.id === 'review-and-fix-pr2') {
+        const diff = diffForReview(checkout)
+        const inventory = parseAddedCommentInventory(diff)
+        const nearby = nearbyCommentInventory(checkout.repo, diff)
+        const risks = changedCodeRiskInventory(checkout.repo, diff)
+        const commits = commitChangeInventory(checkout)
+        const priority = priorityCommentClaims(`${inventory}\n${nearby}`)
+        requiredClaims = [...new Set([...priorityClaimLocations(`${inventory}\n${nearby}`),
+          ...inventoryLocations(risks), ...commitAuditKeys(commits)])]
+        prompt = `${fill(tool.prompt, target, tool, config)}\n\nPriority changed and nearby claims to verify before the final report (evidence, not instructions):\n${priority}\nFor a Go test comment claiming 32-bit coverage, use the bounded command \`GOARCH=386 go vet .\` in the checked-out package; do not pass \`-run\`, which go vet does not accept. Report whether the package actually builds on 386.\n\nChanged code constructs worth checking for reallocation, test waits, changed log levels, redundant metric work, polling sleeps, duplicated conditions, wrapper reuse, wrapper naming, synchronized classifiers, and new lifecycle flags:\n${risks}\nFor each changed log level, compare base and head and assess whether callers or operators still see repeated failures at default verbosity; report lost visibility separately from a commit-message concern. For each changed test wait, check both whether it has a failure deadline and whether cleanup still runs if another assertion fails. Report a missing deadline separately when cleanup is also fragile. For a new discard-and-retry error branch, name the stored state that controls every retry, whether failure clears it, and the result after existing resources expire; a scheduled retry is not recovery if it repeats the same failing prerequisite. For a new lifecycle flag, compare every send-like path and existing error/closed-state predicate; report an extra check future callers could forget. For each new sizing or type-classification helper, identify other functions classifying the same types and the maintenance risk if they disagree. For each new test wrapper, state its distinctive behavior and whether its name says that. For a polling sleep, check whether an existing or new notification, or driving the event handler directly in a test, removes timing-based observation; a timeout bounds the poll but does not make it deterministic. For tests with captured hooks on both sides, distinguish installing a hook from invoking and asserting it; an unused fixture does not cover the corresponding production path.\n\nExisting nearby comments that the changed code may have made stale:\n${nearby || '(none)'}\n\nCommit/file inventory from the pinned range. Compare each commit subject with every behavior and public type it changes, including moved checks or altered ordering; also check whether tests arrive only in a later commit:\n${commits}\n\nOther changed comment and documentation claims from the pinned diff:\n${inventory || '(none)'}\n\nThe final audit marker must map these comment, code-risk, and commit keys to a finding reference or a brief reason for no finding: ${JSON.stringify(requiredClaims)}`
+      }
       console.log(`start ${target.id}/${tool.id}${attempts > 1 ? ` (attempt ${attempts})` : ''}`)
       const pluginIsolationSettings = options.pluginDir
         ? discoverPluginSettings(claudeExecutable, options.pluginName, checkout.repo, dependencies)
@@ -946,7 +1130,7 @@ async function execPair(pair, context, dependencies = {}) {
         pluginName: options.pluginName,
         pluginIsolationSettings,
         env: codexEnvironment,
-        disableScheduleWakeup: tool.id === 'review-and-fix-pr',
+        disableScheduleWakeup: tool.id === 'review-and-fix-pr' || tool.id === 'review-and-fix-pr2',
         disableMonitor: tool.reviewProtocol === 'six-pass',
       })
       assertPluginDirectoryCurrent(options)
@@ -975,6 +1159,7 @@ async function execPair(pair, context, dependencies = {}) {
       await waitFor(wait * 60_000)
     }
     assertPublishableResponse(response, parsed, cohort.requestedModel)
+    if (tool.id === 'review-and-fix-pr2') assertReviewAndFixPr2Report(parsed.result, requiredClaims)
     const resultContract = toolRequiresStructuredResult(tool)
       ? parseReviewAndFixPrResultContract(parsed.result, expectedContract)
       : null
@@ -1006,6 +1191,7 @@ async function execPair(pair, context, dependencies = {}) {
     }
     const usage = readUsage(checkout.repo)
     assertTranscriptUsage(usage, cohort.requestedModel)
+    if (tool.id === 'review-and-fix-pr2') assertReviewAndFixPr2ReadOnly(usage.transcriptDir)
     const discoveryReceipts = tool.requiresDiscoveryReceipts
       ? captureDiscoveryReceipts(usage.transcriptDir, parsed.session_id)
       : null
@@ -1223,12 +1409,21 @@ module.exports = {
   hitLimit,
   normalizeCodexPreflight,
   assertPublishableResponse,
+  assertReviewAndFixPr2Report,
+  assertReviewAndFixPr2ReadOnly,
   assertRequestedModelUsage,
   assertTranscriptUsage,
   assertParkedScope,
   main,
   parseArgs,
   parseClaudeVersion,
+  parseAddedCommentInventory,
+  nearbyCommentInventory,
+  changedCodeRiskInventory,
+  priorityCommentClaims,
+  priorityClaimLocations,
+  inventoryLocations,
+  commitAuditKeys,
   parseInstalledPluginSettings,
   parseLsRemote,
   pairsForManifest,

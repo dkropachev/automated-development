@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-native-claude-retest-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "0e9f376996d93eec53b7b9f14eb85cc94faefe9d66a5e4a79893889e2afeafeb",
+  "pluginFingerprint": {
+    "contentSha256": "8dea71b3e5aee10a75d5dd83e500ead1f2e9b7520112d46b06b2fc99fe1e9673",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "cellId": "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr",
+  "target": "quillstone",
+  "tool": "review-and-fix-pr",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "f82631c2cb99a87714f994df4507440d63ee5ac62c9e05f6dded4ef9371d3a1c",
+  "label": "Automated Development review-and-fix-pr",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "A bad or dropped keyspace causes every pool to drain and go Broken",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "Three places (session.rs:2008, cluster/worker.rs:351, connection_pool.rs:1287) store the new keyspace before USE succeeds and never roll it back, so after a failed use_keyspace or a DROP KEYSPACE every new/replacement connection fails USE and is discarded, pools shrink and go Broken(UseKeyspaceError), sending a Lost event, and pools for nodes added later never become ready; permanent errors are not distinguished from transient ones and the previous behavior of keeping the connection with a warn! is gone.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Stale-keyspace USE failure drops a connection instead of retrying with the new keyspace",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "The error arm never compares evt.keyspace_name with current_keyspace and the connection is already dropped inside the USE future, so if the keyspace changes while an old USE is in flight and fails, the connection is lost and backoff grows, whereas the base code would have re-issued USE with the new keyspace.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "title": "Failed USE keyspace log downgraded from warn! to debug!, hiding a worse failure",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The consequence of a failed USE is now worse (connection discarded), yet the log is only debug! and invisible at default log levels until a pool goes Broken.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 994,
+      "title": "Excess shard-aware port connection branch drops a connection without decrementing…",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The 'excess shard-aware port connection' branch drops a connection counted at line 1051 without decrementing total_connections; this predates the PR but the 'balance metrics when clearing pools' commit fails to fix it.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "title": "keyspace_setup_failure_triggers_refill test doesn't actually prove a refill occurs",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The test builds the Err event by hand so it never runs start_setting_keyspace_for_connection; need_filling() is already true for a fresh refiller so the assertion proves nothing and run() is never driven; it also uses UseKeyspaceError::RequestTimeout which this per-connection path can't produce.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/Cargo.toml",
+      "line": 35,
+      "title": "Stated validation command never ran the metrics assertions it was meant to test",
+      "severity": "high",
+      "kind": "test-gap",
+      "claim": "metrics isn't a default feature, so the PR's 'cargo test ... keyspace_setup_failure' command compiles out every cfg(feature = \"metrics\") assertion and doesn't match the three metrics tests.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit 0d91aa54 fails CI on its own due to an unused import",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "The commit's 'use futures::FutureExt;' is only used inside a metrics-gated test; CI runs cargo check --all-targets -p scylla --features \"\" with -Dwarnings, so the unused import is an error at that commit, breaking CONTRIBUTING's rule that every commit compiles without warnings (fixed later at HEAD).",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit 617139df is only a fixup of the prior commit's busy-wait and should be squashed",
+      "severity": "low",
+      "kind": "style",
+      "claim": "Commit 617139df is a one-line fix for a busy-wait that 0d91aa54 introduced and should be squashed into it.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "All four commit bodies are empty and PR body omits the metrics commits",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "All four commit bodies are empty and the PR body never mentions the metrics commits, yet the PR checklist still ticks 'commit messages explain what changes and why', against CONTRIBUTING.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 918,
+      "title": "Moved comment claiming connection will be 'put into the conns' is now incorrect",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment says the connection will be 'finally put into the conns', but on failure it is now discarded instead.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "title": "New keyspace tests skip calling setup_tracing()",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The two new keyspace tests (at 1474 and 1526) skip setup_tracing(), though CONTRIBUTING says new tests should call it and every other test in the module does.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1115,
+      "title": "Resharding metrics test never exercises the excess_connections term in the reshard…",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The resharding metrics test never has excess connections, so the '+ excess_connections.len()' term in the reshard decrement is untested.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 1634,
+      "title": "Proxy test uses unbounded ready_connections.next().await calls",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The proxy test has unbounded ready_connections.next().await calls at lines 1634 and 1667 that could hang.",
+      "selfRejected": true
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1336,
+      "title": "Missing per-connection USE timeout now also holds up sharder discovery",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The missing per-connection USE timeout is pre-existing, but now also holds up sharder discovery.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "New tests duplicate setup already provided by test helpers",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The new tests copy setup that mock_pool_refiller and start_simulated_node already provide.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Private ConnectionSetupError name is easily confused with public…",
+      "severity": "low",
+      "kind": "style",
+      "claim": "The private ConnectionSetupError name is easy to confuse with the public ConnectionSetupRequestError.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "decrement_total_connections decrements one at a time in a loop instead of in bulk",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "decrement_total_connections decrements one at a time in a loop; it is correct, just not bulk.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 4598,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 40095,
+      "webSearchRequests": 0,
+      "costUSD": 0.206364,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1798,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-09T12:29:47.990Z"
+}
