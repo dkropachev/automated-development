@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "runId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "configSha256": "d88c9e48fb07ad45586e5da5a32a6db75f3284333686136e4334b5537c11a454",
+  "pluginFingerprint": {
+    "contentSha256": "a2f9edc4f289b2cdcf58f0074f13727981d134f105ebe3f6d26d67f34fcdc1ec",
+    "gitCommit": "4c36ab8eba26fa7a4f819fd58f4b4b5ab777f779",
+    "version": "0.5.0"
+  },
+  "createdAt": "2026-10-12T11:34:54.530Z",
+  "cells": [
+    {
+      "id": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/code-review-ad",
+      "target": "tidepool",
+      "tool": "code-review-ad",
+      "file": "results/tidepool/code-review-ad.json",
+      "sha256": "5cd6873e8b0f66babd92f20d73a315682fe82ed5ff469a47eaf1343ef9990cd3"
+    }
+  ]
+}

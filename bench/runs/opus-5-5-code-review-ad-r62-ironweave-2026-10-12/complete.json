@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "runId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "configSha256": "d88c9e48fb07ad45586e5da5a32a6db75f3284333686136e4334b5537c11a454",
+  "pluginFingerprint": {
+    "contentSha256": "5b8e01834792e4b8bc6efb93cc610e4ecaa58490d4c65fe675dc791143f99900",
+    "gitCommit": "4c36ab8eba26fa7a4f819fd58f4b4b5ab777f779",
+    "version": "0.5.0"
+  },
+  "createdAt": "2026-10-12T11:35:22.664Z",
+  "manifestSha256": "628f5f063ab0dd3ef6a3ac0d2e9a891a8dbb1b1f856417622c07feda7dec6e1f",
+  "sealSha256": "46b45f8e802728c35eccfe0d232390c7127ee95bf582c18f9f5bb9b4b62c6a40",
+  "findings": [
+    {
+      "file": "findings/ironweave/code-review-ad.json",
+      "sha256": "16a7dd73dcb2bacdc8a9f1c414655009934b9571eaba8ea585e13410afd62f68"
+    }
+  ],
+  "judgements": [
+    {
+      "file": "judgement/ironweave.json",
+      "sha256": "257533b70541df73797f75ceca4b68c8e9667683f5e8afd79dc1e4fb718654af"
+    }
+  ]
+}

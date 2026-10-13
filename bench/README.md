@@ -85,6 +85,9 @@ before treating provisional counts as deduplicated.
 ## Scoped cohorts and local plugins
 
 `code-review-ad` is a separate read-only protocol with toolkit, Standards, and Spec reports.
+The three October 12 cohorts were relabeled in their verified snapshots after the skill rename;
+their recorded prompts preserve what Claude actually received. This relabeling did not rerun reviews
+or add their findings to canonical gold.
 It does not use the `review-and-fix-pr` completion marker. Run it from this plugin checkout with
 `--plugin-dir .` and a fresh `RUN`; the default matrix does not include it. After all three Opus 5.5
 results exist, run `node bench/check-review-tokens.js <RUN>`. This checks each result's recorded

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "runId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "configSha256": "d88c9e48fb07ad45586e5da5a32a6db75f3284333686136e4334b5537c11a454",
+  "pluginFingerprint": {
+    "contentSha256": "5b8e01834792e4b8bc6efb93cc610e4ecaa58490d4c65fe675dc791143f99900",
+    "gitCommit": "4c36ab8eba26fa7a4f819fd58f4b4b5ab777f779",
+    "version": "0.5.0"
+  },
+  "createdAt": "2026-10-12T11:36:17.760Z",
+  "manifestSha256": "b540192a5e10422690174282e57ba997d53cd38265739f917c1acbae8a8cc816",
+  "sealSha256": "35b7092f1f13583312abbeee93fb69602e1eaf38db8f8697c49b156575faa0fc",
+  "findings": [
+    {
+      "file": "findings/quillstone/code-review-ad.json",
+      "sha256": "04c676ed7ea5fd3d69351c51147dd232a7a7f3d1aa27453a10ba30d8d99bb153"
+    }
+  ],
+  "judgements": [
+    {
+      "file": "judgement/quillstone.json",
+      "sha256": "4e447ffd901e49afc30f2a60537337bd8d5537ea0c09d18512dc4def7e6db6b7"
+    }
+  ]
+}

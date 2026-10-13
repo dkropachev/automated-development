@@ -98,7 +98,7 @@ test('expected publication keeps dashboard-only skill cohorts in both dashboard 
 test('publisher removes a standalone report for a dashboard-only cohort', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-publish-dashboard-only-'))
   const docs = path.join(root, 'docs')
-  const runId = 'review-and-fix-pr2-run'
+  const runId = 'code-review-ad-run'
   const completeFile = path.join(root, 'runs', runId, 'complete.json')
   const oldReport = path.join(docs, `review-bakeoff-${runId}.md`)
   try {
@@ -107,7 +107,7 @@ test('publisher removes a standalone report for a dashboard-only cohort', () => 
     fs.writeFileSync(oldReport, `**Cohort:** \`${runId}\`\n`)
     const dependencies = {
       discoverCohorts: () => [{ runId, legacy: false, paths: { complete: completeFile } }],
-      readComplete: () => ({ manifest: { runId, expectedCells: [{ tool: 'review-and-fix-pr2' }] }, complete: { runId } }),
+      readComplete: () => ({ manifest: { runId, expectedCells: [{ tool: 'code-review-ad' }] }, complete: { runId } }),
       renderReport: () => { throw new Error('dashboard-only cohort must not render a report') },
       renderDashboard: () => '<html>dashboard</html>\n',
     }
@@ -179,7 +179,7 @@ test('check detects and write removes orphaned generated cohort reports', () => 
 test('manual report writing refuses dashboard-only skill cohorts', () => {
   const cohort = publish.discoverCompletedCohorts(BENCH).find((entry) =>
     entry.snapshot.manifest.expectedCells.length &&
-    entry.snapshot.manifest.expectedCells.every((cell) => cell.tool === 'review-and-fix-pr2'))
+    entry.snapshot.manifest.expectedCells.every((cell) => cell.tool === 'code-review-ad'))
   assert.ok(cohort, 'a completed dashboard-only cohort must exist in the benchmark')
   const report = path.join(REPO, 'docs', `review-bakeoff-${cohort.runId}.md`)
   const result = spawnSync(process.execPath, [path.join(BENCH, 'report.js'), '--run', cohort.runId, '--write'], {

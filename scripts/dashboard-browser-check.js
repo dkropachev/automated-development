@@ -332,26 +332,26 @@ try {
   assert.match(skillComparison.app, />6 attempted runs<\/a>/)
   assert.match(skillComparison.app, /href="#skills\/builtin-code-review\?model=claude-opus-5-5" class="skill-info-link">Skill info<\/a>/)
 
-  const unmatchedSkills = render('compare?compareSkills=anthropic-pr-review%2Cmattpocock-review%2Creview-and-fix-pr2%2Creview-and-fix-pr&targets=ironweave')
+  const unmatchedSkills = render('compare?compareSkills=anthropic-pr-review%2Cmattpocock-review%2Ccode-review-ad%2Creview-and-fix-pr&targets=ironweave')
   assert.match(unmatchedSkills.app, /Completed evidence/)
   assert.match(unmatchedSkills.app, /<h2>Head-to-head evidence<\/h2>/)
   assert.match(unmatchedSkills.app, /Only this skill/)
   assert.match(unmatchedSkills.app, /Combined coverage/)
 
-  const crossRun = render('compare?model=all&compareSkills=anthropic-pr-review%2Cmattpocock-review%2Creview-and-fix-pr2')
+  const crossRun = render('compare?model=all&compareSkills=anthropic-pr-review%2Cmattpocock-review%2Ccode-review-ad')
   assert.match(crossRun.app, /All models \/ history/)
   assert.match(crossRun.app, /<h2>Head-to-head evidence<\/h2>/)
   assert.match(crossRun.app, /Completeness/)
   assert.match(crossRun.app, /C\+\+/)
   assert.match(crossRun.app, /Rust/)
   assert.match(crossRun.app, /Go/)
-  for (const toolId of ['anthropic-pr-review', 'mattpocock-review', 'review-and-fix-pr2']) {
+  for (const toolId of ['anthropic-pr-review', 'mattpocock-review', 'code-review-ad']) {
     const targetIds = new Set(DASHBOARD_DATA.runs.filter((run) => run.toolId === toolId && run.status === 'complete').map((run) => run.targetId))
     assert.deepEqual([...targetIds].sort(), ['ironweave', 'quillstone', 'tidepool'], `${toolId} must contribute all three languages`)
   }
-  const crossRunPair = render('compare?model=all&compareSkills=anthropic-pr-review%2Creview-and-fix-pr2')
+  const crossRunPair = render('compare?model=all&compareSkills=anthropic-pr-review%2Ccode-review-ad')
   const coverageFor = (html) => {
-    const row = html.match(/<tr><td><strong><a[^>]*>Automated Development review-and-fix-pr2<\/a><\/strong>[\s\S]*?<\/tr>/)
+    const row = html.match(/<tr><td><strong><a[^>]*>Automated Development code-review-ad<\/a><\/strong>[\s\S]*?<\/tr>/)
     assert.ok(row, 'the cross-run skill must be shown')
     const cells = [...row[0].matchAll(/<td class="num">([^<]+)<\/td>/g)].map((match) => match[1])
     return { everFound: cells[4], completeness: cells[5] }
@@ -363,10 +363,10 @@ try {
   assert.equal(Number(coverageFor(crossRun.app).everFound.replaceAll(',', '')), expectedEverFound)
   const includingLegacy = new Set(DASHBOARD_DATA.runs.filter((run) => run.status === 'complete').flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
   assert.ok(includingLegacy > expectedEverFound, 'legacy-only identities must stay outside discovered coverage')
-  const rustComparison = render('compare?model=all&compareSkills=anthropic-pr-review%2Creview-and-fix-pr2&languages=Rust')
+  const rustComparison = render('compare?model=all&compareSkills=anthropic-pr-review%2Ccode-review-ad&languages=Rust')
   const rustRealFound = new Set(verifiedComplete.filter((run) => run.targetId === 'quillstone').flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
   assert.equal(Number(coverageFor(rustComparison.app).everFound.replaceAll(',', '')), rustRealFound)
-  const locallyRejected = DASHBOARD_DATA.issues.find((issue) => issue.id === 'opus-5-5-review-and-fix-pr2-r62-ironweave-2026-10-12/ironweave/I7')
+  const locallyRejected = DASHBOARD_DATA.issues.find((issue) => issue.id === 'opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I7')
   assert.equal(locallyRejected.verdict, 'false-positive')
   assert.deepEqual(locallyRejected.identityIds, ['ironweave-I014'])
   assert.equal(DASHBOARD_DATA.identityIssues.find((issue) => issue.id === 'ironweave-I014').verdict, 'real')

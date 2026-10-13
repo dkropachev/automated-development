@@ -59,7 +59,7 @@ function renderDashboard(root, dependencies = {}) {
 
 function publishesStandaloneReport(cohort) {
   const cells = cohort.snapshot.manifest.expectedCells || []
-  return !cells.some((cell) => ['review-and-fix-pr2', 'code-review-ad'].includes(cell.tool))
+  return !cells.some((cell) => cell.tool === 'code-review-ad')
 }
 
 function expectedPublication(options = {}, dependencies = {}) {

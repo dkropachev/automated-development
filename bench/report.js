@@ -64,7 +64,7 @@ try {
   process.exit(2)
 }
 if (writeReport && !cohort.legacy &&
-    cohort.expectedCells.some((cell) => ['review-and-fix-pr2', 'code-review-ad'].includes(cell.tool))) {
+    cohort.expectedCells.some((cell) => cell.tool === 'code-review-ad')) {
   console.error(`cohort ${selectedRun} is dashboard-only; no standalone report is written`)
   process.exit(2)
 }
