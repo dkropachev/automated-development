@@ -6,7 +6,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { execFileSync, spawnSync } = require('node:child_process')
-const { pathToFileURL } = require('node:url')
+const { pathToFileURL, URLSearchParams } = require('node:url')
 
 const ROOT = path.join(__dirname, '..')
 const DASHBOARD = path.join(ROOT, 'docs', 'index.html')
@@ -234,6 +234,20 @@ try {
   assert.deepEqual([...new Set(modelCompletenessDenominators(skillFilteredModels.app))], [...new Set(denominators)], 'skill filters must not change the target-level completeness denominator')
   assert.deepEqual(linkedEvidenceCounts(skillFilteredModels.app), [3, 3, 3], 'skill filters must change contributing evidence')
   assert.notEqual(modelRows(skillFilteredModels.app)[0].html, modelRows(models.app)[0].html, 'skill filters must change spend and findings')
+
+  const discoveredRuns = (html) => {
+    const panel = html.match(/<h2>Discovered coverage<\/h2>[\s\S]*?<\/section>/)
+    assert.ok(panel, 'the Models tab must render discovered coverage')
+    return [...panel[0].matchAll(/href="#runs\?([^"]+)"/g)]
+      .flatMap((match) => new URLSearchParams(match[1].replaceAll('&amp;', '&')).get('runIds').split(',')).sort()
+  }
+  const expectedDiscoveredRuns = (skill) => DASHBOARD_DATA.runs
+    .filter((run) => run.cohortId !== 'legacy' && run.status === 'complete' && (!skill || run.toolId === skill))
+    .map((run) => run.id).sort()
+  assert.deepEqual(discoveredRuns(models.app), expectedDiscoveredRuns(), 'unfiltered coverage must retain every completed modern run')
+  assert.deepEqual(discoveredRuns(skillFilteredModels.app), expectedDiscoveredRuns('builtin-code-review'), 'discovered coverage must honor the Skills filter')
+  const cohortSkillModels = render('choose?tab=models&skills=code-review-ad')
+  assert.deepEqual(discoveredRuns(cohortSkillModels.app), expectedDiscoveredRuns('code-review-ad'), 'cohort-only skills must filter discovered coverage')
 
   const protocolFiltered = render('choose?tab=models&skills=review-and-fix-pr')
   assert.equal(modelRows(protocolFiltered.app).length, 3)

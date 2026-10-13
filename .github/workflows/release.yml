@@ -30,6 +30,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: make install
+      - run: npm install -g @anthropic-ai/claude-code
       - run: make release BUMP="${{ inputs.bump }}"
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}

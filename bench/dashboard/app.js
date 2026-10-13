@@ -1352,9 +1352,10 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function discoveredModelCoverage(params) {
+    const selectedTools = values(params, 'skills')
     const selectedTargets = values(params, 'targets')
     const selectedLanguages = values(params, 'languages')
-    const eligible = verifiedRuns.filter((run) => run.status === 'complete' && (!selectedTargets.length || selectedTargets.includes(run.targetId)) && (!selectedLanguages.length || selectedLanguages.includes(targetForRun(run)?.language)))
+    const eligible = verifiedRuns.filter((run) => run.status === 'complete' && (!selectedTools.length || selectedTools.includes(run.toolId)) && (!selectedTargets.length || selectedTargets.includes(run.targetId)) && (!selectedLanguages.length || selectedLanguages.includes(targetForRun(run)?.language)))
     const allReal = new Set(eligible.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issue.id)))
     const body = el('tbody')
     for (const group of groupedStats(eligible, 'model', eligible).sort((a, b) => a.label.localeCompare(b.label))) {
@@ -1368,7 +1369,7 @@ if (typeof module !== 'undefined' && module.exports) {
       ))
     }
     return el('section', { class: 'panel' },
-      el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Discovered coverage'), el('p', {}, 'Cohort-local discovery across every completed, hash-verified run on the selected targets and languages. Unreviewed findings have provisional identities. This panel does not change the sealed canonical model score.'))),
+      el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Discovered coverage'), el('p', {}, 'Cohort-local discovery across every completed, hash-verified run for the selected skills, targets, and languages. Unreviewed findings have provisional identities. This panel does not change the sealed canonical model score.'))),
       el('div', { class: 'table-wrap' }, el('table', {}, el('thead', {}, el('tr', {}, el('th', {}, 'Model'), el('th', { class: 'num' }, 'Distinct real'), el('th', { class: 'num' }, 'Discovered coverage'), el('th', { class: 'num' }, 'Provisional'), el('th', { class: 'num' }, 'Runs'))), body)),
     )
   }

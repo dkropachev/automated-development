@@ -153,6 +153,24 @@ test('canonical schema fallback declares required generic sections', () => {
   assert.equal(r.ok, false); assert.deepEqual(r.missingHeadings, ['## Motivation', '## Summary of changes', '## Risk', '## Breaking changes'])
 })
 
+test('draft checks enforce forbidden headings without an allowed heading vocabulary', (t) => {
+  const fs = require('fs'), os = require('os'), path = require('path')
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pgl-'))
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const prompt = path.join(root, 'prompt.md'), draft = path.join(root, 'draft.md')
+  fs.writeFileSync(prompt, '---\npattern: derived\n---\n## Body\nUse plain paragraphs.\n## Forbidden headings\nDo not use `## Testing`.\n')
+  const body = 'Title: Fix connection cleanup\n\nClosing the connection now releases its pending requests. Callers receive the original failure and can retry without waiting for the timeout.\n'
+  fs.writeFileSync(draft, body)
+  assert.equal(checks.inspectDraft(draft, prompt, '', root, 3000, {}).ok, true)
+  fs.writeFileSync(draft, body + '\n## Testing\nChecked connection cleanup.\n')
+  const result = checks.inspectDraft(draft, prompt, '', root, 3000, {})
+  assert.equal(result.ok, false)
+  assert.deepEqual(result.inventedHeadings, ['## Testing'])
+  fs.writeFileSync(prompt, '---\nkinds: [bug, feature]\n---\n## Body\n### `## Testing` <!-- kinds: feature -->\n## Forbidden headings\nDo not use `## Testing` for bugs.\n')
+  assert.equal(checks.inspectDraft(draft, prompt, '', root, 3000, { kind: 'feature' }).ok, true)
+  assert.deepEqual(checks.inspectDraft(draft, prompt, '', root, 3000, { kind: 'bug' }).inventedHeadings, ['## Testing'])
+})
+
 test('promptLabels reads the run of backticked items after `labels` and nothing else on the line', () => {
   const fs = require('fs'), os = require('os'), path = require('path')
   const p = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'pgl-')), 'p.md')
