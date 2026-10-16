@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "runId": "rafp-six-pass-frozen-patch-2026-10-08",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "bf2d9b99f74e0a9858fc3dc35af05ff3bb16a47ff98a5ac3b179acbe5e4f2269",
+    "gitCommit": "9601c55ef2e05be9180a66376fcd673d8fec7084",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "createdAt": "2026-10-08T18:20:30.942Z",
+  "cells": [
+    {
+      "id": "rafp-six-pass-frozen-patch-2026-10-08/quillstone/review-and-fix-pr",
+      "target": "quillstone",
+      "tool": "review-and-fix-pr",
+      "file": "results/quillstone/review-and-fix-pr.json",
+      "sha256": "577af9096d61050447733f2a5ef5bba8a95f29e07e12e201e1dc53945c545871"
+    }
+  ]
+}

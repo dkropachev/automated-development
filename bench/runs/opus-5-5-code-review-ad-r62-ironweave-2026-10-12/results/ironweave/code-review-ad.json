@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "configSha256": "d88c9e48fb07ad45586e5da5a32a6db75f3284333686136e4334b5537c11a454",
+  "pluginFingerprint": {
+    "contentSha256": "5b8e01834792e4b8bc6efb93cc610e4ecaa58490d4c65fe675dc791143f99900",
+    "gitCommit": "4c36ab8eba26fa7a4f819fd58f4b4b5ab777f779",
+    "version": "0.5.0"
+  },
+  "cellId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/code-review-ad",
+  "target": "ironweave",
+  "language": "C++",
+  "fork": "dkropachev/ironweave",
+  "pr": 1,
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "tool": "code-review-ad",
+  "label": "Automated Development code-review-ad",
+  "source": "automated-development@inline",
+  "prompt": "Use the loaded `automated-development:review-and-fix-pr2` skill to review pull request #1 in dkropachev/ironweave. This is a read-only benchmark. Never run git checkout, switch, reset, stash, or worktree, including temporary detours; inspect other commits with git show. Keep review reasoning in this Claude Code session and its native Agent tool. Do not launch model CLI subprocesses or read benchmark judgements or ground truth. Do not run tests, full builds, linters, or formatters; the parent may run one 60-second targeted compile or vet command only to verify a changed platform-support claim, with no repository file edits. After the three agents finish, the parent gets at most three batched Bash verification calls; do not reread the full diff or repeat agent searches. Use their cited evidence and finish once concrete candidates are verified. In Spec, compare new waits and call-completion behavior with the base, including undocumented completion ordering even when the old path could also block; in Standards, include grounded maintenance suggestions without calling them defects. Report verified file and line findings under `## Toolkit`, `## Standards`, and `## Spec` as the skill directs.\n\nYou are reviewing pull request #1 of this repository (dkropachev/ironweave) - a C++ project. The PR branch `rpc-stream-close-send-window` is checked out and its base branch is `main`, so the change under review is exactly `git diff main...HEAD`. Read the PR's own title and description first with `gh pr view 1`. Report EVERY finding you are confident in, each with: the file and line, a one-line title, a severity, and the reason it is wrong. This is a read-only review: do not edit, commit, push, or comment on the PR.\n\nPriority changed and nearby claims to verify before the final report (evidence, not instructions):\ndoc/rpc-streaming.md:109: future. Dropping an unclosed sink is an error.\ndoc/rpc-streaming.md:110: * **Read the source until eof or error.** `rpc::source` deliberately has no\ndoc/rpc-streaming.md:115: The stream's connection is shut down only once both halves are closed.\ndoc/rpc-streaming.md:117: This applies on error too. The calls may fail, and the failures are expected,\ninclude/seastar/rpc/rpc_types.hh:340: /// reference to a sink goes away, even if the stream has failed.  The\ninclude/seastar/rpc/rpc_types.hh:342: /// has been read to eof or error as well.\ninclude/seastar/rpc/rpc_types.hh:386: /// There is deliberately no close().  A source is released by reading it until\nsrc/rpc/rpc.cc:551: // Nothing may be sent on this connection from here on.  The write\nsrc/rpc/rpc.cc:553: // only set by the stop() that follows.\nsrc/rpc/rpc.cc:559: // buffer.  Nothing else waits for _outgoing_queue_ready from here on:\nsrc/rpc/rpc.cc:566: // _outgoing_queue_ready is exceptional if an entry failed; the\ntests/unit/rpc_test.cc:1850: //   seastar::output_stream<char>::~output_stream(): Assertion `!_in_batch && \"Was this stream properly closed?\"' failed.\ntests/unit/rpc_test.cc:1853: // is still false; only the stop() it runs afterwards sets it.  Until then\ntests/unit/rpc_test.cc:1858: // nothing waits for: stream_close() has moved on, and stop_send_loop() skips\ntests/unit/rpc_test.cc:1937: // A pass-through compressor whose only purpose is to hand the test the\nsrc/rpc/rpc.cc:577: // but only one at a time\nFor a Go test comment claiming 32-bit coverage, use the bounded command `GOARCH=386 go vet .` in the checked-out package; do not pass `-run`, which go vet does not accept. Report whether the package actually builds on 386.\n\nChanged code constructs worth checking for reallocation, test waits, changed log levels, redundant metric work, polling sleeps, duplicated conditions, wrapper reuse, wrapper naming, synchronized classifiers, and new lifecycle flags:\ninclude/seastar/rpc/rpc.hh:307: bool _stream_closing = false;\ninclude/seastar/rpc/rpc_types.hh:337: new doc block is separated from declaration by older comment at include/seastar/rpc/rpc_types.hh:343\ninclude/seastar/rpc/rpc_types.hh:384: new doc block is separated from declaration by older comment at include/seastar/rpc/rpc_types.hh:390\ntests/unit/rpc_test.cc:1870: struct test_sink_state {\ntests/unit/rpc_test.cc:1877: class test_data_sink_impl : public data_sink_impl {\ntests/unit/rpc_test.cc:1900: class test_connected_socket_impl : public net::connected_socket_impl {\ntests/unit/rpc_test.cc:1922: class test_socket_impl : public net::socket_impl {\ntests/unit/rpc_test.cc:1939: struct hook_capturing_compressor_factory : rpc::compressor::factory {\ntests/unit/rpc_test.cc:1943: struct compressor : rpc::compressor {\ntests/unit/rpc_test.cc:1957: const_cast<hook_capturing_compressor_factory*>(this)->hooks.push_back(std::move(send_empty_frame));\ntests/unit/rpc_test.cc:1966: hook_capturing_compressor_factory server_factory;\ntests/unit/rpc_test.cc:1967: hook_capturing_compressor_factory client_factory;\ntests/unit/rpc_test.cc:1970: so.compressor_factory = &server_factory;\ntests/unit/rpc_test.cc:1972: co.compressor_factory = &client_factory;\ntests/unit/rpc_test.cc:2000: BOOST_REQUIRE_EQUAL(client_factory.hooks.size(), 2u);\ntests/unit/rpc_test.cc:2001: auto& stream_send_empty_frame = client_factory.hooks.back();\ntests/unit/rpc_test.cc:2011: st.close_entered_cv.wait([&] { return st.close_entered; }).get();\ntests/unit/rpc_test.cc:2022: for (int i = 0; i < 10; i++) {\nFor each changed log level, compare base and head and assess whether callers or operators still see repeated failures at default verbosity; report lost visibility separately from a commit-message concern. For each changed test wait, check both whether it has a failure deadline and whether cleanup still runs if another assertion fails. Report a missing deadline separately when cleanup is also fragile. For a new discard-and-retry error branch, name the stored state that controls every retry, whether failure clears it, and the result after existing resources expire; a scheduled retry is not recovery if it repeats the same failing prerequisite. For a new lifecycle flag, compare every send-like path and existing error/closed-state predicate; report an extra check future callers could forget. For each new sizing or type-classification helper, identify other functions classifying the same types and the maintenance risk if they disagree. For each new test wrapper, state its distinctive behavior and whether its name says that. For a polling sleep, check whether an existing or new notification, or driving the event handler directly in a test, removes timing-based observation; a timeout bounds the poll but does not make it deterministic. For tests with captured hooks on both sides, distinguish installing a hook from invoking and asserting it; an unused fixture does not cover the corresponding production path.\n\nExisting nearby comments that the changed code may have made stale:\ninclude/seastar/rpc/rpc.hh:302: // the future holds if sink is already closed\ninclude/seastar/rpc/rpc.hh:303: // if it is not ready it means the sink is been closed\ninclude/seastar/rpc/rpc_types.hh:334: /// \\addtogroup rpc\ninclude/seastar/rpc/rpc_types.hh:335: /// @{\ninclude/seastar/rpc/rpc_types.hh:343: // send data Out...\ninclude/seastar/rpc/rpc_types.hh:376: // It does not mean the data was received by the corresponding\ninclude/seastar/rpc/rpc_types.hh:377: // source.\ninclude/seastar/rpc/rpc_types.hh:390: // receive data In...\nsrc/rpc/rpc.cc:563: // stop_send_loop(), which also calls _write_buf.close(), and this code can run in parallel.\nsrc/rpc/rpc.cc:564: // Use _sink_closed_future to serialize them and skip second call to close()\nsrc/rpc/rpc.cc:576: // we do not want to dead lock on huge packets, so let them in\nsrc/rpc/rpc.cc:577: // but only one at a time\n\nCommit/file inventory from the pinned range. Compare each commit subject with every behavior and public type it changes, including moved checks or altered ordering; also check whether tests arrive only in a later commit:\ncommit f545c28a rpc: refuse to send on a stream connection once stream_close() has begun\n\ninclude/seastar/rpc/rpc.hh\nsrc/rpc/rpc.cc\ncommit 5e25ebdb rpc_test: reproduce a send racing stream_close()\n\ntests/unit/rpc_test.cc\ncommit 69da8f5b rpc: document the stream shutdown contract\n\ndoc/rpc-streaming.md\ninclude/seastar/rpc/rpc_types.hh\n\nOther changed comment and documentation claims from the pinned diff:\ndoc/rpc-streaming.md:49: will be associated with the client, and closing the client aborts any stream\ndoc/rpc-streaming.md:50: still open on it. Aborting a stream this way is not a substitute for closing\ndoc/rpc-streaming.md:51: it, see [Closing a stream](#closing-a-stream) below. Given RPC client `rc`, and a `serializer` class that models the Serializer concept (as explained in the rpc::protocol class), one creates `rpc::sink` as follows\ndoc/rpc-streaming.md:104: ### Closing a stream\ndoc/rpc-streaming.md:106: Both halves of a stream must be closed by the application:\ndoc/rpc-streaming.md:108: * **Close the sink** with `rpc::sink::close()` and wait for the returned\ndoc/rpc-streaming.md:109: future. Dropping an unclosed sink is an error.\ndoc/rpc-streaming.md:110: * **Read the source until eof or error.** `rpc::source` deliberately has no\ndoc/rpc-streaming.md:111: `close()`: reading it until it yields an unengaged optional (eof) or throws\ndoc/rpc-streaming.md:112: is what closes it. If you no longer want the data, tell the peer at the\ndoc/rpc-streaming.md:113: application level and then drain what is still in flight.\ndoc/rpc-streaming.md:115: The stream's connection is shut down only once both halves are closed.\ndoc/rpc-streaming.md:117: This applies on error too. The calls may fail, and the failures are expected,\ndoc/rpc-streaming.md:118: but they still have to be made.\ninclude/seastar/rpc/rpc.hh:305: // Set by stream_close() before it closes the write buffer.  From then on\ninclude/seastar/rpc/rpc.hh:306: // send() refuses new frames, see stream_close().\ninclude/seastar/rpc/rpc_types.hh:337: /// \\brief The sending end of an rpc stream.\ninclude/seastar/rpc/rpc_types.hh:338: ///\ninclude/seastar/rpc/rpc_types.hh:339: /// close() must be called, and its future waited for, before the last\ninclude/seastar/rpc/rpc_types.hh:340: /// reference to a sink goes away, even if the stream has failed.  The\ninclude/seastar/rpc/rpc_types.hh:341: /// stream's connection is shut down once the \\ref source on this connection\ninclude/seastar/rpc/rpc_types.hh:342: /// has been read to eof or error as well.\ninclude/seastar/rpc/rpc_types.hh:384: /// \\brief The receiving end of an rpc stream.\ninclude/seastar/rpc/rpc_types.hh:385: ///\ninclude/seastar/rpc/rpc_types.hh:386: /// There is deliberately no close().  A source is released by reading it until\ninclude/seastar/rpc/rpc_types.hh:387: /// it yields an unengaged optional (end of stream) or throws, and there is no\ninclude/seastar/rpc/rpc_types.hh:388: /// other way to do it.  An application that no longer wants the data should\ninclude/seastar/rpc/rpc_types.hh:389: /// say so at the application level and then drain what is still in flight.\nsrc/rpc/rpc.cc:551: // Nothing may be sent on this connection from here on.  The write\nsrc/rpc/rpc.cc:552: // buffer is closed below while _error is still false, and _error is\nsrc/rpc/rpc.cc:553: // only set by the stop() that follows.\nsrc/rpc/rpc.cc:557: // Entries that send() accepted before the flag was set may still be\nsrc/rpc/rpc.cc:558: // queued.  Wait for them to be written before closing the write\nsrc/rpc/rpc.cc:559: // buffer.  Nothing else waits for _outgoing_queue_ready from here on:\nsrc/rpc/rpc.cc:560: // send() is refused, and stop_send_loop() waits for\nsrc/rpc/rpc.cc:561: // _sink_closed_future.\nsrc/rpc/rpc.cc:566: // _outgoing_queue_ready is exceptional if an entry failed; the\nsrc/rpc/rpc.cc:567: // write buffer still has to be closed.\ntests/unit/rpc_test.cc:1847: // Regression test for a stream connection being destroyed with a batch flush\ntests/unit/rpc_test.cc:1848: // pending on its write buffer, seen in the field as\ntests/unit/rpc_test.cc:1849: //\ntests/unit/rpc_test.cc:1850: //   seastar::output_stream<char>::~output_stream(): Assertion `!_in_batch && \"Was this stream properly closed?\"' failed.\ntests/unit/rpc_test.cc:1851: //\ntests/unit/rpc_test.cc:1852: // connection::stream_close() closes the connection's write buffer while _error\ntests/unit/rpc_test.cc:1853: // is still false; only the stop() it runs afterwards sets it.  Until then\ntests/unit/rpc_test.cc:1854: // connection::send() still accepts frames, and the one caller that is not\ntests/unit/rpc_test.cc:1855: // guarded by sink_closed() is the compressor's send_empty_frame hook, which is\ntests/unit/rpc_test.cc:1856: // `[this] { return send({}); }`.  A frame sent in that window is written into\ntests/unit/rpc_test.cc:1857: // the already closed output_stream and registered for a batch flush that\ntests/unit/rpc_test.cc:1858: // nothing waits for: stream_close() has moved on, and stop_send_loop() skips\ntests/unit/rpc_test.cc:1859: // write_buf.close() because _sink_closed_future already says the sink side\ntests/unit/rpc_test.cc:1860: // was closed.  Once the loop is over the application legitimately drops its\ntests/unit/rpc_test.cc:1861: // handles, and the connection is destroyed with the flush still pending.\ntests/unit/rpc_test.cc:1862: //\ntests/unit/rpc_test.cc:1863: // The window is held open deterministically here: the stream connection's\ntests/unit/rpc_test.cc:1864: // socket is wrapped so that its data_sink::close() blocks until the test\ntests/unit/rpc_test.cc:1865: // releases it, and any put() arriving after close() was entered is recorded.\ntests/unit/rpc_test.cc:1866: // While close() is blocked, the test invokes the stream compressor's\ntests/unit/rpc_test.cc:1867: // send_empty_frame hook, which a compressor may call at any time.\ntests/unit/rpc_test.cc:1937: // A pass-through compressor whose only purpose is to hand the test the\ntests/unit/rpc_test.cc:1938: // send_empty_frame hook that rpc gives every negotiated compressor.\ntests/unit/rpc_test.cc:1979: // The peer sends one message and closes its sink right away, so the\ntests/unit/rpc_test.cc:1980: // client's source reaches eof while the client's sink is still open.\ntests/unit/rpc_test.cc:1981: // That makes the client's later sink.close() the call that closes the\ntests/unit/rpc_test.cc:1982: // second half of the stream and runs stream_close().\ntests/unit/rpc_test.cc:1998: // Two client-side negotiations by now: the parent connection's and\ntests/unit/rpc_test.cc:1999: // the stream connection's.  The stream's hook is the one that matters.\ntests/unit/rpc_test.cc:2007: // Close the sink.  This sends the eof marker, marks the sink half\ntests/unit/rpc_test.cc:2008: // closed, and since the source half already is, runs stream_close(),\ntests/unit/rpc_test.cc:2009: // which closes the write buffer.  The test sink parks that close.\ntests/unit/rpc_test.cc:2013: // The window: the write buffer is closed, _error is not yet set.  A\ntests/unit/rpc_test.cc:2014: // compressor asking for an empty frame now must be refused; if it is\ntests/unit/rpc_test.cc:2015: // accepted, its frame lands in the closed output_stream.\ntests/unit/rpc_test.cc:2019: // The connection refused the frame: what we want.\ntests/unit/rpc_test.cc:2021: // Let the batch flush poller run on whatever was written.\ntests/unit/rpc_test.cc:2031: // Dropping sink and source now destroys the connection.  Without the\ntests/unit/rpc_test.cc:2032: // fix, and with the above write still in flight, this is where\ntests/unit/rpc_test.cc:2033: // ~output_stream() asserts on the pending batch flush.\n\nThe final audit marker must map these comment, code-risk, and commit keys to a finding reference or a brief reason for no finding: [\"doc/rpc-streaming.md:109\",\"doc/rpc-streaming.md:110\",\"doc/rpc-streaming.md:115\",\"doc/rpc-streaming.md:117\",\"include/seastar/rpc/rpc_types.hh:340\",\"include/seastar/rpc/rpc_types.hh:342\",\"include/seastar/rpc/rpc_types.hh:386\",\"src/rpc/rpc.cc:551\",\"src/rpc/rpc.cc:553\",\"src/rpc/rpc.cc:559\",\"src/rpc/rpc.cc:566\",\"tests/unit/rpc_test.cc:1850\",\"tests/unit/rpc_test.cc:1853\",\"tests/unit/rpc_test.cc:1858\",\"tests/unit/rpc_test.cc:1937\",\"src/rpc/rpc.cc:577\",\"include/seastar/rpc/rpc.hh:307\",\"include/seastar/rpc/rpc_types.hh:337\",\"include/seastar/rpc/rpc_types.hh:384\",\"tests/unit/rpc_test.cc:1870\",\"tests/unit/rpc_test.cc:1877\",\"tests/unit/rpc_test.cc:1900\",\"tests/unit/rpc_test.cc:1922\",\"tests/unit/rpc_test.cc:1939\",\"tests/unit/rpc_test.cc:1943\",\"tests/unit/rpc_test.cc:1957\",\"tests/unit/rpc_test.cc:1966\",\"tests/unit/rpc_test.cc:1967\",\"tests/unit/rpc_test.cc:1970\",\"tests/unit/rpc_test.cc:1972\",\"tests/unit/rpc_test.cc:2000\",\"tests/unit/rpc_test.cc:2001\",\"tests/unit/rpc_test.cc:2011\",\"tests/unit/rpc_test.cc:2022\",\"commit:f545c28a\",\"commit:5e25ebdb\",\"commit:69da8f5b\"]",
+  "exitCode": 0,
+  "signal": null,
+  "wallMs": 245382,
+  "reportedCostUsd": 2.531276,
+  "reportedUsage": {
+    "input_tokens": 4,
+    "cache_creation_input_tokens": 7968,
+    "cache_read_input_tokens": 148267,
+    "output_tokens": 6064,
+    "output_tokens_details": {
+      "thinking_tokens": 525
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 7968,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 5568,
+        "cache_read_input_tokens": 75663,
+        "cache_creation_input_tokens": 4909,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 4909
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "modelUsage": {
+    "claude-opus-5-5": {
+      "inputTokens": 54,
+      "outputTokens": 48564,
+      "cacheReadInputTokens": 1073565,
+      "cacheCreationInputTokens": 226216,
+      "webSearchRequests": 0,
+      "costUSD": 2.531276,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 128000,
+      "thinkingTokens": 20333,
+      "canonicalModel": "claude-opus-5-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "numTurns": 2,
+  "subagentStats": {
+    "spawned": 3,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 3
+    },
+    "started_in_background": 3,
+    "max_depth": 1,
+    "spawned_by_subagents": 0,
+    "completed": 3,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {
+      "general-purpose": 3
+    }
+  },
+  "sessionId": "a80c7033-d59c-484b-8bdf-f575c5e4d17f",
+  "isError": false,
+  "apiErrorStatus": null,
+  "transcriptUsage": {
+    "input": 54,
+    "output": 48564,
+    "thinking": 20333,
+    "cacheRead": 1073565,
+    "cacheCreation": 226216,
+    "costUsd": 2.531276,
+    "sessions": 1,
+    "models": {
+      "claude-opus-5-5": 2.531276
+    },
+    "bySession": {
+      "a80c7033-d59c-484b-8bdf-f575c5e4d17f": {
+        "costUsd": 2.531276,
+        "startTime": 1791802853684,
+        "tokens": 1348399
+      }
+    },
+    "rawMessages": 51,
+    "rawOutput": 80442,
+    "rawCacheRead": 1985163,
+    "since": 0,
+    "subagentTranscripts": 3,
+    "transcriptDir": "/home/dmitry.kropachev/.claude/projects/-extra-dkropachev-automated-development-bench-work-ironweave-runs-opus-5-5-code-review-ad-r62-ironweave-2026-10-12-code-review-ad-attempt-iI548e-repo",
+    "byAgent": {
+      "a80c7033-d59c-484b-8bdf-f575c5e4d17f.jsonl": {
+        "input": 22,
+        "output": 13349,
+        "cacheRead": 563978,
+        "cacheCreation": 71329,
+        "messages": 11,
+        "total": 648678
+      },
+      "a80c7033-d59c-484b-8bdf-f575c5e4d17f/subagents/agent-a2901b9f6b660b7de.jsonl": {
+        "input": 12,
+        "output": 31,
+        "cacheRead": 207432,
+        "cacheCreation": 60368,
+        "messages": 6,
+        "total": 267843
+      },
+      "a80c7033-d59c-484b-8bdf-f575c5e4d17f/subagents/agent-a6fa4264d8cf34b2b.jsonl": {
+        "input": 10,
+        "output": 19,
+        "cacheRead": 150877,
+        "cacheCreation": 46222,
+        "messages": 5,
+        "total": 197128
+      },
+      "a80c7033-d59c-484b-8bdf-f575c5e4d17f/subagents/agent-af58482655b08b383.jsonl": {
+        "input": 10,
+        "output": 25,
+        "cacheRead": 151278,
+        "cacheCreation": 48297,
+        "messages": 5,
+        "total": 199610
+      }
+    },
+    "total": 1348399
+  },
+  "result": "PR #1 fixes the hook race it targets, but its regression test cannot reliably prove that fix, and the new docs promise more than the code enforces. The checkout was still at 69da8f5b and clean at the end; nothing was built or run.\n\n## Toolkit\n\n1. **`tests/unit/rpc_test.cc:2017-2020` — the test never asserts that the hook was refused. Medium.**\n   - The `catch (const rpc::closed_error&)` is optional, so an accepted frame passes that line. Detection depends only on `put_after_close`.\n   - A `closed_error` here also does not show which check refused it. `_error` and the new `_stream_closing` produce the same exception (`src/rpc/rpc.cc:342`).\n   - There is also a possible race: `handle_stream_frame` sets `_error = true` when the server's shutdown reaches the client as EOF (`src/rpc/rpc.cc:588`). That chain starts once the client's eof marker reaches the server, before the hook call, so the test could pass without the fix (PLAUSIBLE, scheduling-dependent).\n   - That weakens the claims that the test is \"deterministic\" and \"fails without the first commit\". `BOOST_REQUIRE_THROW` with a check that `_error` is still false would pin it down.\n\n2. **`tests/unit/rpc_test.cc:2000-2012`, `:2028-2029` — the waits have no deadline and nothing guarantees cleanup. Medium.**\n   - **No deadline:** `close_entered_cv.wait(...)`, `sink_closed.get()` and `server_done.get()` can hang the test with no timeout.\n   - **Fragile cleanup:** if `BOOST_REQUIRE_EQUAL(hooks.size(), 2u)` fails, the open sink is destroyed and `SEASTAR_ASSERT(sink_closed())` aborts the process (`include/seastar/rpc/rpc_impl.hh:935`) instead of reporting a failure.\n   - Likewise, if the hook throws anything other than `closed_error`, `release_close` is never set and the close stays parked forever.\n\n3. **`src/rpc/rpc.cc:562-570` — the new drain branches are not tested. Medium.**\n   - `sink_impl::close` awaits its eof `send()` before `close_sink()`, so `queue_drained` is always already ready in the test.\n   - Three cases are never exercised:\n     - an entry still queued when `stream_close()` starts;\n     - an exceptional `_outgoing_queue_ready`;\n     - the peer disconnecting while an entry is pending.\n\n4. **`src/rpc/rpc.cc:566-567` — the comment says the wrong thing about when the future fails. Low.**\n   - A failed `send_entry` calls `abort()` and then `p->done.set_value()` (`rpc.cc:333-338`), so `_outgoing_queue_ready` does not become exceptional when an entry fails.\n   - It is exceptional only via `stop_send_loop` with `_negotiated` engaged (`rpc.cc:217`) or when `_negotiated` itself failed.\n\n5. **`doc/rpc-streaming.md:109,115` and `include/seastar/rpc/rpc_types.hh:339-342` — the lifecycle contract does not match the code. Low.**\n   Both flags default to true (`rpc.hh:300-301`). Only the `sink_impl` constructor (`rpc_impl.hh:839`) and the `source_impl` constructor (`rpc.hh:494`) clear them.\n\n   | Case | What happens | Doc claim it contradicts |\n   |---|---|---|\n   | Sink only (no source built) | `sink.close()` alone runs `stream_close` | \"Only once both halves are closed\" |\n   | Source only | Reading to eof or error alone runs `stream_close` | Same |\n   | Two sinks from `make_sink()` (no guard against a second call, `rpc_impl.hh:999`) | `_sink_closed` is connection-wide. The second `close()` returns `stream_closed` (\"double close\"), and dropping it unclosed does not assert | \"Before the last reference to a sink goes away\"; \"Dropping an unclosed sink is an error\" |\n   | Peer EOF or error | `stop_send_loop` shuts the socket down without the app closing both halves | \"Shut down only once both halves are closed\" |\n\n   \"Is an error\" also hides the real consequence: a process-aborting `SEASTAR_ASSERT`.\n\n6. **`tests/unit/rpc_test.cc:1937` — the \"pass-through\" compressor is not pass-through. Low.** It delegates to `lz4_fragmented_compressor`, which really compresses. The `data.size ? … : snd_buf(temporary_buffer<char>())` substitution is unexplained.\n\n7. **`tests/unit/rpc_test.cc:1957`, `:1966`, `:1970` — server hooks are collected but unused, and touched across shards. Low.**\n   - `server_factory.hooks` is filled but never invoked or asserted, so it covers no server path.\n   - The loopback factory hands connections out round-robin across shards (`loopback_socket.hh:308`), and the server negotiates on whichever shard accepted. With smp ≥ 2, the `const_cast` `push_back` mutates a vector on shard 0's stack from another shard.\n\n8. **`tests/unit/rpc_test.cc:2022` — the yield loop is redundant (simplification).** The loop of 10 bare `yield()`s waits on no condition. `close_entered` stays latched, so a late `put()` is still caught during `sink_closed.get()`.\n\n## Standards\n\n1. **Claude attribution against the user's rule (rule violation).** f545c28a and 5e25ebdb each carry a `Co-Authored-By: Claude …` trailer, 69da8f5b carries two, and the PR body ends with \"🤖 Generated with Claude Code\". `~/.claude/CLAUDE.md` forbids all of these.\n\n2. **No DCO sign-off on any of the three commits (rule violation).** `doc/contributing.md:10` asks for `git commit -s`.\n\n3. **Issue references do not resolve here (rule violation).** `Fixes #3663` and `Refs #3653` in f545c28a and the PR body return \"Could not resolve\" in dkropachev/ironweave, so \"Fixes\" will close nothing or the wrong issue. The PR body also links internal customer Jira tickets.\n\n4. **The fix commit has no test (commit structure).** f545c28a contains the fix only; its regression test arrives in the later 5e25ebdb. The f545c28a subject also omits the new queue wait in `stream_close()`, which changes when the call completes; only the body mentions it.\n\n5. **`doc/rpc-streaming.md:51` — the anchor likely breaks under Doxygen, and the line is too long.**\n   - `#closing-a-stream` works on GitHub, but the file is a Doxygen input (`doc/Doxyfile.in:764`). With no `MARKDOWN_ID_STYLE` set, Doxygen generates `autotoc_mdN` ids, so the link likely breaks.\n   - The new sentence was prepended to an already long line, making it about 213 characters; the paragraph wraps at about 76.\n\n6. **Maintenance suggestions (not present defects):**\n   - **Easy-to-forget extra check (`include/seastar/rpc/rpc.hh:307`).** `_stream_closing` is checked only in `send()` (`rpc.cc:293`). `error()`, `sink_impl`, `client::enqueue_zero_frame` (`rpc.cc:866-883`), `send_negotiation_frame` and `suspend_for_testing` don't consult it. A single `can_send()` predicate would prevent a future enqueue path from reopening the window.\n   - **Undocumented ordering (`src/rpc/rpc.cc:551-564`).** Correctness depends on `_stream_closing`, `_sink_closed_future` and the `std::exchange` of `_outgoing_queue_ready` all happening synchronously, before the first suspension. Otherwise `stop_send_loop` (`rpc.cc:225`) could close `write_buf` twice.\n   - **\"Nothing else waits for `_outgoing_queue_ready`\" (`rpc.cc:559`) is only true in effect.** `stop_send_loop` still consumes it in `when_all`; it just gets the ready placeholder. The older comment at `:563-564` is now separated from the `_sink_closed_future` assignment it explains.\n   - **`src/rpc/rpc.cc:565`:** the lambda parameter `future<> f` shadows the enclosing local `f`.\n   - **`include/seastar/rpc/rpc_types.hh:337`, `:384`:** the new `///` blocks sit above the old `// send data Out...` / `// receive data In...` lines, leaving two comments on one declaration.\n   - **`tests/unit/rpc_test.cc:2001`:** `auto& … = hooks.back()` holds a reference into a vector that a later negotiation could reallocate.\n   - **`test_sink_state st`:** it is lambda-local, but the connection-owned wrappers hold `_st&`.\n   - **`tests/unit/rpc_test.cc:1957`:** the `const_cast` departs from the file's `mutable` idiom (`cfactory`, `rpc_test.cc:330`).\n   - **Wrapper names (`tests/unit/rpc_test.cc:1870`, `:1877`):** `test_sink_state` and `test_data_sink_impl` don't say that they park `close()` and record late puts. `buffer_size()` is hardcoded rather than forwarded.\n   - **Comment spacing:** new comments use two spaces after a full stop, while the surrounding code mostly uses one.\n\n## Spec\n\n1. **`src/rpc/rpc.cc:562-570` — `sink.close()` can now wait on queued frames, and the PR doesn't say so. Low.**\n   - `stream_close()` now waits for every queued entry's write and flush before `write_buf.close()`, and `stop()` runs only after that.\n   - Stream sends have no timeout. A front entry stuck on a wedged peer is released only by `stop_send_loop`'s `shutdown_output`, which runs once the receive loop exits.\n   - The base also blocked here, since `output_stream::close()` waits on `_in_batch` before `_fd.close()` (`iostream-impl.hh:571-585`). So I found no new hang, but each queued successor adds a write round trip, and neither the PR body nor the subject describes this completion order.\n\n2. **`src/rpc/rpc.cc:568` — an exceptional drain is swallowed silently. Low.** `sink.close()` reports success unless `write_buf.close()` itself fails, and this is not documented.\n\n3. **The PR body's description of the wait is imprecise.** It says the fix chains on `_outgoing_queue_ready` \"the way `send()` does\", but the code exchanges it for a ready future. The body also asserts determinism and fails-without-fix validation, which Toolkit 1 calls into question.\n\n4. **`doc/rpc-streaming.md:49-51` is accurate.** `client::stop` → `abort_all_streams` does abort open streams.\n\nREVIEW_AND_FIX_PR2_CLAIM_AUDIT_JSON={\"doc/rpc-streaming.md:109\":\"Toolkit 5\",\"doc/rpc-streaming.md:110\":\"No finding: source has no close(); reading to eof or error runs close_source, consistent with source_impl\",\"doc/rpc-streaming.md:115\":\"Toolkit 5\",\"doc/rpc-streaming.md:117\":\"No finding: sink close is still required on error, and error()/_ex paths still call close_sink\",\"include/seastar/rpc/rpc_types.hh:340\":\"Toolkit 5\",\"include/seastar/rpc/rpc_types.hh:342\":\"Toolkit 5\",\"include/seastar/rpc/rpc_types.hh:386\":\"No finding: source<> has no close() member; matches the code\",\"src/rpc/rpc.cc:551\":\"Standards 6 (ordering dependency); the claim itself is accurate\",\"src/rpc/rpc.cc:553\":\"No finding: _error is set by stop_send_loop/handle_stream_frame, not by stream_close; peer EOF race noted in Toolkit 1\",\"src/rpc/rpc.cc:559\":\"Standards 6\",\"src/rpc/rpc.cc:566\":\"Toolkit 4\",\"tests/unit/rpc_test.cc:1850\":\"No finding: assertion text matches output_stream::~output_stream\",\"tests/unit/rpc_test.cc:1853\":\"Toolkit 1 (peer EOF can set _error in the window)\",\"tests/unit/rpc_test.cc:1858\":\"No finding: stop_send_loop skips close when _sink_closed_future is true, matches rpc.cc:225-230\",\"tests/unit/rpc_test.cc:1937\":\"Toolkit 6\",\"src/rpc/rpc.cc:577\":\"No finding: unchanged context comment about queue admission, unaffected\",\"include/seastar/rpc/rpc.hh:307\":\"Standards 6\",\"include/seastar/rpc/rpc_types.hh:337\":\"Standards 6 (doc block above old comment)\",\"include/seastar/rpc/rpc_types.hh:384\":\"Standards 6 (doc block above old comment)\",\"tests/unit/rpc_test.cc:1870\":\"Standards 6 (wrapper naming, lifetime)\",\"tests/unit/rpc_test.cc:1877\":\"Standards 6 (wrapper naming, buffer_size not forwarded)\",\"tests/unit/rpc_test.cc:1900\":\"No finding: forwarding wrapper needed to inject parking sink; no existing helper parks close\",\"tests/unit/rpc_test.cc:1922\":\"No finding: forwarding socket wrapper; minor non-forwarded reuseaddr only\",\"tests/unit/rpc_test.cc:1939\":\"Toolkit 6\",\"tests/unit/rpc_test.cc:1943\":\"Toolkit 6\",\"tests/unit/rpc_test.cc:1957\":\"Toolkit 7; Standards 6 (const_cast)\",\"tests/unit/rpc_test.cc:1966\":\"Toolkit 7\",\"tests/unit/rpc_test.cc:1967\":\"No finding: client hooks used on client shard only\",\"tests/unit/rpc_test.cc:1970\":\"Toolkit 7\",\"tests/unit/rpc_test.cc:1972\":\"No finding: client factory installed and its stream hook invoked\",\"tests/unit/rpc_test.cc:2000\":\"Toolkit 2 (abort on failure); count of 2 verified correct\",\"tests/unit/rpc_test.cc:2001\":\"Standards 6 (reference into vector)\",\"tests/unit/rpc_test.cc:2011\":\"Toolkit 2\",\"tests/unit/rpc_test.cc:2022\":\"Toolkit 8\",\"commit:f545c28a\":\"Standards 1, 2, 3, 4; Spec 1\",\"commit:5e25ebdb\":\"Standards 1, 4; Toolkit 1\",\"commit:69da8f5b\":\"Standards 1, 5; Toolkit 5\"}",
+  "stderrTail": "",
+  "attempts": 1,
+  "workspace": "work/ironweave/runs/opus-5-5-code-review-ad-r62-ironweave-2026-10-12/code-review-ad/attempt-iI548e/repo",
+  "finishedAt": "2026-10-12T11:04:59.119Z"
+}

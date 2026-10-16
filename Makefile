@@ -73,13 +73,13 @@ bench-report: ## write one cohort report; RUN is required and RUN=legacy is hist
 	$(if $(strip $(RUN)),,$(error RUN is required, for example RUN=opus-5-5-2026-09-29))
 	$(NODE) bench/report.js --run "$(RUN)" --write
 
-bench-publish: ## write every completed cohort report and both Pages dashboard exports
+bench-publish: ## write standalone cohort reports and both Pages dashboard exports
 	$(NODE) bench/publish.js --write
 
-bench-publish-check: ## fail when any completed cohort report or Pages export is missing or stale
+bench-publish-check: ## fail when a required cohort report or Pages export is missing or stale
 	$(NODE) bench/publish.js --check
 
-bench-reconcile: ## propose, accept, seal, or validate model-comparison gold; PHASE defaults to proposal
+bench-reconcile: ## prepare, propose, accept, seal, or validate model-comparison gold; PHASE defaults to proposal
 	$(NODE) bench/reconcile.js --phase "$(or $(PHASE),proposal)" $(if $(strip $(GOLD_ID)),--id "$(GOLD_ID)") $(ARGS)
 
 bench-dashboard: ## render the offline dashboard and GitHub Pages entry point

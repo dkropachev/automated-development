@@ -1,6 +1,6 @@
 # Review-tool bake-off: 7 review configurations, 3 real PRs
 
-**Cohort:** `fable-5-1-2026-09-29`. **Requested model:** Claude Fable 5.1 (`claude-fable-5-1`). Claude Code: `2.1.284 (Claude Code)`.
+**Cohort:** `fable-5-1-2026-09-29`. **Skill platform:** Claude. **Requested model:** Claude Fable 5.1 (`claude-fable-5-1`). Claude Code: `2.1.284 (Claude Code)`.
 
 Every number below is produced by `bench/` in this repository and can be regenerated with
 `make bench-report RUN=fable-5-1-2026-09-29`.
@@ -16,10 +16,9 @@ working directory so its token spend is attributable.
 | `quillstone` | Rust | 26,179 B | 4 commits | https://github.com/dkropachev/quillstone/pull/1 | https://github.com/scylladb/scylla-rust-driver/pull/1801 |
 | `tidepool` | Go | 18,335 B | 2 commits | https://github.com/dkropachev/tidepool/pull/1 | https://github.com/scylladb/gocql/pull/1094 |
 
-Each PR was republished into a private repository of its own: full upstream history, the PR's own
-commits replayed under a neutral author, every `owner/repo` link repointed at the copy, and
-`WebSearch`/`WebFetch` denied to every run. A reviewer that could reach the original PR could read
-the maintainers' review instead of doing its own.
+Each PR was replayed in its own fork with its commits under a neutral author. The preparer rewrote
+repository references in review material and denied `WebSearch`/`WebFetch`. The benchmark freezes
+the review inputs because access to upstream comments would bias discovery.
 
 ## Cohort accounting
 
@@ -27,12 +26,12 @@ the maintainers' review instead of doing its own.
 - Reviews: 19 calls, 72,528,644 tokens, $119.78, 162.8 minutes wall time.
 - Extraction: 19 calls, 187 raw claims, $2.62.
 - Judging: 3 calls, 113 merged issues (75 real, 33 false-positive, 5 unproven), $7.86.
-- Total known canonical spend: $130.85. Discarded attempts are not included in immutable stage artifacts.
+- Total known cohort spend: $130.85. Discarded attempts are not included in immutable stage artifacts.
 - Final quota: current session 59%, all-model week 31%, Fable week 52% (recorded ceilings: 95% / 95% / 95%).
 
 ## Findings, by issue
 
-One row per distinct defect the tools found between them, merged across tools by a judge that had
+One row per distinct issue claim, including false positives, merged across tools by a judge that had
 the code in front of it. `✓` = that tool reported it.
 
 | # | Issue | Verdict | Scope | New? | Sev | CR | CE | TB-D | TB-R | ANT | SP | MP |
@@ -171,43 +170,42 @@ its output, so they are deliberately not added on top of it here.
 
 | Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Only this tool | Tokens | Cost | Wall | Lost to limits |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Claude Code /code-review | 3 | 1 | 1 | 0 | 0 | 1 | 0 | 0 | 1,637,376 | $4.25 | 7.8 min | - |
-| Compound Engineering ce-code-review | 3 | 25 | 16 | 8 | 1 | 12 | 5 | 4 | 18,098,335 | $40.85 | 70.5 min | - |
-| Trail of Bits differential-review | 3 | 18 | 12 | 6 | 0 | 10 | 2 | 1 | 3,004,476 | $6.40 | 12.1 min | - |
-| Trail of Bits rust-review | 1 | 5 | 4 | 1 | 0 | 4 | 0 | 0 | 5,199,654 | $9.06 | 12.0 min | - |
-| Anthropic pr-review-toolkit | 3 | 41 | 40 | 1 | 0 | 37 | 4 | 14 | 30,714,065 | $34.03 | 25.5 min | - |
-| Superpowers requesting-code-review | 3 | 27 | 19 | 5 | 3 | 19 | 0 | 7 | 3,424,150 | $9.89 | 19.5 min | - |
-| Matt Pocock code-review | 3 | 57 | 35 | 21 | 1 | 33 | 2 | 15 | 10,450,588 | $15.30 | 15.5 min | - |
+| Claude Code /code-review · Claude | 3 | 1 | 1 | 0 | 0 | 1 | 0 | 0 | 1,637,376 | $4.25 | 7.8 min | - |
+| Compound Engineering ce-code-review · Claude | 3 | 25 | 16 | 8 | 1 | 12 | 5 | 4 | 18,098,335 | $40.85 | 70.5 min | - |
+| Trail of Bits differential-review · Claude | 3 | 18 | 12 | 6 | 0 | 10 | 2 | 1 | 3,004,476 | $6.40 | 12.1 min | - |
+| Trail of Bits rust-review · Claude | 1 | 5 | 4 | 1 | 0 | 4 | 0 | 0 | 5,199,654 | $9.06 | 12.0 min | - |
+| Anthropic pr-review-toolkit · Claude | 3 | 41 | 40 | 1 | 0 | 37 | 4 | 14 | 30,714,065 | $34.03 | 25.5 min | - |
+| Superpowers requesting-code-review · Claude | 3 | 27 | 19 | 5 | 3 | 19 | 0 | 7 | 3,424,150 | $9.89 | 19.5 min | - |
+| Matt Pocock code-review · Claude | 3 | 57 | 35 | 21 | 1 | 33 | 2 | 15 | 10,450,588 | $15.30 | 15.5 min | - |
 
 ### Spend per run
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Claude Code /code-review | 754,592 tok / $1.72 / 3.4 min | 304,146 tok / $1.09 / 1.8 min | 578,638 tok / $1.45 / 2.7 min |
-| Compound Engineering ce-code-review | 6,227,356 tok / $15.23 / 27.6 min | 5,783,045 tok / $10.84 / 18.2 min | 6,087,934 tok / $14.79 / 24.6 min |
-| Trail of Bits differential-review | 988,640 tok / $2.17 / 3.5 min | 1,192,085 tok / $2.17 / 4.1 min | 823,751 tok / $2.06 / 4.5 min |
-| Trail of Bits rust-review | - | 5,199,654 tok / $9.06 / 12.0 min | - |
-| Anthropic pr-review-toolkit | 12,466,750 tok / $12.96 / 9.8 min | 9,802,337 tok / $11.33 / 7.8 min | 8,444,978 tok / $9.74 / 7.8 min |
-| Superpowers requesting-code-review | 1,227,080 tok / $3.96 / 7.5 min | 1,290,940 tok / $2.93 / 5.7 min | 906,130 tok / $3.00 / 6.3 min |
-| Matt Pocock code-review | 5,404,548 tok / $6.36 / 5.5 min | 3,810,179 tok / $5.38 / 4.9 min | 1,235,861 tok / $3.56 / 5.1 min |
+| Claude Code /code-review · Claude | 754,592 tok / $1.72 / 3.4 min | 304,146 tok / $1.09 / 1.8 min | 578,638 tok / $1.45 / 2.7 min |
+| Compound Engineering ce-code-review · Claude | 6,227,356 tok / $15.23 / 27.6 min | 5,783,045 tok / $10.84 / 18.2 min | 6,087,934 tok / $14.79 / 24.6 min |
+| Trail of Bits differential-review · Claude | 988,640 tok / $2.17 / 3.5 min | 1,192,085 tok / $2.17 / 4.1 min | 823,751 tok / $2.06 / 4.5 min |
+| Trail of Bits rust-review · Claude | - | 5,199,654 tok / $9.06 / 12.0 min | - |
+| Anthropic pr-review-toolkit · Claude | 12,466,750 tok / $12.96 / 9.8 min | 9,802,337 tok / $11.33 / 7.8 min | 8,444,978 tok / $9.74 / 7.8 min |
+| Superpowers requesting-code-review · Claude | 1,227,080 tok / $3.96 / 7.5 min | 1,290,940 tok / $2.93 / 5.7 min | 906,130 tok / $3.00 / 6.3 min |
+| Matt Pocock code-review · Claude | 5,404,548 tok / $6.36 / 5.5 min | 3,810,179 tok / $5.38 / 4.9 min | 1,235,861 tok / $3.56 / 5.1 min |
 
 **The 19 scored reviews' recorded attempts cost 72,528,644 tokens, $119.78.**
 Retry attempts, judging, and extraction are not included.
 
 ### Raw claims before judging
 
-What each run said, before merging and verification - the gap between this and *Raised* above is
-what the judge merged away as the same defect twice.
+What each run said before verification. Self-rejected claims are excluded, and the judge may merge several claims about one mechanism. The gap from *Raised* is not a miss count.
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Claude Code /code-review | 1 | 0 | 0 |
-| Compound Engineering ce-code-review | 11 | 8 | 8 |
-| Trail of Bits differential-review | 7 | 5 | 4 |
-| Trail of Bits rust-review | - | 5 | - |
-| Anthropic pr-review-toolkit | 10 | 16 | 16 |
-| Superpowers requesting-code-review | 13 | 5 | 17 |
-| Matt Pocock code-review | 24 | 18 | 19 |
+| Claude Code /code-review · Claude | 1 | 0 | 0 |
+| Compound Engineering ce-code-review · Claude | 11 | 8 | 8 |
+| Trail of Bits differential-review · Claude | 7 | 5 | 4 |
+| Trail of Bits rust-review · Claude | - | 5 | - |
+| Anthropic pr-review-toolkit · Claude | 10 | 16 | 16 |
+| Superpowers requesting-code-review · Claude | 13 | 5 | 17 |
+| Matt Pocock code-review · Claude | 24 | 18 | 19 |
 
 ## What the maintainers actually said
 
@@ -215,11 +213,9 @@ The upstream reviews, fetched at prepare time and never shown to any reviewer or
 Bot comments are dropped, and so are the PR author's own replies, which are answers rather than
 findings.
 
-Read these as context, not as a scoreboard. Every PR here was replayed at the revision that was
-merged, which is the revision *after* its review: the defects the maintainers caught were already
-fixed in the code the tools were given, so not reporting one is not a miss. What the list is good
-for is the other direction - whether a tool raises the kind of thing these maintainers raise, and
-whether anything they flagged survived into the merged code.
+Read these as context, not as a scoreboard. The PRs were reviewed at their pinned revisions,
+after some upstream comments may already have been addressed. Not repeating a comment is not
+automatically a miss; the useful question is whether a concern still applies to the pinned code.
 
 **`ironweave`** - https://github.com/scylladb/seastar/pull/3664 - 9 inline review comments, 2 thread comments.
 
@@ -237,11 +233,10 @@ whether anything they flagged survived into the merged code.
 | michoecho | thread | One more thing: That's also Scylla-specific. Unless it changed, the usual convention was to put such links on the Scylla PR which updates the Seastar submodule. |
 | mykaul | thread | @bhalevy - https://github.com/scylladb/seastar/pull/3669 failed CI on test_stream_send_after_stream_close in tests/unit/rpc_test.cc . I think it has nothing to do with RPC, just exposes flakiness in the new test. |
 
-**`quillstone`** - https://github.com/scylladb/scylla-rust-driver/pull/1801 - 8 inline review comments, 1 thread comments.
+**`quillstone`** - https://github.com/scylladb/scylla-rust-driver/pull/1801 - 7 inline review comments, 1 thread comments.
 
 | Who | Where | What they said |
 |---|---|---|
-| Copilot | `scylla/src/network/connection_pool.rs:902` | When keyspace setup fails for the first connection, this branch leaves `shared_conns` as `Initializing` and never notifies `pool_updated_notify`. Consequently, `wait_until_all_pools_are_initialized()` can block foreve... |
 | wprzytula | `scylla/src/network/connection_pool.rs:1692` | Oh, this was a pre-existing bug, right? @Guflly |
 | wprzytula | `scylla/src/network/connection_pool.rs:1692` | cc @Lorak-mmk |
 | wprzytula | `scylla/src/network/connection_pool.rs:2004` | 🔧 Using `tokio::timeout::sleep(Duration::from_millis(1))` could decrease CPU burn. |

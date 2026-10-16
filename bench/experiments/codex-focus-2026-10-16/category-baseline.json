@@ -1,0 +1,434 @@
+{
+  "purpose": "Category-aware frozen baseline for independent blind focus experiment; not supplied to reviewers. Counts are evidence-backed groups, not gold/complete recall denominators.",
+  "source_archive": "bench/experiments/codex-parity-2026-10-15",
+  "category_policy": "runtime_test_diagnostic includes runtime, test, test_build, diagnostic. Ownership violations remain repository_rule even when risk is substantive. New inaccurate contracts and validation claims remain documentation, not existing runtime defects.",
+  "issues": {
+    "tidepool.empty_nested": {
+      "target": "tidepool",
+      "category": "runtime",
+      "claim": "New bound rejects admitted zero-byte nested vectors",
+      "locations": [
+        "marshal.go:1000",
+        "marshal.go:1142"
+      ]
+    },
+    "tidepool.recursive_cpu": {
+      "target": "tidepool",
+      "category": "runtime",
+      "claim": "Recursive sizing adds quadratic guard/cubic full nested decoding",
+      "locations": [
+        "marshal.go:1130",
+        "marshal.go:1135"
+      ]
+    },
+    "tidepool.fixture_bytes": {
+      "target": "tidepool",
+      "category": "documentation",
+      "claim": "Each inner vector is four bytes, not aggregate eight",
+      "locations": [
+        "marshal_vector_test.go:772"
+      ]
+    },
+    "tidepool.public_docs": {
+      "target": "tidepool",
+      "category": "repository_rule",
+      "claim": "Required changelog/godoc absent",
+      "locations": [
+        "CONTRIBUTING.md:24"
+      ]
+    },
+    "tidepool.commit_format": {
+      "target": "tidepool",
+      "category": "repository_rule",
+      "claim": "Capitalization/format requirements; merge footer observation",
+      "locations": [
+        "CONTRIBUTING.md:30",
+        "CONTRIBUTING.md:42"
+      ]
+    },
+    "tidepool.universal_bytes": {
+      "target": "tidepool",
+      "category": "documentation",
+      "claim": "Zero-byte elements contradict universal positive byte minima",
+      "locations": [
+        "marshal_vector_test.go:693",
+        "marshal_vector_test.go:813",
+        "marshal.go:1121"
+      ]
+    },
+    "tidepool.every_path": {
+      "target": "tidepool",
+      "category": "documentation",
+      "claim": "Existing arrays contradict every destination allocating",
+      "locations": [
+        "marshal.go:986",
+        "marshal.go:1078"
+      ]
+    },
+    "tidepool.validation_claim": {
+      "target": "tidepool",
+      "category": "documentation",
+      "claim": "Every new test reproduces base failure is false for acceptance cases",
+      "locations": [
+        "marshal_vector_test.go:937",
+        "PR body"
+      ]
+    },
+    "ironweave.queue_shutdown": {
+      "target": "ironweave",
+      "category": "runtime",
+      "claim": "New queue wait delays shutdown that releases pending direct write",
+      "locations": [
+        "src/rpc/rpc.cc:562",
+        "include/seastar/core/iostream-impl.hh:571",
+        "src/net/posix-stack.cc:895"
+      ]
+    },
+    "ironweave.api_build": {
+      "target": "ironweave",
+      "category": "test_build",
+      "claim": "New test wrapper fails supported compatibility API builds",
+      "locations": [
+        "tests/unit/rpc_test.cc:1883",
+        "include/seastar/core/iostream.hh:110"
+      ]
+    },
+    "ironweave.shard_ownership": {
+      "target": "ironweave",
+      "category": "repository_rule",
+      "claim": "Server factory mutation violates documented home-shard ownership",
+      "locations": [
+        "tests/unit/rpc_test.cc:1957",
+        "doc/tutorial.md:2242"
+      ]
+    },
+    "ironweave.pass_through": {
+      "target": "ironweave",
+      "category": "documentation",
+      "claim": "LZ4 helper is not pass-through",
+      "locations": [
+        "tests/unit/rpc_test.cc:1937"
+      ]
+    },
+    "ironweave.source_exception": {
+      "target": "ironweave",
+      "category": "documentation",
+      "claim": "New source-close contract false for serializer exceptions; implementation predates PR",
+      "locations": [
+        "include/seastar/rpc/rpc_types.hh:387",
+        "include/seastar/rpc/rpc_impl.hh:948"
+      ]
+    },
+    "ironweave.weak_regression": {
+      "target": "ironweave",
+      "category": "test",
+      "claim": "Regression accepts old error guard or successful silent drop; merge into one assertion group",
+      "locations": [
+        "tests/unit/rpc_test.cc:2016",
+        "src/rpc/rpc.cc:1065"
+      ]
+    },
+    "ironweave.assertion_cleanup": {
+      "target": "ironweave",
+      "category": "test",
+      "claim": "Negotiation assertion unwinds open sink and aborts process",
+      "locations": [
+        "tests/unit/rpc_test.cc:2000",
+        "include/seastar/rpc/rpc_impl.hh:935"
+      ]
+    },
+    "ironweave.deadlines": {
+      "target": "ironweave",
+      "category": "test",
+      "claim": "New waits have no local failure bound; outer process timeout is distinct",
+      "locations": [
+        "tests/unit/rpc_test.cc:2011"
+      ]
+    },
+    "ironweave.shutdown_absolute": {
+      "target": "ironweave",
+      "category": "documentation",
+      "claim": "Only after both halves close is false on transport failure; unopened halves are not counterexamples",
+      "locations": [
+        "doc/rpc-streaming.md:115",
+        "src/rpc/rpc.cc:201"
+      ]
+    },
+    "quillstone.warn_visibility": {
+      "target": "quillstone",
+      "category": "diagnostic",
+      "claim": "WARN to DEBUG hides repeated setup failure at same INFO/WARN filter while pool Ready",
+      "locations": [
+        "scylla/src/network/connection_pool.rs:903"
+      ]
+    },
+    "quillstone.tracing": {
+      "target": "quillstone",
+      "category": "repository_rule",
+      "claim": "Two new tests omit explicitly requested tracing setup",
+      "locations": [
+        "CONTRIBUTING.md:92",
+        "scylla/src/network/connection_pool.rs:1474",
+        "scylla/src/network/connection_pool.rs:1526"
+      ]
+    },
+    "quillstone.deadlines": {
+      "target": "quillstone",
+      "category": "test",
+      "claim": "Setup-event waits have no local bound",
+      "locations": [
+        "scylla/src/network/connection_pool.rs:1634",
+        "scylla/src/network/connection_pool.rs:1667"
+      ]
+    },
+    "quillstone.refill_assertion": {
+      "target": "quillstone",
+      "category": "test",
+      "claim": "Named regression never observes explicitly promised refill; fresh predicate already true",
+      "locations": [
+        "scylla/src/network/connection_pool.rs:1512"
+      ]
+    },
+    "quillstone.proxy_cleanup": {
+      "target": "quillstone",
+      "category": "test",
+      "claim": "Panic skips explicit termination/join; doorkeeper retains sender, no automatic RunningProxy Drop cleanup",
+      "locations": [
+        "scylla/src/network/connection_pool.rs:1689",
+        "scylla-proxy/src/proxy.rs:500",
+        "scylla-proxy/src/proxy.rs:542",
+        "scylla-proxy/src/proxy.rs:633"
+      ],
+      "verdict": "retracted",
+      "reason": "Skipped explicit finish does not establish surviving resources: per-test Tokio runtime teardown drops async tasks and sockets after panic; proxy has no blocking worker shown."
+    },
+    "quillstone.gauge_assertion": {
+      "target": "quillstone",
+      "category": "test",
+      "claim": "New assertion expects stale gauge after all fixture connection owners drop; production leak pre-existing",
+      "locations": [
+        "scylla/src/network/connection_pool.rs:2011"
+      ]
+    },
+    "quillstone.commit_motivation": {
+      "target": "quillstone",
+      "category": "repository_rule",
+      "claim": "Production commit subjects omit required rationale",
+      "locations": [
+        "CONTRIBUTING.md:10"
+      ]
+    },
+    "quillstone.pr_scope": {
+      "target": "quillstone",
+      "category": "repository_rule",
+      "claim": "Description omits independent metrics fix and motivation",
+      "locations": [
+        ".github/pull_request_template.md:14"
+      ]
+    },
+    "tidepool.list_exact_minimum": {
+      "target": "tidepool",
+      "category": "documentation",
+      "claim": "Helper claims actual minimum but list element requires five non-NULL encoded bytes while helper returns one",
+      "locations": [
+        "marshal.go:1121",
+        "marshal.go:778-780",
+        "marshal.go:822-825"
+      ],
+      "source_note": "New focused-three observation; not in frozen baseline report sets."
+    }
+  },
+  "reports": {
+    "tidepool-baseline": {
+      "source_report": "bench/experiments/codex-parity-2026-10-15/reports/tidepool-baseline.md",
+      "issue_ids": [
+        "tidepool.empty_nested",
+        "tidepool.recursive_cpu",
+        "tidepool.fixture_bytes",
+        "tidepool.public_docs",
+        "tidepool.commit_format"
+      ],
+      "categories": {
+        "runtime": 2,
+        "documentation": 1,
+        "repository_rule": 2
+      },
+      "all_verified_groups": 5,
+      "runtime_test_diagnostic_groups": 2,
+      "documentation_rule_groups": 3
+    },
+    "tidepool-package-v5": {
+      "source_report": "bench/experiments/codex-parity-2026-10-15/reports/tidepool-package-v5.md",
+      "issue_ids": [
+        "tidepool.empty_nested",
+        "tidepool.recursive_cpu",
+        "tidepool.fixture_bytes",
+        "tidepool.public_docs",
+        "tidepool.commit_format",
+        "tidepool.universal_bytes",
+        "tidepool.every_path",
+        "tidepool.validation_claim"
+      ],
+      "categories": {
+        "runtime": 2,
+        "documentation": 4,
+        "repository_rule": 2
+      },
+      "all_verified_groups": 8,
+      "runtime_test_diagnostic_groups": 2,
+      "documentation_rule_groups": 6
+    },
+    "tidepool-claude-matched": {
+      "source_report": "bench/experiments/codex-parity-2026-10-15/reports/tidepool-claude-matched.md",
+      "issue_ids": [
+        "tidepool.empty_nested",
+        "tidepool.recursive_cpu",
+        "tidepool.fixture_bytes",
+        "tidepool.public_docs",
+        "tidepool.commit_format",
+        "tidepool.universal_bytes",
+        "tidepool.validation_claim"
+      ],
+      "categories": {
+        "runtime": 2,
+        "documentation": 3,
+        "repository_rule": 2
+      },
+      "all_verified_groups": 7,
+      "runtime_test_diagnostic_groups": 2,
+      "documentation_rule_groups": 5
+    },
+    "ironweave-baseline": {
+      "source_report": "bench/experiments/codex-parity-2026-10-15/reports/ironweave-baseline.md",
+      "issue_ids": [
+        "ironweave.queue_shutdown",
+        "ironweave.api_build",
+        "ironweave.shard_ownership",
+        "ironweave.pass_through",
+        "ironweave.source_exception"
+      ],
+      "categories": {
+        "runtime": 1,
+        "test_build": 1,
+        "repository_rule": 1,
+        "documentation": 2
+      },
+      "all_verified_groups": 5,
+      "runtime_test_diagnostic_groups": 2,
+      "documentation_rule_groups": 3
+    },
+    "ironweave-package-v5": {
+      "source_report": "bench/experiments/codex-parity-2026-10-15/reports/ironweave-package-v5.md",
+      "issue_ids": [
+        "ironweave.queue_shutdown",
+        "ironweave.api_build",
+        "ironweave.shard_ownership",
+        "ironweave.pass_through",
+        "ironweave.source_exception",
+        "ironweave.weak_regression",
+        "ironweave.assertion_cleanup",
+        "ironweave.deadlines"
+      ],
+      "categories": {
+        "runtime": 1,
+        "test_build": 1,
+        "repository_rule": 1,
+        "documentation": 2,
+        "test": 3
+      },
+      "all_verified_groups": 8,
+      "runtime_test_diagnostic_groups": 5,
+      "documentation_rule_groups": 3
+    },
+    "ironweave-claude-matched": {
+      "source_report": "bench/experiments/codex-parity-2026-10-15/reports/ironweave-claude-matched.md",
+      "issue_ids": [
+        "ironweave.queue_shutdown",
+        "ironweave.api_build",
+        "ironweave.shard_ownership",
+        "ironweave.pass_through",
+        "ironweave.shutdown_absolute",
+        "ironweave.weak_regression",
+        "ironweave.assertion_cleanup",
+        "ironweave.deadlines"
+      ],
+      "categories": {
+        "runtime": 1,
+        "test_build": 1,
+        "repository_rule": 1,
+        "documentation": 2,
+        "test": 3
+      },
+      "all_verified_groups": 8,
+      "runtime_test_diagnostic_groups": 5,
+      "documentation_rule_groups": 3
+    },
+    "quillstone-baseline": {
+      "source_report": "bench/experiments/codex-parity-2026-10-15/reports/quillstone-baseline.md",
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.tracing"
+      ],
+      "categories": {
+        "diagnostic": 1,
+        "repository_rule": 1
+      },
+      "all_verified_groups": 2,
+      "runtime_test_diagnostic_groups": 1,
+      "documentation_rule_groups": 1
+    },
+    "quillstone-package-v5": {
+      "source_report": "bench/experiments/codex-parity-2026-10-15/reports/quillstone-package-v5.md",
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.tracing",
+        "quillstone.deadlines",
+        "quillstone.refill_assertion",
+        "quillstone.commit_motivation",
+        "quillstone.pr_scope"
+      ],
+      "categories": {
+        "diagnostic": 1,
+        "repository_rule": 3,
+        "test": 2
+      },
+      "all_verified_groups": 6,
+      "runtime_test_diagnostic_groups": 3,
+      "documentation_rule_groups": 3
+    },
+    "quillstone-claude-matched": {
+      "source_report": "bench/experiments/codex-parity-2026-10-15/reports/quillstone-claude-matched.md",
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.tracing",
+        "quillstone.deadlines",
+        "quillstone.refill_assertion",
+        "quillstone.commit_motivation",
+        "quillstone.pr_scope",
+        "quillstone.gauge_assertion"
+      ],
+      "categories": {
+        "diagnostic": 1,
+        "repository_rule": 3,
+        "test": 3
+      },
+      "all_verified_groups": 7,
+      "runtime_test_diagnostic_groups": 4,
+      "documentation_rule_groups": 3
+    }
+  },
+  "retractions": [
+    "Rejected namespace retained after failed USE: no rollback/recovery promise; exclude for both models.",
+    "Multiple-sink caller obligation is not per-handle enforcement guarantee.",
+    "Ready replacement future is not original pending future.",
+    "Constant reflected-header allocation does not refute dimension-based resource explanation.",
+    "Smallint semantic-width validation not promised.",
+    "Go reduced expected-size error detail is announced simplification without concrete visibility loss.",
+    "Arbitrary absent metric-term/queue-branch tests not independent issues.",
+    "Rust listed validation accurately omits metrics; no false execution claim proved.",
+    "DCO mailing-list rule not proven applicable to PRs.",
+    "Markdown length rule scope unproved.",
+    "Rust proxy panic cleanup: own doorkeeper sender prevents automatic broadcast closure but per-test Tokio runtime drops tasks/sockets on panic; no surviving resource or incorrect failure demonstrated. Applies equally to Claude and Codex."
+  ],
+  "residual_allocation_note": "All Go reports discuss pre-existing zero-inner allocation amplification. Preserve as scope/risk evidence; do not count a new production defect or gain from splitting it."
+}

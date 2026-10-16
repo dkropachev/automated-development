@@ -1,0 +1,2164 @@
+{
+  "quillstone-focused-three": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 8,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142d6-d4c6-7f12-b97e-952a3e5b91f1",
+      "rolloutSha256": "b5b3a43bbe45b7d5da2405ccab65b769a255fb9a9041ceb062235873a976707c",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 8,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_50adf3e87a0141fb833a882485064399"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_c4e06eb04ffb4fc99f87eee40bfd451d"
+      ],
+      "preparationExecBatches": 5,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/production",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 4,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142d7-acc3-7fb2-8886-be01bb40ef3e",
+      "rolloutSha256": "22a1f729e8477b9d213f9084b527f45a6002f2cea1e9635d4140d17f46cd584f",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 4,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_b08e298d3662471f991ff03564034aff"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/tests",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 5,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142d8-14ab-7481-b111-5aea1861fdf1",
+      "rolloutSha256": "b8b5a5a90008912b3acfb2d4b6c24d2390f8912d9a5a44e95185673aebf8698b",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 5,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_77b42a596cec46ce8b1597d2042f66c9"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/contracts_rules",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 5,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142d8-874d-7913-80ca-5bf7af7c8865",
+      "rolloutSha256": "2ab901ed1b52a8404b5a471bbb2dbaafc7f4de7dffd8af38103ddc8a8c8edb01",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 5,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_895ee2f50cd04696bc7271175480c7ef"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "quillstone-focused-four": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 2,
+      "readFailures": [],
+      "threadId": "01a142c4-7bb5-7653-a084-35fd105cd22e",
+      "rolloutSha256": "9a8e3ba5a0fd53f0414f78c9366b2fcc6209ce33f9859f17545981420b5a7bde",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_8c44651ca9c344549e67279370e2133d",
+        "call_6a89ffa9a7b94b03ba49d45bd3397245"
+      ],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 3,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/production",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 4,
+      "peerInspectionCalls": [],
+      "truncatedResults": 2,
+      "readFailures": [],
+      "threadId": "01a142c5-619e-7220-ac6b-aaf99546d3bd",
+      "rolloutSha256": "382d7a00f49b49632a7c3d9478d48ea24e326c32140d362d7c03d94dd90898ff",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 4,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_df52b8a5dd4548ffab3a34107b7bb48f",
+        "call_07c95718cb46490d930065c0fcac3482"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/tests",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 5,
+      "peerInspectionCalls": [
+        "list_agents"
+      ],
+      "truncatedResults": 2,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142c5-c245-7501-8f09-8f690a2761df",
+      "rolloutSha256": "739cb39e5eac77621a793179792270aa13cbc1fb03192c0c7ca92def455297a3",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 5,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_ebb8aa09385b439485a86cfc25250f5d",
+        "call_4d64f750ed1445dd8357832f2f21410a"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_7d599cc7fc5b4bf7abcc10edcca86995"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/contracts",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 4,
+      "peerInspectionCalls": [],
+      "truncatedResults": 3,
+      "readFailures": [],
+      "threadId": "01a142c6-3d05-77b3-8ceb-9e2721ec3d2c",
+      "rolloutSha256": "620c01f4bed1af93afce48af553dfe76e2f56d71d7f6b003f5749d971e8cc24d",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 4,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_18f3b528eace43c2b98817bc8476e4cf",
+        "call_38172ff35f75476eaa0e0d7bac202577",
+        "call_d4c4e6aac4264882bfd7ce2555a44d08"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142c6-ad8f-7430-ae6e-c7901f030863",
+      "rolloutSha256": "e2f6f2817a4428f710a52593605a4eeee15017c88638c4f43a2bc08d44a04138",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_956ea131f90f48f19ab9de796e26fd8d"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "ironweave-split-tests": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 7,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142cd-9a87-7281-bc99-45d94a111b93",
+      "rolloutSha256": "b990e09df9a5638ecbe4780312c34c86bee9fe457927ff40746857667730ec1a",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 7,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_9b67eb1b1f1e43719c78480c8c53b0f0"
+      ],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 4,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/production",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142ce-7d33-7d42-8fba-6244cc21f859",
+      "rolloutSha256": "488805cba81ff0acaaaa1a3b016c61ef6a0de9ece8d8959748414d559f34def4",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_f34bba3d751d439091637e4b41fb81a2"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_semantics",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142ce-ec84-79f3-b311-d7db76c2cadd",
+      "rolloutSha256": "17b69d02312dbe9a07879d7625a0e056133a293987ed10b7bb89cf96a7fe2011",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_76364e6d26e04b6a9d1ce6c4d5528aaf"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_176ef1857291446d8ad40c93a43f6e30"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_safety",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 4,
+      "peerInspectionCalls": [],
+      "truncatedResults": 2,
+      "readFailures": [],
+      "threadId": "01a142cf-53d9-7080-9f3c-81de90d51115",
+      "rolloutSha256": "2acc753c2abcb3c01211697472d798a574a027404877106a0d7160058d32be4f",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 4,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_0487cb84a80d445d8993e62dc34a21e1",
+        "call_3a81581b20d9420ebba210b3add68630"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/contracts_rules",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 4,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142cf-d46e-7170-9be6-b476bbe265cb",
+      "rolloutSha256": "dc23900e5ecdba9f9ac609294472193aa864568267183b87783abd7011e61e5c",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 4,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_292f0a3b17934efb933de8b49c67a930"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "ironweave-focused-four": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142c4-7bf8-7460-93d9-a5a4e433a930",
+      "rolloutSha256": "f294926c7de75475d72df3db64872daff928d80f498a8fc54023caba80aad963",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_64978c9b34114eadb8a370c01e566efe"
+      ],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 3,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/production",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142c5-6305-7a21-a6cc-6a821cfdc803",
+      "rolloutSha256": "dbd9a8658e86229c5359b26e6bc1f183d83bf2882c10497b736e2b3193181c9f",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/tests",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 5,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142c5-e51d-7130-9a85-a52caf8865f4",
+      "rolloutSha256": "5ac1eaf447d04a8d4f7fcc10ab99a395aac5e6b903071c4501cd040d8e2c709b",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 5,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_f760683e36fb409d9c26ea4ab80b14c2"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/contracts",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 4,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142c6-8f76-7fb2-b143-72096048a49d",
+      "rolloutSha256": "128639b7e530ad2e32a9b3d245dca00a6f2bc3ebfc57249c9127be4a1ab68557",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 4,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_3dd8c287b3524055b87be8de82617418"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142c7-133a-7982-ada2-7e8c2615d416",
+      "rolloutSha256": "c40a286ca26f00e9fe6381ca78dd6a61e7983c2b5ae885fef717e470344fc781",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_43b595359c6f4df086bd1d60f2659a62"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "quillstone-split-tests": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142cd-9a5e-7fc1-94ea-83f8e9ef9d86",
+      "rolloutSha256": "5326d4eb5497718875bef696054e8dc7f23aa4f62a9382fd3834406fbcb76dfd",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_59b5bd1cc86548578f85528caa8b8531"
+      ],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 3,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/production",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 4,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142ce-67b9-7563-a61c-730ae66a615f",
+      "rolloutSha256": "77da51e05297d3139cd11cd1666ab8c93fca0ef1f276f47f1dc7dcdb409a932e",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 4,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_724846524acf44af9d5b982e92d4820d"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_5258957bdaed4fb3b083db04092e6a04"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_semantics",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 4,
+      "peerInspectionCalls": [],
+      "truncatedResults": 3,
+      "readFailures": [],
+      "threadId": "01a142ce-c4dc-7e23-9618-b8de8be7f61b",
+      "rolloutSha256": "3a2ac22dc482588312c5bffbada268a50b8c70b5ed48df1c8e8901a384ac44e7",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 4,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_431295ecfc7e4e4da2cdccc6676cfed5",
+        "call_9cd87d4edf664436bc463cd7c5d69f46",
+        "call_5d5a1d3d72414799a3bcc1a34546b12f"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_safety",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 4,
+      "peerInspectionCalls": [],
+      "truncatedResults": 2,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142cf-1bfe-7163-a969-e869744b86d5",
+      "rolloutSha256": "db18e5b3737805c3f8fde1c0c941512481ad9bdabc00ac0851f03e09fcae24f7",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 4,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_ceee05a825d94ceb9a7500a284dfe57e",
+        "call_9dd469346dbe47318ecce3b239ea6042"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_18f864f2e47549a39923abad3928c50d"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/contracts_rules",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 2,
+      "readFailures": [],
+      "threadId": "01a142cf-9b93-74f2-a11f-af9ad256ee82",
+      "rolloutSha256": "3da9aafec048e1a8b82ba9e09752e9902435afa77950a895eeba41d7de9ae52d",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_545399eb81994142940b55f2d36e69f4",
+        "call_9ef7eab6be684a1a9189141e46b9a7b9"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "quillstone-split-tests-output": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142d1-5f9a-73f3-9b56-edf84a03768a",
+      "rolloutSha256": "31d431e8c5dfc55ef3e1e45f738d3af854601bff6ea769ae32b2a1149cf9ce50",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_e9e9985de21741de9dbdde2d08927075"
+      ],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 3,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/production",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 5,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142d2-5776-7471-ba3d-9608e36dcd72",
+      "rolloutSha256": "0357ddd9acd59a81552d8d002ebb0126d0eefa1c9d1d1d924da4fbbc457e06ac",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 5,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_c1ad9b592a1a42f78c3bdf3f02c1f32a"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_semantics",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 4,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142d2-c317-7b72-99e4-61f7a7ba040d",
+      "rolloutSha256": "4713dd04843afb8970a6e4c41c301f63953aa5ad2a0b6d4964d626b33c0e7838",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 4,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_d01f716b291f49a19cd72d562bff16cd"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_bc2dfa7ceb364ed9ac70edf68e11d044"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_safety",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 4,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142d3-2071-7f53-9c75-30a9f5a39b25",
+      "rolloutSha256": "5ae8f18f2fab007b81d045d60eeb3319f6b08e700d0d5b66a584174559ea1792",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 4,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_401d09e961594f028b9c31921bfc85a7"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/contracts_rules",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 4,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142d3-c57c-7422-b666-4b9fb79f4b8a",
+      "rolloutSha256": "47fb9f087aae3d2cf74898c68919412028a23edaa0dd209b95898573b5f1a7e6",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 4,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_7c12b2aec34a441b9b81a42e2a37b17f"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "quillstone-control-three": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142c5-171e-7601-a4f8-a362f9d23337",
+      "rolloutSha256": "27d24521c9d29462dba6dde9fb32da378a79b7c060e405d1dd919fa0fbe5fe3c",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_8815ffd449f44124b95b0c7b3d793f36"
+      ],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 3,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/toolkit",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142c6-458a-71f0-a05a-f331b9c33dad",
+      "rolloutSha256": "2621291d6f279d3a5f0b55072a473d6f2527c147c379f32aa0bfa536fe6dfb02",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_30a7a443982945f3a1367657ab7eff72"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_d20e0ea772b34a5ab12ffc30d905141a"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 4,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142c6-fdec-7e32-ac0e-ba6f9088a8df",
+      "rolloutSha256": "e6f12b7e2c04920873bb34e2c32c0dab8e6ac36127b0e8d916d1209d953e5962",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_44bcbcb2e8714cb88122adb941c564c5",
+        "call_a9991a85c883404e962a4b649a13dbc4",
+        "call_0bf288e88fc746af9fa289cedea7f1ef",
+        "call_c0fd24bdc0bd4985b4e320a57a3a70c9"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_3108308db9fe4829b7a594f650517c31"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/spec",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 3,
+      "readFailures": [],
+      "threadId": "01a142c7-b779-7a20-bcc9-844eb9f29fa0",
+      "rolloutSha256": "6b8a6e611fe943b9fa65dfc1ef48de88e64d214d374cec65e037c896960e0e9e",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_38ed2c0a6cd24c9799cab787f9c25123",
+        "call_66353ca6a1594587a5e595acabed5325",
+        "call_52b6251148ad47a2b589df658b902395"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "ironweave-focused-three": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 7,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142dc-f597-7522-a46d-3f5e5b92aad4",
+      "rolloutSha256": "4153ac780018ca051e53e19642cb6c926e565ec55dca07e7544c2c9673b05ac3",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 7,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 4,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/production",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142de-3b1a-76a1-b4a3-b9797f5962b1",
+      "rolloutSha256": "f75e44233a3deddf756bb70d0b6cb0701705652df44ec7d8d81e08ade73fa84d",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/tests",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142de-d186-7b80-8f5a-c82750fd82a8",
+      "rolloutSha256": "fbe4a4f6f269523610cb3f0e165aa63a5d20ce82a43e7101e2e13535d75eb8b2",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/contracts_rules",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142df-6f5a-78a2-a547-5e9199e39f27",
+      "rolloutSha256": "e53d7a4724c79e24b629ee583eacf765423fc823c639c97e18b815d4622803f9",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_9189e1db6af84aee82e0029f0b1e2fb1"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "ironweave-toolkit-code-budget": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 9,
+      "peerInspectionCalls": [],
+      "truncatedResults": 2,
+      "readFailures": [],
+      "threadId": "01a14302-15ec-7642-b4ea-c5e086a6ca46",
+      "rolloutSha256": "2b0ffdd390a909f026624ab97932841fd2ef4e8b946e94d69ba407daea2f3213",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 8,
+      "nonReadExecCallIds": [
+        "call_915b86f395ba4ae8983c1b709b3b1d92"
+      ],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_fd7c63f287b744c0ac519fd7373219b0",
+        "call_14a128df413f4a1c9fee5ed5d08562b0"
+      ],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 6,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/toolkit",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14303-bda1-7d60-9e32-5f5c2acef857",
+      "rolloutSha256": "a481045ec83fcd9bc27efc99038b36f8526a3b2bc675aba24fbd51b2947cf443",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_0c147d91cc6b4f5088705a2f89b2e1ef"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_assertions",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a14304-c76a-7eb3-8372-64370488d225",
+      "rolloutSha256": "e84d418c9664b5378d290e1de2d90150211fa65358858e6c55d7ff658d2a534a",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a14305-d8f8-74a1-be7c-7cadb33d32a3",
+      "rolloutSha256": "5acf89d43baa09140d4c4860749b0107b613d0a0e0d311ce09c1559b7e63fb32",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [
+        "call_926805a30b824f11af220504a062ad6a"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/spec",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a14306-dfdf-73e0-8c93-37584e3ebbde",
+      "rolloutSha256": "fd222749268702ed82a7e3e605f9020d29839a7767cf6b4845c5c68e81c69c9e",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "ironweave-toolkit-preserved-checks": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 7,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14313-d3d4-7d91-9a23-8e1ea0eb20c7",
+      "rolloutSha256": "00d1f8aebc4ae1e71fdadc76479b954f212e8ed00f3f67e8ee944f987d9059e7",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 7,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_4479cc3eb75e4ffb86387200984f63b2"
+      ],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 4,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/toolkit",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14314-f1a1-70e2-aa3e-a736f092eef9",
+      "rolloutSha256": "aee0e1a22945f2d895ca14c647093312c57d1211ad8e2be680db7dab7b474226",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_6e2111cee37d4783bf01bb381fef1035"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_assertions",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14318-68fb-7ff1-b5a9-f946085664c7",
+      "rolloutSha256": "43581cea65848a6677d84c7d36caa4384a3140794318e0706b5a18a70a2beffb",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_4ed0786722a140e6afdee229b86a0a21"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 3,
+      "readFailures": [],
+      "threadId": "01a14318-fbd6-7fe2-acf5-85e463cce7f2",
+      "rolloutSha256": "cebd696ecd3e357bc863abd08ed166d144feecfba45e135ba493acae00469e2c",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_69daef5fd32e42829450b3828ecea40d",
+        "call_d8dc484e4cf145ce97255ecc531de35b",
+        "call_212a430ad6cf48b4b2eaf99994f54dc1"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/spec",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14319-8a62-7971-bc85-5691910a9fbe",
+      "rolloutSha256": "5b25696c0798352d31437ca9e6d28cf9b65c388ad6dcf22897860e7f0407b343",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_b069cfcf0c864cbfa353766fccf6e266"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "ironweave-toolkit-split": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142f4-95dd-71b0-9d28-112afd121756",
+      "rolloutSha256": "b9ab6d3f6b1b2383e335ecd8aa917c48b4084d9569e047102e49bff1a032371d",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 3,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/toolkit",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142f5-85ca-7253-abb3-103f85f2713f",
+      "rolloutSha256": "bc2312778bafbdd21bfc8d7d2fd60e99ef186fa39db2712d6943d4da3842675e",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [
+        "call_dcd5146ffc1b4c2e947bb1fe9745f78b"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_assertions",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142f5-fca2-78d2-9e03-9307de1831eb",
+      "rolloutSha256": "59ef5127748a81737de86a59bebde3f633c7aa2f5f9bdb1d1a5e777c5aed3638",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_6ec07eb002944e9491123b05f73598b7"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142f6-7d2a-7003-a4fe-53c003e7c6fc",
+      "rolloutSha256": "de6cedb2ab55cb8d92863065dbe665e9f127e9f8fa679fd5f10d1aeac89874e0",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_f0504257995b4ea6bb9b38607180146f"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/spec",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142f6-f5b0-7441-a4ed-f1343c804ed3",
+      "rolloutSha256": "f4ca9b35876d894936510b357582923310681f26c3d4dc114906e26e72a33d38",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "quillstone-focused-three-r2": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142dc-fc3a-7e73-882d-f635d858ecb6",
+      "rolloutSha256": "a5193dc2b8a249b35f529fa2040f9a14f251b4331b740041e5aa002cb8d0952b",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_9b64a6c8ad7045d9b6237dde7199d5c9"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_55a39bb9c4524df29f776468c9d54d6b"
+      ],
+      "preparationExecBatches": 4,
+      "postDelegationExecBatches": 2,
+      "verificationBatchUpperBound": 2,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/production",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142de-201e-7043-97ca-169f84a3bc98",
+      "rolloutSha256": "a63930378531de1913788b8cdd86c6bb95b8d03e20a7f0e30f6da9055b203861",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_2df94f7a379847e08239e4da6c0c92ed"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/tests",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 5,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142de-8fa2-7632-be31-ad716d5271b6",
+      "rolloutSha256": "ee241c7ca0b158dedb6e58c678c0581a520f666b8d3b0dd34c7340d0b1a46e83",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 5,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_11d34abb4bb1432cb9be6794cf3df8b1"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/contracts_rules",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 5,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142df-262e-7553-8fd2-29cd398f64ce",
+      "rolloutSha256": "f9b8a90778d042d20c7834f4148832854fa040c3813e22cab1b917ed1b25bf17",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 5,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_573079ad13af4e0f99dadff441ca84b9"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "quillstone-toolkit-code-budget": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 7,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14302-159b-7940-a8ca-35245ec13b3a",
+      "rolloutSha256": "c92b81a125c1bf57b780309f67d441a228c6076dcbcef7f19aadaf691b6480ec",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 7,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_e10763c389024004afccf5ee879fc5bb"
+      ],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 4,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/toolkit",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14303-3cde-7673-aa3b-8d5ddf0bac01",
+      "rolloutSha256": "fae8ca537adee58e51e2a188a15e4c66b8dd4ebe789ee284084dff19d3ad8a00",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_499890c57e044a71b914799d5e9cc9ae"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_assertions",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14303-e531-7433-a081-7745466b6f34",
+      "rolloutSha256": "4b9a142175a907200487516f6ffefb1cefe5ffa4f83ec5f22d8b20f9bfb77c97",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_194b9f1f54a94475bc332fab1c350d5b"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14304-920e-7f11-a055-1aafd6a19d9d",
+      "rolloutSha256": "f3c691611f130139100744cbfc2b687a70ffad9938a70423ffbfae684d5e5b65",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_3370f6c9fd434284bcb2fec8316c3b19"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/spec",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 2,
+      "readFailures": [],
+      "threadId": "01a14305-392b-7202-a835-e28f1c0757cf",
+      "rolloutSha256": "2963210d55d39ef7eaa6cf1fa162b0fb80f8aaf7bc51ccd3c3fe4ee019f857a8",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_e82877b89a17487491c06dbed8a4b057",
+        "call_2ef3c494d4904bfcb7b93e4f0b349340"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "quillstone-toolkit-preserved-checks": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 7,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a14313-d3c7-76d1-ac65-0f671ff21058",
+      "rolloutSha256": "10dc3b0e541ff9d649ef1f9906f925b217592f5fc7c7aefbc672bb05fe921fdd",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 7,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 4,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/toolkit",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a14315-03c5-7ba1-ad70-1e7da1c6b935",
+      "rolloutSha256": "72334d8ae9aa25a21d39f06a7c5461d763630157d1f7748f8ad16f74296f1bb9",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [
+        "call_81b8a6684deb4e699fc56f6b7bf9ae6e"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_assertions",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14315-a6c6-7462-a7a3-e1e9f05a68c3",
+      "rolloutSha256": "06e0db38974809133a3f7d9a7dc0471b14a900598f748de883292f95433b0377",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_a10021e990644d1a89eb73baec851178"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14316-4a2e-70f2-8fb0-0062c10e062d",
+      "rolloutSha256": "899e540d1dcc364f85ffab0c4e4978a56009c8389de2bec509903273edfea446",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_0f1f436406c64441bedaf7c6153d1f14"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/spec",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 2,
+      "readFailures": [],
+      "threadId": "01a14316-e954-7e81-b6a9-7dd8f0c4845e",
+      "rolloutSha256": "3dcced177780e77bf1ccd75fab55c66fc24ad59f3a15a249c7a469bb946942e8",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_372383d9f1cd43668a047a7dd40fe14f",
+        "call_162674e8158b49b9b3e6f057b1844756"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "quillstone-toolkit-split": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142e7-9c5a-72f3-b763-54410eb53665",
+      "rolloutSha256": "29b87207efbab5266d984d4804974717ff6dd9d867526cc22d792812574f6474",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 3,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/toolkit",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142e8-cdb3-7952-ae29-75e43cd982c9",
+      "rolloutSha256": "70f9315adcbcee474a81dbe3a3afe0af59f7df57995c8135519cf049049d8310",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_66c713e1dc954be099b2f7d7c102769e"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_assertions",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142e9-7201-73e1-b8ec-a781e6684b9a",
+      "rolloutSha256": "3ce033d5467271c3489a26980a49962f2696c5af1ee4929e9341e5ecd02b4e29",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_6c2391e08e374aab8f3bee7cf3786a3d"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_e30631ab58ab44148a4cb430424bcbf9"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142ea-08cc-7a20-8668-dde6a70f01b8",
+      "rolloutSha256": "a949db83117c34fc0dceeed43f9edb5a512d93c9cd1087ae035f5c81d267ff89",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_69ee2ec09f4048a3a6da6b0957c20d44"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/spec",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142ea-9d4b-7a41-b94d-0f2017e232cc",
+      "rolloutSha256": "fff41e3485e544c9db936881f6aff8189dce72dc54d40745b6ceca79e79d13c4",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_1dfa3a9051cd4f93880888548d36df3d"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "quillstone-toolkit-split-compact": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142fa-e74a-7771-a9fc-8b328d33d154",
+      "rolloutSha256": "ed2fa52f811f94fa2fa638e593d251e38c89f5cbb635d1d1c1997af3d0f899bb",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 3,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/toolkit",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142fb-8133-7b21-8854-fe5ab28144d0",
+      "rolloutSha256": "27da508c98f126dbe3943a7b2bddad797aaf491977bbb59aab36c1fae6f8cdc8",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [
+        "call_801238bfb3f04354ae656e0719521ed1"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_assertions",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142fb-c302-7c30-b219-176a598ff181",
+      "rolloutSha256": "5cffc18f2ed0c5441b3eaac1e6d9306e7f90ec8f8d8000522a5f9b5da2fd2546",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142fc-0566-78c0-9961-1d9eaef4f62f",
+      "rolloutSha256": "2a5db9fe2d532e6074bb9532b8a50d409bfcef4826ef2fda38fbb61d7b83ba2a",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [
+        "call_668b1a121f644d499e50d477b4488125"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/spec",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142fc-44a2-7b83-89a1-e058e073575a",
+      "rolloutSha256": "2512792e9ccc5c2342a2d2a69463dda4756e770ee3940b9cde551a659125c32b",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "quillstone-toolkit-split-r2": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 7,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142e7-9df6-7d61-a8a1-802305c79a5f",
+      "rolloutSha256": "b9dd45df75cd20afc097e17ecb99a1e3e3ce15ee672933d80ceb7d51ad181f4d",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 7,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_463acd20d6914faba77f279ff1d5ee6d"
+      ],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 4,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/toolkit",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142e9-1469-7310-a5d9-6710a53e21a5",
+      "rolloutSha256": "0cd9bb6bb661bb3da2e7c2cedd409c1df5fe5b17397a26dcf8d821d96fe2e95e",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_assertions",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142e9-f079-7df2-9264-064c8dc6f524",
+      "rolloutSha256": "92807c3ce419d38fcfb75dfc9c32b0b6f445d2d1203abd280cc73c784633ba7f",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_92a05ba2a42943e6b91e59ad6b402285"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142ea-bab2-7970-9346-f5e9a8e86e6b",
+      "rolloutSha256": "b159b481be9945797d8390521bfe5e72539de78dea5436ccf3fe4671cacb78bd",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/spec",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a142eb-8f65-7a80-80a9-ff22a5cc8837",
+      "rolloutSha256": "d95ee9d72aebba9641dbb7073aa3ad3e0519cc7139bf742107df52e470f53076",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [
+        "call_b1fe6812d1494d378720b50a6b701a3e"
+      ],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "tidepool-focused-three": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142dc-f628-7213-881c-bfc80e14fa39",
+      "rolloutSha256": "9b9f3ae1e71b4cf5d920ea1078fe47705ce61bf3089e6bf0593535252f0d3a09",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 3,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/production",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 5,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142de-0c54-72b3-a747-7fb46216bdcd",
+      "rolloutSha256": "ce4a6d9cd59891fc14226919fc71b7f579a8548ccef1d10d5bb8278a3c1a61bc",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 5,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/tests",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142de-ba1f-7682-b39e-ee56e923332a",
+      "rolloutSha256": "5a50964b4f4670362e7f0d4af3be5d39aabe73fe8d5bb32f0c8fc785386582a8",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_83f10fb8f67a467a9dc186ab7d70a875"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/contracts_rules",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142df-8f4c-7881-9336-5cd4b7d59b49",
+      "rolloutSha256": "a860c652b75630052d3245e21e43e6b9fdee75d0889fa7df93b90418bbb49cb3",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_1747386709674035bc0a7c569d0bc527"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "tidepool-toolkit-preserved-checks": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14313-d36c-7e73-921d-0c9f6f7f8848",
+      "rolloutSha256": "8c78d905fabe3cdfa996a28cacef962a65698e5f26665a11863002efab9d3ce0",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_c7ba7483f8864e0a882cdeabdb5c5f32"
+      ],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 3,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/toolkit",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a14315-29ea-7a21-82d4-10ed87568084",
+      "rolloutSha256": "569d477b0207d5dd9d2199712c60e5d2b15cc2d6932bad314ec753955e6ffea7",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_ca3106a95f56478fab1b269bb38dd7e7"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_8e4ab5df3c494dc2ba3d8cb60f643618"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_assertions",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a14316-1f46-7951-8d5e-dcfc738939fb",
+      "rolloutSha256": "9a52d817b01e3d57b9db3261e0ce50fccd2c4f88bfca906ff1ef0fbb81ca4440",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_917408dc6edc4f5fb9430147f42505d0"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_8dfd8a4d8a9a4b2d8b70d207db90014d"
+      ],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14317-095f-7a60-abdd-b6a470af3b67",
+      "rolloutSha256": "3c83b9c4d5cc56299a0c0ea10d45bcc7afb5857a9cd93b532ae5d07d6d51117a",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_57881e6901294053a585be1efc6ff033"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/spec",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a14317-f9c6-7f42-bd3d-6ff1ef1f006a",
+      "rolloutSha256": "942c7a37b57e15d1921a1ed57017bb66823951292573d1541aa90fcd4a1e20d8",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_a524d86bd333470aa1ece75e2126c1bc"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "tidepool-toolkit-split": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 0,
+      "readFailures": [],
+      "threadId": "01a142f4-95d8-7640-817b-5a53a695e283",
+      "rolloutSha256": "95c7e71b1be8c6b336c7dd91c19508ec9bff5fd66f308bc7672200e21f89044c",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 3,
+      "postDelegationExecBatches": 3,
+      "verificationBatchUpperBound": 3,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/toolkit",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 2,
+      "readFailures": [],
+      "threadId": "01a142f5-d917-7323-8783-fd088edd1e00",
+      "rolloutSha256": "a2956cbebb51915715ebe3477cb9bac27cdb02c09e46e1bcfc69a56ad4a1a6ae",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_1042d42ea716461cb0e5600baac134fe",
+        "call_21a44e819764440fa09d7371def3085a"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/test_assertions",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 3,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142f6-a5ed-7651-a4be-b44e292f7b1f",
+      "rolloutSha256": "ff41893911069db520e89baf64dba6cebea0be3ff31460616e92fab2cfa67a17",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 3,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_d33c390977b14ce7bf62d993e69f7bc7"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142f7-69f0-7640-925d-6d6c2be008f0",
+      "rolloutSha256": "6ef50e07cd22c91a05f830f2b6dc3dbae823fa592004ff81286b64effb033ddc",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_e2566a5066de4bbcacb4582615555a82"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/spec",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a142f8-2abd-7952-ab7b-ac3821d99177",
+      "rolloutSha256": "a54e5427d2ca97adf8b436215a346c663720940c69f95b42dae50a85bcd351e8",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_8b67ef18b99a4289a40962a664e9c142"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    }
+  ],
+  "quillstone-feature-scopes": [
+    {
+      "role": "/root",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a1432d-940a-79b1-b733-4cd0f41701c1",
+      "rolloutSha256": "638eb799a20ac50f954904c71584735550aad216f10c4698e73a83ac35d75f4f",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_3842c736a48f4284a41de19d5da87264"
+      ],
+      "heredocReadFailureCallIds": [],
+      "preparationExecBatches": 4,
+      "postDelegationExecBatches": 2,
+      "verificationBatchUpperBound": 2,
+      "phaseCountingNote": "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit.",
+      "auditLimitations": "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    },
+    {
+      "role": "/root/feature_one",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 5,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [],
+      "threadId": "01a1432e-902a-7c11-922d-c8347493914d",
+      "rolloutSha256": "809f141b3e4d5a58d5cd992b7e7644a1653b03291ce56343f4d83146452c6e2a",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 5,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_da756bd67d2c4fc19fbff35c4d1c8565"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/feature_two",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 4,
+      "readFailures": [],
+      "threadId": "01a1432f-23f3-7b82-a9b0-8dfaf51935cc",
+      "rolloutSha256": "7ca1168bc094162afbaaedd52f854f3684a508cf224cf3f831784f2bec8dd5c1",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_b4c7e0ebc1c64410b363a5ee699e0a74",
+        "call_9dd7aefdd79946b18009a540091c0306",
+        "call_730cbe49a0db4721982bc2eb9139f3c4",
+        "call_8bf47935a05e41dc84afc1149f132f76"
+      ],
+      "heredocReadFailureCallIds": [],
+      "nonParentMessageTargets": []
+    },
+    {
+      "role": "/root/standards",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "xhigh",
+      "readBatches": 6,
+      "peerInspectionCalls": [],
+      "truncatedResults": 1,
+      "readFailures": [
+        "read-only heredoc"
+      ],
+      "threadId": "01a1432f-cf06-7571-b132-e2ac29d9b472",
+      "rolloutSha256": "7f78bd14fa6437b368053e8569b83291c1a1bea1e6822f9ef467e7efb10d4807",
+      "rolloutHashVerified": true,
+      "sourceReadAttemptBatches": 6,
+      "nonReadExecCallIds": [],
+      "nestedPeerInspectionCallIds": [],
+      "truncatedResultCallIds": [
+        "call_6cfdf4cba5df41e7a0328052d088ea9e"
+      ],
+      "heredocReadFailureCallIds": [
+        "call_24f5f308b2f6480c85533300d7d34bcc"
+      ],
+      "nonParentMessageTargets": []
+    }
+  ]
+}

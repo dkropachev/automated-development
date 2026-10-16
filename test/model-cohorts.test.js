@@ -367,6 +367,9 @@ test('extractor normalizes report line ranges to their first line', () => {
     claim: 'The report cited a source range.', selfRejected: false,
   }])
   assert.equal(finding.line, 12)
+  assert.equal(extractor.normalizeLine('986-991, 995-997; 1046–1047'), 986)
+  assert.equal(extractor.normalizeLine(':1133'), 1133)
+  assert.equal(extractor.normalizeLine('around line 1133'), 'around line 1133')
 })
 
 test('manifests pin exact target commits and preserve target metadata', () => {
@@ -613,6 +616,136 @@ test('only successful exact requested-model Claude responses are publishable', (
       'subagent-model': { inputTokens: 1, outputTokens: 1, costUSD: 0.01, canonicalModel: null },
     },
   }, model), /canonicalModel for subagent-model/)
+})
+
+test('code-review-ad records only a complete three-axis report', () => {
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport('## Toolkit\nNo findings\n\n## Standards\nNo findings\n\n## Spec\nNo spec available'))
+  assert.throws(() => runner.assertCodeReviewAdReport('The review above is complete and final.'), /missing its Toolkit/)
+  assert.throws(() => runner.assertCodeReviewAdReport('## Toolkit\nNo findings\n## Spec\nNo spec available'), /missing its Toolkit/)
+  const report = '## Toolkit\n1. Finding\n\n## Standards\nNo findings\n\n## Spec\nNo findings'
+  const marker = 'CODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"Toolkit 1"}'
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport(`${report}\n${marker}`, ['code.go:12']))
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport(`${report}\nCODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"T5"}`, ['code.go:12']))
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport(`${report}\nCODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"Spec 4"}`, ['code.go:12']))
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport(`${report}\nCODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"Toolkit 1; Spec 2"}`, ['code.go:12']))
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport(`${report}\nCODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"Standards 1"}`, ['code.go:12']))
+  assert.doesNotThrow(() => runner.assertCodeReviewAdReport(`${report}\nCODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"No finding: the check precedes allocation"}`, ['code.go:12']))
+  assert.throws(() => runner.assertCodeReviewAdReport(report, ['code.go:12']), /missing its final claim audit/)
+  assert.throws(() => runner.assertCodeReviewAdReport(`${report}\n${marker}`, ['other.go:9']), /did not resolve other.go:9/)
+  assert.throws(() => runner.assertCodeReviewAdReport(`${report}\nCODE_REVIEW_AD_CLAIM_AUDIT_JSON={"code.go:12":"TBD"}`, ['code.go:12']), /did not resolve code.go:12/)
+  assert.equal(extractor.sanitizeExtractionReport(`${report}\n${marker}`), report)
+})
+
+test('code-review-ad rejects transient checkout in a native agent transcript', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'review-readonly-'))
+  try {
+    const subagents = path.join(root, 'subagents')
+    fs.mkdirSync(subagents)
+    const toolUse = (command) => JSON.stringify({ message: { role: 'assistant', content: [
+      { type: 'tool_use', name: 'Bash', input: { command } },
+    ] } }) + '\n'
+    fs.writeFileSync(path.join(root, 'main.jsonl'), toolUse('git show HEAD:src/main.go'))
+    assert.doesNotThrow(() => runner.assertCodeReviewAdReadOnly(root))
+    fs.writeFileSync(path.join(subagents, 'agent.jsonl'), toolUse('git checkout -q HEAD^; git checkout -q main'))
+    assert.throws(() => runner.assertCodeReviewAdReadOnly(root), /forbidden git checkout/)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('changed-comment inventory preserves head-side locations and platform claims', () => {
+  const diff = [
+    'diff --git a/marshal_vector_test.go b/marshal_vector_test.go',
+    '--- a/marshal_vector_test.go',
+    '+++ b/marshal_vector_test.go',
+    '@@ -583,1 +583,3 @@',
+    '-// old comment',
+    '+// A size wrap would also affect a 32-bit target.',
+    '+func TestVector(t *testing.T) {}',
+    '+// Check the bound.',
+    'diff --git a/doc/notes.md b/doc/notes.md',
+    '--- a/doc/notes.md',
+    '+++ b/doc/notes.md',
+    '@@ -0,0 +1,1 @@',
+    '+An added documentation claim.',
+  ].join('\n')
+  assert.equal(runner.parseAddedCommentInventory(diff), [
+    'marshal_vector_test.go:583: // A size wrap would also affect a 32-bit target.',
+    'marshal_vector_test.go:585: // Check the bound.',
+    'doc/notes.md:1: An added documentation claim.',
+  ].join('\n'))
+  assert.equal(runner.priorityCommentClaims(runner.parseAddedCommentInventory(diff)),
+    'marshal_vector_test.go:583: // A size wrap would also affect a 32-bit target.')
+  assert.deepEqual(runner.priorityClaimLocations(runner.parseAddedCommentInventory(diff)),
+    ['marshal_vector_test.go:583'])
+})
+
+test('review preflight surfaces unchanged nearby comments and risky added code', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'review-preflight-'))
+  try {
+    const lines = [
+      'package demo', 'func f() {', 'if ready {', '}',
+      'auto& hook = hooks.back();', 'x', 'x', 'x', 'x', 'x',
+      '// Empty input falls through.', 'if ready {', '}',
+    ]
+    fs.writeFileSync(path.join(root, 'example.go'), lines.join('\n'))
+    const diff = [
+      'diff --git a/example.go b/example.go',
+      '--- a/example.go',
+      '+++ b/example.go',
+      '@@ -2,0 +3,1 @@',
+      '+if ready {',
+      '@@ -3,0 +5,1 @@',
+      '+auto& hook = hooks.back();',
+    ].join('\n')
+    assert.match(runner.nearbyCommentInventory(root, diff), /example\.go:11: \/\/ Empty input falls through/)
+    const risks = runner.changedCodeRiskInventory(root, diff)
+    assert.match(risks, /example\.go:3 and example\.go:12: repeated condition/)
+    assert.match(risks, /example\.go:5: auto& hook = hooks\.back\(\)/)
+    assert.deepEqual(runner.inventoryLocations(risks), ['example.go:3', 'example.go:5'])
+    fs.writeFileSync(path.join(root, 'types.hh'), [
+      'namespace demo {', '/// \\brief New description', '// Old description', 'class sink {};',
+    ].join('\n'))
+    const docDiff = [
+      'diff --git a/types.hh b/types.hh', '--- a/types.hh', '+++ b/types.hh',
+      '@@ -1,0 +2,1 @@', '+/// \\brief New description',
+    ].join('\n')
+    assert.match(runner.changedCodeRiskInventory(root, docDiff), /types\.hh:2: new doc block is separated from declaration by older comment at types\.hh:3/)
+    fs.writeFileSync(path.join(root, 'sizing.go'), 'func vectorElemMinSize(elem TypeInfo) int {')
+    const sizingDiff = [
+      'diff --git a/sizing.go b/sizing.go', '--- /dev/null', '+++ b/sizing.go',
+      '@@ -0,0 +1,1 @@', '+func vectorElemMinSize(elem TypeInfo) int {',
+    ].join('\n')
+    assert.match(runner.changedCodeRiskInventory(root, sizingDiff), /sizing\.go:1: new sizing or type-classification helper/)
+    fs.writeFileSync(path.join(root, 'state.hh'), 'bool _stream_closing = false;')
+    const flagDiff = [
+      'diff --git a/state.hh b/state.hh', '--- /dev/null', '+++ b/state.hh',
+      '@@ -0,0 +1,1 @@', '+bool _stream_closing = false;',
+    ].join('\n')
+    assert.match(runner.changedCodeRiskInventory(root, flagDiff), /state\.hh:1: bool _stream_closing = false/)
+    fs.writeFileSync(path.join(root, 'wait.cc'), 'st.close_entered_cv.wait(pred).get();')
+    const waitDiff = [
+      'diff --git a/wait.cc b/wait.cc', '--- /dev/null', '+++ b/wait.cc',
+      '@@ -0,0 +1,1 @@', '+st.close_entered_cv.wait(pred).get();',
+    ].join('\n')
+    assert.match(runner.changedCodeRiskInventory(root, waitDiff), /wait\.cc:1: st\.close_entered_cv\.wait\(pred\)/)
+    fs.writeFileSync(path.join(root, 'logging.rs'), 'debug!("connection failed");')
+    const logDiff = [
+      'diff --git a/logging.rs b/logging.rs', '--- /dev/null', '+++ b/logging.rs',
+      '@@ -0,0 +1,1 @@', '+debug!("connection failed");',
+    ].join('\n')
+    assert.match(runner.changedCodeRiskInventory(root, logDiff), /logging\.rs:1: debug!/)
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('review preflight requires an audit entry for each commit in the pinned range', () => {
+  assert.deepEqual(runner.commitAuditKeys([
+    'commit de164845 balance metrics',
+    'scylla/src/network/connection_pool.rs',
+    'commit 0d91aa54 add tests',
+  ].join('\n')), ['commit:de164845', 'commit:0d91aa54'])
 })
 
 test('zero retry budget fails a usage-limited cell without canonical publication', async () => {
@@ -1206,6 +1339,10 @@ test('report requires a complete hash snapshot and uses only its frozen target/t
       url: 'https://upstream.invalid/pull/1', author: 'author',
       review: { inline: [{ user: 'maintainer', path: 'src/sample.js', line: 1, body: 'Frozen review comment' }], issue: [] },
     })
+    const frozenTools = JSON.parse(fs.readFileSync(path.join(root, 'tools.json'), 'utf8'))
+    frozenTools.tools[0].experimental = true
+    frozenTools.tools[0].selfAuthored = true
+    writeJson(path.join(root, 'tools.json'), frozenTools)
     const metadata = cohortMetadata(root)
     metadata.targets.unused = { baseSha: 'c'.repeat(40), headSha: 'd'.repeat(40) }
     metadata.targetMetadata.unused = {
@@ -1232,14 +1369,15 @@ test('report requires a complete hash snapshot and uses only its frozen target/t
 
     const report = runReport(root, '--run', manifest.runId)
     assert.equal(report.status, 0, report.stderr)
-    assert.match(report.stdout, /1 review configurations, 1 real PR/)
+    assert.match(report.stdout, /1 review configuration, 1 real PR/)
     assert.match(report.stdout, /\| `sample` \| JS \| 42 B/)
-    assert.match(report.stdout, /\| Reviewer \| 1 \|/)
+    assert.match(report.stdout, /\| Reviewer · Claude \| 1 \|/)
     assert.match(report.stdout, /## Cohort accounting/)
     assert.match(report.stdout, /Reviews: 1 calls, 3 tokens, \$0\.25/)
     assert.match(report.stdout, /Extraction: 1 calls, 1 raw claims, \$0\.05/)
     assert.match(report.stdout, /Judging: 1 calls, 1 merged issues \(1 real, 0 false-positive, 0 unproven\), \$0\.25/)
-    assert.match(report.stdout, /Total known canonical spend: \$0\.55/)
+    assert.match(report.stdout, /Total known cohort spend: \$0\.55/)
+    assert.match(report.stdout, /Experimental cohort-local evidence:[\s\S]*not canonical gold/)
     assert.match(report.stdout, /Frozen review comment/)
     assert.doesNotMatch(report.stdout, /CHANGED-LIVE-STATE|Changed Live Reviewer|Changed live comment|changed\.invalid|unused/)
 

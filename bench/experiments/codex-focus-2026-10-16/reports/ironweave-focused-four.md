@@ -1,0 +1,23 @@
+## Toolkit
+
+- **[P1] Runtime defect: queue drain delays the shutdown needed to unblock it** — [rpc.cc:565](/tmp/ad-codex-focus-20261015/ironweave-focused-four/src/rpc/rpc.cc:565). A compressor control frame accepted before `_stream_closing` can block in a direct socket `put()` when the peer stops reading. The new drain waits for that write before closing the socket. Base could reach socket shutdown with empty local output buffers and interrupt the write; head can leave stream closure pending indefinitely. An independent disconnect or explicit stop can still unblock it.
+
+- **[P1] Test defect: the new sink wrapper breaks supported API levels 7 and 8** — [rpc_test.cc:1883](/tmp/ad-codex-focus-20261015/ironweave-focused-four/tests/unit/rpc_test.cc:1883). The unconditional span overload does not override `data_sink_impl::put(net::packet)`, which remains pure virtual below API level 9. Constructing the wrapper therefore fails compilation in those advertised configurations. The existing loopback sink handles both interfaces conditionally.
+
+- **[P2] Test defect: the regression check can accept the original behavior** — [rpc_test.cc:2017](/tmp/ad-codex-focus-20261015/ironweave-focused-four/tests/unit/rpc_test.cc:2017). While local sink close is parked, the peer can finish its stream shutdown and deliver physical EOF. The client receive loop then sets `_error`, making base `send()` reject the hook with the same accepted `closed_error`. The test does not establish that `_error` remains false, so it can pass without exercising the new guard.
+
+- **[P2] Test defect: an assertion failure bypasses required sink cleanup** — [rpc_test.cc:2000](/tmp/ad-codex-focus-20261015/ironweave-focused-four/tests/unit/rpc_test.cc:2000). If the negotiation-count assertion fails, the local sink is destroyed before reaching `sink.close()`. Its destructor asserts that the connection’s sink is closed, aborting an assertions-enabled test process. The surrounding deferred client cleanup runs after these local destructors.
+
+- **[P2] Test defect: the parked-close wait has no local failure bound** — [rpc_test.cc:2011](/tmp/ad-codex-focus-20261015/ironweave-focused-four/tests/unit/rpc_test.cc:2011). This wait neither has a deadline nor observes failure of `sink_closed`. If shutdown fails to reach the wrapped close, the test cannot report that failure or unwind into cleanup. `test.py` supplies an external 300-second timeout; direct execution has no equivalent local protection. This is a test failure-safety gap, not proof of a production hang.
+
+- **[P3] Factual documentation defect: the fixture compressor is not pass-through** — [rpc_test.cc:1937](/tmp/ad-codex-focus-20261015/ironweave-focused-four/tests/unit/rpc_test.cc:1937). The helper delegates compression and decompression to `lz4_fragmented_compressor`, which emits an LZ4 representation with a chunk header. The new comment and test commit body incorrectly describe its wire behavior.
+
+## Standards
+
+- **[P2] Repository-rule violation: compressor negotiation mutates a foreign-shard vector** — [rpc_test.cc:1957](/tmp/ad-codex-focus-20261015/ironweave-focused-four/tests/unit/rpc_test.cc:1957). The test constructs one `server_factory` and shares its pointer across all server shards. With two shards, the loopback acceptor places parent and stream connections on different shards; negotiation invokes `hooks.push_back()` on those accept shards before stream routing. This violates the ownership guidance in [tutorial.md:2242](/tmp/ad-codex-focus-20261015/ironweave-focused-four/doc/tutorial.md:2242). Sequential negotiation does not establish an actual data race, but it does not satisfy that ownership rule.
+
+## Spec
+
+- **[P2] Factual documentation defect: a source exception does not always close the source** — [rpc-streaming.md:111](/tmp/ad-codex-focus-20261015/ironweave-focused-four/doc/rpc-streaming.md:111), repeated in [rpc_types.hh:386](/tmp/ad-codex-focus-20261015/ironweave-focused-four/include/seastar/rpc/rpc_types.hh:386). Deserialization and result construction occur outside the continuation that calls `close_source()`. An exception there leaves `_source_closed` false. An application following the new instruction to stop reading after that error can consequently leave the connection unclosed even after closing its sink. The implementation behavior predates this PR; the universal documentation claim is new.
+
+Tests and builds were not run. External incident evidence, linked issue contents, and historical validation claims remain unverified. HEAD and the clean worktree were unchanged.

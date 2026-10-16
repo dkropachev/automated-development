@@ -1,0 +1,7 @@
+{
+  "type":"object","additionalProperties":false,
+  "properties":{"groups":{"type":"array","items":{"type":"object","additionalProperties":false,"properties":{
+    "representativeId":{"type":"string"},"memberIds":{"type":"array","minItems":1,"items":{"type":"string"}},"reason":{"type":"string"}
+  },"required":["representativeId","memberIds","reason"]}}},
+  "required":["groups"]
+}

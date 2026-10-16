@@ -101,6 +101,10 @@ test('skill filtering changes evidence while target filtering changes the fixed 
   const skill = dashboard.deriveModelMetrics(comparison, { toolIds: ['tool-one'] })
   assert.equal(skill.denominator, 2, 'skill selection does not redefine target-level completeness')
   assert.deepEqual(skill.models.map((model) => model.evidenceCount), [1, 1])
+  assert.deepEqual(dashboard.deriveModelMetrics(comparison, { toolIds: ['claude:tool-one'] }), skill)
+  const codex = dashboard.deriveModelMetrics(comparison, { toolIds: ['codex:tool-one'] })
+  assert.deepEqual(codex.models.map((model) => model.evidenceCount), [0, 0])
+  assert.equal(codex.denominator, skill.denominator)
 
   const target = dashboard.deriveModelMetrics(comparison, { targetIds: ['beta'] })
   assert.equal(target.denominator, 1)

@@ -2,7 +2,7 @@
   "name": "automated-development",
   "version": "0.5.0",
   "private": true,
-  "description": "Claude Code plugin: development skills that learn a repository's own conventions before they act on it, and a PR review-and-fix pipeline that verifies what it finds.",
+  "description": "Claude Code plugin: development skills that learn a repository's own conventions before they act on it, and a direct PR review-and-fix protocol that verifies what it finds.",
   "scripts": {
     "test": "node --test test/*.test.js",
     "lint": "eslint .",

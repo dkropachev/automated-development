@@ -1,0 +1,465 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-native-claude-retest-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "0e9f376996d93eec53b7b9f14eb85cc94faefe9d66a5e4a79893889e2afeafeb",
+  "pluginFingerprint": {
+    "contentSha256": "8dea71b3e5aee10a75d5dd83e500ead1f2e9b7520112d46b06b2fc99fe1e9673",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "target": "quillstone",
+  "language": "Rust",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "rawFindings": 17,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Keyspace USE failure discards connection unconditionally, no permanent/transient split",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The new Err(ConnectionSetupError::Keyspace(err)) arm at connection_pool.rs:900-911 always discards the connection, sets had_error_since_last_refill, and calls update_shared_conns (which emits ConnectivityChangeEvent::Lost via emit_events, confirmed at line ~1165) once the pool is empty, with no distinction between a transient failure and a permanently bad/dropped keyspace; the old code (pre-PR, kept the connection and logged warn!) never had this failure mode, so a persistently bad current_keyspace can now drain a pool to Broken instead of just logging.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The discard-on-keyspace-failure behavior is new code added by this PR's Err(Keyspace) arm.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "A bad or dropped keyspace causes every pool to drain and go Broken"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "Three places (session.rs:2008, cluster/worker.rs:351, connection_pool.rs:1287) store the new keyspace before USE succeeds and never roll it back, so after a failed use_keyspace or a DROP KEYSPACE every new/replacement connection fails USE and is discarded, pools shrink and go Broken(UseKeyspaceError), sending a Lost event, and pools for nodes added later never become ready; permanent errors are not distinguished from transient ones and the previous behavior of keeping the connection with a warn! is gone."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "Keyspace-change race: Err(Keyspace) arm never retries with the now-current keyspace",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The Ok(...) arm (lines 915-929) compares evt.keyspace_name against self.current_keyspace and re-issues start_setting_keyspace_for_connection if they differ, but the new Err(ConnectionSetupError::Keyspace(err)) arm (900-911) does no such comparison and just discards the connection; pre-PR, every USE attempt (success or failure) flowed through the Ok(...) path and thus got this mismatch check/retry, so a keyspace change racing with an in-flight USE used to trigger a retry with the new keyspace, which no longer happens.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The missing retry-on-keyspace-change check is a direct consequence of adding the new Err(Keyspace) branch in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Stale-keyspace USE failure drops a connection instead of retrying with the new keyspace"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "The error arm never compares evt.keyspace_name with current_keyspace and the connection is already dropped inside the USE future, so if the keyspace changes while an old USE is in flight and fails, the connection is lost and backoff grows, whereas the base code would have re-issued USE with the new keyspace."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Failed per-connection USE keyspace log downgraded from warn! to debug!",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Diff confirms the pre-PR warn! in start_setting_keyspace_for_connection was removed and the new failure path in handle_ready_connection logs at debug! (line 903-906), even though the consequence (connection discarded, possible pool drain) is now worse than silently keeping a wrong-keyspace connection.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The log-level change is part of this PR's diff.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Failed USE keyspace log downgraded from warn! to debug!, hiding a worse failure"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "The consequence of a failed USE is now worse (connection discarded), yet the log is only debug! and invisible at default log levels until a pool goes Broken."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Excess shard-aware-port connection branch drops connection without decrementing metric",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 994,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "At lines 994-1006, when a shard-aware-port connection misses the target shard and the pool is already full, the connection is dropped (just calls start_opening_connection(None), never pushed anywhere) without calling dec_total_connections even though it was counted in total_connections when opened; comparing against `git show main:...` confirms this exact branch is byte-for-byte identical pre- and post-PR, so this PR's metrics-balancing commits did not touch it.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "This leak is pre-existing and this branch is untouched by the PR's diff, even though the PR fixed a sibling metrics-leak branch a few lines away.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Excess shard-aware port connection branch drops a connection without decrementing…"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "The 'excess shard-aware port connection' branch drops a connection counted at line 1051 without decrementing total_connections; this predates the PR but the 'balance metrics when clearing pools' commit fails to fix it."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "keyspace_setup_failure_triggers_refill test exercises no real code path and uses an…",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The test hand-builds an OpenedConnectionEvent with Err(Keyspace(...)) instead of exercising start_setting_keyspace_for_connection; need_filling() == !is_filling() && !is_full() is already true for a brand-new, empty PoolRefiller before the event is even processed, so that assertion proves nothing; and UseKeyspaceError::RequestTimeout is only ever constructed in the separate PoolRefiller::use_keyspace pool-wide path (line ~1313), never by Connection::use_keyspace (connection.rs:1296-1309) which is what start_setting_keyspace_for_connection actually calls, so this per-connection path cannot produce that variant in practice.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a new test added by the PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "keyspace_setup_failure_triggers_refill test doesn't actually prove a refill occurs"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "The test builds the Err event by hand so it never runs start_setting_keyspace_for_connection; need_filling() is already true for a fresh refiller so the assertion proves nothing and run() is never driven; it also uses UseKeyspaceError::RequestTimeout which this per-connection path can't produce."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "PR's stated validation command never runs the three new metrics-balance tests",
+      "file": "scylla/Cargo.toml",
+      "line": 35,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Cargo.toml:35 sets `default = []`, so metrics is not enabled by default; `gh pr view 1` shows the PR's stated validation command is `cargo +1.88.0 test -p scylla --lib network::connection_pool::tests::keyspace_setup_failure -- --nocapture` (2 passed), which neither enables --features metrics nor matches the names of resharding_discards_old_connections_and_balances_metrics, excess_connection_limit_clears_connections_and_balances_metrics, or full_pool_clears_excess_connections_and_balances_metrics, all three of which are gated by #[cfg(feature = \"metrics\")]; running the stated command reproduces exactly 2 passed, confirming those tests never ran.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The validation claim and the metrics tests it fails to cover are both part of this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Stated validation command never ran the metrics assertions it was meant to test"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "metrics isn't a default feature, so the PR's 'cargo test ... keyspace_setup_failure' command compiles out every cfg(feature = \"metrics\") assertion and doesn't match the three metrics tests."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Commit 0d91aa54 fails -Dwarnings CI check on its own due to unused futures::FutureExt…",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1445,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Checked out commit 0d91aa54 in an isolated worktree and ran `RUSTFLAGS=\"-Dwarnings --cfg scylla_unstable\" cargo check --all-targets -p scylla --features \"\"` (matching .github/workflows config at line 273/319); it fails with `error: unused import: futures::FutureExt` at connection_pool.rs:1445, because the only use at that commit (`.boxed()` in the metrics-gated test) is behind #[cfg(feature = \"metrics\")]; the same command passes cleanly at HEAD since commit 7f48315d later adds an unconditional now_or_never() call that uses the import.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a per-commit CI breakage within the PR's own commit sequence.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Commit 0d91aa54 fails CI on its own due to an unused import"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "The commit's 'use futures::FutureExt;' is only used inside a metrics-gated test; CI runs cargo check --all-targets -p scylla --features \"\" with -Dwarnings, so the unused import is an error at that commit, breaking CONTRIBUTING's rule that every commit compiles without warnings (fixed later at HEAD)."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "Commit 617139df is a one-line fixup of 0d91aa54's busy-wait and should be squashed",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "`git show 617139df` is a single-line change replacing `tokio::task::yield_now().await` with `tokio::time::sleep(Duration::from_millis(1)).await` inside the polling loop that commit 0d91aa54 introduced in the same file; it is a pure fixup of the immediately preceding commit in this same PR, not an independent change.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both commits are part of this PR's own commit sequence.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Commit 617139df is only a fixup of the prior commit's busy-wait and should be squashed"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "Commit 617139df is a one-line fix for a busy-wait that 0d91aa54 introduced and should be squashed into it."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "Commit bodies are empty and PR body never mentions the metrics commits despite the…",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "`gh pr view 1 --json body,commits` shows messageBody is empty (\"\") for all four commits, and the PR body only describes the keyspace-discard behavior and its regression coverage, with no mention of the two metrics-balancing commits (de164845, 0d91aa54), yet the checklist in that same body ticks '[x] The commit messages explain what changes and why.'",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The commit bodies, PR description, and checklist are all authored as part of this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "All four commit bodies are empty and PR body omits the metrics commits"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "All four commit bodies are empty and the PR body never mentions the metrics commits, yet the PR checklist still ticks 'commit messages explain what changes and why', against CONTRIBUTING."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "Relocated comment still claims connection is 'finally put into the conns', no longer…",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 918,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The comment text at lines 918-922 ('...will travel through this logic again, to be finally put into the conns') is unchanged from before the PR (just moved earlier in the function per the diff), but now a failed USE causes the connection to be discarded via the new Err(Keyspace) arm instead of ever being put into conns, so the comment overstates what always happens.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment's claim became inaccurate specifically because of this PR's new discard-on-failure behavior.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Moved comment claiming connection will be 'put into the conns' is now incorrect"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "The comment says the connection will be 'finally put into the conns', but on failure it is now discarded instead."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "New keyspace-failure tests skip the repo-conventional setup_tracing() call",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "CONTRIBUTING.md:88 states 'any new tests should' call setup_tracing(), and every other test in this module (lines 1728, 1781, 1869, 1945, 1973, 2047, 2082) does; the two new tests keyspace_setup_failure_triggers_refill and keyspace_setup_failure_preserves_pool_state do not call it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "These are new tests added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "New keyspace tests skip calling setup_tracing()"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "The two new keyspace tests (at 1474 and 1526) skip setup_tracing(), though CONTRIBUTING says new tests should call it and every other test in the module does."
+      }
+    },
+    {
+      "id": "I12",
+      "title": "Resharding metrics test never has excess connections, leaving that decrement term untested",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1115,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "resharding_discards_old_connections_and_balances_metrics only ever has one active connection and self.excess_connections is empty when maybe_reshard runs, so the `+ self.excess_connections.len()` term added to decrement_total_connections at lines 1117-119 is always adding zero in this test and is never actually exercised with a nonzero value.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both the decrement logic and the test that should cover it were added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Resharding metrics test never exercises the excess_connections term in the reshard…"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "The resharding metrics test never has excess connections, so the '+ excess_connections.len()' term in the reshard decrement is untested."
+      }
+    },
+    {
+      "id": "I13",
+      "title": "Proxy test uses unbounded ready_connections.next().await",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1634,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Lines 1634 and 1667 await ready_connections.next() without an outer timeout, but the future resolved is driven by a fully deterministic, locally-controlled mock proxy (make_rules), not a real network peer; running `cargo test keyspace_setup_failure_preserves_pool_state` completes in well under a second with no hang, and the tool that reported this itself marked it self-rejected.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test is new in this PR, though the pattern is not a real defect.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Proxy test uses unbounded ready_connections.next().await calls"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "The proxy test has unbounded ready_connections.next().await calls at lines 1634 and 1667 that could hang."
+      }
+    },
+    {
+      "id": "I14",
+      "title": "Keyspace check moved ahead of maybe_reshard, so missing USE timeout now also stalls…",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 915,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The diff (hunk at old line 926) shows the keyspace-mismatch check/early-return was moved from after the maybe_reshard()/shard-aware-port update block to before it; pre-PR, resharding ran immediately for every Ok connection regardless of keyspace state, so a slow/hanging USE never blocked sharder discovery; post-PR, a connection needing a keyspace change returns before maybe_reshard runs, and start_setting_keyspace_for_connection still has no timeout (per its own 'TODO: There should be a timeout for this' comment at line ~1336), so resharding is now gated on that USE completing.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The reordering that lets the pre-existing missing-timeout gap affect resharding is new in this PR's diff.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Missing per-connection USE timeout now also holds up sharder discovery"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "The missing per-connection USE timeout is pre-existing, but now also holds up sharder discovery."
+      }
+    },
+    {
+      "id": "I15",
+      "title": "New tests re-implement setup rather than reusing mock_pool_refiller/start_simulated_node",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_triggers_refill and keyspace_setup_failure_preserves_pool_state both call PoolRefiller::new(...) directly with hand-rolled setup instead of mock_pool_refiller()/start_simulated_node(), duplicating boilerplate; this has a partial justification (they need access to pool_updated_notify and to custom Query-opcode proxy rules that the existing helpers don't expose), so the duplication is not purely gratuitous, but the helpers could be extended rather than bypassed.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "These are new tests added by the PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "New tests duplicate setup already provided by test helpers"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "The new tests copy setup that mock_pool_refiller and start_simulated_node already provide."
+      }
+    },
+    {
+      "id": "I16",
+      "title": "New private ConnectionSetupError is easily confused with public…",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "This PR adds a private `enum ConnectionSetupError` (connection_pool.rs:1418-1421) wrapping Connection/Keyspace variants, while `scylla::errors::ConnectionSetupRequestError` is a pre-existing public type used throughout connection.rs; the near-identical names for unrelated types invite confusion.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "ConnectionSetupError is a new type introduced by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Private ConnectionSetupError name is easily confused with public…"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "The private ConnectionSetupError name is easy to confuse with the public ConnectionSetupRequestError."
+      }
+    },
+    {
+      "id": "I17",
+      "title": "decrement_total_connections decrements one-by-one in a loop instead of in bulk",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "kind": "perf",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The new helper `fn decrement_total_connections(&self, count: usize)` loops `for _ in 0..count { self.metrics.dec_total_connections(); }` instead of subtracting count in one atomic operation; correct but calls the metrics primitive count times instead of once.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This helper is newly added by the PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "decrement_total_connections decrements one at a time in a loop instead of in bulk"
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr": "decrement_total_connections decrements one at a time in a loop; it is correct, just not bulk."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.7772218000000004,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 96,
+      "outputTokens": 42189,
+      "cacheReadInputTokens": 4350079,
+      "cacheCreationInputTokens": 121281,
+      "webSearchRequests": 0,
+      "costUSD": 1.7772218000000004,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 23081,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/quillstone/runs/rafp-native-claude-retest-2026-10-09/_judge/attempt-N6HS1f/repo",
+  "judgedAt": "2026-10-09T12:52:57.842Z"
+}

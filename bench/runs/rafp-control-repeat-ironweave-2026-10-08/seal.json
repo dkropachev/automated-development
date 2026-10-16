@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "runId": "rafp-control-repeat-ironweave-2026-10-08",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "d2e20095df664ecb865e7058f1f306490507a5fd117300862851b68a62664422",
+    "gitCommit": "9601c55ef2e05be9180a66376fcd673d8fec7084",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "createdAt": "2026-10-09T01:43:04.342Z",
+  "cells": [
+    {
+      "id": "rafp-control-repeat-ironweave-2026-10-08/ironweave/review-and-fix-pr",
+      "target": "ironweave",
+      "tool": "review-and-fix-pr",
+      "file": "results/ironweave/review-and-fix-pr.json",
+      "sha256": "99d6c778404e0219bed8e2de3ae483be8344a66f953dac530685838078688096"
+    }
+  ]
+}

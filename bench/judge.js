@@ -2,6 +2,7 @@
 // Merge and verify findings from one immutable benchmark cohort.
 //
 //   node bench/judge.js [--run <run-id>] [--only <target>]
+//                       [--max-budget-usd <amount>] [--timeout <minutes>]
 const fs = require('node:fs')
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
@@ -29,6 +30,7 @@ const quota = require('./quota')
 const ROOT = __dirname
 const CLAUDE = process.env.CLAUDE || 'claude'
 const JUDGE_MODEL = 'claude-sonnet-5'
+const DEFAULT_TIMEOUT_MS = 120 * 60_000
 
 const SCHEMA = `[
   {
@@ -52,7 +54,12 @@ const SCHEMA = `[
 
 function parseArgs(argv, root = ROOT) {
   if (argv.includes('--force')) throw new Error('--force is not supported; benchmark artifacts are append-only')
-  const options = { runId: defaultRunId(root), only: null }
+  const options = {
+    runId: defaultRunId(root),
+    only: null,
+    maxBudgetUsd: null,
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+  }
   const value = (flag, index) => {
     const next = argv[index + 1]
     if (next == null || next.startsWith('--')) throw new Error(`${flag} requires a value`)
@@ -62,6 +69,21 @@ function parseArgs(argv, root = ROOT) {
     const arg = argv[i]
     if (arg === '--run') { options.runId = assertSafeId(value(arg, i++), 'run id'); continue }
     if (arg === '--only') { options.only = assertSafeId(value(arg, i++), 'target'); continue }
+    if (arg === '--max-budget-usd') {
+      options.maxBudgetUsd = Number(value(arg, i++))
+      if (!Number.isFinite(options.maxBudgetUsd) || options.maxBudgetUsd <= 0) {
+        throw new Error('--max-budget-usd must be a positive finite number')
+      }
+      continue
+    }
+    if (arg === '--timeout') {
+      const minutes = Number(value(arg, i++))
+      options.timeoutMs = minutes * 60_000
+      if (!Number.isFinite(minutes) || minutes <= 0 || !Number.isFinite(options.timeoutMs)) {
+        throw new Error('--timeout must be a positive finite number')
+      }
+      continue
+    }
     throw new Error(`unknown argument: ${arg}`)
   }
   if (options.runId === 'legacy') throw new Error('legacy cohort is read-only')
@@ -77,9 +99,10 @@ Your job, in order:
 
 1. MERGE. Group findings that are the same defect in the same place, even when the wording differs. Different defects in the same function stay separate. Keep every distinct claim - including ones only one tool made.
 2. VERIFY. For each merged issue, read the actual code and decide:
-   - "real": the code does what the finding says and that is a defect.
-   - "false-positive": the code does not do what the finding says, or what it does is correct.
+   - "real": the code does what the finding says and that is a defect or a concrete, actionable maintenance risk. A currently safe suggestion can be real at low/nit severity when specific duplicated code, state coupling, or future failure mode is demonstrated; do not dismiss it merely because the reviewer labeled it a suggestion. For a repeated-failure claim, trace retries, existing-state decay and eventual user-visible availability; the PR intentionally handling one failure does not by itself disprove a harmful consequence when failures persist.
+   - "false-positive": the code does not do what the finding says, or the suggestion is unsupported taste with no concrete maintenance consequence.
    - "unproven": you could not settle it without running something you cannot run. Use this sparingly and say what is missing.
+   For documentation that says "only" or "never", check every reachable abort/error path as well as graceful completion. Do not infer an unstated graceful-only qualifier from a section heading when the sentence itself is absolute.
    Run things if it helps - the tree is yours to build and test, but do not commit, push, or comment on the PR.
 3. SCOPE. "introducedByPr": true when the PR's own diff created the defect or made it reachable/worse. "scope": "in-scope" when this PR is the right place to fix it - a defect the PR introduced, or one its change makes reachable - otherwise "out-of-scope" (pre-existing and untouched). Undecidable counts as in-scope.
 4. RATE. Severity is about consequence: blocker = data loss, crash, or wrong results on a normal path; nit = cosmetic.
@@ -96,23 +119,32 @@ ${findingsBlob}
 `
 }
 
-function judgeArgs(text) {
-  return [
+function judgeArgs(text, options = {}) {
+  const args = [
     '-p', text,
     '--output-format', 'json',
     '--model', JUDGE_MODEL,
     '--effort', 'high',
     '--permission-mode', 'bypassPermissions',
-    '--disallowedTools', 'WebSearch', 'WebFetch', 'ReportFindings',
   ]
+  if (options.maxBudgetUsd != null) args.push('--max-budget-usd', String(options.maxBudgetUsd))
+  args.push('--disallowedTools', 'WebSearch', 'WebFetch', 'ReportFindings')
+  return args
 }
 
 function normalizeAttribution(issues, blob, runId, targetId) {
   const cells = new Map(blob.map((finding) => [finding.cellId, finding.tool]))
   const cellForTool = new Map(blob.map((finding) => [finding.tool, finding.cellId]))
+  const taggedCandidates = new Set(blob.filter((finding) => finding.candidateId)
+    .map((finding) => `${finding.cellId}#${finding.candidateId}`))
+  const cellId = (value) => {
+    if (cells.has(value)) return value
+    if (taggedCandidates.has(value)) return value.slice(0, value.lastIndexOf('#'))
+    return null
+  }
   return issues.map((issue) => {
     const reportedBy = [...new Set((issue.reportedBy || []).filter((tool) => cellForTool.has(tool)))]
-    const reportedByRuns = [...new Set((issue.reportedByRuns || []).filter((id) => cells.has(id)))]
+    const reportedByRuns = [...new Set((issue.reportedByRuns || []).map(cellId).filter(Boolean))]
     for (const tool of reportedBy) {
       const id = cellForTool.get(tool)
       if (!reportedByRuns.includes(id)) reportedByRuns.push(id)
@@ -122,7 +154,13 @@ function normalizeAttribution(issues, blob, runId, targetId) {
       if (!reportedBy.includes(tool)) reportedBy.push(tool)
     }
     const reportedAs = { ...(issue.reportedAs || {}) }
-    const reportedAsByRun = { ...(issue.reportedAsByRun || {}) }
+    const reportedAsByRun = {}
+    for (const [key, value] of Object.entries(issue.reportedAsByRun || {})) {
+      const id = cellId(key)
+      if (!id) continue
+      reportedAsByRun[id] = reportedAsByRun[id] == null ? value
+        : reportedAsByRun[id] === value ? value : `${reportedAsByRun[id]}; ${value}`
+    }
     for (const tool of reportedBy) {
       const id = cellForTool.get(tool) || `${runId}/${targetId}/${tool}`
       if (reportedAsByRun[id] == null && reportedAs[tool] != null) reportedAsByRun[id] = reportedAs[tool]
@@ -139,13 +177,21 @@ function loadSealedFindings(root, manifest, seal) {
     if (!fs.existsSync(file)) throw new Error(`missing successful finding for sealed cell: ${sealedCell.id}`)
     const record = readFindingRecord(file, manifest, sealedCell)
     const blob = byTarget.get(sealedCell.target) || []
-    for (const finding of record.findings) blob.push({ ...finding, tool: sealedCell.tool, cellId: sealedCell.id })
+    for (const finding of record.findings) {
+      // Suggestions remain in the sealed finding record but cannot become confirmed issues.
+      if (!eligibleForCohortJudge(finding)) continue
+      blob.push({ ...finding, tool: sealedCell.tool, cellId: sealedCell.id })
+    }
     byTarget.set(sealedCell.target, blob)
   }
   return byTarget
 }
 
-function judgeTarget(root, manifest, target, cells, blob, out, dependencies) {
+function eligibleForCohortJudge(finding) {
+  return finding.reviewDisposition !== 'suggestion'
+}
+
+function judgeTarget(root, manifest, target, cells, blob, out, dependencies, options = {}) {
   if (fs.existsSync(out)) {
     readJudgementRecord(out, manifest, target.id, cells)
     console.log(`skip ${target.id}`)
@@ -179,8 +225,12 @@ function judgeTarget(root, manifest, target, cells, blob, out, dependencies) {
       }, dependencies)
       executable = authorization.executable
     }
-    const result = runJudge(executable, judgeArgs(prompt(target, JSON.stringify(blob, null, 1))), {
-      cwd: checkout.repo, maxBuffer: 1 << 28, encoding: 'utf8',
+    const result = runJudge(executable, judgeArgs(prompt(target, JSON.stringify(blob, null, 1)), options), {
+      cwd: checkout.repo,
+      maxBuffer: 1 << 28,
+      encoding: 'utf8',
+      timeout: options.timeoutMs == null ? DEFAULT_TIMEOUT_MS : options.timeoutMs,
+      killSignal: 'SIGKILL',
     })
     let meta
     try { meta = JSON.parse(result.stdout) } catch (error) {
@@ -230,10 +280,14 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
   const { manifest, seal } = readSeal(root, options.runId)
   const paths = cohortPaths(root, options.runId)
   // Validate every sealed cell before publishing any target judgement. A partial extraction remains
-  // retryable and can never produce an immutable partial judgement cohort.
-  const findingsByTarget = loadSealedFindings(root, manifest, seal)
+  // retryable and can never produce an immutable partial judgement cohort. With --only, validate
+  // just that target so targets can be extracted and judged sequentially.
+  const selectedCells = options.only
+    ? seal.cells.filter((cell) => cell.target === options.only)
+    : seal.cells
+  const findingsByTarget = loadSealedFindings(root, manifest, { ...seal, cells: selectedCells })
   const cellsByTarget = new Map()
-  for (const sealedCell of seal.cells) {
+  for (const sealedCell of selectedCells) {
     const cells = cellsByTarget.get(sealedCell.target) || []
     cells.push(sealedCell)
     cellsByTarget.set(sealedCell.target, cells)
@@ -245,13 +299,16 @@ function main(argv = process.argv.slice(2), root = ROOT, dependencies = {}) {
     const cells = cellsByTarget.get(target.id) || []
     if (!cells.length) { console.log(`no sealed results for ${target.id}`); continue }
     const blob = findingsByTarget.get(target.id) || []
-    judgeTarget(root, manifest, target, cells, blob, out, dependencies)
+    judgeTarget(root, manifest, target, cells, blob, out, dependencies, options)
   }
   const completed = ensureComplete(root, manifest.runId)
   console.log(completed ? `complete ${manifest.runId}` : `pending ${manifest.runId}: judgements remain`)
 }
 
-module.exports = { JUDGE_MODEL, SCHEMA, judgeArgs, judgeTarget, loadSealedFindings, main, normalizeAttribution, parseArgs, prompt }
+module.exports = {
+  DEFAULT_TIMEOUT_MS, JUDGE_MODEL, SCHEMA, judgeArgs, judgeTarget, loadSealedFindings,
+  eligibleForCohortJudge, main, normalizeAttribution, parseArgs, prompt,
+}
 
 if (require.main === module) {
   try { main() } catch (error) {

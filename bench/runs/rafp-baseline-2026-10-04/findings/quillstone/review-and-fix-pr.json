@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-baseline-2026-10-04",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.287 (Claude Code)",
+  "configSha256": "be1b75e1d14f4260ee00d9cacd7ebf08c8efeef09bcb2e801445190d0552439c",
+  "pluginFingerprint": {
+    "contentSha256": "658ad96e8ceece33ba914c3304a34755f15bd44947661450da95696ed5a61c97",
+    "gitCommit": "0a5b76f5895a89d3b8f9bfa01e85b46cf9c60ad7",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7"
+  },
+  "cellId": "rafp-baseline-2026-10-04/quillstone/review-and-fix-pr",
+  "target": "quillstone",
+  "tool": "review-and-fix-pr",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "b19588019bed03fc8601b85224354d685f24d5ef4677871ab2d972fe832bb9c2",
+  "label": "Automated Development review-and-fix-pr",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "A keyspace that stays unusable drains every node pool for good",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "The new Err(ConnectionSetupError::Keyspace) branch drops the connection on any UseKeyspaceError, including permanent ones (keyspace dropped, permission denied, or use_keyspace failing even though the pool still stored the new keyspace), and current_keyspace is never rolled back, so every refill fails the same way and the pool ends up published as Broken(UseKeyspaceError), failing every request to that node.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 898,
+      "title": "Endless open-then-discard churn while USE keeps failing",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "While USE keeps failing, had_error_since_last_refill keeps a refill scheduled, and each refill (backoff capped at 10s) opens every missing connection and throws it away again.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 900,
+      "title": "A USE failure for an outdated keyspace still drops the connection instead of retrying…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The Keyspace error branch never compares evt.keyspace_name with self.current_keyspace, although the success branch does; if a USE for keyspace A fails after the session already switched to keyspace B, the connection is dropped instead of retried with B, the error flag grows backoff, and the pool may be published as Broken with an error about the old keyspace.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 903,
+      "title": "Failure log was lowered from warn! to debug!, making USE failures invisible at default…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The failure log was lowered from warn! to debug! in the same change that made the failure drop connections, so a pool that stays under its target size because of USE failures is now invisible at default log levels, while a related keyspace failure elsewhere in the same file still logs at warn!.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1462,
+      "title": "Commit 0d91aa54 does not build on its own under -Dwarnings without the metrics feature",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The futures::FutureExt import is not behind a feature guard, but in that commit its only use is inside a #[cfg(feature = \"metrics\")] test, so without the feature it is an unused import which CI's no-features -Dwarnings check fails on; it only becomes used in 7f48315d (now_or_never).",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 994,
+      "title": "A shard-aware connection landing on a full shard is dropped without decrementing…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "A shard-aware connection that lands on a full shard is dropped without decrementing total_connections; this leak already existed on the base branch and is outside what the PR changed, but the PR's metrics-balancing commits leave this removal path unbalanced.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description does not mention the metrics-balancing half of the patch",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "decrement_total_connections, its three call sites (connection_pool.rs:674, :1031, :1114) and the three metrics tests are not mentioned in the Description or Validation sections of the PR.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1868,
+      "title": "Resharding metrics test never has excess connections when it reshards, leaving a term…",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The + self.excess_connections.len() term in the resharding decrement at connection_pool.rs:1114 is untested because the test never has excess connections when it reshards; removing it would still pass the check at :1935.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1474,
+      "title": "New keyspace tests don't call setup_tracing()",
+      "severity": "nit",
+      "kind": "test-gap",
+      "claim": "The two new keyspace tests at connection_pool.rs:1474 and :1526 don't call setup_tracing(), even though CONTRIBUTING asks every new test to call it and the other new tests in this PR do.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 921,
+      "title": "Moved comment is now incorrect after the USE failure behavior change",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The moved comment still says the connection will 'finally be put into the conns', but after a failed USE the connection is now dropped instead.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Public #[from] UseKeyspaceError conversion on ConnectionError is unneeded API surface",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The public #[from] UseKeyspaceError conversion on ConnectionError was raised as unneeded API surface.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR's stated validation skips clippy and the metrics feature",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The PR's stated validation skips clippy and the metrics feature, but CI runs --all-features.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "All four commit messages have no body",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "All four commit messages have no body.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit 617139df is a fixup of 0d91aa54 and should be squashed",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "Commit 617139df is a fixup of 0d91aa54 and should be squashed.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "New tests duplicate mock_pool_refiller and start_simulated_node",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The new tests duplicate mock_pool_refiller and start_simulated_node.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 3835,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 40035,
+      "webSearchRequests": 0,
+      "costUSD": 0.198494,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1464,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-05T02:38:49.486Z"
+}

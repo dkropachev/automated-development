@@ -46,6 +46,7 @@ function createCompleteDashboardCohort(root, options = {}) {
     groundtruth,
     expectedCells: [{ id: `${runId}/${target.id}/tool`, target: target.id, tool: 'tool' }],
     toolConfig: toolFile,
+    ...(options.pluginFingerprint ? { pluginFingerprint: options.pluginFingerprint } : {}),
   })
   const paths = artifacts.cohortPaths(root, runId)
   const cellId = `${runId}/${target.id}/tool`
@@ -253,9 +254,9 @@ test('dashboard metric import stays side-effect free when CommonJS has a DOM glo
   assert.equal(imported.status, 0, imported.stderr)
 })
 
-test('comparison overlap uses stable IDs only for the same target', () => {
-  const left = { targetId: 'a', issues: [{ id: 'I1' }, { id: 'I2' }] }
-  const right = { targetId: 'a', issues: [{ id: 'I2' }, { id: 'I3' }] }
+test('comparison overlap uses identities on the same pinned revision across cohorts', () => {
+  const left = { targetId: 'a', targetPins: { baseSha: 'base', headSha: 'head' }, issues: [{ id: 'I1' }, { id: 'I2' }] }
+  const right = { targetId: 'a', targetPins: { baseSha: 'base', headSha: 'head' }, issues: [{ id: 'I2' }, { id: 'I3' }] }
   const overlap = dashboard.comparisonFor(left, right)
   assert.equal(overlap.compatible, true)
   assert.deepEqual(overlap.shared.map((issue) => issue.id), ['I2'])
@@ -269,8 +270,8 @@ test('comparison overlap uses stable IDs only for the same target', () => {
     { ...left, cohortId: 'old' },
     { ...right, cohortId: 'new' },
   )
-  assert.equal(crossCohort.compatible, false)
-  assert.match(crossCohort.reason, /different judgement snapshots/)
+  assert.equal(crossCohort.compatible, true)
+  assert.equal(dashboard.comparisonFor(left, { ...right, targetPins: { baseSha: 'base', headSha: 'other' } }).compatible, false)
 })
 
 test('artifact loader reads the complete tracked matrix without runtime transcript accounting', () => {
@@ -286,12 +287,28 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
   assert.ok(data.cohorts.filter((cohort) => !cohort.legacy).every((cohort) => cohort.complete))
   assert.ok(data.cohorts.some((cohort) => cohort.id === 'sonnet-5-5-2026-09-30' && cohort.complete))
   assert.equal(data.targets.length, 3)
-  assert.equal(data.tools.length, 8)
+  assert.equal(data.tools.length, 11)
+  assert.ok(data.tools.some((tool) => tool.id === 'code-review-ad'))
+  assert.deepEqual(data.tools.filter((tool) => tool.id === 'review-and-fix-pr').map((tool) => ({
+    experimental: tool.experimental,
+    selfAuthored: tool.selfAuthored,
+    reviewOnly: tool.reviewOnly,
+    requiresPluginDir: tool.requiresPluginDir,
+    cohortOnly: tool.cohortOnly,
+    resultContract: tool.resultContract,
+  })), [{
+    experimental: true,
+    selfAuthored: true,
+    reviewOnly: true,
+    requiresPluginDir: true,
+    cohortOnly: true,
+    resultContract: 'review-and-fix-pr-v1',
+  }])
   const legacyRuns = data.runs.filter((run) => run.cohortId === 'legacy')
   const legacyIssues = data.issues.filter((issue) => issue.cohortId === 'legacy')
   assert.equal(legacyRuns.length, 18)
   assert.equal(legacyIssues.length, 137)
-  assert.doesNotMatch(JSON.stringify(data), /review-and-fix-pr|rafp-(?:review|detailed)/)
+  assert.doesNotMatch(JSON.stringify(legacyRuns), /review-and-fix-pr|rafp-(?:review|detailed)/)
   assert.deepEqual(legacyRuns.reduce((counts, run) => {
     counts[run.status] = (counts[run.status] || 0) + 1
     return counts
@@ -311,17 +328,19 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
   if (publishedGoldExisted || data.modelComparison) {
     const comparison = data.modelComparison
     assert.ok(comparison, 'a published gold index must populate modelComparison')
-    assert.equal(comparison.id, 'model-comparison-2026-09-30')
+    assert.equal(comparison.id, 'model-comparison-2026-10-08')
     assert.deepEqual(comparison.scopes.map((scope) => [scope.id, scope.count]), [
       ['all-models', 17],
       ['controlled-pair', 19],
+      ['supplemental-rafp-six-pass-parallel-broker-2026-10-08', 3],
     ])
     assert.deepEqual(comparison.scopes[0].modelIds, ['claude-opus-5', 'claude-fable-5-1', 'claude-opus-5-5'])
     assert.deepEqual(comparison.scopes[1].modelIds, ['claude-fable-5-1', 'claude-opus-5-5'])
-    assert.equal(comparison.sourceMappings.length, 403)
-    assert.equal(comparison.complete.counts.eligibleClaims, 403)
-    assert.equal(new Set(comparison.sourceMappings.map((mapping) => `${mapping.cellId}#${mapping.findingIndex}`)).size, 403)
+    assert.equal(comparison.sourceMappings.length, 450)
+    assert.equal(comparison.complete.counts.eligibleClaims, 450)
+    assert.equal(new Set(comparison.sourceMappings.map((mapping) => `${mapping.cellId}#${mapping.findingIndex}`)).size, 450)
     assert.ok(comparison.sourceMappings.every((mapping) => mapping.finding.selfRejected !== true))
+    assert.ok(comparison.sourceMappings.every((mapping) => mapping.finding.reviewDisposition !== 'suggestion'))
     assert.ok(comparison.canonicalIssues.length > 0)
     assert.ok(comparison.canonicalIssues.every((issue) => ['real', 'false-positive', 'unproven'].includes(issue.verdict)))
     const legacy = comparison.cohorts.find((cohort) => cohort.modelId === 'claude-opus-5')
@@ -383,6 +402,9 @@ test('artifact loader uses complete cohort snapshots after live state and tools 
     fs.writeFileSync(path.join(fixture, 'tools.json'), JSON.stringify({ context: 'Live', tools: [{ id: 'tool', label: 'Wrong', prompt: 'Wrong' }] }))
     const finished = createCompleteDashboardCohort(fixture, {
       runId: 'future-cohort', requestedModel: 'claude-future-9', modelLabel: 'Claude Future 9',
+      pluginFingerprint: {
+        version: '0.5.0', gitCommit: 'c'.repeat(40), contentSha256: 'd'.repeat(64),
+      },
     })
     artifacts.ensureManifest(fixture, {
       runId: 'in-progress',
@@ -413,7 +435,7 @@ test('artifact loader uses complete cohort snapshots after live state and tools 
     const run = data.runs[0]
     assert.equal(run.targetSnapshot.title, 'Pinned snapshot target')
     assert.equal(run.targetSnapshot.language, 'Snapshot JS')
-    assert.equal(run.toolSnapshot.label, 'Pinned Tool')
+    assert.equal(run.toolSnapshot.label, 'Pinned Tool · Claude')
     assert.equal(run.toolSnapshot.source, 'snapshot-source')
     assert.equal(run.prompt, 'Pinned review of snapshot/project')
     assert.equal(run.requestedModel, 'claude-future-9')
@@ -471,7 +493,7 @@ test('HTML export is deterministic, self-contained, and script-data safe', () =>
 
 test('dashboard metric hints are visible, concise, and keyboard reachable', () => {
   const html = dashboard.render(dashboard.loadArtifacts())
-  assert.match(html, /'Real \/ run': 'Distinct cohort-adjudicated real issues divided by complete runs\.'/)
+  assert.match(html, /'Real \/ run': 'Distinct discovered real issues divided by complete runs\.'/)
   assert.match(html, /Salvaged discovery-only records are excluded/)
   assert.match(html, /'Precision': 'Real issues divided by real issues plus false positives; unproven issues are excluded\.'/)
   assert.match(html, /false-positive and unproven verdicts are excluded/)
@@ -492,20 +514,20 @@ test('dashboard exposes tested-skill metadata and exact run-set links', () => {
   const html = dashboard.render(data)
   assert.match(html, /function renderSkills\(focusId = null, params = new URLSearchParams\(\)\)/)
   assert.match(html, /function runsHash\(rows\)/)
-  assert.match(html, /View \$\{skill\.rows\.length\} run/)
+  assert.match(html, /\$\{skill\.rows\.length\} benchmark runs/)
 })
 
-test('dashboard model picker defaults to requested model and keeps observed stack separate', () => {
+test('dashboard model picker defaults to all models and keeps observed stack separate', () => {
   const html = dashboard.render(dashboard.loadArtifacts())
   assert.match(html, /"id":"claude-fable-5-1","label":"Claude Fable 5\.1"/)
   assert.match(html, /function selectedModel\(params\)/)
-  assert.match(html, /return DATA\.defaultModel \|\|/)
+  assert.match(html, /return 'all'/)
   assert.match(html, /\['all', 'All models \/ history'\]/)
   assert.match(html, /return selected === 'all' \|\| run\.modelId === selected/)
   assert.match(html, /summaryItem\('Model under test'/)
   assert.match(html, /summaryItem\('Observed model stack'/)
   assert.match(html, /legacyRunAliases/)
-  assert.match(html, /different judgement snapshots/)
+  assert.match(html, /same target and pinned base\/head commits/)
   assert.doesNotMatch(html, /selectedModels.*usage\.models/)
 })
 

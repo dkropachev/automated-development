@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-six-pass-parallel-broker-2026-10-08",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "1e82419105f2ea8d4a2883c86f514a674c791d63d627ddc6e621b3ea84965799",
+    "gitCommit": "e8b16216b0e9651209f1759499dacb890d5d84ac",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "target": "quillstone",
+  "language": "Rust",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "rawFindings": 10,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Keyspace-set failures now discard the connection instead of keeping it silently wrong",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "false-positive",
+      "verdictReason": "This is the PR's stated purpose (commit 7f48315d): previously a failed `use_keyspace()` was swallowed and the connection kept in the pool with the wrong keyspace (a real correctness bug); now it is discarded and the pool keeps retrying with backoff via need_filling()/refill_delay_strategy, it is not 'impossible to refill' — it will succeed again once the keyspace becomes valid, exactly as asserted by the new test keyspace_setup_failure_triggers_refill.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The behavior is new code added by this PR, even though it is working as intended rather than a defect.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "A keyspace that fails USE every time now makes the pool impossible to refill; a failed Session::use_keyspace(\"typo\") leaves the bad keyspace set and the PR discards every new connection instead of keeping it as before."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr": "A keyspace that fails USE every time now makes the pool impossible to refill; a failed Session::use_keyspace(\"typo\") leaves the bad keyspace set and the PR discards every new connection instead of keeping it as before."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "Keyspace-failure handler doesn't check the failure is still for the current keyspace",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "In handle_ready_connection's Err(ConnectionSetupError::Keyspace(err)) arm (connection_pool.rs:900-911), the code unconditionally sets had_error_since_last_refill and can call update_shared_conns(Some(err.into())) without checking whether evt still matches self.current_keyspace; if use_keyspace() was called again in the meantime (self.current_keyspace changed), a stale error for the old keyspace can still raise backoff and publish a Broken state attributable to the superseded keyspace.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This whole error arm, and the state side effects it triggers, were added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The keyspace-failure arm doesn't check whether the failed USE was for the current keyspace; a failure for a keyspace that has since been replaced still discards the connection, raises the backoff and can publish a stale Broken error."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr": "The keyspace-failure arm doesn't check whether the failed USE was for the current keyspace; a failure for a keyspace that has since been replaced still discards the connection, raises the backoff and can publish a stale Broken error."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Excess shard-aware connection dropped on fallback retry without dec_total_connections",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1006,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "In the `else if evt.requested_shard.is_some()` branch (connection_pool.rs:994-1006), the already-opened `connection` is simply dropped (no connection_errors registration, no excess_connections push) after count_in_metrics already called inc_total_connections for it in start_opening_connection; there is no corresponding dec_total_connections, so total_connections leaks upward permanently for this path.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "`git diff main...HEAD` shows this branch byte-for-byte unchanged from main; it is pre-existing and not touched or made reachable by this PR, even though it is the same bug class the PR fixes elsewhere.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The commit that balances total_connections when clearing pools leaves out a sibling drop path: an excess shard-aware connection in the `else if evt.requested_shard.is_some()` branch is dropped without dec_total_connections, even though count_in_metrics already incremented the metric for it."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr": "The commit that balances total_connections when clearing pools leaves out a sibling drop path: an excess shard-aware connection in the `else if evt.requested_shard.is_some()` branch is dropped without dec_total_connections, even though count_in_metrics already incremented the metric for it."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Stale ready_connections/keyspace comments no longer match the new failure path",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 531,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The field comment at connection_pool.rs:531-532 ('after its keyspace was correctly set') and the inline comment at connection_pool.rs:918-922 ('finally put into the conns') both describe the pre-PR behavior where a keyspace-set attempt always eventually produced a successful, pool-bound connection; the PR adds an Err(ConnectionSetupError::Keyspace) path (connection_pool.rs:900) that discards the connection instead, which these comments do not mention.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR's own new keyspace-failure branch is what makes these pre-existing comments inaccurate.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Comments still say ready_connections carries only connections whose keyspace was 'correctly set', and that a connection sent for keyspace setup will be 'finally put into the conns'. Both are now false."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr": "Comments still say ready_connections carries only connections whose keyspace was 'correctly set', and that a connection sent for keyspace setup will be 'finally put into the conns'. Both are now false."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "start_setting_keyspace_for_connection's doc comment no longer reflects that it can now…",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1329,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The comment 'Requires that the event is for a successful connection' above start_setting_keyspace_for_connection (connection_pool.rs:1328-1330) predates the PR, but previously the function's pushed future always resolved to Ok(...); after this PR it maps a failed use_keyspace() to Err(ConnectionSetupError::Keyspace(err)) (connection_pool.rs:1341-1345), so the comment no longer conveys that the awaited event can now represent failure.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR's change to this function's return value is what invalidates the comment's implicit guarantee.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The comment above start_setting_keyspace_for_connection, 'Requires that the event is for a successful connection', is now stale. The function takes a Connection, not an event, and its result can now be an Err event."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr": "The comment above start_setting_keyspace_for_connection, 'Requires that the event is for a successful connection', is now stale. The function takes a Connection, not an event, and its result can now be an Err event."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "New keyspace tests skip the required setup_tracing() call",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_triggers_refill (line 1474) and keyspace_setup_failure_preserves_pool_state (line 1526) never call setup_tracing(), unlike every other test added in this PR (lines 1728, 1781, 1869, 1945, 1973, 2047, 2082) and CONTRIBUTING.md's 'any new tests should too' guidance.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both tests were added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The two new keyspace tests do not call setup_tracing(), although CONTRIBUTING says any new test should. The other new tests in the same change do call it."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr": "The new keyspace tests break module conventions. They omit setup_tracing(), which every other test in the module calls."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "keyspace_setup_failure_preserves_pool_state finishes the proxy before dropping the…",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1689,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "keyspace_setup_failure_preserves_pool_state calls proxy.finish().await (line 1689) before drop(refiller) (line 1693), the reverse of every sibling test (e.g. lines 1938/1939, 1966/1967, 2070/2071, 2118/2119 all drop(refiller) first then await proxy.finish()); as a consequence this test has to special-case and whitelist ProxyError::Worker(WorkerError::DriverDisconnected(_)) that the others don't need to.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This test and its ordering were added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "One of the new keyspace tests finishes the proxy before dropping the refiller, the reverse of the sibling tests, and so has to whitelist DriverDisconnected."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr": "The new keyspace tests break module conventions. One of them also finishes the proxy before dropping the refiller, the reverse of the sibling tests, and so has to whitelist DriverDisconnected."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "Unconditional `futures::FutureExt` import is not actually unused without the metrics…",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1462,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "FutureExt is also used unconditionally via pool_updated.now_or_never() in keyspace_setup_failure_triggers_refill (line 1520), a plain #[test] not gated by the metrics feature; a clean `cargo build -p scylla --lib --tests` with default (no metrics) features produces zero warnings, confirming the import is not unused.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The import line itself was added by this PR, even though the claimed warning does not occur.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "In commit 0d91aa54, `use futures::FutureExt;` is unconditional, but its only use (.boxed()) is inside a #[cfg(feature = \"metrics\")] test. That commit therefore produces an unused-import warning when tests are built without metrics."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr": "In commit 0d91aa54, `use futures::FutureExt;` is unconditional, but its only use (.boxed()) is inside a #[cfg(feature = \"metrics\")] test. That commit therefore produces an unused-import warning when tests are built without metrics."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "PR's stated validation command never runs the metrics-gated tests or enables the metrics…",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1521,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The PR body's Validation section runs only `cargo +1.88.0 test -p scylla --lib network::connection_pool::tests::keyspace_setup_failure -- --nocapture`, which filters to just the two keyspace tests and doesn't pass `--features metrics`; this both compiles out the `#[cfg(feature = \"metrics\")]` assertions inside those two tests (e.g. line 1521) and never runs the three metrics-balance tests added by commits de164845/0d91aa54/617139df (resharding_discards_old_connections_and_balances_metrics, excess_connection_limit_clears_connections_and_balances_metrics, full_pool_clears_excess_connections_and_balances_metrics), which are all `#[cfg(feature = \"metrics\")]`.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The validation command and the tests it fails to exercise both belong to this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The stated validation command does not run the metrics tests or enable the metrics feature. All metrics assertions in the new keyspace tests are compiled out, and the three tests from 0d91aa54 (including the one fixed in 617139df) are never run."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr": "The stated validation command does not run the metrics tests or enable the metrics feature. All metrics assertions in the new keyspace tests are compiled out, and the three tests from 0d91aa54 (including the one fixed in 617139df) are never run."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "PR description omits the three metrics-balancing commits it also contains",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1114,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The PR body ('Description'/'Validation') discusses only the keyspace-setup-failure fix; it says nothing about commits de164845, 0d91aa54 and 617139df, which add dec_total_connections calls in three separate connection-clearing paths (is_full clearing at line 674, excess-connection-limit clearing at line 1031, and maybe_reshard at line 1114) plus their dedicated tests.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR description under review is this PR's own.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The PR body and title describe only the keyspace fix. They omit commits de164845, 0d91aa54 and 617139df, which change the total_connections metric accounting in three clearing paths."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/quillstone/review-and-fix-pr": "The PR body and title describe only the keyspace fix. They omit commits de164845, 0d91aa54 and 617139df, which change the total_connections metric accounting in three clearing paths."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.2386302,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 66,
+      "outputTokens": 32536,
+      "cacheReadInputTokens": 2699371,
+      "cacheCreationInputTokens": 93316,
+      "webSearchRequests": 0,
+      "costUSD": 1.2386302,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 19311,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/quillstone/runs/rafp-six-pass-parallel-broker-2026-10-08/_judge/attempt-NA95zk/repo",
+  "judgedAt": "2026-10-08T08:23:12.801Z"
+}

@@ -8,6 +8,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 const dashboard = require('./dashboard')
+const { loadExperiments, renderExperimentSummary } = require('./experiments')
 const { discoverCohorts, readComplete } = require('./lib/artifacts')
 
 const ROOT = __dirname
@@ -57,18 +58,28 @@ function renderDashboard(root, dependencies = {}) {
   return renderer.render(renderer.loadArtifacts(root), path.join(root, 'dashboard'))
 }
 
+function publishesStandaloneReport(cohort) {
+  const cells = cohort.snapshot.manifest.expectedCells || []
+  return !cells.some((cell) => cell.tool === 'code-review-ad')
+}
+
 function expectedPublication(options = {}, dependencies = {}) {
   const root = options.root || ROOT
   const docs = options.docs || path.join(path.dirname(root), 'docs')
   const cohorts = discoverCompletedCohorts(root, dependencies)
   const reportRenderer = dependencies.renderReport || renderReport
   const dashboardRenderer = dependencies.renderDashboard || renderDashboard
-  const files = cohorts.map((cohort) => ({
+  const files = cohorts.filter(publishesStandaloneReport).map((cohort) => ({
     file: path.join(docs, `review-bakeoff-${cohort.runId}.md`),
     content: reportRenderer(root, cohort.runId, dependencies),
     kind: 'cohort-report',
     runId: cohort.runId,
   }))
+  const experiments = loadExperiments(root)
+  if (experiments.length) files.push({
+    file: path.join(docs, 'review-skill-experiments.md'),
+    content: renderExperimentSummary(experiments), kind: 'experiment-report',
+  })
   const html = dashboardRenderer(root, dependencies)
   files.push(
     { file: path.join(docs, 'index.html'), content: html, kind: 'dashboard' },

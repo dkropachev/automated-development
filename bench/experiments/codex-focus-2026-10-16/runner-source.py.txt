@@ -1,0 +1,172 @@
+"""Run one isolated, append-only Codex skill experiment (not a scored cohort)."""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import sqlite3
+import subprocess
+import time
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def git(repo, *args):
+    return subprocess.check_output(["git", "-C", str(repo), *args], text=True).strip()
+
+
+def collect_usage(cell):
+    manifest = json.loads((cell / "manifest.json").read_text())
+    db = sqlite3.connect("file:/home/dmitry.kropachev/.codex/state_5.sqlite?mode=ro", uri=True)
+    agents = []
+    for thread, path, role, model, effort in db.execute(
+        "SELECT id,rollout_path,agent_path,model,reasoning_effort FROM threads WHERE cwd=? ORDER BY created_at",
+        (manifest["checkout"],),
+    ):
+        usage = None
+        for line in Path(path).read_text().splitlines():
+            event = json.loads(line)
+            payload = event.get("payload", {})
+            if event["type"] == "event_msg" and payload.get("type") == "token_count" and payload.get("info"):
+                usage = payload["info"]["total_token_usage"]
+        if usage is None:
+            raise RuntimeError(f"Missing usage for {thread}")
+        agents.append({"threadId": thread, "role": role or "/root", "model": model,
+                       "reasoningEffort": effort, "usage": usage,
+                       "rolloutPath": path, "rolloutSha256": digest(Path(path))})
+    roles = {a["role"] for a in agents}
+    expected_roles = {"/root"} | {"/root/" + role for role in manifest["reviewerRoles"]}
+    if roles != expected_roles or len(agents) != len(expected_roles):
+        raise RuntimeError(f"Unexpected review structure: {roles}")
+    if any(a["model"] != "gpt-6.1-sol" or a["reasoningEffort"] !=
+           (manifest["reasoningEffort"] if a["role"] == "/root" else
+            manifest.get("reviewerReasoningEffort", manifest["reasoningEffort"]))
+           for a in agents):
+        raise RuntimeError("Model or reasoning effort drift")
+    summary = {"agents": agents, "totalTokens": sum(a["usage"]["total_tokens"] for a in agents),
+               "note": "Input includes cached input; output includes reasoning. Do not add subsets twice."}
+    (cell / "usage.json").write_text(json.dumps(summary, indent=2) + "\n")
+    return summary
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("target", choices=["tidepool", "quillstone", "ironweave"])
+    parser.add_argument("variant")
+    parser.add_argument("--skill", type=Path, required=True)
+    parser.add_argument("--inventory", action="store_true")
+    parser.add_argument("--risk-inventory", action="store_true")
+    parser.add_argument("--reviewer-effort", choices=["high", "xhigh"], default="high")
+    parser.add_argument("--natural", action="store_true")
+    parser.add_argument("--roles", default="production,tests,contracts,standards")
+    args = parser.parse_args()
+    root = Path(__file__).resolve().parents[4]
+    out = Path(__file__).resolve().parent
+    cell = out / f"{args.target}-{args.variant}"
+    cell.mkdir()  # A rerun must have a new ID, even after failure.
+    repo = Path("/tmp/ad-codex-focus-20261015") / f"{args.target}-{args.variant}"
+    subprocess.run(["git", "clone", "--shared", "--quiet", str(root / "bench/work" / args.target / "src"), str(repo)], check=True)
+    skill = cell / "skill"
+    shutil.copytree(args.skill, skill)
+    # Reviewers may read only the skill snapshot, not the surrounding experiment evidence.
+    visible_skill = repo.parent / f"{args.target}-{args.variant}-skill"
+    shutil.copytree(skill, visible_skill)
+    metadata = json.loads(subprocess.check_output([
+        "gh", "pr", "view", "1", "--repo", f"dkropachev/{args.target}",
+        "--json", "title,body,url,headRefOid,baseRefOid,commits",
+    ]))
+    assert git(repo, "rev-parse", "HEAD") == metadata["headRefOid"]
+    assert git(repo, "merge-base", metadata["baseRefOid"], "HEAD") == metadata["baseRefOid"]
+    assert not git(repo, "status", "--porcelain")
+    prompt = f"""Use code-review-ad at {visible_skill}/SKILL.md to review this pull request. Follow its independent review passes using native Codex agents. The checkout is pinned to the head below. For this offline evaluation, use the supplied PR metadata in place of gh pr view; do not fetch reviews or comments. Read source, repository guidance and Git history in this checkout as needed. Review only: do not edit files, commit, post, or run model subprocesses. Never read benchmark results, reports, judgements, other review sessions, or anything under /extra/dkropachev/automated-development. Do not use a different installed skill. All parent and child agents must use gpt-6.1-sol with high reasoning. Return the skill's final report.
+
+Frozen PR metadata:
+{json.dumps(metadata, indent=2)}
+"""
+    if args.natural:
+        if args.inventory or args.risk_inventory:
+            raise ValueError("Natural invocation must let the skill prepare its own source context")
+        prompt = prompt.replace(
+            "All parent and child agents must use gpt-6.1-sol with high reasoning.",
+            "Use gpt-6.1-sol for the parent and all reviewers. Follow the supplied skill's reviewer reasoning settings.",
+        )
+    elif args.reviewer_effort != "high":
+        prompt = prompt.replace(
+            "All parent and child agents must use gpt-6.1-sol with high reasoning.",
+            "The parent must use gpt-6.1-sol with high reasoning. Each reviewer agent must use gpt-6.1-sol with xhigh reasoning and a fresh context.",
+        )
+    if args.inventory or args.risk_inventory:
+        js = """
+const {execFileSync} = require('node:child_process');
+const h = require(process.argv[1]);
+const repo = process.argv[2], range = process.argv[3];
+const diff = execFileSync('git', ['-C', repo, 'diff', '--no-ext-diff', '--no-textconv', '--find-renames', '--unified=0', range], {encoding:'utf8'});
+const added = h.parseAddedCommentInventory(diff), nearby = h.nearbyCommentInventory(repo, diff);
+const risks = h.changedCodeRiskInventory(repo, diff);
+const commits = execFileSync('git', ['-C', repo, 'log', '--reverse', '--format=commit %H %s', '--name-only', range.replace('...', '..')], {encoding:'utf8'});
+console.log(JSON.stringify({added, nearby, risks, commits, keys:[...new Set([...h.inventoryLocations(added), ...h.inventoryLocations(nearby)])]}));
+"""
+        inventory = json.loads(subprocess.check_output([
+            "node", "-e", js, str(root / "bench/run.js"), str(repo),
+            f"{metadata['baseRefOid']}...{metadata['headRefOid']}",
+        ]))
+        if args.risk_inventory:
+            extra = subprocess.check_output([
+                "node", "-e", "const h=require(process.argv[1]);const x=JSON.parse(process.argv[2]);console.log(JSON.stringify([...h.inventoryLocations(x.risks),...h.commitAuditKeys(x.commits)]))",
+                str(root / "bench/run.js"), json.dumps(inventory),
+            ])
+            inventory["keys"] = list(dict.fromkeys(inventory["keys"] + json.loads(extra)))
+            prompt += f"""
+Source-derived changed-code inventory (syntactic facts, not findings or expected answers):
+{inventory['risks']}
+
+Pinned commit/file inventory:
+{inventory['commits']}
+"""
+        (cell / "inventory.json").write_text(json.dumps(inventory, indent=2) + "\n")
+        prompt += f"""
+Deterministic changed comment/documentation inventory (source evidence, not findings):
+{inventory['added']}
+
+Nearby existing comments that changed code might affect (source evidence, not findings):
+{inventory['nearby']}
+
+Use the skill's existing final claim audit to account for these keys. A key can map to the same finding as another key when they share cause and consequence; do not split or invent findings to increase the count. Finish with CODE_REVIEW_AD_CLAIM_AUDIT_JSON mapping every key to its finding reference or a concrete No finding reason: {json.dumps(inventory['keys'])}
+"""
+    (cell / "prompt.txt").write_text(prompt)
+    (cell / "pr.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    manifest = {"repositoryCommit": git(root, "rev-parse", "HEAD"), "repositoryStatus": git(root, "status", "--porcelain"),
+                "variant": args.variant, "target": args.target, "targetBase": metadata["baseRefOid"],
+                "targetHead": metadata["headRefOid"], "checkout": str(repo),
+                "model": "gpt-6.1-sol", "reasoningEffort": "high", "reviewerReasoningEffort": args.reviewer_effort, "reviewerRoles": args.roles.split(","), "status": "running",
+                "startedAt": time.time(), "skillSha256": {str(p.relative_to(skill)): digest(p) for p in skill.rglob("*") if p.is_file()},
+                "promptSha256": digest(cell / "prompt.txt"), "scriptSha256": digest(Path(__file__))}
+    cmd = ["codex", "exec", "--ignore-user-config", "--enable", "multi_agent", "-c", f"agents.max_threads={len(args.roles.split(chr(44))) + 1}",
+           "-c", "agents.max_depth=1", "-m", "gpt-6.1-sol", "-c", 'model_reasoning_effort="high"',
+           "-s", "read-only", "-C", str(repo), "--json", "-o", str(cell / "report.md"), "-"]
+    manifest["command"] = cmd
+    with (cell / "prompt.txt").open() as stdin, (cell / "events.jsonl").open("w") as stdout, (cell / "stderr.log").open("w") as stderr:
+        process = subprocess.Popen(cmd, stdin=stdin, stdout=stdout, stderr=stderr)
+        manifest["pid"] = process.pid
+        (cell / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+        print(f"Started {cell.name}, PID {process.pid}", flush=True)
+        code = process.wait()
+    manifest.update({"exitCode": code, "finishedAt": time.time(), "status": "failed"})
+    try:
+        assert code == 0, f"Codex exited {code}"
+        assert git(repo, "rev-parse", "HEAD") == manifest["targetHead"]
+        assert not git(repo, "status", "--porcelain"), "Review modified checkout"
+        report = (cell / "report.md").read_text()
+        assert all(f"## {name}" in report for name in ["Toolkit", "Standards", "Spec"])
+        usage = collect_usage(cell)
+        manifest.update({"status": "complete", "reportSha256": digest(cell / "report.md"), "totalTokens": usage["totalTokens"]})
+    except Exception as error:
+        manifest["validationError"] = str(error)
+    (cell / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    print(json.dumps({k: manifest.get(k) for k in ["status", "totalTokens", "validationError"]}), flush=True)
+
+
+if __name__ == "__main__":
+    main()

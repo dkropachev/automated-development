@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "runId": "rafp-six-pass-sonnet-2026-10-08",
+  "requestedModel": "claude-sonnet-5-5",
+  "modelLabel": "Claude Sonnet 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "9e1b41776b4b692b23850e9d084b6ec8775ed43d47fe10bfd6d4fb41b37fbdd1",
+    "gitCommit": "9601c55ef2e05be9180a66376fcd673d8fec7084",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "createdAt": "2026-10-08T18:00:48.387Z",
+  "cells": [
+    {
+      "id": "rafp-six-pass-sonnet-2026-10-08/ironweave/review-and-fix-pr",
+      "target": "ironweave",
+      "tool": "review-and-fix-pr",
+      "file": "results/ironweave/review-and-fix-pr.json",
+      "sha256": "ffc96a3a0c8724a40e771114c4251b3431e24f2da8930a1e316fc8ca75c7b5a3"
+    }
+  ]
+}

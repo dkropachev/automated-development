@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "runId": "rafp-six-pass-parallel-broker-2026-10-08",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "1e82419105f2ea8d4a2883c86f514a674c791d63d627ddc6e621b3ea84965799",
+    "gitCommit": "e8b16216b0e9651209f1759499dacb890d5d84ac",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "createdAt": "2026-10-08T08:35:47.478Z",
+  "manifestSha256": "c3d741ad2f751e2de216aa5fc3a86b9005af2ad32f1b75c722e25b26bb6a4122",
+  "sealSha256": "b3f0e1def8450f6419e641ebaa583ceee54b14e1583a230529743aeec77dbdf6",
+  "findings": [
+    {
+      "file": "findings/ironweave/review-and-fix-pr.json",
+      "sha256": "4c0a7b3774fa50383b2b7a849d507fe4ed90893069497ed709cd99bb5cba8f84"
+    },
+    {
+      "file": "findings/quillstone/review-and-fix-pr.json",
+      "sha256": "2ff9d803cb32e8ee9334a2bea376bacc04f7cb0e01ce00355a997c8d0fab8583"
+    },
+    {
+      "file": "findings/tidepool/review-and-fix-pr.json",
+      "sha256": "e007a2e0f621434f53cd78ece7aab38f180efbbefb0333e2bba74148481a9cf7"
+    }
+  ],
+  "judgements": [
+    {
+      "file": "judgement/ironweave.json",
+      "sha256": "65c8f823fcb891ac794fc0068ee6d275bb83229043e5c2a216f8c05a26750507"
+    },
+    {
+      "file": "judgement/quillstone.json",
+      "sha256": "f2f0afcc33944f5aa2f69a079f20b0453aadd480a4904940047a79538df29684"
+    },
+    {
+      "file": "judgement/tidepool.json",
+      "sha256": "84e79bcd12039a2859ab718f002e24ee8dce59d4564aacc672eadd6e9fd33425"
+    }
+  ]
+}

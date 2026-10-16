@@ -1,0 +1,29 @@
+{
+  "variant": "toolkit-preserved-checks",
+  "sourceCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+  "baseVariant": "toolkit-code-budget",
+  "roles": {
+    "toolkit": 6,
+    "test_assertions": 3,
+    "standards": 3,
+    "spec": 6
+  },
+  "hypothesis": "Requirement-preservation correction: focused code brief weakened the original explicit instruction to inspect every new override under supported build guards. Restore that existing check verbatim; no new benchmark answer added. Keep6/3/3/6 allocation and all other scopes unchanged.",
+  "restoredCheck": "For a newly added override, compare the base declaration and nearby implementations under supported compile-time guards; a method that overrides only in the default configuration can leave another configuration abstract or fail to compile.",
+  "skillSha256": {
+    "SKILL.md": "592804410752c93fb962e96cd2034484b9880a80e54fc921fea71894782c9487",
+    "review.md": "d06792e28096cd17010f867b54ba95556b6ab7b0418fc6c74fd811920753d9e2",
+    "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+    "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+    "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+    "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+    "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+    "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+    "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+    "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+    "passes/test-assertions.md": "a336f735062c377ce8dd53a094197400903d99654b391bef2daa10c5d184092d",
+    "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+    "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+    "passes/toolkit.md": "6f5ed6fa390ab0bc6ddf44508a4a35ed21e740efd6057be06779f639822b0f24"
+  }
+}

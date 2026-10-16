@@ -921,7 +921,11 @@ if (VERB === 'publish') {
       const full = path.join(path.dirname(st.cache), f)
       const other = f.slice((base + '.work.').length)
       let live = false
-      try { live = JSON.parse(fs.readFileSync(path.join(STATEDIR, other + '.state.json'), 'utf8')).step !== 'done' } catch {}
+      try {
+        const otherState = JSON.parse(fs.readFileSync(path.join(STATEDIR, other + '.state.json'), 'utf8'))
+        // A handed-off build is done drafting but still needs verification and publication.
+        live = otherState.step !== 'done' || (otherState.outcome === 'built' && !otherState.published)
+      } catch {}
       let age = Infinity
       try { age = Date.now() - fs.statSync(full).mtimeMs } catch {}
       if (live && age < MAX_AGE_BUILD_MS) continue

@@ -1,0 +1,349 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-six-pass-parallel-broker-2026-10-08",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "1e82419105f2ea8d4a2883c86f514a674c791d63d627ddc6e621b3ea84965799",
+    "gitCommit": "e8b16216b0e9651209f1759499dacb890d5d84ac",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "target": "ironweave",
+  "language": "C++",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "rawFindings": 19,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "New stream-close test doesn't assert the hook actually throws closed_error",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The try/catch at tests/unit/rpc_test.cc:2016-2020 only reacts if closed_error is thrown; if stream_send_empty_frame() instead returns a ready future, the catch is skipped silently and the test proceeds. The test only catches a wrongly-accepted frame indirectly later via the put_after_close REQUIRE_MESSAGE at line 2030, so the stated intent of this block ('must be refused') is not itself verified.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a brand-new regression test added by the PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The test does not check that the hook was refused with closed_error. A ready future from the hook passes just as well as the expected exception."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr": "The test does not check that the hook was refused with closed_error. A ready future from the hook passes just as well as the expected exception."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "New test can hang forever on any unexpected exception or unbounded wait",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "st.close_entered_cv.wait() at line 2011 has no timeout, and test_data_sink_impl::close() (line 1890-1894) blocks forever on _st.release_close until release_close.set_value() runs at line 2026. If stream_send_empty_frame().get() at line 2017 throws anything other than closed_error (e.g. stream_closed, broken_promise) or a REQUIRE between 2017-2026 fails, release_close.set_value() is never reached, so sink_closed and server_done at lines 2027-2028 and the surrounding do_with_thread/env teardown never complete.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This hang-prone control flow is entirely in the new test added by the PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Cleanup is skipped if anything throws between sink.close() and release_close.set_value(), leaving the parked close forever unreleased; st.close_entered_cv.wait() also has no timeout."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr": "Cleanup is skipped if anything throws between sink.close() and release_close.set_value()... the parked close is never released, sink_closed and server_done are never awaited | The test waits without a bound: st.close_entered_cv.wait() has no timeout, and any failure leaves the data_sink close parked forever."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "New doc overstates that the stream connection only shuts down once both halves close",
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "client::abort_all_streams() (src/rpc/rpc.cc:848) and server::connection::abort_all_streams() (src/rpc/rpc.cc:1324) forcibly abort() stream connections regardless of sink/source state, and stop_send_loop() runs on any read-loop exit (socket error/eof) independent of stream_check_twoway_closed(). Separately, _source_closed defaults to true (include/seastar/rpc/rpc.hh:301) and is only cleared by source_impl's constructor, so a sink with no source ever created is already 'closed' on that side, meaning sink.close() alone can run stream_close(). The flat statement at doc/rpc-streaming.md:115 doesn't account for either case.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The sentence is new documentation text added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new doc says the stream's connection is shut down only once both halves are closed, but abort_all_streams()/stop_send_loop() shut it down without both halves closed, and _source_closed defaults to true so a sink-only close can also run stream_close()."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr": "The new doc says the stream's connection is shut down only once both halves are closed... code does shut stream connections down without both halves closed, through client::abort_all_streams(), server::connection::abort_all_streams(), and stop_send_loop() on socket error | _source_closed defaults to true, so on a client sink with no source yet, close() alone runs stream_close()."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "stream_close() comment wrongly claims nothing else waits on _outgoing_queue_ready",
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The comment at src/rpc/rpc.cc:559-561 says 'Nothing else waits for _outgoing_queue_ready from here on ... stop_send_loop() waits for _sink_closed_future', but stop_send_loop() at line 225 does when_all(std::move(_outgoing_queue_ready), std::move(_sink_closed_future)) -- it waits on both, not just the latter. After stream_close()'s std::exchange it does read the substituted ready future, so it isn't literally wrong at runtime, but the comment's phrasing misdescribes what stop_send_loop() does.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new text added in this PR's diff to src/rpc/rpc.cc.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new stream_close() comment says nothing else waits for _outgoing_queue_ready and that stop_send_loop() waits for _sink_closed_future, but stop_send_loop() when_all's on both futures."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr": "The new stream_close() comment says 'Nothing else waits for _outgoing_queue_ready from here on ... stop_send_loop() waits for _sink_closed_future'. In fact stop_send_loop() when_all's on both `_outgoing_queue_ready` and `_sink_closed_future`. | stop_send_loop() still moves and waits on _outgoing_queue_ready. Its drain comment also still describes that future as the one that reflects queue drain, which is no longer true once stream_close() has swapped in a ready future."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "New test's header comment describes the pre-fix bug in present tense",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1852,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The comment block at tests/unit/rpc_test.cc:1852-1861 says 'connection::send() still accepts frames' and names the unguarded hook, describing the pre-fix bug in present tense without noting it is now fixed; it also closely parallels the f545c28a commit message wording.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new text added by this PR's regression test commit.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The test's header comment describes the pre-fix behaviour in the present tense and largely repeats the f545c28a commit message."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr": "The test's header comment, added with the fix, describes the pre-fix behaviour in the present tense ('connection::send() still accepts frames', ...). It also largely repeats the f545c28a commit message."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "No test exercises the queue-drain half of the fix (entry queued before _stream_closing)",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2017,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The new test only fires stream_send_empty_frame() after close_entered_cv signals that close() was already entered (line 2011), i.e. after _stream_closing is set and the queue is already empty. It never arranges for an entry accepted by send() just before _stream_closing was set to still be sitting in _outgoing_queue when stream_close() runs, so the queue_drained wait added at src/rpc/rpc.cc:562 (the second half of commit f545c28a) is untested.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a coverage gap in the new regression test added by this PR for its own fix.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "No test covers the second half of the fix, where stream_close() waits for _outgoing_queue_ready so that frames accepted before _stream_closing was set are written before write_buf.close()."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr": "No test covers the second half of the fix... The new test fires the hook only after close() has already been entered. | The regression test does not exercise the queue-drain half of the fix with an entry accepted immediately before _stream_closing is set."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "New source doc claims any read exception closes the source; deserialization errors don't",
+      "file": "doc/rpc-streaming.md",
+      "line": 110,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "doc/rpc-streaming.md:110-112 and the matching comment at include/seastar/rpc/rpc_types.hh:386 say reading a source until it throws is what closes it. But in source_impl::operator()() (include/seastar/rpc/rpc_impl.hh:941-983), only a failure from con->stream_receive() inside the smp::submit_to lambda calls close_source() (lines 961-966); an exception thrown by unmarshall() inside process_one_buffer() (called at lines 948 and 980, outside that lambda) propagates to the caller without close_source() ever running.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The inaccurate claim is new documentation text added by this PR; the underlying unmarshall()/close_source() gap in rpc_impl.hh predates it and is not changed by this diff.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new doc and API comment say that reading a source until it throws is what closes it, but a throw from unmarshall in process_one_buffer() reaches the caller without close_source() being called."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr": "The new doc and API comment say that reading a source until it throws is what closes it. But a throw from unmarshall in process_one_buffer() reaches the caller without close_source() being called. Only failures from stream_receive() close the source. | The new documentation treats any exception from source reading as closing the source, but deserialization exceptions can escape without invoking close_source()."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "New comment wrongly says _outgoing_queue_ready is exceptional 'if an entry failed'",
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "send()'s continuation at src/rpc/rpc.cc:333-339 catches a failing send_entry() with f.ignore_ready_future(); abort(); p->done.set_value() -- the chained done future resolves normally, not exceptionally, when an entry fails. _outgoing_queue_ready only becomes exceptional via withdraw()'s exception path (used by stop_send_loop()/timeout cancellation), as the comment in stop_send_loop() at lines 226-227 itself says, contradicting the new comment's 'if an entry failed' framing.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new text added in this PR's diff to stream_close().",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new comment says _outgoing_queue_ready is exceptional 'if an entry failed', but a failing send_entry() resolves its done promise normally via abort()+set_value(); it becomes exceptional only via negotiation failure or stop_send_loop()'s withdraw()."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr": "The new comment says _outgoing_queue_ready is exceptional 'if an entry failed', but a failing send_entry() calls abort() and then p->done.set_value(), so the chain resolves normally. It becomes exceptional only when negotiation fails or stop_send_loop() sets the front entry's done to an exception."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "New comment wrongly says _error is only set by the stop() that follows",
+      "file": "src/rpc/rpc.cc",
+      "line": 552,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The comment at src/rpc/rpc.cc:551-553 says '_error is only set by the stop() that follows', but _error is also set by abort() (line 348, called from send()'s failed-entry path at line 336) and by stop_send_loop() (line 199), either of which can run concurrently with the new queue_drained wait added in stream_close() before stop() is reached.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new text added in this PR's diff to stream_close().",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new comment says '_error is only set by the stop() that follows', but abort() and stop_send_loop() can also set it, including during the new queue-drain wait."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr": "The new comment says '_error is only set by the stop() that follows'. _error is also set by abort() when send_entry fails, and that can happen during the new queue_drained wait. stop_send_loop() sets it as well. | The comment says _error is only set by the following stop(), although abort paths can set it while the newly added queue-drain wait is in progress."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "stream_close()'s new queue-drain wait can block indefinitely under peer backpressure",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "stream_close() now does queue_drained.then_wrapped(...) on the exchanged _outgoing_queue_ready (line 562), which only resolves once the front queued entry finishes send_entry() -> send_buffer()/write_buf.flush() (lines 186-188, 333-339). If the peer stops reading (TCP backpressure) while that front entry is mid-flush, that entry's done promise -- and thus stream_close()'s wait -- never resolves, and the front entry cannot be cancelled by timeout since it is already uncancellable() (line 332) by the time it's in flight. There is no timeout on this wait, so stream_close() (and whatever awaits sink.close()) can hang indefinitely.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The queue-drain wait is new code added by this PR's fix for the crash; the PR trades a use-after-close race for a possible indefinite stall.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new queue-drain dependency can make stream_close() wait indefinitely for a queued send blocked by peer backpressure."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr": "The new queue-drain dependency can make stream_close() wait indefinitely for a queued send blocked by peer backpressure."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "Compressor factory doc doesn't mention send_empty_frame can now fail with closed_error…",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 318,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The negotiate() comment at include/seastar/rpc/rpc_types.hh:318-320 documents send_empty_frame()'s calling constraints but says nothing about it failing. send() already could throw closed_error once _error was set; this PR adds a second, earlier window (_stream_closing, src/rpc/rpc.cc:293/554) in which the hook now reliably gets refused rather than racing into a closed buffer, making this failure mode more commonly reachable without the doc being updated to mention it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR widens and makes deterministic the window in which this pre-existing, undocumented failure mode is hit, without updating the adjacent doc comment it touches the behavior of.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The changed compressor hook can now fail with closed_error during local stream shutdown, but the public compressor-factory documentation does not describe this exceptional result."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr": "The changed compressor hook can now fail with closed_error during local stream shutdown, but the public compressor-factory documentation does not describe this exceptional result."
+      }
+    },
+    {
+      "id": "I12",
+      "title": "PR's stated validation doesn't meet contributing.md's test.py requirement",
+      "file": "doc/contributing.md",
+      "line": 25,
+      "kind": "style",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "doc/contributing.md:25 says 'Run test.py and ensure that tests pass at least as well as they did before the patch.' The PR description's Verification section states only that rpc_test passes in the debug build (ASan/UBSan/vptr) on 1 and 2 shards; it does not mention running test.py or the broader suite, even though the send() change in src/rpc/rpc.cc:293 affects every rpc connection, not just streams.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is about the validation performed for this specific PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The PR's validation ran only rpc_test in the debug build, but the contribution guide asks for test.py and for tests to pass at least as well as before the patch."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr": "The PR's validation ran only rpc_test in the debug build, but the contribution guide asks for test.py... | The stated validation does not satisfy the repository's documented instruction to run test.py."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.0372143999999999,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 52,
+      "outputTokens": 30957,
+      "cacheReadInputTokens": 1856342,
+      "cacheCreationInputTokens": 89068,
+      "webSearchRequests": 0,
+      "costUSD": 1.0372143999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 18541,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/ironweave/runs/rafp-six-pass-parallel-broker-2026-10-08/_judge/attempt-fW7Pqt/repo",
+  "judgedAt": "2026-10-08T08:15:56.964Z"
+}

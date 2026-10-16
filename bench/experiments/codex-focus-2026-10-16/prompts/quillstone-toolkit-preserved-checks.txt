@@ -1,0 +1,72 @@
+Use code-review-ad at /tmp/ad-codex-focus-20261015/quillstone-toolkit-preserved-checks-skill/SKILL.md to review this pull request. Follow its independent review passes using native Codex agents. The checkout is pinned to the head below. For this offline evaluation, use the supplied PR metadata in place of gh pr view; do not fetch reviews or comments. Read source, repository guidance and Git history in this checkout as needed. Review only: do not edit files, commit, post, or run model subprocesses. Never read benchmark results, reports, judgements, other review sessions, or anything under /extra/dkropachev/automated-development. Do not use a different installed skill. Use gpt-6.1-sol for the parent and all reviewers. Follow the supplied skill's reviewer reasoning settings. Return the skill's final report.
+
+Frozen PR metadata:
+{
+  "baseRefOid": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "body": "## Description\r\n\r\nA failed `USE` on a newly opened connection is now returned to the pool as a keyspace setup error. The connection is dropped and the pool schedules another refill instead of publishing it as ready.\r\n\r\nThe regression coverage verifies the failure path preserves the current pool and the success path completes keyspace setup before resharding.\r\n\r\n## Validation\r\n\r\n- `cargo +1.88.0 test -p scylla --lib network::connection_pool::tests::keyspace_setup_failure -- --nocapture` (2 passed)\r\n- `cargo +1.88.0 check -p scylla --lib --target x86_64-unknown-linux-gnu`\r\n- `cargo fmt --all -- --check`\r\n- `git diff --check`\r\n\r\n## Pre-review checklist\r\n\r\n- [x] The patch is logically coherent.\r\n- [x] The commit messages explain what changes and why.\r\n- [x] The bug fix has regression coverage.\r\n- [x] Affected code compiles and the focused tests pass.\r\n- [x] The description explains the motivation and implementation.\r\n- [x] The new non-exhaustive `ConnectionError` variant is documented.\r\n- [x] User documentation changes are not needed.\r\n- [x] The issue-closing annotation is included below.\r\n\r\nFixes: #1682\r\n",
+  "commits": [
+    {
+      "authoredDate": "2026-08-03T23:54:54Z",
+      "authors": [
+        {
+          "email": "bench@example.invalid",
+          "id": "",
+          "login": "",
+          "name": "Bench Author"
+        }
+      ],
+      "committedDate": "2026-09-20T17:09:53Z",
+      "messageBody": "",
+      "messageHeadline": "connection: balance metrics when clearing pools",
+      "oid": "de164845c9f0d13d42f1b118efa40834718984a5"
+    },
+    {
+      "authoredDate": "2026-08-05T13:38:50Z",
+      "authors": [
+        {
+          "email": "bench@example.invalid",
+          "id": "",
+          "login": "",
+          "name": "Bench Author"
+        }
+      ],
+      "committedDate": "2026-09-20T17:09:53Z",
+      "messageBody": "",
+      "messageHeadline": "connection: test metric balance when clearing pools",
+      "oid": "0d91aa54b3fd46d72cdb3560dd14d4085c01fc9a"
+    },
+    {
+      "authoredDate": "2026-08-03T23:55:39Z",
+      "authors": [
+        {
+          "email": "bench@example.invalid",
+          "id": "",
+          "login": "",
+          "name": "Bench Author"
+        }
+      ],
+      "committedDate": "2026-09-20T17:09:53Z",
+      "messageBody": "",
+      "messageHeadline": "connection: discard connections after keyspace setup failure",
+      "oid": "7f48315d306b7657d34fa8c0ae20904b3a8e4e36"
+    },
+    {
+      "authoredDate": "2026-08-07T00:36:22Z",
+      "authors": [
+        {
+          "email": "bench@example.invalid",
+          "id": "",
+          "login": "",
+          "name": "Bench Author"
+        }
+      ],
+      "committedDate": "2026-09-20T17:09:53Z",
+      "messageBody": "",
+      "messageHeadline": "connection: avoid busy-waiting in metrics test",
+      "oid": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0"
+    }
+  ],
+  "headRefOid": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "title": "connection: discard connections after keyspace setup failure",
+  "url": "https://github.com/dkropachev/quillstone/pull/1"
+}

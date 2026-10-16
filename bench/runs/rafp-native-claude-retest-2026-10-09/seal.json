@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "runId": "rafp-native-claude-retest-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "0e9f376996d93eec53b7b9f14eb85cc94faefe9d66a5e4a79893889e2afeafeb",
+  "pluginFingerprint": {
+    "contentSha256": "8dea71b3e5aee10a75d5dd83e500ead1f2e9b7520112d46b06b2fc99fe1e9673",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "createdAt": "2026-10-09T12:27:58.340Z",
+  "cells": [
+    {
+      "id": "rafp-native-claude-retest-2026-10-09/ironweave/review-and-fix-pr",
+      "target": "ironweave",
+      "tool": "review-and-fix-pr",
+      "file": "results/ironweave/review-and-fix-pr.json",
+      "sha256": "55e07763201aaa4487946daa6f72091979f87b21dc8ac5cf139b1b96ceed1b86"
+    },
+    {
+      "id": "rafp-native-claude-retest-2026-10-09/quillstone/review-and-fix-pr",
+      "target": "quillstone",
+      "tool": "review-and-fix-pr",
+      "file": "results/quillstone/review-and-fix-pr.json",
+      "sha256": "f82631c2cb99a87714f994df4507440d63ee5ac62c9e05f6dded4ef9371d3a1c"
+    },
+    {
+      "id": "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr",
+      "target": "tidepool",
+      "tool": "review-and-fix-pr",
+      "file": "results/tidepool/review-and-fix-pr.json",
+      "sha256": "5d0fa6db85be757ebc449392030fa5c68e2d151eb7f746d69acb81840a6bca37"
+    }
+  ]
+}

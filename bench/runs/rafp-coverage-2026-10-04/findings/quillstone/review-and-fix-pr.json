@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-coverage-2026-10-04",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.287 (Claude Code)",
+  "configSha256": "07f599dedc9dfca0994d0dd0600f3442ab4ea63ba185c97c60a04dd0cb083506",
+  "pluginFingerprint": {
+    "contentSha256": "a90f40eff423133b5f567b093794bb651e253e89f2e5c15a1bae56a0bf41e9cd",
+    "gitCommit": "0a5b76f5895a89d3b8f9bfa01e85b46cf9c60ad7",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7"
+  },
+  "cellId": "rafp-coverage-2026-10-04/quillstone/review-and-fix-pr",
+  "target": "quillstone",
+  "tool": "review-and-fix-pr",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "89b0a5a82f88df0f6022945a47ad9e9bbbaf2a19398d557b0cb8d69c6a92cc42",
+  "label": "Automated Development review-and-fix-pr",
+  "findings": [
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Permanently failing USE keyspace leaves the connection pool unable to ever refill",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "If the keyspace can never be USEd (dropped keyspace, or a failed use_keyspace that stored a bad name), every connection opened afterward fails USE and is discarded, so pools drain to Broken(UseKeyspaceError), nodes go Down, and the node becomes permanently unusable; on base these connections were kept with a warning.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 902,
+      "title": "Repeated reconnect churn when USE keeps failing",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "With a USE that always fails and some connections still alive, every refill tick (at most every 10s) reopens the whole connection shortfall (TCP, STARTUP, auth), and each connection is then thrown away.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "title": "Stale USE result is treated as a failure instead of being compared against the current…",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The Keyspace error arm never compares evt.keyspace_name with current_keyspace; if the keyspace changed while USE was in flight and the old USE fails, the connection is dropped and counted as a fill error, whereas the Ok arm would have retried it with the new keyspace.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "title": "Log level dropped from warn! to debug! for a failure that can disable the pool",
+      "severity": "low",
+      "kind": "design",
+      "claim": "This failure now drops connections and can disable the pool, yet nothing shows at default log levels, while the related 'Failed to change keyspace' message still uses warn!.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR description omits the metrics accounting fix",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Three of the four commits change total_connections accounting, but the PR body describes only the keyspace change and closes #1682, violating CONTRIBUTING's requirement to explain the reason and motivation for the patch.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1462,
+      "title": "Commit 0d91aa54 fails clippy on its own",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The commit adds use futures::FutureExt; without a feature gate, but the import is only used inside a #[cfg(feature = \"metrics\")] test, so under default features make clippy (-Dwarnings --all-targets) fails at that commit, breaking the CONTRIBUTING rule that every commit passes static checks.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1287,
+      "title": "No test exercises the main failure path of a failed use_keyspace followed by a refill",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test drives a failed use_keyspace followed by a refill; the new tests set refiller.current_keyspace directly, so the permanently-unusable-node finding is untested.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1868,
+      "title": "Reshard metrics test cannot catch a missing term in the decrement",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The test reshards with zero excess connections, so it would still pass even if excess_connections.len() were removed from the decrement.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 908,
+      "title": "The !is_filling() guard is untested",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test has a keyspace failure while other connections are still being set up and the pool is empty, so removing the guard would go unnoticed.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "title": "Metric decrements are hand-copied at each call site instead of centralized",
+      "severity": "low",
+      "kind": "design",
+      "claim": "The decrement-then-clear pair is repeated at multiple sites with no helper owning 'drop connections and keep the metric balanced,' so future edits can let the metric drift again.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/errors.rs",
+      "line": 601,
+      "title": "New error text breaks the established UseKeyspaceError wrapper convention",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "Every other wrapper of UseKeyspaceError uses \"'USE KEYSPACE <>' request failed: {0}\", but the new variant uses different text.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 917,
+      "title": "Moved comment is now inaccurate about the connection being put into conns",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The comment still says the connection will 'finally be put into the conns,' but a failed USE now drops it instead.",
+      "selfRejected": false
+    },
+    {
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "title": "New keyspace tests skip calling setup_tracing()",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "CONTRIBUTING says new tests should call setup_tracing(), but the new keyspace tests at these locations skip it.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit messages have empty bodies",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The report flagged that commit messages have empty bodies, but Codex rejected this as a false positive.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Stated validation omits the metrics feature and clippy",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The report flagged that the stated validation omits the metrics feature and clippy, but Codex rejected this as a false positive.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit 617139df is an unsquashed fixup commit",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The report flagged commit 617139df as an unsquashed fixup commit, but Codex rejected this as a false positive.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "New tests duplicate existing test helpers",
+      "severity": "nit",
+      "kind": "test-gap",
+      "claim": "The report flagged that the new tests duplicate existing test helpers, but Codex rejected this as a false positive.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Linked issue #1682 could not be fetched to verify the fix against the original report",
+      "severity": "nit",
+      "kind": "question",
+      "claim": "Issue #1682 was unavailable, so the original report could not be checked against the fix.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 7664,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 40210,
+      "webSearchRequests": 0,
+      "costUSD": 0.23748400000000003,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 4948,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-05T03:28:07.827Z"
+}

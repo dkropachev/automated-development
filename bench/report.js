@@ -8,7 +8,9 @@ const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
 const { totalsForCwd } = require('./lib/usage')
-const { assertSafeId, cohortPaths, loadModelConfig, readComplete } = require('./lib/artifacts')
+const {
+  assertRecordMetadata, assertSafeId, cohortPaths, loadModelConfig, readComplete,
+} = require('./lib/artifacts')
 
 const ROOT = __dirname
 const args = process.argv.slice(2)
@@ -61,6 +63,11 @@ try {
   console.error(selectedRun === 'legacy' ? error.message : `cannot report cohort ${selectedRun}: ${error.message}`)
   process.exit(2)
 }
+if (writeReport && !cohort.legacy &&
+    cohort.expectedCells.some((cell) => cell.tool === 'code-review-ad')) {
+  console.error(`cohort ${selectedRun} is dashboard-only; no standalone report is written`)
+  process.exit(2)
+}
 // Legacy predates snapshots and deliberately keeps its live inputs. New cohorts must remain
 // reproducible even after state.json or tools.json changes, so every display field comes from the
 // manifest copies used to run the matrix.
@@ -70,7 +77,7 @@ const state = cohort.legacy
 const toolConfig = cohort.legacy
   ? JSON.parse(fs.readFileSync(path.join(ROOT, 'tools.json'), 'utf8'))
   : cohort.toolConfig
-const tools = toolConfig.tools
+const tools = toolConfig.tools.map((tool) => ({ ...tool, label: `${tool.label} · Claude` }))
 const SHORT = {
   'builtin-code-review': 'CR', 'ce-code-review': 'CE', 'tob-diff-review': 'TB-D',
   'tob-rust-review': 'TB-R', 'tob-c-review': 'TB-C', 'anthropic-pr-review': 'ANT',
@@ -131,9 +138,7 @@ function zeroUsage() {
 }
 function assertSelectedCohort(record, file) {
   if (cohort.legacy) return
-  for (const key of ['runId', 'requestedModel', 'modelLabel', 'claudeVersion', 'configSha256']) {
-    if (record[key] !== cohort[key]) throw new Error(`${file}: ${key} does not match cohort ${cohort.runId}`)
-  }
+  assertRecordMetadata(record, cohort, file)
   if (record.target && record.tool && record.cellId !== `${cohort.runId}/${record.target}/${record.tool}`) {
     throw new Error(`${file}: cellId does not match cohort, target, and tool`)
   }
@@ -207,6 +212,8 @@ for (const t of targets) {
 }
 const findings = {}
 let rawClaims = 0
+let confirmedClaims = 0
+let suggestionClaims = 0
 let extractionCalls = 0
 let extractionCost = 0
 for (const t of targets) {
@@ -228,6 +235,8 @@ for (const t of targets) {
     }
     findings[t.id][rec.tool] = rec.findings || []
     rawClaims += (rec.findings || []).length
+    confirmedClaims += (rec.findings || []).filter((finding) => finding.reviewDisposition === 'confirmed').length
+    suggestionClaims += (rec.findings || []).filter((finding) => finding.reviewDisposition === 'suggestion').length
     if (rec.extractorRequestedModel) {
       extractionCalls += 1
       extractionCost += Object.values(rec.extractorModelUsage || {})
@@ -298,17 +307,27 @@ if (!cohort.legacy && cohort.complete.quota) {
 
 const used = tools.filter(tl => targets.some(t => results[t.id] && results[t.id][tl.id]))
 const storedFallbacks = targets.reduce((count, target) => count + Object.values(results[target.id] || {}).filter(rec => rec.storedUsageFallback).length, 0)
+const publishedGold = !cohort.legacy && fs.existsSync(path.join(ROOT, 'gold', 'index.json'))
+  ? require('./reconcile').loadPublishedComparison(ROOT) : null
+const canonicalIncluded = (publishedGold?.manifest.declaration.supplementalRunIds || []).includes(cohort.runId)
 const out = []
 const P = (s) => out.push(s)
 
-P(`# Review-tool bake-off: ${used.length} review configurations, ${targets.length} real PR${targets.length === 1 ? '' : 's'}\n`)
+P(`# Review-tool bake-off: ${used.length} review configuration${used.length === 1 ? '' : 's'}, ${targets.length} real PR${targets.length === 1 ? '' : 's'}\n`)
 if (cohort.legacy) {
   P(`**Cohort:** \`legacy\` (${cohort.label}). **Observed model:** ${cohort.modelLabel} (\`${cohort.observedModel}\`), inferred from saved runtime metadata; the legacy runner did not record a requested model.\n`)
   if (storedFallbacks) {
     P(`**Accounting note:** local legacy transcripts were unavailable for ${storedFallbacks} run${storedFallbacks === 1 ? '' : 's'}, so those cells use committed aggregate usage. Their successful and discarded retry spend cannot be separated.\n`)
   }
 } else {
-  P(`**Cohort:** \`${cohort.runId}\`. **Requested model:** ${cohort.modelLabel} (\`${cohort.requestedModel}\`). Claude Code: \`${cohort.claudeVersion}\`.\n`)
+  P(`**Cohort:** \`${cohort.runId}\`. **Skill platform:** Claude. **Requested model:** ${cohort.modelLabel} (\`${cohort.requestedModel}\`). Claude Code: \`${cohort.claudeVersion}\`.\n`)
+  const experimental = used.filter(tool => tool.experimental)
+  if (experimental.length) {
+    const authored = experimental.some(tool => tool.selfAuthored) ? ' and self-authored' : ''
+    P(canonicalIncluded
+      ? `**Experimental cohort-local evidence:** ${experimental.map(tool => `\`${tool.id}\``).join(', ')} is experimental${authored}. Its confirmed claims are mapped in the sealed ${publishedGold.id} gold snapshot; suggestions are excluded from confirmed credit. The cohort-local judgements below remain separate.\n`
+      : `**Experimental cohort-local evidence:** ${experimental.map(tool => `\`${tool.id}\``).join(', ')} is experimental${authored}. These results are not canonical gold.\n`)
+  }
 }
 P('Every number below is produced by `bench/` in this repository and can be regenerated with')
 P(`\`make bench-report RUN=${cohort.runId}\`.`)
@@ -323,27 +342,62 @@ for (const t of targets) {
   P(`| \`${t.id}\` | ${t.language} | ${fmt(t.localDiffBytes)} B | ${t.commits} commits | ${t.forkPrUrl} | ${t.upstreamPrUrl} |`)
 }
 P('')
-P('Each PR was republished into a private repository of its own: full upstream history, the PR\'s own')
-P('commits replayed under a neutral author, every `owner/repo` link repointed at the copy, and')
-P('`WebSearch`/`WebFetch` denied to every run. A reviewer that could reach the original PR could read')
-P('the maintainers\' review instead of doing its own.\n')
+P('Each PR was replayed in its own fork with its commits under a neutral author. The preparer rewrote')
+P('repository references in review material and denied `WebSearch`/`WebFetch`. The benchmark freezes')
+P('the review inputs because access to upstream comments would bias discovery.\n')
 
 if (!cohort.legacy) {
   const knownSpend = probeCost + reviewCost + extractionCost + judgeCost
   P('## Cohort accounting\n')
   if (cohort.complete.probe) P(`- Exact-model probe: ${money(probeCost)}.`)
   P(`- Reviews: ${reviewCalls} calls, ${fmt(mixTotal)} tokens, ${money(reviewCost)}, ${mins(reviewWall)} minutes wall time.`)
-  P(`- Extraction: ${extractionCalls} calls, ${fmt(rawClaims)} raw claims, ${money(extractionCost)}.`)
-  P(`- Judging: ${judgeCalls} calls, ${fmt(mergedIssues)} merged issues (${fmt(verdicts.real)} real, ${fmt(verdicts['false-positive'])} false-positive, ${fmt(verdicts.unproven)} unproven), ${money(judgeCost)}.`)
-  P(`- Total known canonical spend: ${money(knownSpend)}. Discarded attempts are not included in immutable stage artifacts.`)
+  P(`- Extraction: ${extractionCalls} calls, ${fmt(rawClaims)} raw claims${suggestionClaims ? ` (${fmt(confirmedClaims)} confirmed, ${fmt(suggestionClaims)} suggestions)` : ''}, ${money(extractionCost)}.`)
+  P(`- Judging: ${judgeCalls} calls, ${fmt(mergedIssues)} merged issues${suggestionClaims ? ` from ${fmt(confirmedClaims)} confirmed claims` : ''} (${fmt(verdicts.real)} real, ${fmt(verdicts['false-positive'])} false-positive, ${fmt(verdicts.unproven)} unproven), ${money(judgeCost)}.`)
+  P(`- Total known cohort spend: ${money(knownSpend)}. Discarded attempts are not included in immutable stage artifacts.`)
   if (finalQuota) {
     P(`- Final quota: current session ${finalQuota.usage['Current session']}%, all-model week ${finalQuota.usage['Current week (all models)']}%, Fable week ${finalQuota.usage['Current week (Fable)']}% (recorded ceilings: ${finalQuota.thresholds['Current session']}% / ${finalQuota.thresholds['Current week (all models)']}% / ${finalQuota.thresholds['Current week (Fable)']}%).`)
   }
   P('')
 }
 
+if (publishedGold) {
+  const supplementalRunIds = publishedGold.manifest.declaration.supplementalRunIds || []
+  if (supplementalRunIds.includes(cohort.runId)) {
+    const { deriveModelMetrics } = require('./dashboard')
+    const matched = deriveModelMetrics(publishedGold, { scopeId: 'all-models' })
+    const supplemental = deriveModelMetrics(publishedGold, { scopeId: `supplemental-${cohort.runId}` })
+    const evidenceById = new Map(publishedGold.sourceEvidence.map((entry) => [entry.cellId, entry]))
+    const rows = [
+      ...matched.models.map((model) => ({ ...model, evidenceLabel: `${matched.matchedCells.length} matched tool cells` })),
+      ...supplemental.models.map((model) => ({ ...model,
+        evidenceLabel: `${supplemental.matchedCells.length} review-and-fix-pr cells`, skill: true })),
+    ]
+    P('## Separate skill evidence on canonical gold\n')
+    P(`The review-and-fix-pr skill was tested with Claude Opus 5.5 on the same ${targets.length} pinned PRs and ${fmt(matched.denominator)} reviewed real gold issues. It is a separate skill, not a separate model or a row in the model ranking. The matched model rows below use ${matched.matchedCells.length} tool cells each; this skill uses ${supplemental.matchedCells.length}. Tool sets differ, and suggestions are excluded from confirmed gold credit.\n`)
+    P('| Candidate | Evidence | Gold issues found | Claude tokens | Claude review cost | Summed review time |')
+    P('|---|---|---:|---:|---:|---:|')
+    for (const row of rows) {
+      const evidence = row.runIds.map((id) => evidenceById.get(id))
+      const tokens = sumKnown(evidence.map((entry) => {
+        if (!entry) return null
+        const result = JSON.parse(fs.readFileSync(path.join(ROOT, entry.result.file), 'utf8'))
+        return finite(result.transcriptUsage && result.transcriptUsage.total)
+      }))
+      const wall = sumKnown(evidence.map((entry) => finite(entry && entry.wallMs)))
+      const label = row.skill ? 'review-and-fix-pr skill (Claude Opus 5.5)' : row.label
+      P(`| ${label} | ${row.evidenceLabel} | ${row.canonicalReal} / ${matched.denominator} | ${fmt(tokens)} | ${money(row.recordedTotalCostUsd)} | ${mins(wall)} min |`)
+    }
+    const codexTokens = targets.reduce((sum, target) => sum + Object.values(results[target.id] || {})
+      .reduce((part, record) => part + (finite(record.codexUsage && record.codexUsage.totalTokens) || 0), 0), 0)
+    P('')
+    P(`This cohort additionally used ${fmt(codexTokens)} Codex tokens for adjudication; its receipts do not provide a USD cost. The ${publishedGold.manifest.counts.suggestionClaims} suggestions remain visible in the structured review receipts and are not counted above.`)
+    P(`Canonical gold credits ${supplemental.models[0].canonicalReal} real issues from this cohort; the cohort-local judge reports ${verdicts.real}. These are separate adjudications over the same pinned PRs.`)
+    P(`The skill appears in the [Skills comparison](./index.html#choose?tab=skills&skills=review-and-fix-pr); the [matched-model ranking](./index.html#choose?tab=models) remains separate.\n`)
+  }
+}
+
 P('## Findings, by issue\n')
-P('One row per distinct defect the tools found between them, merged across tools by a judge that had')
+P('One row per distinct issue claim, including false positives, merged across tools by a judge that had')
 P('the code in front of it. `✓` = that tool reported it.\n')
 const cols = used.map(tl => SHORT[tl.id] || tl.id)
 P(`| # | Issue | Verdict | Scope | New? | Sev | ${cols.join(' | ')} |`)
@@ -389,8 +443,9 @@ P('therefore looks enormous and costs little. The cost column is not computed fr
 P('the per-session figure Claude Code itself bills, already priced per class. Thinking tokens')
 P(`(${fmt(tokenMix.thinking)} across the matrix) are counted in the cost and reported by the model as part of`)
 P('its output, so they are deliberately not added on top of it here.\n')
-P('| Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Only this tool | Tokens | Cost | Wall | Lost to limits |')
-P('|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|')
+const multiTool = used.length > 1
+P(`| Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | ${multiTool ? 'Only this tool | ' : ''}Tokens | Cost | Wall | Lost to limits |`)
+P(`|---|---:|---:|---:|---:|---:|---:|---:|${multiTool ? '---:|' : ''}---:|---:|---:|---:|`)
 for (const tl of used) {
   let raised = 0, real = 0, fp = 0, unproven = 0, inScope = 0, pre = 0, uniq = 0, tok = 0, cost = 0, wall = 0, runs = 0, wasted = 0
   for (const t of targets) {
@@ -407,7 +462,7 @@ for (const tl of used) {
       if ((i.reportedBy || []).length === 1 && i.verdict === 'real') uniq += 1
     }
   }
-  P(`| ${tl.label} | ${runs} | ${raised} | ${real} | ${fp} | ${unproven} | ${inScope} | ${pre} | ${uniq} | ${fmt(tok)} | ${money(cost)} | ${mins(wall)} min | ${wasted > 0.005 ? money(wasted) : '-'} |`)
+  P(`| ${tl.label} | ${runs} | ${raised} | ${real} | ${fp} | ${unproven} | ${inScope} | ${pre} | ${multiTool ? `${uniq} | ` : ''}${fmt(tok)} | ${money(cost)} | ${mins(wall)} min | ${wasted > 0.005 ? money(wasted) : '-'} |`)
 }
 P('')
 
@@ -443,12 +498,20 @@ if (cohort.legacy) {
 }
 
 P('### Raw claims before judging\n')
-P('What each run said, before merging and verification - the gap between this and *Raised* above is')
-P('what the judge merged away as the same defect twice.\n')
+if (suggestionClaims) {
+  P(`Extracted claims include ${fmt(suggestionClaims)} suggestions. They remain visible for reviewer judgment but do not enter cohort judging. The ${fmt(confirmedClaims)} confirmed claims were merged and verified into ${fmt(mergedIssues)} issues.\n`)
+} else {
+  P('What each run said before verification. Self-rejected claims are excluded, and the judge may merge several claims about one mechanism. The gap from *Raised* is not a miss count.\n')
+}
 P(`| Tool | ${targets.map(t => t.id).join(' | ')} |`)
 P(`|---|${targets.map(() => '---:').join('|')}|`)
 for (const tl of used) {
-  P(`| ${tl.label} | ${targets.map(t => ((findings[t.id] || {})[tl.id] || []).length || (results[t.id] && results[t.id][tl.id] ? '0' : '-')).join(' | ')} |`)
+  P(`| ${tl.label} | ${targets.map(t => {
+    const claims = (findings[t.id] || {})[tl.id] || []
+    if (!claims.length) return results[t.id] && results[t.id][tl.id] ? '0' : '-'
+    const suggestions = claims.filter((claim) => claim.reviewDisposition === 'suggestion').length
+    return suggestions ? `${claims.length} (${claims.length - suggestions} confirmed, ${suggestions} suggestions)` : String(claims.length)
+  }).join(' | ')} |`)
 }
 P('')
 
@@ -456,16 +519,14 @@ P('## What the maintainers actually said\n')
 P('The upstream reviews, fetched at prepare time and never shown to any reviewer or to the judge.')
 P('Bot comments are dropped, and so are the PR author\'s own replies, which are answers rather than')
 P('findings.\n')
-P('Read these as context, not as a scoreboard. Every PR here was replayed at the revision that was')
-P('merged, which is the revision *after* its review: the defects the maintainers caught were already')
-P('fixed in the code the tools were given, so not reporting one is not a miss. What the list is good')
-P('for is the other direction - whether a tool raises the kind of thing these maintainers raise, and')
-P('whether anything they flagged survived into the merged code.\n')
+P('Read these as context, not as a scoreboard. The PRs were reviewed at their pinned revisions,')
+P('after some upstream comments may already have been addressed. Not repeating a comment is not')
+P('automatically a miss; the useful question is whether a concern still applies to the pinned code.\n')
 for (const t of targets) {
   const g = groundtruth[t.id]
   if (!g) continue
   const author = String(g.author || '').toLowerCase()
-  const human = (c) => !/\[bot\]$/.test(c.user || '') && String(c.user || '').toLowerCase() !== author
+  const human = (c) => !/(?:\[bot\]$|^copilot$)/i.test(c.user || '') && String(c.user || '').toLowerCase() !== author
   const inline = ((g.review || {}).inline || []).filter(human)
   const issue = ((g.review || {}).issue || []).filter(human)
   P(`**\`${t.id}\`** - ${g.url} - ${inline.length} inline review comments, ${issue.length} thread comments.\n`)

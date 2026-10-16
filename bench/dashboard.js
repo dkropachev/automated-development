@@ -6,7 +6,12 @@
 // from the repository alone.
 const fs = require('node:fs')
 const path = require('node:path')
-const { cellId, discoverCohorts, loadModelConfig, manifestMetadata, readComplete } = require('./lib/artifacts')
+const {
+  assertRecordMetadata, cellId, discoverCohorts, loadModelConfig, readComplete,
+} = require('./lib/artifacts')
+const { applyIdentities, loadCatalog, revisionKey } = require('./issue-identities')
+
+const { loadExperiments, experimentTools } = require('./experiments')
 
 const ROOT = __dirname
 const ASSET_DIR = path.join(ROOT, 'dashboard')
@@ -126,7 +131,7 @@ function deriveModelMetrics(comparison, options = {}) {
 
   const modelIds = options.modelIds || scope.modelIds || []
   const targetFilter = options.targetIds ? new Set(options.targetIds) : null
-  const toolFilter = options.toolIds ? new Set(options.toolIds) : null
+  const toolFilter = options.toolIds ? new Set(options.toolIds.map((id) => id.startsWith('claude:') ? id.slice('claude:'.length) : id)) : null
   const cellFilter = options.cellIds ? new Set(options.cellIds) : null
   const scopeCells = (scope.matchedCells || []).map((cell) => ({
     ...cell,
@@ -235,22 +240,18 @@ function metricsFor(issues, claims, usage, wallMs) {
 
 function comparisonFor(left, right) {
   if (!left || !right) return { compatible: false, reason: 'Two runs are required.', shared: [], leftOnly: [], rightOnly: [] }
-  if (left.cohortId && right.cohortId && left.cohortId !== right.cohortId) {
-    return {
-      compatible: false,
-      reason: 'Issue overlap is unavailable because these runs use different judgement snapshots.',
-      shared: [], leftOnly: [], rightOnly: [],
-    }
-  }
   if (left.targetId !== right.targetId) {
+    return { compatible: false, reason: 'Issue overlap is unavailable because these runs reviewed different targets.', shared: [], leftOnly: [], rightOnly: [] }
+  }
+  if (!revisionKey(left) || revisionKey(left) !== revisionKey(right)) {
     return {
       compatible: false,
-      reason: 'Issue overlap is unavailable because these runs reviewed different targets.',
+      reason: 'Issue overlap requires the same target and pinned base/head commits.',
       shared: [], leftOnly: [], rightOnly: [],
     }
   }
-  const leftById = new Map(left.issues.map((issue) => [issue.id, issue]))
-  const rightById = new Map(right.issues.map((issue) => [issue.id, issue]))
+  const leftById = new Map(left.issues.flatMap((issue) => (issue.identityIds || [issue.id]).map((id) => [id, { ...issue, id }])))
+  const rightById = new Map(right.issues.flatMap((issue) => (issue.identityIds || [issue.id]).map((id) => [id, { ...issue, id }])))
   return {
     compatible: true,
     reason: null,
@@ -299,11 +300,7 @@ function cohortDirectories(cohort, root) {
 
 function assertCohortMetadata(record, cohort, kind, file) {
   if (!record || record.schemaVersion !== 2) throw new Error(`${kind} has invalid schemaVersion: ${file}`)
-  for (const [key, expected] of Object.entries(manifestMetadata(cohort))) {
-    if (record[key] !== expected) {
-      throw new Error(`${kind} ${key} does not match cohort ${cohort.runId}: ${file}`)
-    }
-  }
+  assertRecordMetadata(record, cohort, `${kind} ${file}`)
 }
 
 function assertCellIdentity(record, cohort, targetId, fileName, kind, file) {
@@ -340,12 +337,19 @@ function targetView(target, groundtruth = null) {
 function toolView(tool) {
   const {
     id, label, source, languages, parked, parkedReason, catalogId, catalogLabel,
-    description, install, invoke, repoUrl, pageUrl,
+    description, install, invoke, repoUrl, pageUrl, experimental, selfAuthored, reviewOnly,
+    requiresPluginDir, resultContract, cohortOnly,
   } = tool
   return {
-    id, label, source, languages: languages || null, parked: Boolean(parked), parkedReason: parkedReason || null,
+    id, platform: 'claude', skillId: `claude:${id}`, label: `${id === 'code-review-ad' ? id : label} · Claude`, source, languages: languages || null, parked: Boolean(parked), parkedReason: parkedReason || null,
     catalogId: catalogId || id, catalogLabel: catalogLabel || label, description: description || null,
     install: install || null, invoke: invoke || null, repoUrl: repoUrl || null, pageUrl: pageUrl || null,
+    ...(experimental == null ? {} : { experimental: Boolean(experimental) }),
+    ...(selfAuthored == null ? {} : { selfAuthored: Boolean(selfAuthored) }),
+    ...(reviewOnly == null ? {} : { reviewOnly: Boolean(reviewOnly) }),
+    ...(requiresPluginDir == null ? {} : { requiresPluginDir: Boolean(requiresPluginDir) }),
+    ...(resultContract == null ? {} : { resultContract }),
+    ...(cohortOnly == null ? {} : { cohortOnly: Boolean(cohortOnly) }),
   }
 }
 
@@ -550,6 +554,10 @@ function loadArtifacts(root = ROOT) {
   const stateFile = path.join(root, 'state.json')
   const toolsFile = path.join(root, 'tools.json')
   const state = fs.existsSync(stateFile) ? readJson(stateFile) : { targets: {} }
+  const goldIndexFile = path.join(root, 'gold', 'index.json')
+  const goldId = fs.existsSync(goldIndexFile) ? readJson(goldIndexFile).published : null
+  const legacyPinFile = goldId ? path.join(root, 'gold', goldId, 'source-manifest.json') : null
+  const legacyPins = legacyPinFile && fs.existsSync(legacyPinFile) ? (readJson(legacyPinFile).targets || {}) : {}
   const liveToolFile = fs.existsSync(toolsFile) ? readJson(toolsFile) : { context: '', tools: [] }
   const groundtruthFor = (targetId) => {
     const file = path.join(root, 'groundtruth', `${targetId}.json`)
@@ -646,7 +654,7 @@ function loadArtifacts(root = ROOT) {
         const claims = findingRecord.findings || []
         const usage = normalizeUsage(record)
         const tool = toolById.get(record.tool)
-        const toolSnapshot = tool ? toolView(tool) : { id: record.tool, label: record.label || record.tool }
+        const toolSnapshot = toolView(tool || { id: record.tool, label: record.label || record.tool })
         if (!toolDataById.has(record.tool)) toolDataById.set(record.tool, { ...toolSnapshot, snapshots: {} })
         toolDataById.get(record.tool).snapshots[cohortId] = toolSnapshot
         const identity = modelIdentity(cohort, record, configuredModels, usage)
@@ -659,12 +667,19 @@ function loadArtifacts(root = ROOT) {
           cohortId,
           cohortLabel: cohort.label || cohortId,
           targetId: target.id,
+          targetPins: cohort.targets?.[target.id] || (cohort.legacy ? legacyPins[target.id] : null),
           targetLabel: `${target.id} · ${target.language}`,
           targetSnapshot: snapshot,
           toolId: record.tool,
-          toolLabel: (tool && tool.label) || record.label || record.tool,
+          platform: 'claude',
+          skillId: `claude:${record.tool}`,
+          toolLabel: toolSnapshot.label,
           toolSource: (tool && tool.source) || record.source || null,
           toolSnapshot,
+          ...('experimental' in toolSnapshot ? { experimental: toolSnapshot.experimental } : {}),
+          ...('selfAuthored' in toolSnapshot ? { selfAuthored: toolSnapshot.selfAuthored } : {}),
+          ...('reviewOnly' in toolSnapshot ? { reviewOnly: toolSnapshot.reviewOnly } : {}),
+          ...('resultContract' in toolSnapshot ? { resultContract: toolSnapshot.resultContract } : {}),
           status: deriveStatus(record),
           wallMs: finite(record.wallMs),
           finishedAt: record.finishedAt || null,
@@ -707,38 +722,54 @@ function loadArtifacts(root = ROOT) {
   }
   const cohorts = contexts.map((context) => context.cohort)
   const targetData = [...targetDataById.values()]
+  const experiments = loadExperiments(root)
   const tools = [...toolDataById.values()]
+  for (const tool of experimentTools(experiments)) {
+    if (!tools.some((entry) => entry.skillId === tool.skillId)) tools.push(tool)
+  }
   const models = (modelConfig.models || []).map(({ id, label, cliModel }) => ({ id, label: label || id, cliModel: cliModel || null }))
   for (const cohort of cohorts) {
     const modelId = cohort.requestedModel || cohort.observedModel
     if (modelId && !models.some((model) => model.id === modelId)) models.push({ id: modelId, label: cohort.modelLabel || modelId, cliModel: null })
   }
   const modelComparison = loadPublishedModelComparison(root, runs)
-  return {
+  const cohortToolSnapshots = new Map()
+  for (const run of runs) {
+    if (!cohortToolSnapshots.has(run.cohortId)) cohortToolSnapshots.set(run.cohortId, new Map())
+    cohortToolSnapshots.get(run.cohortId).set(run.toolId, run.toolSnapshot)
+  }
+  return applyIdentities({
     schemaVersion: 3,
     defaultTokenLimit: DEFAULT_TOKEN_LIMIT,
     defaultModel: modelConfig.defaultModel || (models[0] && models[0].id) || null,
     models,
     omittedCohorts,
-    cohorts: cohorts.map((cohort) => ({
-      id: cohort.runId,
-      runId: cohort.runId,
-      label: cohort.label || cohort.runId,
-      requestedModel: cohort.requestedModel || null,
-      observedModel: cohort.observedModel || null,
-      modelLabel: cohort.modelLabel || null,
-      modelProvenance: cohort.requestedModel ? 'requested' : cohort.observedModel ? 'observed' : 'unavailable',
-      claudeVersion: cohort.claudeVersion || null,
-      createdAt: cohort.createdAt || null,
-      complete: Boolean(cohort.complete),
-      legacy: Boolean(cohort.legacy),
-    })),
+    cohorts: cohorts.map((cohort) => {
+      const toolSnapshots = [...(cohortToolSnapshots.get(cohort.runId) || new Map()).values()]
+      const hasToolTraits = toolSnapshots.some((tool) =>
+        tool.experimental != null || tool.selfAuthored != null || tool.reviewOnly != null)
+      return {
+        id: cohort.runId,
+        runId: cohort.runId,
+        label: cohort.label || cohort.runId,
+        requestedModel: cohort.requestedModel || null,
+        observedModel: cohort.observedModel || null,
+        modelLabel: cohort.modelLabel || null,
+        modelProvenance: cohort.requestedModel ? 'requested' : cohort.observedModel ? 'observed' : 'unavailable',
+        claudeVersion: cohort.claudeVersion || null,
+        createdAt: cohort.createdAt || null,
+        complete: Boolean(cohort.complete),
+        legacy: Boolean(cohort.legacy),
+        ...(hasToolTraits ? { toolSnapshots } : {}),
+      }
+    }),
     targets: targetData,
     tools,
     issues,
     runs,
     modelComparison,
-  }
+    experiments,
+  }, loadCatalog(root))
 }
 
 function escapeScriptJson(value) {
@@ -748,20 +779,22 @@ function escapeScriptJson(value) {
 function render(data, assets = ASSET_DIR) {
   const css = fs.readFileSync(path.join(assets, 'styles.css'), 'utf8').trim()
   const js = fs.readFileSync(path.join(assets, 'app.js'), 'utf8').trim()
+  const publicData = { ...data }
+  delete publicData.omittedCohorts
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark light">
-<meta name="description" content="A verified benchmark of Claude Code review skills, with clear findings-per-dollar and completeness-per-dollar leaders">
-<title>Review Bench · Claude Code review skill benchmark</title>
+<meta name="description" content="Claude and Codex review skills: verified benchmarks and separate archived experiments, with clear findings-per-dollar and completeness-per-dollar leaders">
+<title>Review Bench · Claude and Codex review skills</title>
 <style>\n${css}\n</style>
 </head>
 <body>
 <a class="skip-link" href="#app">Skip to dashboard</a>
 <div id="app"><noscript>This dashboard requires JavaScript, but makes no network requests.</noscript></div>
-<script id="dashboard-data" type="application/json">${escapeScriptJson(data)}</script>
+<script id="dashboard-data" type="application/json">${escapeScriptJson(publicData)}</script>
 <script>\n${js}\n</script>
 </body>
 </html>\n`

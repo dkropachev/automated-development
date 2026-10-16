@@ -1,0 +1,23 @@
+## Toolkit
+
+- **P1 — Compatibility API levels 7/8 cannot compile the new test.** [rpc_test.cc:1883](/tmp/ad-codex-focus-20261015/ironweave-focused-three/tests/unit/rpc_test.cc:1883) unconditionally overrides `put(std::span<temporary_buffer<char>>)`. Below API level 9, `data_sink_impl` instead requires `put(net::packet)`. The override and forwarding call are invalid, and the wrapper remains abstract. CMake exposes these compatibility levels; base has no incompatible wrapper.
+
+- **P2 — Queue draining can block the shutdown that releases a pending write.** [rpc.cc:565](/tmp/ad-codex-focus-20261015/ironweave-focused-three/src/rpc/rpc.cc:565) waits for every accepted send before closing the write buffer. A sufficiently large compressor control frame can already be blocked in a direct POSIX sink `put()` when the final source read initiates closure. With empty local buffers, base could reach sink close and `SHUT_WR`, releasing that write. Head waits before reaching this unblocker, so closure can remain pending while the peer keeps its connection open without reading.
+
+- **P2 — The reproducer can exercise the existing `_error` guard.** [rpc_test.cc:2011](/tmp/ad-codex-focus-20261015/ironweave-focused-three/tests/unit/rpc_test.cc:2011) observes socket-close entry without establishing that `_error` remains false. After receiving the client’s EOF, the server can close its connection; the loopback sink then delivers transport EOF, which sets the client’s `_error`. The hook can consequently be rejected by the old guard while the wrapped close remains parked, allowing the test to pass without exercising the new guard.
+
+- **P2 — Successful hook completion also passes the rejection check.** [rpc_test.cc:2017](/tmp/ad-codex-focus-20261015/ironweave-focused-three/tests/unit/rpc_test.cc:2017) accepts both successful completion and `closed_error`. An implementation that silently drops late frames and returns success passes this block and the final no-write assertion, despite violating the promised error behavior.
+
+- **P2 — An assertion failure bypasses mandatory sink cleanup.** [rpc_test.cc:2000](/tmp/ad-codex-focus-20261015/ironweave-focused-three/tests/unit/rpc_test.cc:2000) can unwind with the newly created sink still open. `sink_impl::~sink_impl()` asserts `sink_closed()`, so a hook-count assertion failure aborts a debug test process. The enclosing deferred client stop runs after these local objects unwind.
+
+## Standards
+
+- **P2 — The server factory’s vector is mutated across shards.** [rpc_test.cc:1957](/tmp/ad-codex-focus-20261015/ironweave-focused-three/tests/unit/rpc_test.cc:1957) appends to the single stack-allocated `server_factory.hooks`. With two shards, the loopback acceptor places the parent connection on shard 0 and the stream on shard 1; compressor negotiation executes on each accepting shard before the parent-registration hop. This shares mutable fixture state across shards, contrary to the documented [shared-nothing architecture](/tmp/ad-codex-focus-20261015/ironweave-focused-three/doc/tutorial.md:50). Sequential negotiations do not establish shard ownership compliance.
+
+## Spec
+
+- **P2 — A thrown source read does not always close the source.** [rpc_types.hh:387](/tmp/ad-codex-focus-20261015/ironweave-focused-three/include/seastar/rpc/rpc_types.hh:387) and [rpc-streaming.md:111](/tmp/ad-codex-focus-20261015/ironweave-focused-three/doc/rpc-streaming.md:111) newly promise this behavior. However, `source_impl::operator()` propagates exceptions from `unmarshall()` without calling `close_source()`. An application following the new instructions can stop reading after a decoding exception while `_source_closed` remains false; closing its sink then leaves the connection open. Receive failures and EOF do close the source, but decoding failures follow a different path.
+
+- **P3 — The fixture compressor is incorrectly described as pass-through.** [rpc_test.cc:1937](/tmp/ad-codex-focus-20261015/ironweave-focused-three/tests/unit/rpc_test.cc:1937) uses that description, repeated in the test commit body. Its implementation delegates to `lz4_fragmented_compressor`, which compresses data and adds framing, and replaces the empty input buffer before delegation. The description therefore misstates the reproducer’s wire behavior.
+
+No tests or builds were run. External issue contents, core dumps, and reported sanitizer results were not verified offline. HEAD and the clean working tree remained unchanged.

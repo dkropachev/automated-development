@@ -188,6 +188,63 @@ test('source manifest fixes the declared cohorts, 403 eligible claims, salvage p
   assert.ok(Math.abs(legacySpend - 160.5958517) < 1e-9)
 })
 
+test('supplemental review is pinned, maps confirmed claims, and excludes suggestions from gold credit', () => {
+  const id = 'model-comparison-2026-10-08'
+  const declaration = JSON.parse(fs.readFileSync(path.join(BENCH, 'gold', 'declarations', `${id}.json`)))
+  const snapshot = reconcile.buildSourceSnapshot(BENCH, { declaration })
+  assert.equal(snapshot.cells.length, 60)
+  assert.equal(snapshot.eligible.length, 450)
+  assert.equal(snapshot.excluded.filter((entry) => entry.finding.reviewDisposition === 'suggestion').length, 74)
+  assert.deepEqual(snapshot.scopes.map(({ id: scopeId, matchedCellCount }) => [scopeId, matchedCellCount]), [
+    ['all-models', 17], ['controlled-pair', 19],
+    ['supplemental-rafp-six-pass-parallel-broker-2026-10-08', 3],
+  ])
+  const dir = path.join(BENCH, 'gold', id)
+  const source = JSON.parse(fs.readFileSync(path.join(dir, 'source-manifest.json')))
+  assert.equal(source.counts.suggestionClaims, 74)
+  const sourceManifestSha256 = crypto.createHash('sha256')
+    .update(fs.readFileSync(path.join(dir, 'source-manifest.json'))).digest('hex')
+  for (const target of declaration.targets) {
+    const artifact = JSON.parse(fs.readFileSync(path.join(dir, 'proposal', `${target}.json`)))
+    const context = { root: BENCH, target, pins: snapshot.pins[target], sourceManifestSha256,
+      evidence: reconcile.targetEvidence(snapshot, target), sourceCells: snapshot.cells }
+    assert.doesNotThrow(() => reconcile.validateTargetArtifact(artifact, context))
+    const tampered = clone(artifact)
+    tampered.reconciler.decisionSha256 = '0'.repeat(64)
+    assert.throws(() => reconcile.validateTargetArtifact(tampered, context), /manual decision hash changed/)
+  }
+})
+
+test('a reviewed supplemental snapshot supersedes the index without changing prior gold', async () => {
+  const root = sourceFixture()
+  const id = 'model-comparison-2026-10-08'
+  const baseId = reconcile.DEFAULT_ID
+  fs.cpSync(path.join(BENCH, 'runs', 'rafp-six-pass-parallel-broker-2026-10-08'),
+    path.join(root, 'runs', 'rafp-six-pass-parallel-broker-2026-10-08'), { recursive: true })
+  fs.mkdirSync(path.join(root, 'gold', 'decisions'), { recursive: true })
+  fs.cpSync(path.join(BENCH, 'gold', baseId), path.join(root, 'gold', baseId), { recursive: true })
+  const oldComplete = fs.readFileSync(path.join(root, 'gold', baseId, 'complete.json'))
+  fs.writeFileSync(path.join(root, 'gold', 'index.json'), JSON.stringify({
+    schemaVersion: 1, published: baseId,
+    completeSha256: crypto.createHash('sha256').update(oldComplete).digest('hex'),
+  }, null, 2) + '\n')
+  const decisionFile = path.join(root, 'gold', 'decisions', `${id}.json`)
+  fs.copyFileSync(path.join(BENCH, 'gold', 'decisions', `${id}.json`), decisionFile)
+  const declaration = JSON.parse(fs.readFileSync(path.join(BENCH, 'gold', 'declarations', `${id}.json`)))
+  const previous = JSON.parse(fs.readFileSync(path.join(root, 'gold', 'index.json')))
+  await reconcile.propose(root, { id, declaration,
+    supersedes: { id: previous.published, completeSha256: previous.completeSha256 },
+    decisionFile, generatedAt: '2026-10-08T11:36:03.000Z' })
+  reconcile.accept(root, { id, reviewer: 'fixture-reviewer', reviewedAt: '2026-10-08T11:40:00.000Z' })
+  const published = reconcile.seal(root, { id, sealedAt: '2026-10-08T11:41:00.000Z' })
+  assert.equal(published.id, id)
+  assert.equal(published.canonicalIssues.length, 159)
+  assert.equal(published.sourceMappings.length, 450)
+  assert.deepEqual(fs.readFileSync(path.join(root, 'gold', baseId, 'complete.json')), oldComplete)
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'gold', 'index.json'))).published, id)
+  assert.throws(() => reconcile.seal(root, { id }), /already sealed/)
+})
+
 test('controlled cohorts must share pins, prompts, matrix, configuration hash, and Claude version', () => {
   const manifest = {
     targets: { sample: { baseSha: 'a'.repeat(40), headSha: 'b'.repeat(40) } },

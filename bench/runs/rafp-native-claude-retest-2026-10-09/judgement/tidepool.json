@@ -1,0 +1,540 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-native-claude-retest-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "0e9f376996d93eec53b7b9f14eb85cc94faefe9d66a5e4a79893889e2afeafeb",
+  "pluginFingerprint": {
+    "contentSha256": "8dea71b3e5aee10a75d5dd83e500ead1f2e9b7520112d46b06b2fc99fe1e9673",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "target": "tidepool",
+  "language": "Go",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "rawFindings": 20,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Vector element with no Go type was claimed to still panic via info.Zero()",
+      "file": "helpers.go",
+      "line": 283,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Tested both scenarios (bare-prefix nested-vector type name and a wholly unknown custom type) against HEAD: VectorType.Zero() swallows NewWithError's error and returns untyped nil, and the new `if t == nil` check at marshal.go:1045 catches it and returns a clean error instead of panicking; the *[]any path also returns a normal error from Unmarshal's own dispatch. No panic reproduced. The PR's own commit message (78891dd) states this exact crash predates the branch and is what the new check fixes.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The described crash is the pre-existing bug this very PR fixes, not a defect the PR introduces or leaves open.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "A vector whose element type name lacks the org.apache.cassandra.db.marshal. prefix resolves to a type with no element type; goType does an unchecked type assertion and panics inside info.Zero(), before the PR's new nil check, and nothing recovers it on the Scan path."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "A vector whose element type name lacks the org.apache.cassandra.db.marshal. prefix resolves to a type with no element type; goType does an unchecked type assertion and panics inside info.Zero(), before the PR's new nil check, and nothing recovers it on the Scan path."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "vectorElemMinSize is quadratic in nesting depth via isVectorVariableLengthType's own…",
+      "file": "marshal.go",
+      "line": 1125,
+      "kind": "perf",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Benchmarked vectorElemMinSize on a depth-1400 chain of single-dimension nested vectors: ~5.7ms/call (vs. a naively-expected O(depth) cost of microseconds), confirming O(depth^2) behavior. The quadratic blowup comes from isVectorVariableLengthType also recursing through the whole remaining chain at every nesting level, and from unmarshalVector recomputing vectorElemMinSize afresh at each recursive unmarshal level. The exact '5e8 ops' figure in the finding doesn't reconcile with a simple depth^2/2 estimate, but the core claim (re-walks nesting, costly for deep nesting) is verified.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize and its use in the new bound check are wholly new code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "vectorElemMinSize recomputes the remaining nesting repeatedly, giving roughly 5e8 operations for a hostile type nested ~1400 deep versus ~1e6 on base; computing variable-length and minimum size in one pass would fix it."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "vectorElemMinSize recomputes the remaining nesting repeatedly, giving roughly 5e8 operations for a hostile type nested ~1400 deep versus ~1e6 on base; computing variable-length and minimum size in one pass would fix it."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Zero-dimension inner vector's minimum size wrongly floored to 1 byte, rejecting valid…",
+      "file": "marshal.go",
+      "line": 1140,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Wrote a test: unmarshalVector on a VectorType{SubType: VectorType{SubType: float, Dimensions: 0}, Dimensions: 3} with data=[]byte{} succeeds on base (dst=[[] [] []], err=nil) but fails on HEAD with 'unmarshal vector: 3 dimensions do not fit in 0 bytes'. vectorElemMinSize floors a zero-dimension inner vector to 1 (the `if size < 1 { return 1 }` guard), when its real minimum is 0 bytes, so the outer bound rejects a correctly-encoded, previously-decodable payload.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The regression is caused entirely by the new vectorElemMinSize/bound-check logic this PR adds.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "vector<float,0> takes 0 bytes per element but is counted as 1, so vector<vector<float,0>,N> with an empty payload that decoded on base now errors, contradicting the PR's claim that the check never rejects valid data; reachable from the wire since frame.go:861 accepts dimension 0."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "vector<float,0> takes 0 bytes per element but is counted as 1, so vector<vector<float,0>,N> with an empty payload that decoded on base now errors, contradicting the PR's claim that the check never rejects valid data; reachable from the wire since frame.go:861 accepts dimension 0."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "New function-level comment overstates that every unmarshalVector path allocates",
+      "file": "marshal.go",
+      "line": 986,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Read the reflect.Array branch at marshal.go:1053-1061: it indexes into the caller's existing fixed-size array and never calls make/reflect.MakeSlice, contradicting the comment's claim that 'every path below turns it into an allocation'. unmarshalList (checked at marshal.go:835-838) also only applies its /4 bound on the slice branch, not the array branch, so 'unmarshalList does the same' overstates it too.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new, added alongside the bound check in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The comment claiming every path below turns into an allocation is false for the array path, and the claim that unmarshalList does the same overstates it since unmarshalList uses a constant /4 bound on slices only."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "The comment claiming every path below turns into an allocation is false for the array path, and the claim that unmarshalList does the same overstates it since unmarshalList uses a constant /4 bound on slices only."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Fast-path's nil/empty comment now precedes a duplicated Dimensions>0 && data!=nil guard",
+      "file": "marshal.go",
+      "line": 1004,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "marshal.go:998 and marshal.go:1006 are the identical condition `info.Dimensions > 0 && data != nil`, back to back with only the new bound-check block between them; the second copy could reuse the first's result instead of re-evaluating. The comment at 1004-1005 is not factually wrong (nil/dim=0 still fall through) but now sits awkwardly between two copies of the same guard.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The duplicate guard was introduced by this PR's new bound check sitting ahead of the pre-existing fast-path guard.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The comment about nil/empty falling through no longer matches the code, and the Dimensions > 0 && data != nil guard now appears twice in a row."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "The comment about nil/empty falling through no longer matches the code, and the Dimensions > 0 && data != nil guard now appears twice in a row."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Float/double 'expected N bytes, got M' errors are now unreachable for too-short…",
+      "file": "marshal.go",
+      "line": 1012,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The new bound check guarantees len(data) >= Dimensions*8 (elemMin=8 for double) before reaching this fast path, so `len(data) != expected` can now only fire for an overlong payload, never a short one; the code gives no indication of this narrowed meaning, only the PR body does.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The reachability change is a direct side effect of the new bound check this PR adds ahead of the fast paths.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The \"expected N bytes, got M\" errors now fire only for payloads that are too long, but the code doesn't say so; only the PR body explains it."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "The \"expected N bytes, got M\" errors now fire only for payloads that are too long, but the code doesn't say so; only the PR body explains it."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "No-Go-type error for a nested vector element prints only 'custom(...VectorType)', losing…",
+      "file": "marshal.go",
+      "line": 1048,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Reproduced with a 2-dim vector of 5-dim vectors of an unknown element type: the error is exactly 'unmarshal vector: no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)', because VectorType has no String() override and falls back to NativeType.String(), which only prints the literal class-name string baked in at parse time, not SubType or Dimensions.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is the new error message added by this PR's nil-type check.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The error prints custom(org.apache.cassandra.db.marshal.VectorType) without the inner type or dimension; the commit message implies the error names the server-sent type, which is true only for unknown element types."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "The error prints custom(org.apache.cassandra.db.marshal.VectorType) without the inner type or dimension; the commit message implies the error names the server-sent type, which is true only for unknown element types."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "PR body's claim that every new test fails against pristine code is false",
+      "file": "marshal_vector_test.go",
+      "line": 695,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Fetched the PR body via `gh pr view`: it states 'Every new test fails against pristine marshal.go/helpers.go'. Patched a base worktree with only the new test file plus a no-op vectorElemMinSize stub (so it compiles) and ran the new tests: TestUnmarshalVectorAcceptsWellFormedPayloads (all 6 subtests) and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType (both subtests) pass cleanly against base behavior. TestVectorElemMinSize does not compile at all on base (vectorElemMinSize is undefined), so it cannot be said to 'fail' either.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The inaccurate claim is in this PR's own description, describing this PR's own new tests.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Several new tests (TestUnmarshalVectorAcceptsWellFormedPayloads, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType, two \"still decodes\" subtests) pass on base, and TestVectorElemMinSize doesn't fail on base — it doesn't even compile there."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "Several new tests (TestUnmarshalVectorAcceptsWellFormedPayloads, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType, two \"still decodes\" subtests) pass on base, and TestVectorElemMinSize doesn't fail on base — it doesn't even compile there."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "Commit message's 'one byte per element' justification undersells the recursive minimum…",
+      "file": "marshal.go",
+      "line": 1125,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Commit 0276a66's message says 'Every element takes at least one byte on the wire, so a count the buffer cannot hold is rejected', but the code it introduces in the same commit is the recursive vectorElemMinSize, not a flat one-byte floor; the new test TestUnmarshalVectorRejectsNestedCountBeforeAllocating's own doc comment calls a one-byte floor insufficient ('a one-byte floor reaches the same error, after reflect.MakeSlice has taken the peer's whole count').",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Commit message and code are both part of this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The commit justifies the size bound with a one-byte-per-element floor, then replaces that floor with the recursive minimum, while its own tests call the one-byte floor the bug."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "The commit justifies the size bound with a one-byte-per-element floor, then replaces that floor with the recursive minimum, while its own tests call the one-byte floor the bug."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "Commits omit Refs trailers even though the PR body cites issue #1091 and DRIVER-954",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "`gh pr view` shows the PR body ends with 'Refs: https://github.com/dkropachev/tidepool/issues/1091' and 'Refs: https://scylladb.atlassian.net/browse/DRIVER-954', but `git show 0276a66 -s` and `git show 78891dd -s` have no Refs trailer in either commit message.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is about the commit messages of this PR's own two commits.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Neither commit has a Refs: trailer even though the PR body cites issue #1091 and DRIVER-954; 17 of the 40 prior commits use such trailers."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "Neither commit has a Refs: trailer even though the PR body cites issue #1091 and DRIVER-954; 17 of the 40 prior commits use such trailers."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "New 'trailing byte' test locks in surplus-byte behaviour the PR explicitly defers to a…",
+      "file": "marshal_vector_test.go",
+      "line": 724,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The subtest treats a 13-byte payload for vector<int,3> (12 bytes expected) as well-formed and asserts success. The PR body explicitly states 'Out — surplus trailing bytes, left exactly as found: #1086', so this new test pins today's lenient behavior and will need updating once #1086 changes it.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a new test added by this PR, not a pre-existing one.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The \"payload with a trailing byte\" test calls a 13-byte vector<int,3> well-formed, locking in surplus-bytes behaviour the PR defers to #1086, which will require the test to change when #1086 lands."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "The \"payload with a trailing byte\" test calls a 13-byte vector<int,3> well-formed, locking in surplus-bytes behaviour the PR defers to #1086, which will require the test to change when #1086 lands."
+      }
+    },
+    {
+      "id": "I12",
+      "title": "No test covers the headline case: an empty (non-NULL) payload with Dimensions > 0",
+      "file": "marshal_vector_test.go",
+      "line": 587,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Searched marshal_vector_test.go's new tables: every dimension-mismatch case uses a nil payload, a 2-byte short payload, or a full/one-extra-byte payload; none use an explicit `[]byte{}` with Dimensions > 0, which is exactly the scenario the PR body calls out as the headline behaviour change ('vector<int,3> over an empty payload gave [0 0 0], nil — and now errors').",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is a coverage gap in the tests this PR adds for the exact behavior change this PR makes.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The headline behaviour change has no direct test: no case covers an empty non-NULL payload ([]byte{}) with dimensions greater than 0."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "The headline behaviour change has no direct test: no case covers an empty non-NULL payload ([]byte{}) with dimensions greater than 0."
+      }
+    },
+    {
+      "id": "I13",
+      "title": "No test reaches vectorElemMinSize's MaxInt32 saturation branch",
+      "file": "marshal.go",
+      "line": 1135,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Checked TestVectorElemMinSize and the unfittable-dimensions table: every vector-of-vector case uses small dimensions (3, 4), and every huge-dimension case (1<<61+1, etc.) is applied to a flat (non-nested) vector, whose vectorFixedElemSize short-circuits before the `elemType.(VectorType)` branch that contains the saturation check is ever reached.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The untested branch is new code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "No test reaches the MaxInt32 saturation branch at marshal.go:1135-1137."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "No test reaches the MaxInt32 saturation branch at marshal.go:1135-1137."
+      }
+    },
+    {
+      "id": "I14",
+      "title": "New test helper makeVectorType duplicates pre-existing…",
+      "file": "marshal_vector_test.go",
+      "line": 557,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Compared the four helpers: makeVectorType(TypeFloat, \"FloatType\", dim) and makeVectorType(TypeDouble, \"DoubleType\", dim) build byte-for-byte the same VectorType as the pre-existing makeFloat32VectorType(dim) and makeDoubleVectorType(dim); the new generic helper could have replaced or been built from the old ones instead of duplicating their bodies.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "makeVectorType is new test code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "makeVectorType duplicates the logic already present in makeFloat32VectorType and makeDoubleVectorType."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "makeVectorType duplicates the logic already present in makeFloat32VectorType and makeDoubleVectorType."
+      }
+    },
+    {
+      "id": "I15",
+      "title": "Tests pair TypeText with the Java class name UTF8Type, though the real parser maps…",
+      "file": "marshal_vector_test.go",
+      "line": 811,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "getApacheCassandraType (helpers.go) maps the 'UTF8Type' Java class name to TypeVarchar, not TypeText; makeVectorType(TypeText, \"UTF8Type\", 3) builds a VectorType whose SubType.Type() is TypeText but whose embedded custom name string says UTF8Type, a combination the real wire parser never produces. Behaviorally harmless here since both types are treated identically by isVectorVariableLengthType and Unmarshal's dispatch, but it's a test fixture that doesn't match reality.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "These are new test cases added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Tests pair TypeText with UTF8Type, but the parser actually maps UTF8Type to TypeVarchar."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "Tests pair TypeText with UTF8Type, but the parser actually maps UTF8Type to TypeVarchar."
+      }
+    },
+    {
+      "id": "I16",
+      "title": "Pre-existing malformed-metadata branches still drop the type name, unlike the PR's new…",
+      "file": "helpers.go",
+      "line": 221,
+      "kind": "bug",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "helpers.go:221 (malformed MapType) and :266 (malformed vector dimensions) both still `return NewNativeType(protoVer, TypeCustom)` with no custom name, unlike the PR's new `else` branch at helpers.go:280-284 which now preserves the name via NewCustomType. Neither of these two lines is touched by the PR's diff, but the PR's own change to the sibling branch in the same function newly makes this an inconsistency within one function rather than a uniform behavior.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The PR modifies this exact function and creates the new asymmetry between branches; cleaning it up belongs with the change that introduced it.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "helpers.go:222 and :267 still drop the type name on malformed metadata, unlike the PR's new behaviour for unknown types."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "helpers.go:222 and :267 still drop the type name on malformed metadata, unlike the PR's new behaviour for unknown types."
+      }
+    },
+    {
+      "id": "I17",
+      "title": "Self-rejected: keeping the custom name on unknown types is not a user-visible break",
+      "file": "helpers.go",
+      "line": 280,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Confirmed by grepping all callers: getCassandraLongType is reached only from helpers.go's own recursion, asVectorType (helpers.go:72), and frame.go:860's vector-custom-type branch — i.e. only vector-related parsing paths, matching the claim. No code elsewhere compares NativeType/TypeInfo values by equality in a way the now-populated custom field would break; type dispatch throughout the package goes through .Type()/.Kind(), not struct equality. The underlying worry (that populating custom breaks something) does not hold up.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns the PR's own change to getCassandraLongType's unknown-type branch.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Keeping the custom name on unknown types is not a user-visible break because only the vector-parsing paths call it, and nothing compares type values."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "Keeping the custom name on unknown types is not a user-visible break because only the vector-parsing paths call it, and nothing compares type values."
+      }
+    },
+    {
+      "id": "I18",
+      "title": "Self-rejected: the allocation-bound test is not likely to flake",
+      "file": "marshal_vector_test.go",
+      "line": 836,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Ran TestUnmarshalVectorRejectsNestedCountBeforeAllocating 5 times in isolation; all passed. The test is intentionally non-parallel (its own comment explains why), uses a 128KB margin (payload/8) against an allocation that should be ~0 bytes since the rejection happens before any MakeSlice, and calls runtime.GC() right before measuring. No flake observed or plausible mechanism found.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Concerns a test added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The allocation test is not likely to flake."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "The allocation test is not likely to flake."
+      }
+    },
+    {
+      "id": "I19",
+      "title": "Self-rejected: a nil SubType crashes on the same inputs on base as on head",
+      "file": "marshal.go",
+      "line": 1007,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Traced the call sequence: when Dimensions>0 and data!=nil, the pre-existing fast-path switch at marshal.go:1007 already calls `info.SubType.Type()` unconditionally, which panics just as hard on a nil SubType interface as the new vectorElemMinSize(SubType) call that now runs one step earlier under the identical guard condition. The new bound check does not create a nil-SubType crash on any input that was previously safe; it just panics marginally earlier on inputs that already crashed.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "A nil SubType is a pre-existing contract violation (not produced by any real parsing path) that crashed before this PR too; the PR does not change which inputs crash.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "A nil SubType doesn't crash on any input that base handled safely; head crashes on fewer inputs than base."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "A nil SubType doesn't crash on any input that base handled safely; head crashes on fewer inputs than base."
+      }
+    },
+    {
+      "id": "I20",
+      "title": "vectorElemMinSize's fixed-size-first check silently ignores a type that is both…",
+      "file": "marshal.go",
+      "line": 1125,
+      "kind": "design",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Compared the case lists of vectorFixedElemSize (Boolean, Int, Float, BigInt, Double, Timestamp, UUID, TimeUUID) and isVectorVariableLengthType (Varchar, Ascii, Blob, Text, Counter, Duration, Date, Time, Decimal, SmallInt, TinyInt, Varint, Inet, List, Set, Map, UDT, Tuple, plus non-vector Custom): the two sets are disjoint for every CQL type gocql currently knows, so the assumed invariant holds today and no live input triggers the gap the finding describes.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize is new code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "vectorElemMinSize assumes no type is both fixed-size and variable-length; this only matters if a vector element can ever be empty, which could not be established."
+      },
+      "reportedAsByRun": {
+        "rafp-native-claude-retest-2026-10-09/tidepool/review-and-fix-pr": "vectorElemMinSize assumes no type is both fixed-size and variable-length; this only matters if a vector element can ever be empty, which could not be established."
+      }
+    }
+  ],
+  "judgeCostUsd": 2.6239594000000004,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 154,
+      "outputTokens": 59701,
+      "cacheReadInputTokens": 7435067,
+      "cacheCreationInputTokens": 134907,
+      "webSearchRequests": 0,
+      "costUSD": 2.6239594000000004,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 31165,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/tidepool/runs/rafp-native-claude-retest-2026-10-09/_judge/attempt-Ia7Rfl/repo",
+  "judgedAt": "2026-10-09T13:04:59.336Z"
+}

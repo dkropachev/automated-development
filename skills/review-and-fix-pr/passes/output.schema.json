@@ -1,0 +1,136 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "type": "string",
+            "minLength": 1
+          },
+          "basisType": {
+            "type": "string",
+            "enum": [
+              "claim",
+              "rule",
+              "trigger"
+            ]
+          },
+          "basis": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mechanisms": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "consequence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "defectClass": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "runtime",
+              "security",
+              "docs",
+              "comments",
+              "tests",
+              "standards",
+              "maintainability",
+              "compatibility",
+              "contracts",
+              "performance",
+              "correctness"
+            ]
+          },
+          "locations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/location"
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/evidence"
+            }
+          }
+        },
+        "required": [
+          "claim",
+          "basisType",
+          "basis",
+          "mechanisms",
+          "consequence",
+          "defectClass",
+          "category",
+          "locations",
+          "evidence"
+        ]
+      }
+    },
+    "coverage": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "findings",
+    "coverage"
+  ],
+  "$defs": {
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "path",
+        "line"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "line",
+        "detail"
+      ]
+    }
+  }
+}

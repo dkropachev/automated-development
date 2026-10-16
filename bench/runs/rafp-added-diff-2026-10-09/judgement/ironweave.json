@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-added-diff-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "03e64fa178f3589fde615c7c02b99a698c19953eefeedeb8ef701ecd442ea1e2",
+  "pluginFingerprint": {
+    "contentSha256": "e00037e7e363a273c1d73d0d66469b33f1c5a2409152eae0494fe050b632470c",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "target": "ironweave",
+  "language": "C++",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "rawFindings": 9,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Doc claims reading source to an exception always closes it; one path doesn't",
+      "file": "doc/rpc-streaming.md",
+      "line": 110,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "source_impl::operator() (include/seastar/rpc/rpc_impl.hh:941-982) only calls close_source() on the smp::submit_to/stream_receive path (eof or failure); when _bufs is non-empty it returns process_one_buffer() directly, so an exception thrown by unmarshall() there propagates without ever calling close_source(), leaving _source_closed false.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The 'Closing a stream' section and its absolute claim about throwing are new text added by this PR (doc/rpc-streaming.md).",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The docs say that reading the source until it throws closes it. That is not true for every exception the source can throw."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr": "The docs say that reading the source until it throws closes it. That is not true for every exception the source can throw."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "Doc/commit overstate that the stream connection only shuts down once both halves close",
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "client::loop() (src/rpc/rpc.cc:1012-1077) tears the connection down (stop_send_loop, _outstanding.clear(), _stopped.set_value()) whenever the receive loop hits eof or _error, independent of stream_check_twoway_closed(); client::abort_all_streams() (src/rpc/rpc.cc:848-855) can set that _error via abort() without either half being app-closed, so the connection can fully stop without both halves being closed, contradicting the absolute wording in both the doc and the commit message.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both the doc sentence and the commit message making this claim are new, added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new docs say the stream's connection is shut down only once both halves are closed, and commit 3 says closing one half means it is never shut down. Both are false."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr": "The new docs say the stream's connection is shut down only once both halves are closed, and commit 3 says closing one half means it is never shut down. Both are false."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "stream_close() comment wrongly claims only the trailing stop() sets _error",
+      "file": "src/rpc/rpc.cc",
+      "line": 552,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "handle_stream_frame() sets _error = true directly on an eof-like read result (src/rpc/rpc.cc:588), and client::loop()'s receive path (src/rpc/rpc.cc:1020/1065) also sets it; these can run concurrently with stream_close() on the same connection, so _error is not 'only set by the stop() that follows'.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new, added by this PR's stream_close() change.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new stream_close() comment says _error is only set by the stop() that follows, but several other paths set _error concurrently."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr": "The new stream_close() comment says _error is only set by the stop() that follows, but several other paths set _error concurrently."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Regression test can hang: untimed cv wait and release only reached on success path",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "st.close_entered_cv.wait(...) has no timeout, and st.release_close.set_value() is only reached after the unguarded stream_send_empty_frame().get() call and sink_closed.get()/server_done.get(); any exception other than rpc::closed_error thrown there propagates out of the lambda before release_close is ever set, permanently parking test_data_sink_impl::close() (and the test).",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is new test code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The test waits on close_entered_cv without a timeout, and it releases close only on the success path. Any exception between sink.close() and set_value() leaves the write-buffer close parked forever."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr": "The test waits on close_entered_cv without a timeout, and it releases close only on the success path. Any exception between sink.close() and set_value() leaves the write-buffer close parked forever."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "New regression test never exercises the outgoing-queue-drain half of the fix",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2013,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "By the time the test observes close_entered (src/rpc/rpc.cc stream_close() already set _stream_closing and already invoked write_buf.close()), _stream_closing alone is enough for send() to reject the hook's frame (src/rpc/rpc.cc:293); a fix that added only the _stream_closing flag, without the new queue_drained wait before write_buf.close(), would still make this test pass, so the queue-drain behavior itself is untested.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test is new, added by this PR to cover its own fix.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The regression test does not cover the second half of the fix, which waits for `_outgoing_queue` to drain before closing. A fix that only sets `_stream_closing` would pass the test."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr": "The regression test does not cover the second half of the fix, which waits for `_outgoing_queue` to drain before closing. A fix that only sets `_stream_closing` would pass the test."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Test doesn't assert the stated closed_error contract, only the absence of a late write",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The try/catch around stream_send_empty_frame().get() silently accepts a non-throwing result, and the only BOOST_REQUIRE in the test checks st.put_after_close; the commit's stated contract ('send() refuses with closed_error once stream_close() has begun') is never asserted directly.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test is new, added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The test accepts the hook returning success as well as closed_error, and only asserts on put_after_close. It never checks the PR's stated contract that send() is refused with closed_error once stream_close() has begun."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr": "The test accepts the hook returning success as well as closed_error, and only asserts on put_after_close. It never checks the PR's stated contract that send() is refused with closed_error once stream_close() has begun."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "PR's commits are missing the Signed-off-by trailer the contributing guide requires",
+      "file": "doc/contributing.md",
+      "line": 6,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "doc/contributing.md instructs `git commit -s` for a DCO sign-off; `git log` on the three commits (f545c28a, 5e25ebdb, 69da8f5b) shows no Signed-off-by trailer in any of them.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The commits lacking the trailer are this PR's own commits.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "None of the three commits has a Signed-off-by line, which the project's contribution guide requires (commit with -s for the DCO)."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr": "None of the three commits has a Signed-off-by line, which the project's contribution guide requires (commit with -s for the DCO)."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "stream_close() now waits unboundedly for the whole outgoing queue to drain",
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Before this PR, stream_close() called write_buf.close() immediately; now it first awaits queue_drained (the whole chained _outgoing_queue_ready, not just the in-flight entry as stop_send_loop's withdraw() does at src/rpc/rpc.cc:206-221), and send_entry()'s write_buf.flush() (src/rpc/rpc.cc:186-189) has no timeout, so a stalled socket with queued stream entries can block sink.close() (and thus stream_close()/stop()) indefinitely.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This waiting behavior is newly introduced by this PR's stream_close() change.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "stream_close() now waits for the whole outgoing queue to drain before closing the write buffer, and nothing bounds or cancels this wait."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr": "stream_close() now waits for the whole outgoing queue to drain before closing the write buffer, and nothing bounds or cancels this wait."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "Test data_sink wrapper's put() override isn't API-level guarded like the base it copies",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "include/seastar/core/iostream.hh:104-128 declares put(std::span<...>) as pure virtual only when SEASTAR_API_LEVEL >= 9, and put(net::packet) as the pure virtual otherwise; tests/unit/loopback_socket.hh:144-153 mirrors this with an #if/#else providing the matching override for either level, but the PR's new test_data_sink_impl::put(std::span<temporary_buffer<char>>) override (tests/unit/rpc_test.cc ~1883) is unconditional, so building with Seastar_API_LEVEL=7 or 8 (still a supported CMake option) leaves data_sink_impl::put(net::packet) unimplemented and the class fails to compile/instantiate.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "test_data_sink_impl is new code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The test's data_sink wrapper overrides only put(std::span<...>), with no SEASTAR_API_LEVEL guard. The loopback sink it wraps guards that overload with #if SEASTAR_API_LEVEL >= 9 and also implements put(net::packet)."
+      },
+      "reportedAsByRun": {
+        "rafp-added-diff-2026-10-09/ironweave/review-and-fix-pr": "The test's data_sink wrapper overrides only put(std::span<...>), with no SEASTAR_API_LEVEL guard. The loopback sink it wraps guards that overload with #if SEASTAR_API_LEVEL >= 9 and also implements put(net::packet)."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.3622834,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 80,
+      "outputTokens": 31463,
+      "cacheReadInputTokens": 3049847,
+      "cacheCreationInputTokens": 109381,
+      "webSearchRequests": 0,
+      "costUSD": 1.3622834,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 18685,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/ironweave/runs/rafp-added-diff-2026-10-09/_judge/attempt-kaUVNb/repo",
+  "judgedAt": "2026-10-09T08:18:36.874Z"
+}

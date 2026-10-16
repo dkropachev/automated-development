@@ -1,0 +1,452 @@
+{
+  "scope": "Independent grading; historical labels are not authoritative; unique causes/consequences, no arbitrary absent tests.",
+  "reports": {
+    "tidepool-baseline": {
+      "valid_groups": 5
+    },
+    "tidepool-claude-matched": {
+      "valid_groups": 7
+    },
+    "tidepool-full-context": {
+      "valid_groups": 11,
+      "unsupported": [
+        "constant reflected-header allocation contradicts resource-bound comment",
+        "smallint validation promise invented"
+      ]
+    },
+    "tidepool-typed-verdicts": {
+      "valid_groups": 10
+    },
+    "ironweave-baseline": {
+      "valid_groups": 5
+    },
+    "ironweave-claude-matched": {
+      "valid_groups": 8,
+      "note": "Corrected from 11: exclude normative multiple-sink/enforcement claim; missing queue-branch tests are not standalone issue; generic error wording does not promise recovery."
+    },
+    "ironweave-typed-verdicts": {
+      "valid_groups": 8,
+      "qualification": "Deadline valid; error-before-wrapper causal explanation unsupported."
+    },
+    "quillstone-baseline": {
+      "valid_groups": 2,
+      "excluded": [
+        "persistent rejected keyspace is intended namespace admission policy, no recovery contract proved"
+      ]
+    },
+    "quillstone-claude-matched": {
+      "valid_groups": 8,
+      "note": "Corrected from 9: reject persistent-keyspace finding absent requirement to admit wrong-namespace connections or roll back rejected selection."
+    },
+    "quillstone-package-v2": {
+      "valid_groups": 5,
+      "gains_vs_baseline": [
+        "missing local deadlines",
+        "incorrect post-teardown gauge assertion",
+        "refill regression does not observe promised refill"
+      ],
+      "losses_vs_baseline": []
+    },
+    "quillstone-full-context": {
+      "valid_groups": 2,
+      "valid": [
+        "required tracing",
+        "commit motivation"
+      ],
+      "excluded": [
+        "persistent rejected namespace",
+        "success-path explanatory comment interpreted as unconditional insertion"
+      ],
+      "losses_vs_baseline": [
+        "warning visibility"
+      ]
+    },
+    "ironweave-package-v2": {
+      "valid_groups": 9,
+      "gains_vs_baseline": [
+        "weak regression assertions (older guard and no required exception merged)",
+        "assertion cleanup abort",
+        "missing local deadline",
+        "error-before-stop documentation contradiction"
+      ],
+      "losses_vs_baseline": [],
+      "excluded": [
+        "Markdown line-length rule applicability not established"
+      ],
+      "qualification": "No unsupported error-before-wrapper mechanism asserted; deadline observation is valid."
+    },
+    "tidepool-package-v2": {
+      "valid_groups": 8,
+      "gains_vs_baseline": [
+        "universal positive-byte documentation",
+        "every-path allocation comment",
+        "overstated regression-validation claim"
+      ],
+      "losses_vs_baseline": [],
+      "qualification": "Residual allocation risk already covered in baseline; accurately framed as pre-existing, not an additional coverage gain. Commit footer grouped with format issue."
+    },
+    "quillstone-package-v3": {
+      "valid_groups": 6,
+      "valid": [
+        "warning visibility",
+        "local deadlines",
+        "refill assertion does not observe promised refill",
+        "required tracing",
+        "commit motivation",
+        "PR omits metrics scope"
+      ],
+      "excluded": [
+        "rejected namespace policy",
+        "suppressed shard fallback: changed state verified, independent failure/acceptance violation not established"
+      ],
+      "gains_vs_baseline": 4,
+      "losses_vs_baseline": [],
+      "missing_vs_claude_matched": [
+        "proxy panic cleanup",
+        "incorrect post-teardown gauge assertion"
+      ]
+    },
+    "tidepool-package-v3": {
+      "valid_groups": 9,
+      "valid": [
+        "empty nested regression",
+        "recursive CPU",
+        "fixture byte count",
+        "zero-byte universal assertions",
+        "text128 exact-minimum documentation",
+        "array allocation comment",
+        "public documentation rule",
+        "commit format",
+        "universal regression-validation claim"
+      ],
+      "gains_vs_baseline": 4,
+      "losses_vs_baseline": [],
+      "excluded": [
+        "announced short-payload diagnostic simplification: no diagnostic contract, misleading statement or concrete visibility loss established"
+      ],
+      "qualification": "Minimum documentation heading contains two independently proved groups. Residual pre-existing allocation is covered evidence, no additional group."
+    },
+    "quillstone-package-v4": {
+      "valid_groups": 4,
+      "valid": [
+        "warning visibility",
+        "local deadlines",
+        "required tracing",
+        "ineffective promised refill regression"
+      ],
+      "excluded": [
+        "retained namespace intentionally required by admission policy; no rollback promise",
+        "untested excess-count case: coverage limitation, no independently false assertion or explicit requirement for that input established"
+      ],
+      "gains_vs_baseline": 2,
+      "losses_vs_baseline": [],
+      "missing_vs_package_v3": [
+        "commit rationale",
+        "omitted metrics PR scope"
+      ]
+    },
+    "ironweave-package-v3": {
+      "valid_groups": 8,
+      "valid": [
+        "queue-drain shutdown hang",
+        "compatibility build failure",
+        "missing local deadline",
+        "assertion cleanup abort",
+        "weak regression assertion (two reported manifestations merged)",
+        "cross-shard ownership",
+        "pass-through documentation",
+        "source-exception documentation"
+      ],
+      "gains_vs_baseline": 3,
+      "losses_vs_baseline": [],
+      "missing_vs_package_v2": [
+        "error-before-stop factual comment"
+      ],
+      "excluded": [],
+      "qualification": "Success-without-required-exception and older-error-guard false pass are one weak regression group; deadline explanation avoids unsupported error-before-wrapper claim.",
+      "total_tokens": 1949677
+    },
+    "ironweave-package-v4": {
+      "valid_groups": 8,
+      "valid": [
+        "queue-drain shutdown hang",
+        "compatibility build failure",
+        "missing local deadline",
+        "assertion cleanup abort",
+        "weak regression assertion (two reported manifestations merged)",
+        "cross-shard ownership",
+        "pass-through documentation",
+        "source-exception documentation"
+      ],
+      "gains_vs_baseline": 3,
+      "losses_vs_baseline": [],
+      "missing_vs_package_v2": [
+        "error-before-stop factual comment"
+      ],
+      "excluded": [],
+      "qualification": "Success-without-required-exception and older-error-guard false pass are one weak regression group; deadline explanation avoids unsupported error-before-wrapper claim."
+    },
+    "tidepool-package-v4": {
+      "valid_groups": 8,
+      "valid": [
+        "empty nested regression",
+        "recursive CPU",
+        "zero-byte universal documentation",
+        "fixture byte count",
+        "array allocation comment",
+        "public documentation rule",
+        "commit format",
+        "regression validation claim"
+      ],
+      "gains_vs_baseline": 3,
+      "losses_vs_baseline": [],
+      "excluded": [],
+      "missing_vs_package_v3": [
+        "text128 exact-minimum documentation"
+      ],
+      "qualification": "Residual pre-existing allocation risk accurately framed; already covered by baseline, so no additional coverage gain."
+    },
+    "quillstone-package-v5": {
+      "valid_groups": 6,
+      "total_tokens": 1512595,
+      "valid": [
+        "warning visibility",
+        "missing local deadlines",
+        "ineffective promised refill assertion",
+        "required tracing",
+        "production commit motivation",
+        "omitted metrics PR scope"
+      ],
+      "gains_vs_baseline": 4,
+      "losses_vs_baseline": [],
+      "missing_vs_claude_matched": [
+        "proxy failure cleanup",
+        "incorrect post-teardown gauge assertion"
+      ],
+      "excluded": [],
+      "qualification": "Correctly avoids presumed namespace rollback; records excess-coverage gap as limitation rather than standalone defect."
+    },
+    "tidepool-package-v5": {
+      "valid_groups": 8,
+      "total_tokens": 1747279,
+      "valid": [
+        "empty nested regression",
+        "recursive CPU",
+        "fixture bytes",
+        "zero-byte universal documentation",
+        "array allocation comment",
+        "public documentation",
+        "commit format",
+        "regression-validation claim"
+      ],
+      "gains_vs_baseline": 3,
+      "losses_vs_baseline": [],
+      "excluded": [],
+      "missing_vs_package_v3": [
+        "text128 exact-minimum documentation"
+      ],
+      "qualification": "Pre-existing allocation risk retained with accurate scope, no added group. Exact visit counts consistent with 1000 vector levels: 999*1000*1004/6=167166000 additional visits; original classifications 1000*1001/2-1=500499."
+    },
+    "ironweave-package-v5": {
+      "valid_groups": 8,
+      "total_tokens": 1887535,
+      "valid": [
+        "queue shutdown",
+        "compatibility build",
+        "assertion cleanup",
+        "local deadlines",
+        "shard ownership",
+        "pass-through documentation",
+        "source-exception documentation",
+        "weak regression assertion (two manifestations merged)"
+      ],
+      "gains_vs_baseline": 3,
+      "losses_vs_baseline": [],
+      "excluded": [],
+      "missing_vs_claude_matched": [
+        "absolute shutdown-prerequisite documentation"
+      ],
+      "qualification": "Claude misses source-deserialization exception that this run retains; shared counts do not mean identical coverage."
+    },
+    "quillstone-package-v6": {
+      "valid_groups": 5,
+      "total_tokens": 1806206,
+      "valid": [
+        "warning visibility",
+        "local deadlines",
+        "post-teardown gauge assertion",
+        "required tracing",
+        "ineffective promised refill assertion"
+      ],
+      "gains_vs_baseline": 3,
+      "losses_vs_baseline": [],
+      "excluded": [
+        "untested excess-count input without explicit acceptance/false assertion"
+      ],
+      "missing_vs_package_v5": [
+        "commit rationale",
+        "metrics PR scope"
+      ],
+      "gained_vs_package_v5": [
+        "post-teardown gauge assertion"
+      ],
+      "missing_vs_claude_matched": [
+        "proxy failure cleanup",
+        "commit rationale",
+        "metrics PR scope"
+      ]
+    },
+    "tidepool-package-v6": {
+      "valid_groups": 8,
+      "total_tokens": 1776057,
+      "valid": [
+        "recursive CPU",
+        "empty nested regression",
+        "fixture bytes",
+        "zero-byte universal documentation",
+        "array allocation comment",
+        "public documentation",
+        "commit format",
+        "regression-validation claim"
+      ],
+      "gains_vs_baseline": 3,
+      "losses_vs_baseline": [],
+      "excluded": [],
+      "qualification": "CPU finding emphasizes quadratic early guard instead of full cubic nested decoding; same introduced root cause. Linear base rejection is achievable with unsupported nested destination (e.g. *[]float32); report omits exact destination. Residual allocation correctly pre-existing."
+    },
+    "ironweave-package-v6": {
+      "valid_groups": 6,
+      "total_tokens": 1880012,
+      "valid": [
+        "compatibility build",
+        "assertion cleanup",
+        "local deadline",
+        "pass-through documentation",
+        "source-exception documentation",
+        "weak regression check"
+      ],
+      "gains_vs_baseline": 3,
+      "losses_vs_baseline": [
+        "queue-drain shutdown hang",
+        "shard ownership"
+      ],
+      "excluded": [],
+      "qualification": "Explicitly discloses liveness/ownership gaps; avoids false safety claims."
+    }
+  },
+  "evidence": [
+    {
+      "group": "cpp weak regression assertion",
+      "category": "test defect",
+      "locations": [
+        "tests/unit/rpc_test.cc:2016-2030",
+        "src/rpc/rpc.cc:1065"
+      ],
+      "verdict": "valid",
+      "reason": "No required rejection assertion; older error guard can satisfy final no-write assertion. Merge these manifestations into one issue, even though Claude incorrectly claims error stays false."
+    },
+    {
+      "group": "cpp multiple sinks",
+      "category": "normative documentation",
+      "locations": [
+        "include/seastar/rpc/rpc_types.hh:339",
+        "doc/rpc-streaming.md:109",
+        "include/seastar/rpc/rpc_impl.hh:911-935,999"
+      ],
+      "verdict": "unsupported as reported",
+      "reason": "Must call close is a caller obligation, not guarantee of per-handle assertion enforcement. Second close failing does not prevent calling it; shared flag does not falsify obligation."
+    },
+    {
+      "group": "cpp hidden abort wording",
+      "category": "documentation",
+      "locations": [
+        "doc/rpc-streaming.md:109"
+      ],
+      "verdict": "not counted",
+      "reason": "Is an error does not promise a recoverable error. Actual cleanup abort in new regression test is independently counted."
+    },
+    {
+      "group": "rust skipped proxy cleanup",
+      "category": "test failure cleanup",
+      "locations": [
+        "scylla/src/network/connection_pool.rs:1634-1689",
+        "scylla-proxy/src/proxy.rs:500-505,540-566,573-577,631-653"
+      ],
+      "verdict": "valid",
+      "reason": "RunningProxy has no Drop impl. Explicit finish broadcasts and joins; doorkeeper owns its own sender clone, so dropping external RunningProxy does not close broadcast channel or terminate listener. Panic skips termination until runtime teardown."
+    },
+    {
+      "group": "rust reshard excess coverage",
+      "category": "coverage limitation",
+      "locations": [
+        "scylla/src/network/connection_pool.rs:1114-1115,1868-1939"
+      ],
+      "verdict": "not standalone issue",
+      "reason": "No false assertion or explicit promise to exercise both terms established; missing case alone is not an issue."
+    },
+    {
+      "group": "rust listed metrics validation",
+      "category": "validation limitation",
+      "locations": [
+        "scylla/Cargo.toml:35,65",
+        "frozen PR body Validation"
+      ],
+      "verdict": "not standalone issue",
+      "reason": "Command omits metrics accurately; no demonstrated claim that it ran feature-gated tests."
+    },
+    {
+      "group": "rust persistent rejected keyspace",
+      "category": "intended behavior / no contract violation established",
+      "locations": [
+        "scylla/src/client/session.rs:1965-1973,2007-2016",
+        "scylla/src/network/connection_pool.rs:913-928,1287,1338-1349",
+        "frozen PR body Description"
+      ],
+      "verdict": "not counted for any model",
+      "reason": "PR explicitly requires dropping new connections whose requested keyspace initialization fails. API warns failed use_keyspace can change selected namespace. Retaining request and refusing mismatched replacements is consistent with namespace safety; no automatic rollback/recovery-to-old-namespace contract found. Operational availability consequence is real, but insufficient to prove defect."
+    },
+    {
+      "group": "cpp Markdown line length",
+      "category": "rule scope",
+      "locations": [
+        "coding-style.md:128-140",
+        "doc/rpc-streaming.md:51"
+      ],
+      "verdict": "not counted",
+      "reason": "Long-lines guidance describes C++ continuation lines, double indentation, conditions and refactoring; no evidence extends it to Markdown prose. Existing line was already 181 chars. Adjacent short lines alone do not establish applicable rule."
+    },
+    {
+      "group": "rust delayed shard fallback",
+      "category": "changed control flow / insufficient issue proof",
+      "locations": [
+        "scylla/src/network/connection_pool.rs:915-928,943-947,776-797"
+      ],
+      "verdict": "not counted as reported",
+      "reason": "Failed USE skips mismatch learning, but PR explicitly requires successful setup before admission/resharding. Report establishes no independent failure caused by route choice while all setup requests reject; successful later setup performs mismatch check. No explicit acceptance requirement for immediate learning on rejected connections established."
+    },
+    {
+      "group": "Go short-payload diagnostic regression",
+      "category": "diagnostic regression",
+      "locations": [
+        "marshal.go:1001",
+        "base float fast-path expected byte-size error",
+        "frozen PR body Behaviour change"
+      ],
+      "verdict": "not counted",
+      "reason": "Expected-size/type detail is reduced, but PR explicitly announces replacement of fast-path exact-byte messages. Error still reaches same caller and truthfully states payload incompatibility. No contract requiring old detail, materially misleading claim, or concrete operational visibility loss established; richer diagnostic preference alone insufficient."
+    }
+  ],
+  "selection": {
+    "selected": "package-v5",
+    "valid_groups": 22,
+    "baseline_groups_preserved": 12,
+    "total_tokens": 5147409,
+    "baseline_tokens": 5145405,
+    "claude_tokens": 4377346,
+    "rejected_v6": {
+      "valid_groups": 19,
+      "total_tokens": 5462275,
+      "reason": "3 fewer groups, 314866 more tokens, loses 2 baseline C++ groups"
+    }
+  }
+}

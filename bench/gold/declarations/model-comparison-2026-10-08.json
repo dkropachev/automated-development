@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "legacyRunId": "legacy",
+  "modernRunIds": [
+    "fable-5-1-2026-09-29",
+    "opus-5-5-2026-09-29"
+  ],
+  "supplementalRunIds": [
+    "rafp-six-pass-parallel-broker-2026-10-08"
+  ],
+  "targets": [
+    "ironweave",
+    "quillstone",
+    "tidepool"
+  ],
+  "parkedCells": [
+    "legacy/ironweave/tob-c-review"
+  ],
+  "salvagedCells": [
+    "legacy/ironweave/anthropic-pr-review",
+    "legacy/ironweave/ce-code-review"
+  ],
+  "expectedPhysicalFindingFiles": 61,
+  "expectedEvidenceCells": 60,
+  "expectedEligibleClaims": 450,
+  "expectedAllModelsMatchedCells": 17,
+  "expectedCurrentPairMatchedCells": 19
+}

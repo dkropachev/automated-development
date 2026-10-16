@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-coverage-2026-10-04",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.287 (Claude Code)",
+  "configSha256": "07f599dedc9dfca0994d0dd0600f3442ab4ea63ba185c97c60a04dd0cb083506",
+  "pluginFingerprint": {
+    "contentSha256": "a90f40eff423133b5f567b093794bb651e253e89f2e5c15a1bae56a0bf41e9cd",
+    "gitCommit": "0a5b76f5895a89d3b8f9bfa01e85b46cf9c60ad7",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7"
+  },
+  "cellId": "rafp-coverage-2026-10-04/tidepool/review-and-fix-pr",
+  "target": "tidepool",
+  "tool": "review-and-fix-pr",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "b6216d5448fc555a37a5a09a5368006fcb933ab4e62addd181dde76346988b3b",
+  "label": "Automated Development review-and-fix-pr",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 1130,
+      "title": "vectorElemMinSize is quadratic in nesting depth",
+      "severity": "low",
+      "kind": "perf",
+      "claim": "At every level of its own recursion vectorElemMinSize calls the fully recursive isVectorVariableLengthType, and unmarshalVector re-runs the bound at each nested level, so a deeply nested server-supplied type (~1400 levels) can make the client burn CPU regardless of actual value size.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1136,
+      "title": "MaxInt32 saturation branch in the bound arithmetic is untested",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "No test exercises the saturation arithmetic beyond an inner dimension of 4, so a wrap, off-by-one, or 32-bit narrowing bug in that branch would go undetected.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 369,
+      "title": "Float fast-path length-mismatch check is no longer exercised by tests",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Existing wrong-length tests are now caught by the new bound first and only assert that some error occurred, so removing the fast-path len(data) != expected checks would still pass all tests (e.g. 28 bytes into *[]float64 with 3 dimensions would decode without error).",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body overstates that every new test fails against pristine code",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "Several new tests (TestUnmarshalVectorAcceptsWellFormedPayloads, TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType, and two 'still decodes' subtests) assert behaviour the base code already has, contradicting the claim that every new test fails against pristine marshal.go/helpers.go.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 986,
+      "title": "Bound's comment inaccurately claims every path allocates",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The comment says 'every path below turns it into an allocation', but the *[N]T array path allocates nothing, which the PR's own test comment acknowledges.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 772,
+      "title": "Test comment states wrong byte size for inner vector",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "A comment says each inner vector<text,3> is 'eight bytes', but each one is actually 4 bytes; 8 is the size of the whole two-element payload.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 692,
+      "title": "Stale rationale in test doc comment about minimum vector encoding size",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The comment argues 'a vector of N elements is never encoded in fewer than N bytes', but the actual bound is Dimensions * vectorElemMinSize, not N bytes.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 557,
+      "title": "makeVectorType duplicates existing test helper functions",
+      "severity": "nit",
+      "kind": "design",
+      "claim": "makeVectorType duplicates what makeFloat32VectorType and makeDoubleVectorType already build, and the new tests mix both styles, meaning a change to the vector type's layout or name format must be repeated across multiple builders.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit 0276a66's message omits mention of vectorElemMinSize",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "A candidate claim that the commit message for 0276a66 leaves out vectorElemMinSize was raised but rejected by Codex during adjudication.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Missing AI attribution trailer",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "A lead claiming an AI attribution trailer was missing was screened out because it relied on a private user rule rather than a repository rule, and CONTRIBUTING.md has no such rule.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 2999,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 39770,
+      "webSearchRequests": 0,
+      "costUSD": 0.189074,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1376,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-05T03:28:34.240Z"
+}

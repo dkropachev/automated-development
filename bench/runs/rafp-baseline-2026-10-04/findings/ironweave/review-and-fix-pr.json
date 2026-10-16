@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-baseline-2026-10-04",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.287 (Claude Code)",
+  "configSha256": "be1b75e1d14f4260ee00d9cacd7ebf08c8efeef09bcb2e801445190d0552439c",
+  "pluginFingerprint": {
+    "contentSha256": "658ad96e8ceece33ba914c3304a34755f15bd44947661450da95696ed5a61c97",
+    "gitCommit": "0a5b76f5895a89d3b8f9bfa01e85b46cf9c60ad7",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7"
+  },
+  "cellId": "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr",
+  "target": "ironweave",
+  "tool": "review-and-fix-pr",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "af9d24e16b9a701fe69eec10b7cda2e90dbab5c0babdf8560edce1a981523078",
+  "label": "Automated Development review-and-fix-pr",
+  "findings": [
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "New wait-for-queue step in stream_close() is never exercised by a test",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The sink's close awaits its end-of-stream send() before close_sink(), so the queue is already empty when stream_close() runs in the test; removing or breaking lines 562-570 fails no test.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "title": "Doc claim \"shut down only once both halves are closed\" is false",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The connection is also shut down by closing the parent client (abort_all_streams, rpc.cc:848), by the peer reaching EOF (rpc.cc:588), and by the loop-exit stop_send_loop (rpc.cc:1062); the same doc contradicts itself at line 49.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 111,
+      "title": "Doc claim \"reading until it throws closes the source\" is false for deserialization errors",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "When unmarshall throws inside process_one_buffer (rpc_impl.hh:941/951), close_source() is skipped, so stream_close() never runs, contradicting the documented behavior.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "title": "Test never asserts the hook actually fails with closed_error",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The try/catch also accepts a successful return, and detection depends on the flush poller having run (10x yield() does not force a poll) or on a process abort at teardown; should use BOOST_REQUIRE_THROW(..., rpc::closed_error).",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2017,
+      "title": "Test can pass on base code under one ordering, masking the fix's necessity",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "If the peer's FIN has already made the client loop set _error, the old !_error guard also refuses the frame; the test never checks that error() was still false when the hook fired.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "title": "Early test failure aborts the whole test binary instead of failing cleanly",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "If a REQUIRE fails or an unexpected exception is thrown before sink.close(), the stack unwinds with the sink unclosed and release_close never set, and the SEASTAR_ASSERT in ~sink_impl (rpc_impl.hh:935) then aborts the binary instead of failing the test cleanly.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "title": "const_cast on this inside the const negotiate() method",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The factory at line 1801 in the same file keeps its mutable state behind a reference instead; the cast is undefined behaviour if the factory is ever declared const.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "title": "Comment misstates when _outgoing_queue_ready fails",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "A comment was claimed to misstate when _outgoing_queue_ready fails, but Codex judged this a false positive.",
+      "selfRejected": true
+    },
+    {
+      "file": "doc/contributing.md",
+      "line": 6,
+      "title": "Commits lack the DCO Signed-off-by trailer required by contributing docs",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "None of the three commits has a DCO Signed-off-by, which doc/contributing.md:6-10 requires; Codex could not decide whether that rule applies to the GitHub PR route.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 3385,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 39607,
+      "webSearchRequests": 0,
+      "costUSD": 0.192282,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1861,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-05T02:38:18.889Z"
+}

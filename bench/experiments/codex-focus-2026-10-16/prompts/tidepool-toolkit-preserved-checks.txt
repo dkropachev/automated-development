@@ -1,0 +1,54 @@
+Use code-review-ad at /tmp/ad-codex-focus-20261015/tidepool-toolkit-preserved-checks-skill/SKILL.md to review this pull request. Follow its independent review passes using native Codex agents. The checkout is pinned to the head below. For this offline evaluation, use the supplied PR metadata in place of gh pr view; do not fetch reviews or comments. Read source, repository guidance and Git history in this checkout as needed. Review only: do not edit files, commit, post, or run model subprocesses. Never read benchmark results, reports, judgements, other review sessions, or anything under /extra/dkropachev/automated-development. Do not use a different installed skill. Use gpt-6.1-sol for the parent and all reviewers. Follow the supplied skill's reviewer reasoning settings. Return the skill's final report.
+
+Frozen PR metadata:
+{
+  "baseRefOid": "24c789ec836b9382b24a38303e869de57d175e23",
+  "body": "`unmarshalVector` runs on the goroutine that called `Scan`, where nothing recovers \u2014 the\ndriver's only `recover()` is `parseFrame`'s. Two inputs a server can send end the process\nthere.\n\n**Scope**\n\nIn:\n\n- `info.Dimensions` is the peer's number and reaches `make` and `reflect.MakeSlice`\n  unbounded. The fast paths' `len(data) == Dimensions*8` check does not bound it: a\n  dimension of `1<<61 + 1` wraps that product to exactly 8, so an 8-byte value passes and\n  the allocation dies. The bound now sits ahead of every consumer, dividing by\n  `vectorElemMinSize` \u2014 recursive, because `vectorFixedElemSize` returns 0 for a nested\n  vector, exactly the element type whose real minimum is largest. Measured on\n  `vector<vector<float,3>,N>`: 24 bytes allocated per payload byte before, 3.5 KB flat now.\n- `reflect.TypeOf(info.Zero())` is nil whenever the element type has no Go type, and\n  `.Kind()` dereferences it. Two **well-formed** column types reach it: a nested vector,\n  whose inner type resolves from the bare `...VectorType` prefix, and any element type this\n  driver does not know. `getCassandraLongType` now keeps that name so the error can say\n  which type the server sent.\n\n**Behaviour change**: a short or zero-length non-NULL payload used to decode to zero values\n\u2014 `vector<int,3>` over an empty payload gave `[0 0 0], nil` \u2014 and now errors. That was\nsilent corruption. The bound's message also replaces the fast paths' exact byte count\n(\"expected 24 bytes, got 16\") when it fires first.\n\nOut \u2014 making a nested vector actually decode into `interface{}`, which now errors rather\nthan crashing: #1085. Out \u2014 surplus trailing bytes, left exactly as found: #1086. Out \u2014 a\nvariable-length element's vint length narrowing to a negative and decoding to empty with a\nnil error, which this bound does not catch: #1106.\n\nLands with #1093, which rejects `dim < 1` in the metadata parsers.\n\nVerified with `make check` and `make test-unit`. Every new test fails against pristine\n`marshal.go`/`helpers.go` \u2014 `reflect.MakeSlice: negative len`, `allocation size out of\nrange`, and two nil-pointer dereferences. Not covered: no live-node run.\n\nRefs: https://github.com/dkropachev/tidepool/issues/1091\nRefs: https://scylladb.atlassian.net/browse/DRIVER-954\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)",
+  "commits": [
+    {
+      "authoredDate": "2026-09-08T20:18:10Z",
+      "authors": [
+        {
+          "email": "bench@example.invalid",
+          "id": "",
+          "login": "",
+          "name": "Bench Author"
+        },
+        {
+          "email": "noreply@anthropic.com",
+          "id": "MDQ6VXNlcjgxODQ3",
+          "login": "claude",
+          "name": "Claude Opus 5 (1M context)"
+        }
+      ],
+      "committedDate": "2026-09-20T17:08:55Z",
+      "messageBody": "unmarshalVector turned a peer-supplied dimension into an allocation\nbefore it looked at the value: a negative count panicked in\nreflect.MakeSlice, and a large positive one either panicked in makeslice\nor exhausted the heap. Both land on the goroutine that called Scan,\nwhere nothing recovers.\n\nThe bound sits ahead of the float fast paths because their\nlen(data) == Dimensions*8 check can be satisfied by a count large enough\nfor that product to wrap; once it is there, the multiplication cannot\noverflow. Every element takes at least one byte on the wire, so a count\nthe buffer cannot hold is rejected the way unmarshalList already does.\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>",
+      "messageHeadline": "fix(marshal): bound vector dimensions against the payload",
+      "oid": "0276a66933a8b5565544158816418d2c1afb826a"
+    },
+    {
+      "authoredDate": "2026-09-14T12:51:45Z",
+      "authors": [
+        {
+          "email": "bench@example.invalid",
+          "id": "",
+          "login": "",
+          "name": "Bench Author"
+        },
+        {
+          "email": "noreply@anthropic.com",
+          "id": "MDQ6VXNlcjgxODQ3",
+          "login": "claude",
+          "name": "Claude Opus 5 (1M context)"
+        }
+      ],
+      "committedDate": "2026-09-20T17:08:55Z",
+      "messageBody": "unmarshalVector resolves an empty-interface destination through\nreflect.TypeOf(info.Zero()), the only such site in the package.\nVectorType.Zero() returns an untyped nil whenever the element type has no\nGo representation, reflect.TypeOf of that is a nil Type, and Kind() on it\ndereferences nil -- on the goroutine that called Scan, outside\nparseFrame's recover, so the process dies rather than the query.\n\nTwo column types a server can send reach it with no malformed metadata at\nall: a nested vector, whose inner type resolves from the bare\n\"...VectorType\" prefix, and any element type this driver does not know.\nBoth predate this branch; the reproducer runs against its base.\n\ngetCassandraLongType now keeps an unrecognised type name on the custom\ntype it degrades to, so the error can say which type the server sent\ninstead of rendering as a bare \"custom()\".\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>",
+      "messageHeadline": "fix(marshal): reject a vector element type that has no Go type",
+      "oid": "78891dd78461a2758585ce3545de0d55f2c114a3"
+    }
+  ],
+  "headRefOid": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "title": "fix(marshal): stop a vector value from crashing the Scan goroutine",
+  "url": "https://github.com/dkropachev/tidepool/pull/1"
+}

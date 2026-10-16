@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-baseline-2026-10-04",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.287 (Claude Code)",
+  "configSha256": "be1b75e1d14f4260ee00d9cacd7ebf08c8efeef09bcb2e801445190d0552439c",
+  "pluginFingerprint": {
+    "contentSha256": "658ad96e8ceece33ba914c3304a34755f15bd44947661450da95696ed5a61c97",
+    "gitCommit": "0a5b76f5895a89d3b8f9bfa01e85b46cf9c60ad7",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7"
+  },
+  "target": "ironweave",
+  "language": "C++",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "rawFindings": 9,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "New queue-drain wait in stream_close() is never exercised by any test",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "test-gap",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Verified by building the repo and reverting rpc.cc:562-570 (the queue_drained wait) back to the pre-PR direct write_buf.close(): test_stream_send_after_stream_close still passed 5/5 runs, because sink_impl::close() (rpc_impl.hh:920-924) already awaits the eof-marker send() before calling close_sink(), so _outgoing_queue_ready is already resolved by the time stream_close() runs in this test's scenario.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The untested code is new in this PR (commit f545c28a).",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "New wait-for-queue step in stream_close() is never exercised by a test"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr": "The sink's close awaits its end-of-stream send() before close_sink(), so the queue is already empty when stream_close() runs in the test; removing or breaking lines 562-570 fails no test."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "Doc says connection shuts down \"only once both halves are closed\", which is false",
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Confirmed other shutdown paths bypass the both-halves-closed invariant: client::abort_all_streams() (rpc.cc:847) aborts a stream unconditionally, connection::handle_stream_frame() sets _error=true directly on a bad read (rpc.cc:585-588) without going through stream_close(), and stop_send_loop() tears the connection down on any fatal error. The doc's own line 49-50 acknowledges aborting is distinct from closing, but line 115 still states the shutdown-only-via-both-halves claim as an unqualified absolute.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This doc section is new in this PR (commit 69da8f5b).",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Doc claim \"shut down only once both halves are closed\" is false"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr": "The connection is also shut down by closing the parent client (abort_all_streams, rpc.cc:848), by the peer reaching EOF (rpc.cc:588), and by the loop-exit stop_send_loop (rpc.cc:1062); the same doc contradicts itself at line 49."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Doc says reading-until-throws closes the source, false for deserialization errors",
+      "file": "doc/rpc-streaming.md",
+      "line": 111,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Checked source_impl::operator() (rpc_impl.hh:941-982): process_one_buffer() calls unmarshall() directly at lines 945-948 and 980, outside the stream_receive() continuation (961-975) that is the only place close_source() is invoked. An unmarshall exception (e.g. a deserialization error) propagates straight out of operator() without ever calling close_source(), so stream_close() is never triggered, contradicting the doc's claim that throwing closes the source.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This doc section is new in this PR; the mismatched claim was introduced by this PR's own documentation.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Doc claim \"reading until it throws closes the source\" is false for deserialization errors"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr": "When unmarshall throws inside process_one_buffer (rpc_impl.hh:941/951), close_source() is skipped, so stream_close() never runs, contradicting the documented behavior."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Regression test swallows closed_error instead of asserting it was thrown",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The try/catch at rpc_test.cc:2016-2020 accepts both a thrown closed_error and a successful (non-throwing) return with no assertion either way; BOOST_REQUIRE_THROW would make the intent explicit. Confirmed empirically though that the test still reliably detects the real regression (reverting the _stream_closing guard made the test fail 4/5 runs on the put_after_close assertion), so the gap is about assertion precision, not detection power.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test is new in this PR (commit 5e25ebdb).",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Test never asserts the hook actually fails with closed_error"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr": "The try/catch also accepts a successful return, and detection depends on the flush poller having run (10x yield() does not force a poll) or on a process abort at teardown; should use BOOST_REQUIRE_THROW(..., rpc::closed_error)."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Test doesn't assert error() was still false when the hook fired",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2017,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "unproven",
+      "verdictReason": "Reverting just the _stream_closing guard (restoring `if (!_error)`) made the test fail reliably (4/5 runs on the put_after_close assertion, 1/5 on an earlier unrelated exception), which argues the window is hit correctly rather than being masked by a pre-existing _error=true. But connection::error() is private and unobservable from the test, so there is no direct way to confirm _error was false at the exact moment of the hook call; the claim about test fragility under reordering cannot be fully settled without instrumenting private connection state.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test is new in this PR (commit 5e25ebdb).",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Test can pass on base code under one ordering, masking the fix's necessity"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr": "If the peer's FIN has already made the client loop set _error, the old !_error guard also refuses the frame; the test never checks that error() was still false when the hook fired."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Pre-sink.close() assertion failure would abort the test binary, not fail cleanly",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Confirmed ~sink_impl() (rpc_impl.hh:932-936) unconditionally asserts sink_closed() via SEASTAR_ASSERT; if any REQUIRE or unexpected exception fires between the start of the test body and sink.close() (line 2010), stack unwinding destroys `sink` unclosed and aborts the process instead of failing the Boost test cleanly. This is an inherent property of the sink_impl API shared by other stream tests, but this specific test's structure is new and carries the same risk.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test is new in this PR; its fragility window is part of the new code even though the underlying assertion contract is pre-existing.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Early test failure aborts the whole test binary instead of failing cleanly"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr": "If a REQUIRE fails or an unexpected exception is thrown before sink.close(), the stack unwinds with the sink unclosed and release_close never set, and the SEASTAR_ASSERT in ~sink_impl (rpc_impl.hh:935) then aborts the binary instead of failing the test cleanly."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "const_cast on this inside const negotiate() to mutate factory state",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Confirmed: hook_capturing_compressor_factory::negotiate() is const but const_casts away constness to push_back into its own `hooks` member (line 1957). This is legal (the underlying objects server_factory/client_factory are not actually const), but it diverges from the existing pattern in the same file (tracker::factory at line 1801-1802 holds its mutable state behind a reference member instead, needing no cast) and would be UB if the factory were ever stored/passed as truly const.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "New test helper code added by this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "const_cast on this inside the const negotiate() method"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr": "The factory at line 1801 in the same file keeps its mutable state behind a reference instead; the cast is undefined behaviour if the factory is ever declared const."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "Comment claims queue_drained can be exceptional, but no code path makes it so",
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Traced every site that resolves an outgoing_entry::done with an exception (rpc.cc:217, 288, both reached only via withdraw()/stop_send_loop(), both gated on _error already being true as stop_send_loop's first statement) versus connection::send()'s own completion path (always p->done.set_value(), even after abort() on failure, line 338). Since stream_close() only reaches this code under `!error()` and captures queue_drained synchronously with no intervening yield, queue_drained cannot actually be in an exceptional state here; the comment copies reasoning that is valid for the analogous code in stop_send_loop() (rpc.cc:224-226) but does not apply at this call site. The code is still correct since ignore_ready_future() handles both outcomes harmlessly.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Comment misstates when _outgoing_queue_ready fails"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr": "A comment was claimed to misstate when _outgoing_queue_ready fails, but Codex judged this a false positive."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "Commits lack DCO Signed-off-by trailer claimed to be required",
+      "file": "doc/contributing.md",
+      "line": 6,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "doc/contributing.md's DCO requirement is explicitly scoped to the git-send-email/mailing-list patch workflow it describes. The repo's top-level CONTRIBUTING.md (the file GitHub actually surfaces for PRs) separately lists \"open a GitHub pull request\" as an alternative with no DCO mention, and there is no DCO bot or CI check in .github/workflows. The requirement does not apply to this PR's submission route.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "doc/contributing.md and CONTRIBUTING.md are untouched by this PR; the question of whether GitHub PRs need DCO sign-off is pre-existing and unrelated to this change's content.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Commits lack the DCO Signed-off-by trailer required by contributing docs"
+      },
+      "reportedAsByRun": {
+        "rafp-baseline-2026-10-04/ironweave/review-and-fix-pr": "None of the three commits has a DCO Signed-off-by, which doc/contributing.md:6-10 requires; Codex could not decide whether that rule applies to the GitHub PR route."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.9375964000000006,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 122,
+      "outputTokens": 37773,
+      "cacheReadInputTokens": 5500972,
+      "cacheCreationInputTokens": 114857,
+      "webSearchRequests": 0,
+      "costUSD": 1.9375964000000006,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 21801,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/ironweave/runs/rafp-baseline-2026-10-04/_judge/attempt-SrpECL/repo",
+  "judgedAt": "2026-10-05T02:46:48.049Z"
+}

@@ -1,0 +1,29 @@
+{
+  "variant": "split-tests-output",
+  "sourceCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+  "baseVariant": "split-tests",
+  "roles": {
+    "production": 6,
+    "test_semantics": 4,
+    "test_safety": 4,
+    "contracts_rules": 4
+  },
+  "hypothesis": "Operational correction to the second role layout: target source ranges and respect the outer batch output cap; do not repeat a truncated prefix. Explicit peer-status isolation prevents list_agents from exposing other findings. No benchmark answers supplied.",
+  "skillSha256": {
+    "SKILL.md": "c77ca06e14ab8519a4b502b74efba9487605e4075a7cf98f5b1686b09f3e6ed0",
+    "reviewer.md": "1776f97d00a37c8b29f9acc5f0e12e4b252a7ba1d047649cbc96f1e7058e58f2",
+    "review.md": "97d180686925a01ba7915e678e7bfb7465f9d245a44c94dd29fe532da8ddacda",
+    "checks/pools.md": "c7deb427ec5866fb674192263be105fb1053c6f5b082b7f27befab38bbc49b00",
+    "checks/counterexamples.md": "093ad067f401adc4752b3f88a19ef856755cbee1be3a0c59eeb23db1086592b4",
+    "checks/bounds.md": "a7c4f0fac9b03d83e3df4c7fde4bbd9504b11647c31d334e5f1ae4681c1e7e2a",
+    "checks/concurrency.md": "ef29ee1a5aeb13808afa08cd08492a2ed87de45c43ded9e9bac5f91018e9f020",
+    "checks/standards.md": "f382cefb3f0a5bdf299b4b1d150fa690c7c2fc3012ce412f5490e408d5e52acc",
+    "checks/claims.md": "060d8664e0e27002b449daada1c0604e06c491622820313795abd73686a261d5",
+    "checks/lifecycle.md": "97ceeb8178a520cc9b095b5fd8a353fac2b1eab9564a306f79ba1264de518c83",
+    "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+    "passes/test-safety.md": "80238c8cfd06679e35f434f2e89266f95669a172648f50bc9ae9f8842fe2093f",
+    "passes/contracts-rules.md": "c83cf149073f3064de41c91fd6ba9c1a94021505be281b6bf666780318c176dc",
+    "passes/test-semantics.md": "887f4228d822cfe17dec0fbd20b3733bd5fdb053bb50b6162601f4547ff7112a",
+    "passes/production.md": "fcf84356d848a67a3278d52937c1d3f79f93a9f174e61e7f0080e22e769a6596"
+  }
+}

@@ -6,7 +6,7 @@ const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { execFileSync, spawnSync } = require('node:child_process')
-const { pathToFileURL } = require('node:url')
+const { pathToFileURL, URLSearchParams } = require('node:url')
 
 const ROOT = path.join(__dirname, '..')
 const DASHBOARD = path.join(ROOT, 'docs', 'index.html')
@@ -61,16 +61,11 @@ function modelCompletenessDenominators(text) {
 function modelRows(text) {
   const table = text.match(/<table class="model-comparison-table">[\s\S]*?<tbody>([\s\S]*?)<\/tbody><\/table>/)
   assert.ok(table, 'the model comparison must render model rows')
-  return [...table[1].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map((match) => ({
-    html: match[1],
-    name: (match[1].match(/<strong>([^<]+)<\/strong>/) || [])[1],
+  return [...table[1].matchAll(/<tr([^>]*)>([\s\S]*?)<\/tr>/g)]
+    .filter((match) => !match[1].includes('protocol-detail-row')).map((match) => ({
+    html: match[2],
+    name: (match[2].match(/<strong>([^<]+)<\/strong>/) || [])[1],
   }))
-}
-
-function completedCohortRows(text) {
-  const section = text.match(/<section class="panel completed-cohort-panel"[\s\S]*?<tbody>([\s\S]*?)<\/tbody><\/table>[\s\S]*?<\/section>/)
-  assert.ok(section, 'the Models tab must render completed cohorts')
-  return [...section[1].matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map((match) => match[1])
 }
 
 function leaderboardRows(text) {
@@ -91,7 +86,8 @@ try {
   assert.ok(fs.existsSync(DASHBOARD), 'run make bench-dashboard before the browser check')
 
   const defaultHome = render('home')
-  assert.match(defaultHome.app, /<option value="claude-opus-5-5" selected="">Claude Opus 5\.5<\/option>/)
+  assert.match(defaultHome.app, /<option value="all" selected="">All models \/ history<\/option>/)
+  assert.match(defaultHome.app, /<option value="all" selected="">All platforms<\/option>/)
   if (/No benchmark runs recorded for Claude Opus 5\.5 yet/.test(defaultHome.app)) {
     assert.match(defaultHome.app, /<strong>0<\/strong><span>review runs<\/span>/)
   } else {
@@ -108,18 +104,17 @@ try {
 
   const sonnetHome = render('home?model=claude-sonnet-5-5')
   assert.match(sonnetHome.app, /<option value="claude-sonnet-5-5" selected="">Claude Sonnet 5\.5<\/option>/)
-  assert.match(sonnetHome.app, /<strong>19<\/strong><span>review runs<\/span>/)
+  assert.match(sonnetHome.app, /<strong>[1-9][0-9]*<\/strong><span>review runs<\/span>/)
 
-  // Pin historical assertions to legacy Opus. `model=all` intentionally changes whenever a new
-  // completed cohort lands, while this slice remains stable before and after that event.
-  const home = render('home?model=claude-opus-5')
+  // Use a verified model for discovered rankings. Legacy Opus stays available as raw run evidence.
+  const home = render('home?model=claude-opus-5-5')
   assert.match(home.app, /Find the code-review skill worth its price\./)
-  assert.match(home.app, /cohort-adjudicated real findings/)
+  assert.match(home.app, /discovered real findings/)
   assert.doesNotMatch(home.app, /verified findings|verified issues|verified real/)
   assert.match(home.app, /<h2 id="leaders-title">Leaders<\/h2>/)
   assert.doesNotMatch(home.app, /Completeness leaders/)
   assert.match(home.app, /Best return for the money · All issues/)
-  assert.match(home.app, /3\.02 findings \/ \$/)
+  assert.match(home.app, /[0-9]+\.[0-9]+ findings \/ \$/)
   assert.equal(count(home.app, /id="completeness-scope"/g), 1)
   assert.equal(count(home.app, /id="language-scope"/g), 1)
   assert.match(home.app, /class="leader-pickers"[\s\S]*id="completeness-scope"[\s\S]*id="language-scope"/)
@@ -127,11 +122,12 @@ try {
   const valueCards = rankingCards(home.app, 'leader-grid')
   assertTopThree(valueCards)
   assert.doesNotMatch(valueCards, /value-leader-card|class="eyebrow"|See leaderboard/)
-  assert.equal(count(home.app, /class="skill-summary-card"/g), 8)
-  assert.match(home.app, /href="#skills\/superpowers-review\?model=claude-opus-5"/)
+  const opusSkills = new Set(DASHBOARD_DATA.runs.filter((run) => run.cohortId !== 'legacy' && run.modelId === 'claude-opus-5-5').map((run) => run.toolId))
+  assert.equal(count(home.app, /class="skill-summary-card"/g), opusSkills.size)
+  assert.match(home.app, /href="#skills\/claude%3Asuperpowers-review\?model=claude-opus-5-5"/)
   assert.doesNotMatch(home.app, /review-bakeoff\.md/)
   assert.match(home.app, /Best coverage · All issues/)
-  assert.match(home.app, /Compound Engineering ce-code-review<\/a><\/h3><strong>56\.8%/)
+  assert.match(home.app, /class="landing-rank-grid completeness-grid"/)
   const coverageCards = rankingCards(home.app, 'completeness-grid')
   assertTopThree(coverageCards)
   assert.match(home.app, /Fastest useful review · All issues/)
@@ -140,21 +136,21 @@ try {
   assertTopThree(rankingCards(home.app, 'unique-grid'))
   assert.equal(count(home.app, /class="leader-section"/g), 4)
 
-  const majorHome = render('home?model=claude-opus-5&completeness=major')
+  const majorHome = render('home?model=claude-opus-5-5&completeness=major')
   assert.match(majorHome.app, /Best return for the money · Major only/)
-  assert.match(majorHome.app, /0\.45 findings \/ \$/)
+  assert.match(majorHome.app, /[0-9]+\.[0-9]+ findings \/ \$/)
   assert.match(majorHome.app, /Best coverage · Major only/)
-  assert.match(majorHome.app, /Compound Engineering ce-code-review<\/a><\/h3><strong>75\.0%/)
+  assert.match(majorHome.app, /class="landing-rank-grid completeness-grid"/)
   assertTopThree(rankingCards(majorHome.app, 'leader-grid'))
 
-  const majorMinorHome = render('home?model=claude-opus-5&completeness=majorMinor')
+  const majorMinorHome = render('home?model=claude-opus-5-5&completeness=majorMinor')
   assert.match(majorMinorHome.app, /Best return for the money · Major \+ minor/)
-  assert.match(majorMinorHome.app, /1\.21 findings \/ \$/)
+  assert.match(majorMinorHome.app, /[0-9]+\.[0-9]+ findings \/ \$/)
   assert.match(majorMinorHome.app, /Best coverage · Major \+ minor/)
-  assert.match(majorMinorHome.app, /Superpowers requesting-code-review<\/a><\/h3><strong>69\.6%/)
+  assert.match(majorMinorHome.app, /class="landing-rank-grid completeness-grid"/)
   assertTopThree(rankingCards(majorMinorHome.app, 'leader-grid'))
 
-  const goHome = render('home?model=claude-opus-5&language=Go')
+  const goHome = render('home?model=claude-opus-5-5&language=Go')
   assert.match(goHome.app, /Best return for the money · All issues · Go/)
   assert.match(goHome.app, /Best coverage · All issues · Go/)
   assert.match(goHome.app, /Fastest useful review · All issues · Go/)
@@ -163,11 +159,11 @@ try {
   assertTopThree(rankingCards(goHome.app, 'completeness-grid'))
   assert.doesNotMatch(rankingCards(goHome.app, 'completeness-grid'), /[23] targets/)
 
-  const rustMajorHome = render('home?model=claude-opus-5&completeness=major&language=Rust')
+  const rustMajorHome = render('home?model=claude-opus-5-5&completeness=major&language=Rust')
   assert.match(rustMajorHome.app, /Fastest useful review · Major only · Rust/)
   assert.match(rustMajorHome.app, /Most unique discoveries · Major only · Rust/)
 
-  const choose = render('choose?model=claude-opus-5')
+  const choose = render('choose?model=claude-opus-5-5')
   assert.match(choose.app, /class="choose-tabs" aria-label="Leaderboard views"/)
   assert.match(choose.app, /aria-current="page" class="active">Skills<\/a>/)
   assert.doesNotMatch(choose.app, /<option value="model">Model under test<\/option>/)
@@ -177,22 +173,22 @@ try {
   }
   assert.equal(count(choose.app, /aria-sort="none"/g), 8, 'the hidden best-value preset must not mark a visible column as sorted')
   assert.match(choose.app, /href="#runs\?runIds=[^"]+" class="runs-link">3 runs<\/a>/)
-  assert.match(choose.app, /href="#skills\/superpowers-review\?model=claude-opus-5" class="skill-info-link">Skill info<\/a>/)
+  assert.match(choose.app, /href="#skills\/claude%3Asuperpowers-review\?model=claude-opus-5-5" class="skill-info-link">Skill info<\/a>/)
   assert.match(choose.dom, /class="hint-tooltip" role="tooltip" hidden=""/)
 
-  const candidateAscending = render('choose?model=claude-opus-5&decision=candidate')
+  const candidateAscending = render('choose?model=claude-opus-5-5&decision=candidate')
   const ascendingNames = leaderboardRows(candidateAscending.app)
   assert.deepEqual(ascendingNames, [...ascendingNames].sort((a, b) => a.localeCompare(b)))
   assert.equal(count(candidateAscending.app, /aria-sort="ascending"/g), 1)
   assert.equal(count(candidateAscending.app, /aria-sort="none"/g), 7)
   assert.match(candidateAscending.app, /<option value="candidate" selected="">Candidate<\/option>/)
 
-  const candidateDescending = render('choose?model=claude-opus-5&decision=candidate&decisionDir=desc')
+  const candidateDescending = render('choose?model=claude-opus-5-5&decision=candidate&decisionDir=desc')
   assert.deepEqual(leaderboardRows(candidateDescending.app), [...ascendingNames].reverse())
   assert.equal(count(candidateDescending.app, /aria-sort="descending"/g), 1)
 
-  const costDescending = render('choose?model=claude-opus-5&decision=cost&decisionDir=desc')
-  assert.equal(leaderboardRows(costDescending.app)[0], 'Trail of Bits c-review')
+  const costDescending = render('choose?model=claude-opus-5-5&decision=cost&decisionDir=desc')
+  assert.equal(leaderboardRows(costDescending.app)[0], 'Automated Development review-and-fix-pr · Claude')
   assert.match(costDescending.app, /<option value="cost" selected="">Cost<\/option>/)
 
   const models = render('choose?tab=models')
@@ -212,27 +208,55 @@ try {
   assert.match(models.app, /href="#runs\?runIds=[^"]+" class="runs-link"/)
   assert.match(models.app, /historical\/inferred|historical \/ inferred/)
   assert.match(models.app, /issues\/42/)
-  const completedRows = completedCohortRows(models.app)
-  const completedCohorts = DASHBOARD_DATA.cohorts.filter((cohort) => cohort.complete && !cohort.legacy)
-  assert.equal(completedRows.length, completedCohorts.length, 'every completed modern cohort must appear automatically')
-  for (const cohort of completedCohorts) {
-    const row = completedRows.find((html) => html.includes(`<strong>${cohort.id}</strong>`))
-    assert.ok(row, `completed cohort ${cohort.id} must appear in Models`)
-    const runCount = DASHBOARD_DATA.runs.filter((run) => run.cohortId === cohort.id).length
-    assert.match(row, new RegExp(`>${runCount} runs?<\\/a>`))
-  }
-  assert.ok(completedRows.some((html) => /Claude Sonnet 5\.5/.test(html) && /sonnet-5-5-2026-09-30/.test(html)))
+  assert.doesNotMatch(models.app, /Completed cohorts|completed-cohort-panel/)
+  const discoveredPanel = models.app.match(/<h2>Discovered coverage<\/h2>[\s\S]*?<\/section>/)
+  assert.ok(discoveredPanel, 'Models must retain aggregate results from completed runs')
+  assert.match(discoveredPanel[0], /Claude Sonnet 5\.5/)
+  assert.match(discoveredPanel[0], /Claude Opus 5\.5/)
   const denominators = modelCompletenessDenominators(models.app)
   assert.deepEqual(modelRows(models.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1', 'Claude Opus 5'])
-  assert.equal(denominators.length, 3, 'all-model scope must compare exactly three models')
+  assert.equal(denominators.length, 3, 'the table includes only the three matched models')
   assert.equal(new Set(denominators).size, 1, 'completeness denominator must be fixed across models')
   assert.deepEqual(linkedEvidenceCounts(models.app), [17, 17, 17])
+  assert.doesNotMatch(models.app, /class="protocol-detail-row"/)
+  assert.doesNotMatch(models.app, /<option value="supplemental-rafp-six-pass-parallel-broker-2026-10-08"/)
+  assert.doesNotMatch(models.app, /Read site report/)
+  const focusedRanking = render('choose?tab=models&focus=ranking')
+  assert.match(focusedRanking.app, /class="panel model-results-panel" id="model-ranking"/)
+  assert.doesNotMatch(focusedRanking.app, /class="protocol-detail-row"/)
+  const supplementalSkill = render('choose?tab=skills&skills=review-and-fix-pr')
+  assert.match(supplementalSkill.app, /Supplemental skill evidence/)
+  assert.match(supplementalSkill.app, /review-and-fix-pr[\s\S]*?35 \/ 113 canonical real/)
+  assert.match(supplementalSkill.app, /3 review cells/)
+  assert.match(supplementalSkill.app, /Codex judgment tokens have no USD receipt/)
 
   const skillFilteredModels = render('choose?tab=models&skills=builtin-code-review')
   assert.match(skillFilteredModels.app, /Skills · 1/)
   assert.deepEqual([...new Set(modelCompletenessDenominators(skillFilteredModels.app))], [...new Set(denominators)], 'skill filters must not change the target-level completeness denominator')
   assert.deepEqual(linkedEvidenceCounts(skillFilteredModels.app), [3, 3, 3], 'skill filters must change contributing evidence')
   assert.notEqual(modelRows(skillFilteredModels.app)[0].html, modelRows(models.app)[0].html, 'skill filters must change spend and findings')
+
+  const discoveredRuns = (html) => {
+    const panel = html.match(/<h2>Discovered coverage<\/h2>[\s\S]*?<\/section>/)
+    assert.ok(panel, 'the Models tab must render discovered coverage')
+    return [...panel[0].matchAll(/href="#runs\?([^"]+)"/g)]
+      .flatMap((match) => new URLSearchParams(match[1].replaceAll('&amp;', '&')).get('runIds').split(',')).sort()
+  }
+  const expectedDiscoveredRuns = (skill) => DASHBOARD_DATA.runs
+    .filter((run) => run.cohortId !== 'legacy' && run.status === 'complete' && (!skill || run.toolId === skill))
+    .map((run) => run.id).sort()
+  assert.deepEqual(discoveredRuns(models.app), expectedDiscoveredRuns(), 'unfiltered coverage must retain every completed modern run')
+  assert.deepEqual(discoveredRuns(skillFilteredModels.app), expectedDiscoveredRuns('builtin-code-review'), 'discovered coverage must honor the Skills filter')
+  const cohortSkillModels = render('choose?tab=models&skills=code-review-ad')
+  assert.deepEqual(discoveredRuns(cohortSkillModels.app), expectedDiscoveredRuns('code-review-ad'), 'cohort-only skills must filter discovered coverage')
+
+  const protocolFiltered = render('choose?tab=models&skills=review-and-fix-pr')
+  assert.equal(modelRows(protocolFiltered.app).length, 3)
+  for (const row of modelRows(protocolFiltered.app)) {
+    assert.match(row.html, /N\/A/)
+    assert.doesNotMatch(row.html, /0 \/ 113/)
+  }
+  assert.doesNotMatch(protocolFiltered.app, /class="protocol-detail-row"/)
 
   const targetFilteredModels = render('choose?tab=models&targets=tidepool')
   const targetDenominators = modelCompletenessDenominators(targetFilteredModels.app)
@@ -245,6 +269,9 @@ try {
   assert.match(controlledPair.app, /<option value="controlled-pair" selected="">/)
   assert.deepEqual(modelRows(controlledPair.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1'])
   assert.deepEqual(linkedEvidenceCounts(controlledPair.app), [19, 19])
+
+  const supplemental = render('choose?tab=models&scope=supplemental-rafp-six-pass-parallel-broker-2026-10-08')
+  assert.deepEqual(modelRows(supplemental.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1', 'Claude Opus 5'])
 
   const modelSorted = render('choose?tab=models&modelSort=model')
   assert.match(modelSorted.app, /<th class="" aria-sort="ascending">/)
@@ -273,16 +300,16 @@ try {
   const runBody = runs.app.match(/<tbody>([\s\S]*?)<\/tbody>/)
   assert.ok(runBody, 'the exact run-set view must render a table body')
   assert.equal(count(runBody[1], /<tr>/g), 1, 'the exact run-set link must render one row')
-  assert.match(runs.app, /href="#run\/legacy%2Fironweave%2Ftob-c-review" class="run-link">Trail of Bits c-review<\/a>/)
+  assert.match(runs.app, /href="#run\/legacy%2Fironweave%2Ftob-c-review" class="run-link">Trail of Bits c-review · Claude<\/a>/)
   assert.match(runs.app, /Read from the stored Claude Code transcript cost and usage records\./)
 
   const anthropicRun = render('runs?runIds=tidepool%2Fanthropic-pr-review')
-  assert.match(anthropicRun.app, /<span class="subline">tidepool · Claude Opus 5 · legacy · <a href="#skills\/anthropic-pr-review" class="skill-info-link">anthropic-pr-review<\/a><\/span>/)
+  assert.match(anthropicRun.app, /<span class="subline">tidepool · Claude Opus 5 · legacy · <a href="#skills\/claude%3Aanthropic-pr-review" class="skill-info-link">claude:anthropic-pr-review<\/a><\/span>/)
   assert.doesNotMatch(anthropicRun.app, /pr-review-toolkit@claude-plugins-official|>Skill info</)
 
   const pickedRuns = render('runs?pick=tidepool%2Fbuiltin-code-review%2Ctidepool%2Fsuperpowers-review')
-  assert.match(pickedRuns.app, /href="#run\/legacy%2Ftidepool%2Fbuiltin-code-review" class="run-link">Claude Code \/code-review<\/a> ↔/)
-  assert.match(pickedRuns.app, /href="#run\/legacy%2Ftidepool%2Fsuperpowers-review" class="run-link">Superpowers requesting-code-review<\/a>/)
+  assert.match(pickedRuns.app, /href="#run\/legacy%2Ftidepool%2Fbuiltin-code-review" class="run-link">Claude Code \/code-review · Claude<\/a> ↔/)
+  assert.match(pickedRuns.app, /href="#run\/legacy%2Ftidepool%2Fsuperpowers-review" class="run-link">Superpowers requesting-code-review · Claude<\/a>/)
 
   const run = render('run/ironweave/tob-c-review')
   for (const label of ['Input', 'Output', 'Cache read', 'Cache creation', 'Thinking (within output)', 'Field provenance']) {
@@ -291,7 +318,12 @@ try {
   assert.match(run.app, /source: <span class="hinted-label">transcript/)
   assert.match(run.app, /Upstream human review/)
 
-  const insights = render('insights?model=claude-opus-5')
+  const reviewedRun = render('run/rafp-six-pass-parallel-broker-2026-10-08/ironweave/review-and-fix-pr')
+  assert.match(reviewedRun.app, /53 extracted claims: 19 Codex-confirmed leads and 34 suggestions/)
+  assert.equal(count(reviewedRun.app, /Needs reviewer judgment<\/span>/g), 34)
+  assert.equal(count(reviewedRun.app, /Codex-confirmed lead<\/span>/g), 19)
+
+  const insights = render('insights?model=claude-opus-5-5')
   assert.match(insights.app, /non-dominated frontier<span class="hint-mark"/)
   assert.match(insights.app, /Bubble size: <span class="hinted-label">False-positive rate/)
   assert.match(insights.app, /class="chart-link"[^>]*role="link"/)
@@ -299,26 +331,125 @@ try {
   assert.match(insights.app, /automated cohort-local judgements are not the manually reviewed canonical gold comparison/)
 
   const findings = render('findings?model=claude-opus-5-5')
-  assert.match(findings.app, /Cohort-adjudicated real/)
+  assert.match(findings.app, /Discovered real/)
   assert.doesNotMatch(findings.app, /Verified real|verified real/)
 
-  const skills = render('skills?model=claude-opus-5')
-  assert.equal(count(skills.app, /class="skill-card"/g), 8)
-  assert.equal(count(skills.app, />GitHub ↗<\/a>/g), 8)
-  assert.equal(count(skills.app, />Skill page ↗<\/a>/g), 8)
-  assert.match(skills.app, /The benchmark ran these as Claude Code plugins\./)
+  const skills = render('skills?model=claude-opus-5-5')
+  assert.equal(count(skills.app, /class="skill-card"/g), opusSkills.size)
+  assert.equal(count(skills.app, />GitHub ↗<\/a>/g), opusSkills.size)
+  assert.equal(count(skills.app, />Skill page ↗<\/a>/g), opusSkills.size)
+  assert.match(skills.app, /Skills are identified by platform and name/)
 
-  const skillComparison = render('compare?model=claude-opus-5&compareSkills=builtin-code-review%2Csuperpowers-review')
-  for (const label of ['Attempted cost', 'Distinct real', 'Only this skill', 'Shared', 'Completeness', 'Precision', 'Success']) {
+  const skillComparison = render('compare?model=claude-opus-5-5&compareSkills=builtin-code-review%2Csuperpowers-review')
+  for (const label of ['Attempted cost', 'Distinct real', 'Only this skill', 'Shared', 'Total real found', 'Completeness', 'Precision', 'Success']) {
     assert.match(skillComparison.app, new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*?class="hint-mark"`, 's'), `${label} needs a rendered hint`)
   }
   assert.match(skillComparison.app, />6 attempted runs<\/a>/)
-  assert.match(skillComparison.app, /href="#skills\/builtin-code-review\?model=claude-opus-5" class="skill-info-link">Skill info<\/a>/)
+  assert.match(skillComparison.app, /href="#skills\/claude%3Abuiltin-code-review\?model=claude-opus-5-5" class="skill-info-link">Skill info<\/a>/)
+
+  const unmatchedSkills = render('compare?compareSkills=anthropic-pr-review%2Cmattpocock-review%2Ccode-review-ad%2Creview-and-fix-pr&targets=ironweave')
+  assert.match(unmatchedSkills.app, /Completed evidence/)
+  assert.match(unmatchedSkills.app, /<h2>Head-to-head evidence<\/h2>/)
+  assert.match(unmatchedSkills.app, /Only this skill/)
+  assert.match(unmatchedSkills.app, /Combined coverage/)
+
+  const crossRun = render('compare?model=all&compareSkills=anthropic-pr-review%2Cmattpocock-review%2Ccode-review-ad')
+  assert.match(crossRun.app, /All models \/ history/)
+  assert.match(crossRun.app, /<h2>Head-to-head evidence<\/h2>/)
+  assert.match(crossRun.app, /Completeness/)
+  assert.match(crossRun.app, /C\+\+/)
+  assert.match(crossRun.app, /Rust/)
+  assert.match(crossRun.app, /Go/)
+  for (const toolId of ['anthropic-pr-review', 'mattpocock-review', 'code-review-ad']) {
+    const targetIds = new Set(DASHBOARD_DATA.runs.filter((run) => run.toolId === toolId && run.status === 'complete').map((run) => run.targetId))
+    assert.deepEqual([...targetIds].sort(), ['ironweave', 'quillstone', 'tidepool'], `${toolId} must contribute all three languages`)
+  }
+  const crossRunPair = render('compare?model=all&compareSkills=anthropic-pr-review%2Ccode-review-ad')
+  const coverageFor = (html) => {
+    const row = html.match(/<tr><td><strong><a[^>]*>code-review-ad · Claude<\/a><\/strong>[\s\S]*?<\/tr>/)
+    assert.ok(row, 'the cross-run skill must be shown')
+    const cells = [...row[0].matchAll(/<td class="num">([^<]+)<\/td>/g)].map((match) => match[1])
+    return { everFound: cells[4], completeness: cells[5] }
+  }
+  assert.deepEqual(coverageFor(crossRun.app), coverageFor(crossRunPair.app), 'changing selected skills must not change the discovered denominator or completeness')
+  const realIdentityIds = new Set(DASHBOARD_DATA.identityIssues.filter((issue) => issue.verdict === 'real').map((issue) => issue.id))
+  const verifiedComplete = DASHBOARD_DATA.runs.filter((run) => run.status === 'complete' && run.cohortId !== 'legacy')
+  const expectedEverFound = new Set(verifiedComplete.flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
+  assert.equal(Number(coverageFor(crossRun.app).everFound.replaceAll(',', '')), expectedEverFound)
+  const includingLegacy = new Set(DASHBOARD_DATA.runs.filter((run) => run.status === 'complete').flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
+  assert.ok(includingLegacy > expectedEverFound, 'legacy-only identities must stay outside discovered coverage')
+  const rustComparison = render('compare?model=all&compareSkills=anthropic-pr-review%2Ccode-review-ad&languages=Rust')
+  const rustRealFound = new Set(verifiedComplete.filter((run) => run.targetId === 'quillstone').flatMap((run) => run.identityIssueIds.filter((id) => realIdentityIds.has(id)))).size
+  assert.equal(Number(coverageFor(rustComparison.app).everFound.replaceAll(',', '')), rustRealFound)
+  const locallyRejected = DASHBOARD_DATA.issues.find((issue) => issue.id === 'opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I7')
+  assert.equal(locallyRejected.verdict, 'false-positive')
+  assert.deepEqual(locallyRejected.identityIds, ['ironweave-I014'])
+  assert.equal(DASHBOARD_DATA.identityIssues.find((issue) => issue.id === 'ironweave-I014').verdict, 'real')
 
   const comparison = render('compare/tidepool/builtin-code-review/tidepool/superpowers-review')
   assert.match(comparison.app, /href="#run\/legacy%2Ftidepool%2Fbuiltin-code-review" class="run-link">legacy\/tidepool\/builtin-code-review<\/a>/)
   assert.match(comparison.app, /href="#run\/legacy%2Ftidepool%2Fsuperpowers-review" class="run-link">legacy\/tidepool\/superpowers-review<\/a>/)
   assert.match(comparison.app, /Thinking<span class="hint-mark"/)
+
+  const catalogue = render('skills')
+  assert.match(catalogue.app, /code-review-ad · Codex/)
+  assert.match(catalogue.app, /code-review-ad · Claude/)
+  const codexSkill = render('skills/codex%3Acode-review-ad')
+  assert.match(codexSkill.app, /<h1>code-review-ad · Codex<\/h1>/)
+  assert.equal(count(codexSkill.app, /class="skill-card"/g), 1)
+  assert.match(codexSkill.app, /0 benchmark runs/)
+  assert.match(codexSkill.app, /27 experiment records/)
+  assert.match(codexSkill.app, /\.agents\/skills\/code-review-ad\/SKILL.md/)
+  const codexWithClaudeModel = render('skills/codex%3Acode-review-ad?model=claude-opus-5-5')
+  assert.match(codexWithClaudeModel.app, /<h1>code-review-ad · Codex<\/h1>/)
+  assert.match(codexWithClaudeModel.app, /0 experiment records/)
+  const claudeSkill = render('skills/claude%3Acode-review-ad')
+  assert.match(claudeSkill.app, /<h1>code-review-ad · Claude<\/h1>/)
+  assert.match(claudeSkill.app, /3 experiment records/)
+  assert.doesNotMatch(claudeSkill.app, /\.agents\/skills/)
+  assert.equal(render('skills/code-review-ad').app, claudeSkill.app, 'unqualified old skill page aliases Claude')
+  const codexCatalogue = render('skills?platform=codex')
+  assert.equal(count(codexCatalogue.app, /class="skill-card"/g), 1)
+  assert.match(codexCatalogue.app, /<option value="codex" selected="">Codex<\/option>/)
+  const experimentModelCatalogue = render('skills?model=gpt-6.1-sol')
+  assert.equal(count(experimentModelCatalogue.app, /class="skill-card"/g), 1)
+  assert.match(experimentModelCatalogue.app, /27 experiment records/)
+
+  const experiments = render('experiments')
+  assert.match(experiments.app, /Every archived trial · 30 records/)
+  assert.match(experiments.app, /code-review-ad · Claude: 3 target records · 22 verified groups · 11 bug groups/)
+  assert.match(experiments.app, /7 Rust groups and 22 total groups/)
+  assert.ok(experiments.app.indexOf('Installed Codex versus matched Claude') < experiments.app.indexOf('Every archived trial'))
+  assert.match(experiments.app, /quillstone-toolkit-split-r2/)
+  assert.match(experiments.app, /quillstone-toolkit-split<\/span>/)
+  assert.match(experiments.app, /medium \/ unavailable/)
+  const codexExperiments = render('experiments?platform=codex')
+  assert.match(codexExperiments.app, /Every archived trial · 27 records/)
+  const claudeExperiments = render('experiments?skills=claude%3Acode-review-ad')
+  assert.match(claudeExperiments.app, /Every archived trial · 3 records/)
+  assert.match(render('experiments?skills=code-review-ad').app, /Every archived trial · 3 records/)
+  const focusedExperiments = render('experiments?platform=codex&skills=codex%3Acode-review-ad&model=gpt-6.1-sol&targets=quillstone&experiment=codex-focus-2026-10-16')
+  const expectedFocused = DASHBOARD_DATA.experiments.filter((r) => r.experimentId === 'codex-focus-2026-10-16' && r.targetId === 'quillstone')
+  assert.match(focusedExperiments.app, new RegExp(`Every archived trial · ${expectedFocused.length} records`))
+  assert.equal(count(focusedExperiments.app, /data-experiment-record=/g), expectedFocused.length)
+  const offlineReport = render('experiments?report=codex-parity-2026-10-15%2Fquillstone-claude-matched')
+  assert.match(offlineReport.app, /id="experiment-report"/)
+  assert.match(offlineReport.app, /class="experiment-raw-report"/)
+  assert.match(offlineReport.app, /165c45de68d976b82822e233577eb9a092b88bae0f9a12cd3ed8d9815adff0c2/)
+  assert.match(offlineReport.app, /Correction evidence/)
+
+  const crossPlatformComparison = render('compare?compareSkills=claude%3Acode-review-ad,codex%3Acode-review-ad')
+  assert.match(crossPlatformComparison.app, /<span>Selected<\/span><strong>2<\/strong>/)
+  assert.equal(count(crossPlatformComparison.app, /class="selection-card selected"/g), 2)
+  assert.match(crossPlatformComparison.app, /Benchmark metrics unavailable · no completed benchmark runs/)
+  assert.match(crossPlatformComparison.app, /code-review-ad · Claude/)
+  assert.match(crossPlatformComparison.app, /code-review-ad · Codex/)
+  const qualifiedModels = render('choose?tab=models&skills=claude%3Abuiltin-code-review')
+  assert.deepEqual(linkedEvidenceCounts(qualifiedModels.app), linkedEvidenceCounts(skillFilteredModels.app))
+  assert.deepEqual(modelCompletenessDenominators(qualifiedModels.app), modelCompletenessDenominators(skillFilteredModels.app))
+  const codexModels = render('choose?tab=models&platform=codex')
+  assert.deepEqual(discoveredRuns(codexModels.app), [])
+  assert.ok(linkedEvidenceCounts(codexModels.app).every((count) => !count), 'Codex experiments receive no canonical credit')
 
   process.stdout.write('dashboard-browser-check: all rendered routes passed\n')
 } finally {

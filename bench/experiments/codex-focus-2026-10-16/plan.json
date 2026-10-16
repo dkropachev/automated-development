@@ -1,0 +1,27 @@
+{
+  "hypothesis": "Assign production, tests, factual/spec claims, and repository rules to separate reviewers instead of overlapping broad passes.",
+  "sourceCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+  "unchanged": [
+    "Claude skill",
+    "frozen target source/spec",
+    "GPT-6.1 Sol high parent/xhigh reviewers",
+    "18 aggregate reviewer read calls",
+    "3 parent verification calls",
+    "three report sections"
+  ],
+  "readAllocation": {
+    "production": 6,
+    "tests": 5,
+    "contracts": 4,
+    "standards": 3
+  },
+  "stages": [
+    "Pilot on Rust and C++; concurrent fresh Rust control",
+    "Independently validate findings and measure actual usage",
+    "If promising, test Go and repeat the successful pilot before installing",
+    "If the split is unsuccessful, try one narrower adjustment informed by observed failure; do not expand indefinitely"
+  ],
+  "grading": "Count distinct verified production/test/diagnostic defects separately from documentation and repository-rule findings; retain all earlier baseline issues; exclude suggestions and unjustified contract requirements.",
+  "publication": "Exploratory records, no canonical benchmark changes. Record commit, skill and prompt hashes, target pins, native agent settings and total usage for every run.",
+  "extension": "Four-role split failed accuracy/cost check. Final pilot retains three agents with focused production/tests/contracts_rules ownership and corrected tool-output handling. Rust pilot added missing gauge bug while preserving all bug groups at lower fresh-control cost. Validate unchanged layout on C++/Go and repeat Rust before applying."
+}

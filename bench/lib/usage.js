@@ -37,6 +37,24 @@ function readLines(file) {
   return out
 }
 
+function agentUsage(events) {
+  const totals = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0, messages: 0 }
+  const seen = new Set()
+  for (const ev of events) {
+    const message = ev.message
+    if (ev.type !== 'assistant' || !message?.usage) continue
+    if (message.id && seen.has(message.id)) continue
+    if (message.id) seen.add(message.id)
+    totals.messages += 1
+    totals.input += message.usage.input_tokens || 0
+    totals.output += message.usage.output_tokens || 0
+    totals.cacheRead += message.usage.cache_read_input_tokens || 0
+    totals.cacheCreation += message.usage.cache_creation_input_tokens || 0
+  }
+  totals.total = totals.input + totals.output + totals.cacheRead + totals.cacheCreation
+  return totals
+}
+
 function walkSubagents(dir, acc) {
   if (!fs.existsSync(dir)) return
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -44,7 +62,9 @@ function walkSubagents(dir, acc) {
     if (ent.isDirectory()) { walkSubagents(p, acc); continue }
     if (!ent.name.endsWith('.jsonl')) continue
     acc.subagentTranscripts += 1
-    for (const ev of readLines(p)) {
+    const events = readLines(p)
+    acc.byAgent[path.relative(acc.transcriptDir, p)] = agentUsage(events)
+    for (const ev of events) {
       const m = ev.message
       if (ev.type !== 'assistant' || !m || !m.usage) continue
       acc.rawMessages += 1
@@ -61,13 +81,14 @@ function totalsForCwd(cwd, opts) {
     input: 0, output: 0, thinking: 0, cacheRead: 0, cacheCreation: 0, costUsd: 0,
     sessions: 0, models: {}, bySession: {}, rawMessages: 0, rawOutput: 0, rawCacheRead: 0,
     since,
-    subagentTranscripts: 0, transcriptDir: dir,
+    subagentTranscripts: 0, transcriptDir: dir, byAgent: {},
   }
   const finish = () => { acc.total = acc.input + acc.output + acc.cacheRead + acc.cacheCreation; return acc }
   if (!fs.existsSync(dir)) return finish()
   for (const f of fs.readdirSync(dir)) {
     if (!f.endsWith('.jsonl')) continue
     const evs = readLines(path.join(dir, f))
+    acc.byAgent[f] = agentUsage(evs)
     // cost-state is cumulative for its session; the last one written is the session's total.
     let last = null
     for (const ev of evs) if (ev.type === 'cost-state') last = ev
@@ -104,4 +125,4 @@ function totalsForCwd(cwd, opts) {
   return finish()
 }
 
-module.exports = { configRoot, projectsRoot, totalsForCwd, slugFor }
+module.exports = { agentUsage, configRoot, projectsRoot, totalsForCwd, slugFor }

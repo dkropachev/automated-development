@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "runId": "rafp-native-claude-retest-2026-10-09",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "0e9f376996d93eec53b7b9f14eb85cc94faefe9d66a5e4a79893889e2afeafeb",
+  "pluginFingerprint": {
+    "contentSha256": "8dea71b3e5aee10a75d5dd83e500ead1f2e9b7520112d46b06b2fc99fe1e9673",
+    "gitCommit": "0fe7b35ba1f2670bc771f9ccc2997b058a29ed44",
+    "version": "0.5.0"
+  },
+  "createdAt": "2026-10-09T13:04:59.353Z",
+  "manifestSha256": "7c0972028acabae440a85c6f9c0c64ec4ab34433a51f412abb41d59a465be49c",
+  "sealSha256": "9b7994b48cc1951492db15b3fefe8472a2d22dc1936565909bea1c70cebf5229",
+  "findings": [
+    {
+      "file": "findings/ironweave/review-and-fix-pr.json",
+      "sha256": "4301fa55cd6fc69926051bb367eeb6ad168a3a1434d7845cb2db60dc393a24f9"
+    },
+    {
+      "file": "findings/quillstone/review-and-fix-pr.json",
+      "sha256": "5511e47309b5fdc637aa6deb31cb85fed5d019dea86f6ee679f3e79e1b8a553d"
+    },
+    {
+      "file": "findings/tidepool/review-and-fix-pr.json",
+      "sha256": "7f8e908f43e2d5a86e23895bc175872e64d4878a8173d205e87a6faf80d642a4"
+    }
+  ],
+  "judgements": [
+    {
+      "file": "judgement/ironweave.json",
+      "sha256": "a2eb94052473db847e27afc65ea7087d39c24c24ac7f875839ad19b607e7fed1"
+    },
+    {
+      "file": "judgement/quillstone.json",
+      "sha256": "1cd06ed3d3c1adc4c28f32c13dddc13040328d75b0c01c398d36e9aa3f2f18b9"
+    },
+    {
+      "file": "judgement/tidepool.json",
+      "sha256": "e14984f6e8708cb5109a81af6b87f8dcbb06c8dee444adf406c5551454a7bb3e"
+    }
+  ]
+}

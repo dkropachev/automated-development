@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-coverage-2026-10-04",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.287 (Claude Code)",
+  "configSha256": "07f599dedc9dfca0994d0dd0600f3442ab4ea63ba185c97c60a04dd0cb083506",
+  "pluginFingerprint": {
+    "contentSha256": "a90f40eff423133b5f567b093794bb651e253e89f2e5c15a1bae56a0bf41e9cd",
+    "gitCommit": "0a5b76f5895a89d3b8f9bfa01e85b46cf9c60ad7",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "202dfe3da54a82d5c0ed945e92f2fcf0bf966c0c044720250dd2e8416cd162b7"
+  },
+  "cellId": "rafp-coverage-2026-10-04/ironweave/review-and-fix-pr",
+  "target": "ironweave",
+  "tool": "review-and-fix-pr",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "bdb6d2eaa1ecf0c82370196d88c90c4d3da97182553154099ebb2f77530612f0",
+  "label": "Automated Development review-and-fix-pr",
+  "findings": [
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "title": "Drain half of fix has no test covering removal of queue-ready wait",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The hook (also tests/unit/rpc_test.cc:2010-2017) fires only after data_sink::close() is entered, when the flag is already set and the queue is empty; if the wait on _outgoing_queue_ready were removed, the test would still pass, and a frame queued just before the flag would again be written into the closed stream.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "title": "Test doesn't verify hook fails with closed_error",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The try/catch passes whether the hook succeeds or throws, so a change that silently drops the frame and returns a ready future would still pass, even though commit 5e25ebdb says the hook should fail with closed_error.",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 110,
+      "title": "Docs wrongly claim a throw from reading closes the source",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "If deserialization throws inside process_one_buffer, close_source() is never called so _source_closed stays false (also include/seastar/rpc/rpc_types.hh:386-387); an application that stops reading at that throw, as the docs allow, never runs stream_close().",
+      "selfRejected": false
+    },
+    {
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "title": "Docs wrongly state connection shuts down only once both halves are closed",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The connection is also shut down on peer eof, on errors, and by abort_all_streams(); line 49 of the same doc says closing the client aborts the stream, contradicting this statement.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1852,
+      "title": "Test header comment describes old behaviour in present tense",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment says send() 'still accepts frames' in the window, which is no longer true after the fix.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "title": "put(std::span) override missing SEASTAR_API_LEVEL guard",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "The put(std::span) override has no #if SEASTAR_API_LEVEL >= 9 guard, unlike every other test sink in the tree (e.g. tests/unit/loopback_socket.hh:144), so rpc_test doesn't compile at API levels 7 or 8.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "title": "Comment wrongly says _outgoing_queue_ready is exceptional if an entry failed",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "A failed entry still resolves with a value (rpc.cc:338); the future only becomes exceptional when negotiation is aborted, contradicting the comment.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2021,
+      "title": "Misleading comment claims yield() runs the batch flush poller",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The comment 'Let the batch flush poller run' is wrong: yield() only queues a task and doesn't make the reactor poll; the late write is actually caught during the later blocking .get() calls.",
+      "selfRejected": false
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "title": "const_cast on this used where file convention is a mutable member",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "The code uses const_cast on this, whereas the existing compressor factory in the same file (rpc_test.cc:330) declares a mutable member instead.",
+      "selfRejected": false
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "title": "Comment about what still waits on _outgoing_queue_ready",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "Claude flagged the comment at rpc.cc:559 describing what still waits on _outgoing_queue_ready as incorrect; Codex reviewed it and rejected the finding.",
+      "selfRejected": true
+    },
+    {
+      "file": "src/rpc/rpc.cc",
+      "line": 0,
+      "title": "_stream_closing duplicates state already tracked by _error",
+      "severity": "low",
+      "kind": "design",
+      "claim": "Claude raised that adding _stream_closing alongside _error introduces duplicated state; Codex reviewed it and rejected the finding.",
+      "selfRejected": true
+    },
+    {
+      "file": "tests/unit/rpc_test.cc",
+      "line": 0,
+      "title": "close_entered_cv wait in test has no timeout",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "Claude flagged that the close_entered_cv wait in the test has no timeout; Codex reviewed it and rejected the finding.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Claude Co-Authored-By trailers flagged as an issue",
+      "severity": "low",
+      "kind": "style",
+      "claim": "A lead about Claude Co-Authored-By trailers was dropped before adjudication because that rule comes from the reviewer's personal instructions rather than the repository, and the base history already contains similar trailers.",
+      "selfRejected": true
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 5441,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 40088,
+      "webSearchRequests": 0,
+      "costUSD": 0.21476599999999998,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3351,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-05T03:27:07.053Z"
+}

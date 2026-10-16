@@ -1,0 +1,4432 @@
+{
+  "schemaVersion": 1,
+  "description": "Cross-run discovery identities; distinct from sealed canonical model gold. Unmapped records receive provisional identities.",
+  "identities": [
+    {
+      "id": "ironweave-D001",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Early failure in the parked-sink regression test aborts or hangs cleanup",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "cross-run review"
+    },
+    {
+      "id": "ironweave-D002",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Fix and regression test land in separate commits",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "cross-run review"
+    },
+    {
+      "id": "ironweave-I001",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Source contract claims any throw releases the source, but unmarshall() failures leave it open",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 386,
+      "kind": "docs",
+      "verdictReason": "source_impl::operator() calls close_source() only when stream_receive() fails or yields eof (rpc_impl.hh:961-972); an exception from unmarshall() inside process_one_buffer propagates with _source_closed still false, so an application that stops at that throw, as the new rpc::source doc and doc/rpc-streaming.md:110-112 say it may, never lets stream_close() run and leaks the stream connection.",
+      "scopeReason": "Introduced by the PR's documentation commit.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I002",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Queue-drain half of the fix (waiting on _outgoing_queue_ready before closing) is not covered by any test",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "test-gap",
+      "verdictReason": "In the new test sink_impl::close() awaits the eof-marker send() before close_sink() runs stream_close(), and the hook is only fired after _stream_closing is set, so _outgoing_queue is empty and queue_drained is already ready; reverting the std::exchange/then_wrapped hunk while keeping _stream_closing leaves the suite green.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I003",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "stream_close() now gates write_buf.close() and stop() behind an unbounded outgoing-queue drain",
+      "verdict": "real",
+      "severity": "high",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "bug",
+      "verdictReason": "If an entry accepted just before _stream_closing is stuck in send_entry() on peer backpressure, queue_drained never resolves, so neither output_stream::close() (whose data_sink close does shutdown(SHUT_WR) and would break the stuck send) nor stop()/abort()/shutdown_input() runs; sink.close() hangs until something outside aborts the connection. Previously close() ran immediately. The trigger is narrow (the eof marker itself must have gotten through first) and nothing in the PR or comment mentions it.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I004",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "test_data_sink_impl overrides only put(std::span), so rpc_test fails to compile below SEASTAR_API_LEVEL 9",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "kind": "bug",
+      "verdictReason": "data_sink_impl declares put(std::span<temporary_buffer<char>>) only under SEASTAR_API_LEVEL >= 9 (iostream.hh:110-116); below that put(net::packet) is pure virtual, so the override matches nothing and the class is abstract. CMake still accepts lower levels and tls_test.cc/httpd_test.cc/loopback_socket.hh guard the same pattern; the default build is unaffected.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I005",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Regression test swallows the hook's result and never asserts that send() was refused with closed_error",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "kind": "test-gap",
+      "verdictReason": "The try { stream_send_empty_frame().get(); } catch (const rpc::closed_error&) {} block passes whether the frame is refused or accepted; the regression is only caught indirectly via put_after_close. BOOST_REQUIRE_THROW(..., rpc::closed_error) would pin the contract directly.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I006",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Test cannot tell a refusal caused by _stream_closing from one caused by _error",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2013,
+      "kind": "test-gap",
+      "verdictReason": "send() returns closed_error for both _stream_closing and _error. While the client's close is parked, the server can receive the eof marker, close its own stream and shut its socket, after which the client read loop sets _error; the hook would then be refused without exercising the fix, and nothing in the test checks that _error is still false.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I007",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Peer disconnect while stream_close() is parked on the outgoing-queue drain is untested",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "kind": "test-gap",
+      "verdictReason": "No test has the peer disconnect so stop_send_loop() withdraws an entry and makes the old queue future exceptional while stream_close() is parked on that drain. A regression that propagated the exception, skipped write_buf.close(), or mishandled the ready placeholder would not be caught.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I008",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Closing one sink satisfies the connection-wide closed flag for every sink on that stream connection",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "include/seastar/rpc/rpc_impl.hh",
+      "line": 935,
+      "kind": "docs",
+      "verdictReason": "~sink_impl asserts the connection-level sink_closed() flag rather than per-sink state. When multiple sinks share one stream connection, closing either sets that flag, so another sink can be dropped without its own close() call despite the new documentation saying every sink must be closed.",
+      "scopeReason": "The PR adds the every-sink close contract without documenting this connection-wide enforcement limitation.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I009",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Server-side stream connection is not exercised; server_factory.hooks is filled but never used",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1966,
+      "kind": "test-gap",
+      "verdictReason": "Only the client stream's hook is fired. server::connection goes through the same connection::send()/stream_close(), so risk is small, but server teardown (abort_all_streams) differs and the symmetric case is untested.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I010",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Failure paths skip release_close/sink_closed, so an unexpected error hangs or aborts the test instead of failing it",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2026,
+      "kind": "test-gap",
+      "verdictReason": "Once sink.close() is parked, _stream_closing is true, so the hook's send() can only return the expected immediate closed_error; accepted send_entry failures are consumed by abort() and done.set_value(). The cited BOOST_REQUIRE_EQUAL occurs before close is parked, so it cannot strand release_close.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I011",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "server_factory (a shard-0 object) is mutated from another shard during server stream negotiation",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "kind": "bug",
+      "verdictReason": "The loopback factory round-robins accepted connections, so at the default --smp 2 the server stream connection lands on shard 1 and its negotiate() push_back()s into server_factory.hooks owned by shard 0, violating the shard-per-core model. It is practically benign (no concurrent access, cross-shard free is supported) and existing tests share factories the same way. The stream handler itself runs on the parent connection's shard, so server_done is not cross-shard.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I012",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Comment says nothing else waits for _outgoing_queue_ready, but stop_send_loop() still does",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "kind": "docs",
+      "verdictReason": "stop_send_loop() still does when_all(std::move(_outgoing_queue_ready), ...) at rpc.cc:225; after the exchange it merely receives the ready placeholder, and the real drain guarantee flows through _sink_closed_future. The comment misstates the invariant it relies on; the retained serialization comment is also now separated from the _sink_closed_future line it explains.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I013",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Doc says the stream connection is shut down 'only' once both halves are closed",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "doc/rpc-streaming.md",
+      "line": 115,
+      "kind": "docs",
+      "verdictReason": "The connection is also shut down by read/IO errors and by abort_all_streams() when the parent client or server connection closes, which line 49-50 of the same doc states; the sink doxygen (rpc_types.hh:339-342) has the same overstatement.",
+      "scopeReason": "Introduced by the PR's documentation commit.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I014",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "'Both halves must be closed' is wrong for one-directional streams",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "doc/rpc-streaming.md",
+      "line": 106,
+      "kind": "docs",
+      "verdictReason": "_sink_closed and _source_closed default to true (rpc.hh:300-301) and are cleared only by the sink_impl/source_impl constructors, so a connection with only a sink runs stream_close() as soon as the sink is closed; the sink doxygen's 'once the source on this connection has been read' is likewise not always applicable.",
+      "scopeReason": "Introduced by the PR's documentation commit.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I015",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "send_empty_frame's contract is not updated for its earlier closed_error failure",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 318,
+      "kind": "docs",
+      "verdictReason": "The PR makes the hook fail with closed_error once stream_close() starts, a window where it used to succeed; the factory comment still describes only what the hook does, not that it may fail and that callers should treat that as benign. The docs commit documents sink/source but not this API.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I016",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Commits and PR body carry Claude attribution trailers/lines",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "verdictReason": "All three commits carry Co-Authored-By: Claude trailers (69da8f5b has two) and the PR body ends with '🤖 Generated with Claude Code', which the reviewing user's global instructions forbid.",
+      "scopeReason": "Commit metadata and PR description of this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I017",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Commits lack the DCO Signed-off-by trailer required by doc/contributing.md",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "doc/contributing.md",
+      "line": 6,
+      "kind": "style",
+      "verdictReason": "None of f545c28a, 5e25ebdb, 69da8f5b has Signed-off-by, while doc/contributing.md asks for git commit -s. Enforcement in the repo's history is inconsistent, so impact is limited to upstream submission.",
+      "scopeReason": "Commit metadata of this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I018",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "'Fixes #3663' / 'Refs #3653' resolve against the fork, not upstream seastar",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "The commit message and PR body use bare #N references, which in dkropachev/ironweave point at this repo's issues (and 'Fixes' would auto-close #3663 here); scylladb/seastar#3663 is what is meant.",
+      "scopeReason": "Commit message and PR description of this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I019",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Comment misstates why _outgoing_queue_ready can be exceptional",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 566,
+      "kind": "docs",
+      "verdictReason": "A failed send_entry() calls abort() and still sets p->done, so an entry failure never makes the chain exceptional; the actual causes are withdraw(it, ex) and the _negotiated front-entry set_exception() in stop_send_loop(), as the comment at rpc.cc:226 says.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I020",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "then_wrapped lambda parameter f shadows the enclosing f it is assigned to",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "kind": "style",
+      "verdictReason": "f = queue_drained.then_wrapped([this] (future<> f) {...}) reuses the name of the outer auto f in the statement that assigns it; renaming (e.g. drained) avoids confusion.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I021",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "New doxygen blocks are stacked on the old '// send data Out...' / '// receive data In...' lines",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 343,
+      "kind": "style",
+      "verdictReason": "The legacy one-line comments now sit between the new /// blocks and the class declarations (rpc_types.hh:343, :390), leaving two descriptions per class; doxygen still associates correctly.",
+      "scopeReason": "Introduced by the PR's documentation commit.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I022",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Test factory records hooks via const_cast instead of a mutable member",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1957,
+      "kind": "style",
+      "verdictReason": "negotiate() is const and pushes into hooks via const_cast<hook_capturing_compressor_factory*>(this); cfactory in the same file uses a mutable member (rpc_test.cc:330).",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I023",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "The 10x yield() loop does not guarantee the batch-flush poller runs, and its count is arbitrary",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2022,
+      "kind": "test-gap",
+      "verdictReason": "yield() only reschedules the thread; within one task quota the reactor may not poll, so the comment 'Let the batch flush poller run' is not guaranteed. Detection actually relies on sink_closed.get() blocking afterwards, which lets the poller run.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I024",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Closing comment misstates where the test fails without the fix",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2031,
+      "kind": "docs",
+      "verdictReason": "The comment explicitly conditions the destructor assertion on the write remaining in flight. It does not claim the assertion is the normal failure point after the wrapper forwards put(); the later put_after_close assertion covers that completed-write case.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I025",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Test hardcodes hooks.size()==2 and picks the stream hook positionally",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "kind": "test-gap",
+      "verdictReason": "BOOST_REQUIRE_EQUAL(hooks.size(), 2u) plus hooks.back() encodes the fixture's connection count and order; a change to rpc_test_env setup would fail or silently retarget the test.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I026",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Reference taken into client_factory.hooks, which a later push_back could reallocate",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2001,
+      "kind": "test-gap",
+      "verdictReason": "auto& stream_send_empty_frame = client_factory.hooks.back() would dangle if another negotiation pushed into the vector before use; none does today, so it is latent. Copying the std::function avoids it.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I027",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "close_entered_cv.wait() has no timeout",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "kind": "test-gap",
+      "verdictReason": "If a regression keeps sink.close() from reaching the wrapped data_sink::close(), the test blocks until the harness timeout instead of failing with a message.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I028",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "test_sink_state lives in the test body while connection-owned wrappers hold references to it",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1977,
+      "kind": "test-gap",
+      "verdictReason": "test_data_sink_impl/test_connected_socket_impl hold test_sink_state& but are owned by the stream connection, whose lifetime follows rpc refcounting and teardown after the body returns. Nothing touches _st after close completes today, so it is latent; declaring st next to the factories would remove the dependency.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I029",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "'Dropping an unclosed sink is an error' understates that it aborts the process",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "doc/rpc-streaming.md",
+      "line": 109,
+      "kind": "docs",
+      "verdictReason": "~sink_impl enforces it with SEASTAR_ASSERT(sink_closed()) (rpc_impl.hh:935), which is active in all build modes, so dropping an unclosed sink crashes.",
+      "scopeReason": "Introduced by the PR's documentation commit.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I030",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "#closing-a-stream anchor does not resolve in the doxygen build",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "doc/rpc-streaming.md",
+      "line": 51,
+      "kind": "docs",
+      "verdictReason": "doc/rpc-streaming.md is a doxygen INPUT (Doxyfile.in:764) and MARKDOWN_ID_STYLE is unset, so headings get autotoc_md IDs rather than GitHub slugs; the link works on GitHub but not in the generated API docs.",
+      "scopeReason": "Introduced by the PR's documentation commit.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I031",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Close contract is on the rpc::sink class but not on sink::close() itself",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 371,
+      "kind": "docs",
+      "verdictReason": "sink::close() keeps its one-line comment; a reader looking at the method rather than the class banner does not see that the future must be awaited even on failure.",
+      "scopeReason": "Introduced by the PR's documentation commit.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I032",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "_stream_closing comment omits that it is stream-only, terminal, and why _sink_closed could not be reused",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 305,
+      "kind": "docs",
+      "verdictReason": "The flag lives on the base connection, is never cleared, and exists because _sink_closed is true on every non-stream connection; the comment says none of this.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I033",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Test block comment describes the fixed bug in the present tense",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1852,
+      "kind": "docs",
+      "verdictReason": "'Until then connection::send() still accepts frames' is false at rpc.cc:293 after the fix, so a reader cannot tell which is stale.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I034",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "'Pass-through compressor' is inaccurate and the empty-buffer substitution is uncommented",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1937,
+      "kind": "docs",
+      "verdictReason": "The compressor delegates to lz4_fragmented_compressor rather than passing data through, and the non-obvious data.size ? ... : snd_buf(temporary_buffer<char>()) substitution is not explained here or at line 1766.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I035",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "_outgoing_queue_ready handoff invariant is enforced only by a comment; enqueue_zero_frame() is not guarded by _stream_closing",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 559,
+      "kind": "design",
+      "verdictReason": "client::enqueue_zero_frame() (rpc.cc:866-883) also exchanges _outgoing_queue_ready and checks only _error. It runs only at connect time so it cannot race stream_close() today, but nothing but the comment prevents a future writer from doing so.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I036",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "stream_close()/stop_send_loop() interleaving relies on stop_send_loop() setting _error synchronously",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "design",
+      "verdictReason": "stream_close()'s if (!error()) guard protects the exchange from a moved-from _outgoing_queue_ready only because stop_send_loop() sets _error before its when_all with no suspension point in between; this dependency is not recorded.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I037",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "test_sink_state / test_data_sink_impl names don't convey what they do",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1870,
+      "kind": "style",
+      "verdictReason": "In a file where 'sink' means rpc::sink, test_sink_state holds data_sink state, and neither name says it parks close() and records late put()s.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I038",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "shared_promise used without including seastar/core/shared_future.hh",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1874,
+      "kind": "style",
+      "verdictReason": "rpc_test.cc did not use shared_promise before this PR and does not include its header; it compiles only through a transitive include.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I039",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Rewrapped doc paragraph leaves an overlong line",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "doc/rpc-streaming.md",
+      "line": 51,
+      "kind": "style",
+      "verdictReason": "The PR rewrapped the start of the paragraph but appended to the pre-existing overlong line, which the rest of the file wraps near 80 columns.",
+      "scopeReason": "Introduced by the PR's documentation commit.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I040",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "New comments use two spaces after a full stop",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 553,
+      "kind": "style",
+      "verdictReason": "The added comments in rpc.cc, rpc.hh, rpc_types.hh and rpc_test.cc use two spaces after periods, while those files overwhelmingly use one.",
+      "scopeReason": "Comments added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I041",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "\\ref source in the sink doxygen may be ambiguous",
+      "verdict": "unproven",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 341,
+      "kind": "docs",
+      "verdictReason": "Doxygen resolves \\ref relative to the enclosing seastar::rpc scope, so it most likely binds to rpc::source; ambiguity with connected_socket_impl::source() was not demonstrated.",
+      "scopeReason": "Introduced by the PR's documentation commit.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I042",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Deferring write_buf.close() behind the drain widens the window in which sink.close() can fail",
+      "verdict": "unproven",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "kind": "bug",
+      "verdictReason": "output_stream::close() could already rethrow a stored batch-flush error before the PR, and the new doc says close failures are expected; the drain only lengthens the window by the time queued entries take, and no scenario producing a new user-visible failure was shown.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I043",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "stream_close() re-entry is guarded only by error(), not _stream_closing",
+      "verdict": "unproven",
+      "severity": "low",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 550,
+      "kind": "bug",
+      "verdictReason": "Re-entry would need close_sink()/close_source() to run twice, which sink_closed()/_source_closed checks prevent; only API misuse such as making a new sink from a closed source could reach it, and that is pre-existing.",
+      "scopeReason": "Pre-existing guard in stream_close(); the PR does not change who can call it.",
+      "introducedByPr": false
+    },
+    {
+      "id": "ironweave-I044",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "PR does not explain the unflushed compressor frame reported on the parent client",
+      "verdict": "unproven",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "question",
+      "verdictReason": "The PR body notes the same frame pending on the parent client, but only the stream connection was destroyed; a normal client's pending batch flush on a live connection is closed by stop_send_loop(), so it is likely harmless, but the PR does not say so.",
+      "scopeReason": "About the PR description's own analysis.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I045",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "_connected dereferenced unguarded in the deferred continuation",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 569,
+      "kind": "bug",
+      "verdictReason": "_connected is only ever emplaced (set_socket) and never reset, and stream_close() dereferenced it unguarded before the PR as well; deferring the call does not create a disengaged window.",
+      "scopeReason": "Line touched by the PR.",
+      "introducedByPr": false
+    },
+    {
+      "id": "ironweave-I046",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "hooks.size()==2 assumes stream negotiation completes before the call reply",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "kind": "test-gap",
+      "verdictReason": "make_stream_sink() awaits the stream client's await_connection() (rpc.hh:633) before returning, and call() is issued only afterwards, so both client negotiations are done by the assertion.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I047",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "server_done starts as a ready future, so the check can pass vacuously",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1978,
+      "kind": "test-gap",
+      "verdictReason": "call(c, 1, sink).get() only returns a source if the handler ran and returned its sink, and the handler assigns server_done before returning, so server_done.get() always waits on the real server loop.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I048",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Test only exercises the send_empty_frame hook, not other send() callers",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2017,
+      "kind": "test-gap",
+      "verdictReason": "On a stream connection the other send() callers are sink_impl::send_buffer() and the eof send in sink_impl::close(), both guarded by sink_closed(); the compressor hook is the only caller that can reach the window.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I049",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "test_data_sink_impl::buffer_size() hardcodes 8192 instead of forwarding",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1895,
+      "kind": "style",
+      "verdictReason": "connected_socket::output() defaults to 8192 and passes it explicitly, so the sink's buffer_size() is never consulted; forwarding could even hit data_sink_impl's asserting default. No behavioural effect.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I050",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "test_socket_impl drops set_reuseaddr/get_reuseaddr",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1932,
+      "kind": "test-gap",
+      "verdictReason": "Nothing in the test calls these on the client socket, and the stub matches local precedent at rpc_test.cc:169-170.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I051",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Two-argument negotiate() calls abort() instead of BOOST_FAIL",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1960,
+      "kind": "test-gap",
+      "verdictReason": "The three-argument overload is overridden, so rpc never calls the two-argument one; abort() is unreachable and copies the precedent at rpc_test.cc:1817.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I052",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "data.size ? ... : snd_buf(temporary_buffer<char>()) ternary is a no-op",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1946,
+      "kind": "style",
+      "verdictReason": "A default snd_buf holds an empty std::vector alternative; the ternary replaces it with a temporary_buffer alternative so the delegate compressor can handle send({}), so it is not a no-op.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I053",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "static inline const sstring name differs from neighbouring patterns",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1940,
+      "kind": "style",
+      "verdictReason": "An inline static data member is idiomatic C++17/20 and lets supported() return a reference; no convention in the file is violated.",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I054",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Pass-through socket wrappers are a Middle Man duplicating loopback_socket.hh",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1900,
+      "kind": "design",
+      "verdictReason": "loopback_socket.hh contains transport implementations, not delegating wrappers, so nothing is duplicated; delegation is inherent to wrapping a socket to intercept data_sink::close().",
+      "scopeReason": "Introduced by the PR's new regression test.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I055",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "_stream_closing is placed away from _sink_closed/_source_closed",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 307,
+      "kind": "style",
+      "verdictReason": "It sits in the same stream-state block, directly after _sink_closed_future which it pairs with; placement is reasonable.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I056",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "_stream_closing adds a third lifecycle flag send() must check",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "include/seastar/rpc/rpc.hh",
+      "line": 305,
+      "kind": "design",
+      "verdictReason": "send() is the only consumer of the flag, so there is a single check site; a state enum would be a larger refactor without fixing any defect.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I057",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "stream_close() drain logic should be rewritten as a coroutine",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 548,
+      "kind": "design",
+      "verdictReason": "stream_close() was continuation-based before the PR and the minimal fix follows the function's existing style; a rewrite is a preference, not a defect.",
+      "scopeReason": "Introduced by the PR's change to stream_close()/send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I058",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Drain wait removes a pre-existing race where close() ran while a queued send_entry() was mid-write",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 562,
+      "kind": "bug",
+      "verdictReason": "This describes old behaviour that the PR's drain wait eliminates; there is no defect at the head commit to act on.",
+      "scopeReason": "Pre-existing behaviour, already fixed by this PR.",
+      "introducedByPr": false
+    },
+    {
+      "id": "ironweave-I059",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "Documentation commit is scope creep beyond #3663",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "doc/rpc-streaming.md",
+      "line": 0,
+      "kind": "design",
+      "verdictReason": "The docs commit is a separate, clearly labelled commit in the series, and the PR explicitly says only the first two commits are needed for backport.",
+      "scopeReason": "Introduced by the PR's documentation commit.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I060",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "PR description links internal Jira tickets",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "Referencing scylladb.atlassian.net tickets is normal practice for Scylla-driven seastar changes; the links are access-controlled and expose only ticket numbers.",
+      "scopeReason": "PR description.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I061",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "stream_close comment wrongly says only its later stop() can set _error",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "src/rpc/rpc.cc",
+      "line": 552,
+      "kind": "docs",
+      "verdictReason": "The new comment says _error is only set by the stop() after the queue drain, but abort() after a send_entry failure and stop_send_loop() can set _error while stream_close() awaits queue_drained. The comment states a false invariant on the changed control path.",
+      "scopeReason": "The inaccurate comment was introduced beside the new stream-close drain.",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I062",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "PR verification lists rpc_test but does not establish the required test.py run",
+      "verdict": "unproven",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "doc/contributing.md",
+      "line": 25,
+      "kind": "question",
+      "verdictReason": "The PR description reports rpc_test in a debug build, while doc/contributing.md asks contributors to run test.py. The stated verification omits test.py, but that omission alone cannot establish whether it was run; confirmation requires the author's test record.",
+      "scopeReason": "The question concerns verification of this PR's change to connection::send().",
+      "introducedByPr": true
+    },
+    {
+      "id": "ironweave-I063",
+      "targetId": "ironweave",
+      "revisionKey": "ironweave/5cc62de6583830e20199eb2e5418aa56ce3267fc/69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "title": "PR body overstates that the new regression test always fails without the fix",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "Empirically verified: with the _stream_closing guard in connection::send() disabled (simulating pre-fix behavior) and the rest of the series intact, 30 runs of test_stream_send_after_stream_close under the test's actual default (-c 2) produced 1 unexpected pass out of 30, directly contradicting the PR body's claim 'the new test fails without the first commit'. Separately, 'chaining on _outgoing_queue_ready the way send() does' is an imprecise description: stream_close() takes a one-shot std::exchange snapshot of the current value, not send()'s self-extending chain.",
+      "scopeReason": "This is the PR's own description text.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I001",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Persistent USE failure (stale or dropped current keyspace) now discards every new connection and drains the pool to Broken(UseKeyspaceError)",
+      "verdict": "real",
+      "severity": "high",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "bug",
+      "verdictReason": "PoolRefiller::use_keyspace (connection_pool.rs:1287) and ClusterWorker (worker.rs:351) store the keyspace before USE succeeds and never roll it back; the new Err(Keyspace) arm drops each connection whose USE fails, so after a failed use_keyspace or a DROP KEYSPACE every refill is discarded with growing backoff, the pool drains to Broken(UseKeyspaceError) and emit_events sends ConnectivityChangeEvent::Lost. Before the PR the connection was kept with a warn!, so fully qualified queries kept working.",
+      "scopeReason": "Direct consequence of the PR's discard-on-USE-failure change.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I002",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "USE failure on a new connection logged at debug! instead of warn!, and only surfaced via shared_conns when the pool is empty",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "kind": "bug",
+      "verdictReason": "The removed code logged at warn!; the new arm logs at debug! while now also dropping the connection. With a non-empty pool update_shared_conns is not called, so a pool that can never grow is invisible at default log levels.",
+      "scopeReason": "Log level changed by this PR's keyspace-failure arm.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I003",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Excess shard-aware connection dropped without decrementing total_connections",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 994,
+      "kind": "bug",
+      "verdictReason": "The else-if requested_shard.is_some() branch drops a connection that count_in_metrics already counted via inc_total_connections, with no dec_total_connections; the counter drifts up on every shard-aware miss (e.g. behind NAT). Branch is unchanged from base.",
+      "scopeReason": "Pre-existing, but it is the one discard site in handle_ready_connection left unbalanced by the PR's own metric-balancing commits.",
+      "introducedByPr": false
+    },
+    {
+      "id": "quillstone-I004",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Pool teardown (run() exit / PoolRefiller drop) never decrements total_connections",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 697,
+      "kind": "bug",
+      "verdictReason": "When the keyspace request channel closes, run() returns and PoolRefiller with all conns and excess_connections is dropped; there is no Drop impl or decrement, so the gauge keeps the pool's full count. full_pool_clears_excess_connections_and_balances_metrics asserts total_connections == 1 after the worker has exited, encoding the leak.",
+      "scopeReason": "Pre-existing leak, but the PR's new metrics test bakes it in as expected behavior.",
+      "introducedByPr": false
+    },
+    {
+      "id": "quillstone-I005",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "No timeout on per-connection use_keyspace in start_setting_keyspace_for_connection; a hung USE stalls all refills",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1336,
+      "kind": "bug",
+      "verdictReason": "The future pushed to ready_connections awaits connection.use_keyspace with no timeout (explicit TODO), keeping is_filling() true so need_filling() never schedules another refill; the sibling PoolRefiller::use_keyspace does wrap USE in tokio::time::timeout.",
+      "scopeReason": "The untimed await and its TODO exist unchanged at base; the PR does not change hang behavior.",
+      "introducedByPr": false
+    },
+    {
+      "id": "quillstone-I006",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "USE failure for a stale keyspace discards the connection instead of retrying with the current keyspace",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "bug",
+      "verdictReason": "The Ok arm re-checks evt.keyspace_name against current_keyspace, but the Err(Keyspace) arm does not; if the keyspace changes while an old USE is in flight and that USE fails, the connection is dropped and backoff is raised. Self-heals on the next refill.",
+      "scopeReason": "Introduced by the new Err(Keyspace) arm.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I007",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "PR description omits the metric-balancing commits and keyspace/reshard reordering",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "The PR body only describes keyspace-setup discard; commits de164845, 0d91aa54 and 617139df (metric decrements and tests) are not mentioned, nor are the warn!->debug! change or the defensible keyspace-before-reshard ordering change.",
+      "scopeReason": "PR description accuracy.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I008",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "PR validation command never compiled or ran the metrics tests or metrics assertions",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "The listed command filters to keyspace_setup_failure tests without --features metrics (not a default feature), so the three #[cfg(feature = \"metrics\")] tests and the cfg-gated get_total_connections asserts were never exercised by it. CI does run --all-features.",
+      "scopeReason": "PR description accuracy.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I009",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "All four commits are subject-only, contrary to CONTRIBUTING.md and the ticked checklist item",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "git log shows empty bodies for de164845, 0d91aa54, 7f48315d and 617139df; CONTRIBUTING.md requires messages to explain what and why, and none explains the behavior change or the keyspace/reshard reordering.",
+      "scopeReason": "Commits belong to this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I010",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "'Fixes: #1682' does not resolve in this repository",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "gh issue view 1682 fails in dkropachev/quillstone; the number refers to upstream scylla-rust-driver, so the annotation neither links nor closes anything.",
+      "scopeReason": "PR description annotation.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I011",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Metric-balancing fix is bundled into the keyspace-failure PR",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "kind": "design",
+      "verdictReason": "Three of four commits fix total_connections accounting on pool clears, which is unrelated to the keyspace-setup issue the PR claims to fix.",
+      "scopeReason": "Concerns the PR's own composition.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I012",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Commit 617139df is a fixup of 0d91aa54 and should be squashed",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "verdictReason": "617139df only swaps yield_now() for a 1 ms sleep inside the test 0d91aa54 added; CONTRIBUTING.md asks for each commit to be one logically coherent change.",
+      "scopeReason": "Commit structure of this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I013",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Metric-balancing commit de164845 lands without tests; they come in the next commit",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "kind": "test-gap",
+      "verdictReason": "de164845 adds decrement_total_connections and the decrement sites; the covering tests are only added in 0d91aa54.",
+      "scopeReason": "Commit structure of this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I014",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "New keyspace tests do not call setup_tracing()",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "test-gap",
+      "verdictReason": "keyspace_setup_failure_triggers_refill (1474) and keyspace_setup_failure_preserves_pool_state (1526) omit setup_tracing(), while every other test in the module calls it and CONTRIBUTING.md says new tests should.",
+      "scopeReason": "Tests added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I015",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "keyspace_setup_failure_triggers_refill asserts need_filling()/is_empty() which are trivially true and do not prove a refill is scheduled",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1512,
+      "kind": "test-gap",
+      "verdictReason": "On a fresh refiller with no conns and no pending futures, is_empty() and need_filling() hold regardless of the fix; run() is never driven, so only had_error_since_last_refill and the Broken snapshot are meaningful.",
+      "scopeReason": "Test added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I016",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "No test drives a failing USE through run() to observe the backoff-delayed refill across cycles",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "test-gap",
+      "verdictReason": "Tests only call handle_ready_connection directly; the scheduling branch in run() and on_fill_error() growth after repeated keyspace failures are covered only transitively.",
+      "scopeReason": "Behavior introduced by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I017",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Keyspace-failure arm untested with a non-empty pool on a shard-aware attempt",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1526,
+      "kind": "test-gap",
+      "verdictReason": "keyspace_setup_failure_preserves_pool_state uses requested_shard: None and does not assert had_error_since_last_refill; the requested_shard: Some case is only tested with an empty pool.",
+      "scopeReason": "Behavior introduced by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I018",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "No test covers recovery from Broken(UseKeyspaceError) back to Ready",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "kind": "test-gap",
+      "verdictReason": "No test drives a pool to Broken via keyspace failure and then admits a connection whose USE succeeds.",
+      "scopeReason": "New Broken reason introduced by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I019",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "No test covers keyspace failure emptying the pool and emitting ConnectivityChangeEvent::Lost",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1157,
+      "kind": "test-gap",
+      "verdictReason": "keyspace_setup_failure_triggers_refill uses no connectivity_events_sender, and preserves_pool_state keeps one connection alive, so the Lost transition is never asserted.",
+      "scopeReason": "New failure path introduced by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I020",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "maybe_reshard's excess_connections.len() decrement term is never exercised",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1114,
+      "kind": "test-gap",
+      "verdictReason": "resharding_discards_old_connections_and_balances_metrics reshards with an empty excess_connections, so a miscount in that half of the sum would go unnoticed.",
+      "scopeReason": "Decrement added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I021",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Metrics tests increment total_connections manually instead of through start_opening_connection",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 0,
+      "kind": "test-gap",
+      "verdictReason": "Every new test calls metrics.inc_total_connections() by hand before handle_ready_connection, so the real increment in count_in_metrics is never paired with the new decrements.",
+      "scopeReason": "Tests added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I022",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "decrement_total_connections loops single decrements instead of one bulk Metrics operation",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1360,
+      "kind": "style",
+      "verdictReason": "The helper calls dec_total_connections() count times (count RMWs, transient intermediate values); a dec_total_connections_by(n) on Metrics/metrics_noop would be one fetch_sub and live next to its sibling.",
+      "scopeReason": "Helper added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I023",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "dec_total_connections wraps on over-decrement instead of saturating",
+      "verdict": "unproven",
+      "severity": "low",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/observability/metrics.rs",
+      "line": 342,
+      "kind": "bug",
+      "verdictReason": "fetch_sub on AtomicU64 would wrap if ever over-decremented, but no current over-decrement path exists: cleared connections cannot reach remove_connection, which only decrements when the Arc is found in conns or excess_connections.",
+      "scopeReason": "Metrics implementation is untouched by the PR; risk is hypothetical.",
+      "introducedByPr": false
+    },
+    {
+      "id": "quillstone-I024",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "'Decrement then clear excess_connections' pattern duplicated across three sites",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "kind": "design",
+      "verdictReason": "run() (674), handle_ready_connection (1031) and maybe_reshard (1114) each pair decrement_total_connections with a clear; a clear_excess_connections() helper would keep the invariant in one place.",
+      "scopeReason": "Pattern added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I025",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Decrement sites lack a comment explaining why they cannot double count",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "kind": "docs",
+      "verdictReason": "The decrements are correct only because dropped connections' wait_for_error futures fail to upgrade their Weak and never reach remove_connection; nothing documents this.",
+      "scopeReason": "Decrements added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I026",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Moved keyspace-setup block has no comment explaining why it must precede resharding",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 913,
+      "kind": "docs",
+      "verdictReason": "The block's comment is unchanged from base and does not say that running maybe_reshard first would wipe the pool for a connection later discarded; only the test guards the ordering.",
+      "scopeReason": "Reordering done by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I027",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Keyspace setup now precedes sharder/shard-aware-port update, deferring shard discovery while USE fails",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 913,
+      "kind": "design",
+      "verdictReason": "Intentional and harmless: a connection whose USE fails cannot be admitted anyway, and learning its sharder first would reshard and clear the live pool; the PR description states setup completes before resharding and a test asserts it.",
+      "scopeReason": "Reordering done by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I028",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Keyspace failure on a shard-aware attempt gets no immediate regular-port retry and raises backoff",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 900,
+      "kind": "design",
+      "verdictReason": "The Connection arm's carve-out exists because the shard-aware port may be unreachable while the regular port works; a USE failure repeats on any port, so no fallback is useful and raising backoff is appropriate.",
+      "scopeReason": "Arm added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I029",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "ConnectionError::UseKeyspaceError classifies a healthy-transport USE failure as a connection fault",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/errors.rs",
+      "line": 600,
+      "kind": "design",
+      "verdictReason": "ConnectionError is documented as a connection-level fault, but a USE failure such as DbError::Invalid leaves the transport healthy. The new public variant therefore stretches the error's semantic contract.",
+      "scopeReason": "Variant added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I030",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "UseKeyspaceError variant message diverges from the file's existing pattern",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/errors.rs",
+      "line": 600,
+      "kind": "style",
+      "verdictReason": "Other UseKeyspaceError wrappers in errors.rs (lines 80, 142, 172) use \"'USE KEYSPACE <>' request failed: {0}\".",
+      "scopeReason": "Variant added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I031",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Private ConnectionSetupError does not document its Connection-vs-Keyspace invariant",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "kind": "docs",
+      "verdictReason": "The enum has no documentation explaining that Keyspace means an already-counted connection that must skip shard-aware fallback, while Connection preserves the previous retry behavior.",
+      "scopeReason": "Type added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I032",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Err(Keyspace) with keyspace_name: None is representable though impossible in production",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1412,
+      "kind": "design",
+      "verdictReason": "OpenedConnectionEvent keeps keyspace_name separate from result, and keyspace_setup_failure_triggers_refill constructs exactly that combination.",
+      "scopeReason": "Type added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I033",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Private ConnectionSetupError duplicates ConnectionError::UseKeyspaceError",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "kind": "design",
+      "verdictReason": "The private enum carries a distinct invariant: Keyspace errors come from an already-counted connection and must skip the shard-aware fallback, which folding into ConnectionError would lose.",
+      "scopeReason": "Type added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I034",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Keyspace-failure test never uses requested_shard",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1502,
+      "kind": "test-gap",
+      "verdictReason": "keyspace_setup_failure_triggers_refill explicitly constructs requested_shard: Some(Shard(0)) at lines 1502-1506, so the claim that no test covers a requested shard is incorrect.",
+      "scopeReason": "Test added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I035",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Keyspace arm calls dec_total_connections inline instead of decrement_total_connections",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 901,
+      "kind": "style",
+      "verdictReason": "A single decrement calling dec_total_connections() directly matches remove_connection (1232); the helper is for counts.",
+      "scopeReason": "Line added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I036",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Tests re-implement OPTIONS/STARTUP proxy rules instead of reusing start_simulated_node",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1528,
+      "kind": "style",
+      "verdictReason": "make_rules (1528) and the two literal rule sets in the resharding test restate start_simulated_node's rules; a handshake change needs edits in several places.",
+      "scopeReason": "Tests added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I037",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "keyspace_setup_failure_triggers_refill hand-builds PoolRefiller instead of mock_pool_refiller()",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "style",
+      "verdictReason": "The constructor call duplicates mock_pool_refiller(); the test could use it and read the metrics and pool_updated_notify fields.",
+      "scopeReason": "Test added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I038",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "unrequested_connection_event duplicates shard_aware_attempt_result",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1855,
+      "kind": "style",
+      "verdictReason": "Same body except requested_shard; generalizing the existing helper would remove it.",
+      "scopeReason": "Helper added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I039",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Hand-encoded SET_KEYSPACE RESULT bytes in test are undocumented and silently desync-prone",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1534,
+      "kind": "style",
+      "verdictReason": "b\"\\0\\0\\0\\x03\\0\\x08keyspace\" (kind 3, short length 8, name) has no comment and must track the keyspace name and RESULT parsing by hand.",
+      "scopeReason": "Test added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I040",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Test uses ShardInfo::new(...) where sibling tests use struct literals",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1617,
+      "kind": "style",
+      "verdictReason": "keyspace_setup_failure_preserves_pool_state builds ShardInfo via ::new while the other tests use literals.",
+      "scopeReason": "Test added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I041",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "initial_shard_info passed to start_simulated_node is immediately overridden in resharding test",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1876,
+      "kind": "style",
+      "verdictReason": "change_request_rules replaces SUPPORTED with a non-sharded response right after start_simulated_node(initial_shard_info), so the argument has no effect.",
+      "scopeReason": "Test added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I042",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Inconsistent proxy.finish() handling; new metrics tests discard proxy errors with let _",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1939,
+      "kind": "test-gap",
+      "verdictReason": "keyspace_setup_failure_preserves_pool_state matches the result (1689) while the new metrics tests (1939, 1967, 2012) use let _ like pre-existing tests, hiding rule/frame failures.",
+      "scopeReason": "Tests added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I043",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "full_pool metrics test polls the counter with 1 ms sleeps instead of a deterministic wait",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 2002,
+      "kind": "test-gap",
+      "verdictReason": "The awaited state is reached after one synchronous handle_ready_connection with a 5 s timeout, so it is not load-sensitive; pool_updated_notify is not signaled on the excess-clear path, so it is no alternative.",
+      "scopeReason": "Test added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I044",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Commit subject 'avoid busy-waiting' overstates a change that still polls",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "Replacing a yield_now() spin with sleep(1ms) does stop busy-waiting; periodic sleeping is polling, not busy-waiting.",
+      "scopeReason": "Commit in this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I045",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "New public ConnectionError variant has no changelog entry",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/errors.rs",
+      "line": 599,
+      "kind": "docs",
+      "verdictReason": "The repository has no changelog file; the variant carries a doc comment and the enum is #[non_exhaustive].",
+      "scopeReason": "Variant added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I046",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Pool-full excess clear in run() has no test",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 674,
+      "kind": "test-gap",
+      "verdictReason": "full_pool_clears_excess_connections_and_balances_metrics spawns run() and asserts that exact decrement.",
+      "scopeReason": "Decrement added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I047",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "#[from] publishes an unnecessary From<UseKeyspaceError> for ConnectionError conversion",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/errors.rs",
+      "line": 600,
+      "kind": "design",
+      "verdictReason": "The transparent #[from] attribute adds a public conversion even though only one in-crate site needs to wrap the error; an explicit conversion there would avoid expanding the public API.",
+      "scopeReason": "Attribute added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I048",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Private ConnectionSetupError lacks Debug",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "kind": "style",
+      "verdictReason": "The new private enum does not derive Debug, forcing tests to manually match variants instead of using ordinary assertion diagnostics.",
+      "scopeReason": "Type added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I049",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "ConnectionSetupError is confusingly close to the public ConnectionSetupRequestError it wraps",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1418,
+      "kind": "style",
+      "verdictReason": "The private enum's name differs by only 'Request' from errors::ConnectionSetupRequestError, even though it represents the broader post-open connection-or-keyspace outcome.",
+      "scopeReason": "Type added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I050",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "ready_connections comment claims keyspace setup always succeeds",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 531,
+      "kind": "docs",
+      "verdictReason": "The ready_connections comment still describes a newly connected connection or one whose keyspace was correctly set. start_setting_keyspace_for_connection now pushes an OpenedConnectionEvent with Err(ConnectionSetupError::Keyspace) on USE failure, and handle_ready_connection discards it, so the channel also carries unsuccessful setup outcomes.",
+      "scopeReason": "The new keyspace-error event path makes the old comment inaccurate.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I051",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Successful-connection precondition comment is pre-existing and still applies",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1328,
+      "kind": "docs",
+      "verdictReason": "The same comment appears at the merge base. The function receives a successfully opened Connection and then attempts USE; the later Err event does not contradict its input precondition. The word 'event' is imprecise but was not made false by this PR.",
+      "scopeReason": "The wording and input precondition predate this PR.",
+      "introducedByPr": false
+    },
+    {
+      "id": "quillstone-I052",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "FutureExt import is used without the metrics feature",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1462,
+      "kind": "style",
+      "verdictReason": "The import also supplies now_or_never() in keyspace_setup_failure_triggers_refill, which is not feature-gated. A default-feature test build therefore uses FutureExt even when the metrics tests are excluded.",
+      "scopeReason": "The import and its unconditional use were added in this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I053",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Keyspace test finishes the proxy before dropping its refiller",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1689,
+      "kind": "test-gap",
+      "verdictReason": "keyspace_setup_failure_preserves_pool_state awaits proxy.finish() before dropping the refiller, unlike sibling tests that drop the refiller first. It must then explicitly allow DriverDisconnected, so an unexpected early driver disconnect can satisfy its teardown check instead of failing the test.",
+      "scopeReason": "The test and its teardown order were added by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I054",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "Metric decrement depends on an undocumented asymmetry between connection and keyspace failures",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 895,
+      "kind": "design",
+      "verdictReason": "Only the new Err(ConnectionSetupError::Keyspace(err)) arm (line 900) calls self.metrics.dec_total_connections(), while the Err(ConnectionSetupError::Connection(err)) arm (line 863) does not, because the gauge is only incremented when the underlying connect future succeeds (count_in_metrics, ~line 1046) -- a correct but undocumented asymmetry; both arms also independently repeat the `!self.is_filling() && self.is_empty()` guard (lines 887 and 907), so a future refactor moving the increment point would need to update both branches together.",
+      "scopeReason": "The new Keyspace-error arm and its asymmetric decrement are introduced by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "quillstone-I055",
+      "targetId": "quillstone",
+      "revisionKey": "quillstone/ec5003868283c23a1cecb7c8070c72870315502c/617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "title": "PR description omits the log-level downgrade and newly surfaced public error variant",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "The PR description ('A failed USE on a newly opened connection is now returned to the pool as a keyspace setup error...') never mentions the warn!->debug! downgrade (I2) or that ConnectionPoolError::Broken can now surface a new ConnectionError::UseKeyspaceError variant (I3) as an observable behavior change for library consumers, even though the checklist claims the variant is documented -- which is true only as an in-code doc comment ('/// Failed to set a keyspace while initializing a connection.', errors.rs:599), not in the narrative description.",
+      "scopeReason": "This is this PR's own description.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I001",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "vectorElemMinSize floors a zero/negative-dimension inner vector at 1 byte, reopening the nested-vector allocation amplification",
+      "verdict": "real",
+      "severity": "high",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1141,
+      "kind": "security",
+      "verdictReason": "For an inner VectorType with Dimensions <= 0, isVectorVariableLengthType recurses to the fixed leaf (false) and the vec.Dimensions > 0 branch is skipped, so size stays 0 and is floored to 1. vector<vector<float,0>,1048576> (or inner -1) parsed through readTypeInfo passes the bound on a 1 MiB payload and reflect.MakeSlice allocates ~25.2 MB before the inner decode fails -- the exact 24x amplification the PR's own allocation test describes as the bug.",
+      "scopeReason": "The PR's stated goal is bounding peer-controlled vector allocation; the gap is in the new vectorElemMinSize, and the promised dim<1 rejection (#1093) does not exist in this repo.",
+      "introducedByPr": false
+    },
+    {
+      "id": "tidepool-I002",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "getCassandraLongType indexes names[1] on a truncated VectorType spec and panics",
+      "verdict": "real",
+      "severity": "high",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "helpers.go",
+      "line": 264,
+      "kind": "bug",
+      "verdictReason": "splitJavaCompositeTypes returns one element for a spec like VectorType(FloatType) and names[1] panics with index out of range; reproduced both directly and via readTypeInfo on a nested truncated vector. parseFrame's recover re-panics runtime.Error, so a peer-sent type string can crash the process.",
+      "scopeReason": "Pre-existing parser defect in a branch the PR did not modify; the PR only changed the basic-type branch of the same function.",
+      "introducedByPr": false
+    },
+    {
+      "id": "tidepool-I003",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "A zero VectorType into an *any destination still panics in VectorType.Zero(), contrary to the new comment and test",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1044,
+      "kind": "bug",
+      "verdictReason": "Unmarshal(VectorType{}, []byte{}, &a) and with nil data (a any) both panic with a nil-pointer dereference: the interface branch calls info.Zero(), which calls v.SubType.NewWithError() on a nil SubType before the new t == nil guard can run. TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType only uses *[]float64, so it passes while the property it names does not hold.",
+      "scopeReason": "The panic predates the PR, but the PR adds a comment and test claiming a caller-built zero VectorType cannot panic on the Scan goroutine.",
+      "introducedByPr": false
+    },
+    {
+      "id": "tidepool-I004",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "PR description cites issues/PRs #1085, #1086, #1091, #1093, #1106 that do not exist in this repository",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "gh reports 'Could not resolve' for all five numbers in dkropachev/tidepool. The claimed companion '#1093, which rejects dim < 1 in the metadata parsers' is absent: frame.go still does dim, _ := strconv.Atoi(...). The deferred Out items are therefore untracked.",
+      "scopeReason": "The PR description is part of the change under review and its scope argument depends on these references.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I005",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "frame.go discards the strconv.Atoi error on a vector dimension",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "frame.go",
+      "line": 861,
+      "kind": "bug",
+      "verdictReason": "dim, _ := strconv.Atoi(...) turns a non-numeric dimension into 0 (vector<int,abc> over an empty payload decodes to []int32{} with nil error) and an overflowing one into MaxInt64 with ErrRange dropped, so the server-sent string is never reported. The new bound does reject the MaxInt64 case at unmarshal time.",
+      "scopeReason": "Pre-existing frame.go code the PR does not touch; the PR attributes dim validation to a separate (nonexistent) change.",
+      "introducedByPr": false
+    },
+    {
+      "id": "tidepool-I006",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "A caller-built VectorType with a nil SubType and Dimensions > 0 still panics in vectorElemMinSize",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 999,
+      "kind": "bug",
+      "verdictReason": "unmarshalVector(VectorType{Dimensions: 3}, ...) panics because vectorElemMinSize(nil) calls elemType.Type(). The base panicked on the same caller-constructed input later in the fast path, so this is pre-existing and is not reachable from the wire.",
+      "scopeReason": "The direct nil-SubType panic is pre-existing and the PR does not make the caller-constructed input newly reachable.",
+      "introducedByPr": false
+    },
+    {
+      "id": "tidepool-I007",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "vectorElemMinSize's math.MaxInt32 saturation branch has no test coverage",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1137,
+      "kind": "test-gap",
+      "verdictReason": "TestVectorElemMinSize has no row large enough to reach the saturation return; the only overflow guard in the new peer-driven arithmetic is unexercised, so a regression in its comparison or return value would go unnoticed (the function itself returns MaxInt32 correctly for vector<vector<float,1<<30>,1<<30>).",
+      "scopeReason": "New code added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I008",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "New 'no Go type for element type' error prints a nested vector as bare custom(...VectorType) with no element type or dimension",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1048,
+      "kind": "bug",
+      "verdictReason": "For VectorType(VectorType(FloatType, 3), 2) into *any the error reads 'no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)': VectorType has no String(), and the inner type's NativeType carries only the prefix set at helpers.go:271. The test checks only the message prefix, so it does not catch this.",
+      "scopeReason": "The message is new in this PR and its stated purpose is naming the type the server sent.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I009",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Inner VectorType is built with the bare prefix name, so a nested vector cannot decode into interface{}",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "helpers.go",
+      "line": 271,
+      "kind": "bug",
+      "verdictReason": "getCassandraLongType's VectorType branch stores prefix+\"VectorType\" instead of name, so asVectorType cannot parse the inner type, goType/NewWithError fail, Zero() returns nil, and Scan(&any)/MapScan of a nested-vector column errors. Storing name would let asVectorType resolve it.",
+      "scopeReason": "Pre-existing; the PR explicitly defers making a nested vector decode into interface{} (to #1085) and only turns the crash into an error.",
+      "introducedByPr": false
+    },
+    {
+      "id": "tidepool-I010",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Map-arity and vector-dimension parse failures in getCassandraLongType still return a nameless custom() type",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "helpers.go",
+      "line": 267,
+      "kind": "bug",
+      "verdictReason": "helpers.go:222 and helpers.go:267 still return NewNativeType(protoVer, TypeCustom) with no name, so errors on those types render as custom() -- inconsistent with the new basic-type branch that keeps the server's name.",
+      "scopeReason": "Same function and same stated goal as the PR's naming change, though the branches themselves are unchanged.",
+      "introducedByPr": false
+    },
+    {
+      "id": "tidepool-I011",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Keeping the unknown type name changes String()/equality of UDT, tuple and collection element types",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "helpers.go",
+      "line": 280,
+      "kind": "design",
+      "verdictReason": "The shared fallback now fills NativeType.custom for unknown classes in UDT fields, tuples, and collection elements, changing both String() output and structural equality outside the vector error path. The diagnostic improvement is intentional and no breakage is known, but this collateral behavior is not disclosed.",
+      "scopeReason": "Direct effect of the PR's helpers.go change.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I012",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "PR description's claim that every new test fails against pristine code is overstated",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "TestUnmarshalVectorAcceptsWellFormedPayloads and TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType (and the concrete/resolvable subtests of the no-Go-type test) exercise inputs the base already handles, so they pass there as regression guards; TestVectorElemMinSize does not compile against the base because vectorElemMinSize is undefined.",
+      "scopeReason": "Accuracy of the PR's own verification statement.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I013",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Negative dimensions with a NULL payload now error instead of returning nil, and the behaviour change is not disclosed",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 992,
+      "kind": "docs",
+      "verdictReason": "The Dimensions < 0 check now runs before the data == nil branch, so dim=-3 with nil data errors where the base returned nil. The test pins this deliberately, but the PR's 'Behaviour change' paragraph only mentions short or zero-length non-NULL payloads.",
+      "scopeReason": "Behaviour introduced by the PR's new check.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I014",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "A zero-dimension inner vector's 1-byte floor rejects an empty payload the base decoded",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1142,
+      "kind": "bug",
+      "verdictReason": "vector<vector<int,0>,3> over []byte{} decoded to [[] [] []] on the base but now errors '3 dimensions do not fit in 0 bytes', because the floor is 1 byte while the true wire size is 0. Pathological (Cassandra rejects dim < 1) and a third unlisted behaviour change.",
+      "scopeReason": "Caused by the PR's new floor in vectorElemMinSize.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I015",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Fast-path comment still says nil/empty payloads fall through to the generic path",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1006,
+      "kind": "docs",
+      "verdictReason": "The new bound above now rejects an empty non-nil payload with Dimensions > 0 before this point; only nil data and dim=0 still fall through.",
+      "scopeReason": "The PR's change made the adjacent comment stale.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I016",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Comment claims every path below turns Dimensions into an allocation, but the array path allocates nothing",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 986,
+      "kind": "docs",
+      "verdictReason": "The *[N]T destination only compares rv.Len() against Dimensions and allocates nothing, as the PR's own 'short payload into an array' test comment acknowledges; there the bound fixes silent zero-decoding, not an allocation.",
+      "scopeReason": "Comment added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I017",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Test comments claim no vector element encodes in zero bytes, but vector<float,0> does",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal_vector_test.go",
+      "line": 813,
+      "kind": "docs",
+      "verdictReason": "'Neither can describe an element in zero bytes' (line 813) and 'a vector of N elements is never encoded in fewer than N bytes' (line 693) are both false for a zero-dimension inner vector, which encodes to zero bytes; the 1-byte floor exists because the caller divides.",
+      "scopeReason": "Test comments added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I018",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Test comment reads as each inner vector being eight bytes when each is four",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal_vector_test.go",
+      "line": 773,
+      "kind": "docs",
+      "verdictReason": "Each inner vector<text,3> is a 1-byte length plus three zero vints (4 bytes); eight is the total for the two inner vectors the subtest marshals, and TestVectorElemMinSize costs the same shape at 4.",
+      "scopeReason": "Test comment added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I019",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Bound-check error omits the per-element minimum, so short-payload messages are hard to interpret",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1001,
+      "kind": "design",
+      "verdictReason": "The message '%d dimensions do not fit in %d bytes' omits elemMin; for nested types (e.g. '3 dimensions do not fit in 24 bytes') it looks wrong, and it replaces the fast paths' exact 'expected N bytes, got M' arithmetic.",
+      "scopeReason": "Error message added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I020",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Variable-length element floor of one byte means empty date/time/smallint elements still decode to zero values with a nil error",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1131,
+      "kind": "bug",
+      "verdictReason": "vector<smallint,4> over four zero bytes decodes to [0 0 0 0] and vector<date,2> over two zero bytes to two minDate values, both with nil error: each is a vint-0 empty element that passes the 1-byte floor. The PR's 'short payload now errors' claim therefore holds only for fixed-size elements. Allocation stays one value per payload byte, and empty-value decoding matches the scalar codecs (an empty date column also decodes to minDate).",
+      "scopeReason": "Concerns the reach of the PR's bound and its behaviour-change claim; per-element empty-value decoding itself is pre-existing.",
+      "introducedByPr": false
+    },
+    {
+      "id": "tidepool-I021",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Dimension bound counts wire bytes while MakeSlice allocates Go-sized elements",
+      "verdict": "false-positive",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1000,
+      "kind": "security",
+      "verdictReason": "A vector<text,N> over N zero bytes is a valid encoding of N empty strings, so its 16N-byte allocation cannot be rejected; amplification is a constant factor bounded by the frame-size-limited payload, the same property unmarshalList has. The bound's job is to stop counts the payload cannot encode, which it does.",
+      "scopeReason": "Concerns the PR's new bound.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I022",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "No test pins an empty non-NULL payload with Dimensions > 0",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal_vector_test.go",
+      "line": 642,
+      "kind": "test-gap",
+      "verdictReason": "The announced vector<int,3> over []byte{} case is the boundary between the data != nil skip and the bound, but the table only uses a 2-byte payload; relaxing the guard to len(data) > 0 would reinstate [0 0 0], nil without failing a test.",
+      "scopeReason": "Behaviour change announced by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I023",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Dimension-bound tests bypass readTypeInfo-parsed types",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal_vector_test.go",
+      "line": 587,
+      "kind": "test-gap",
+      "verdictReason": "TestUnmarshalVectorRejectsUnfittableDimensions calls unmarshalVector with hand-built VectorTypes; none of its rows uses wireVectorType/Unmarshal, although the threat model is a server-sent type.",
+      "scopeReason": "Tests added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I024",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Allocation test measures process-wide TotalAlloc and could flake from background goroutines",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal_vector_test.go",
+      "line": 836,
+      "kind": "test-gap",
+      "verdictReason": "runtime.MemStats.TotalAlloc is process-wide, so goroutines left by earlier tests can allocate between the two samples even though this test itself is not parallel. The generous budget makes a failure unlikely but does not isolate the measurement.",
+      "scopeReason": "Test added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I025",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "'Not parallel' comment on the allocation test misnames the mechanism",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal_vector_test.go",
+      "line": 835,
+      "kind": "docs",
+      "verdictReason": "The comment correctly states why the test is not t.Parallel(): if it were, parallel siblings would run concurrently and pollute TotalAlloc. Leaked goroutines are a separate exposure, not a contradiction of the comment.",
+      "scopeReason": "Test comment added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I026",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Allocation test's payload/8 budget is loose and coupled to the payload constant",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal_vector_test.go",
+      "line": 852,
+      "kind": "test-gap",
+      "verdictReason": "payload is a fixed 1 MiB constant, so the 128 KB budget separates the ~25 MB regression from the ~3.5 KB fixed path by orders of magnitude; the test pins where the rejection happens, not an exact byte count.",
+      "scopeReason": "Test added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I027",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Identical 'info.Dimensions > 0 && data != nil' guard opens two adjacent blocks",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 998,
+      "kind": "style",
+      "verdictReason": "The bound block and the fast-path block both open with the same condition back to back; they could be one block running the bound check and then the fast paths.",
+      "scopeReason": "Duplication introduced by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I028",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "vectorElemMinSize adds a third place that classifies vector element types",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1125,
+      "kind": "design",
+      "verdictReason": "vectorElemMinSize derives its answer from vectorFixedElemSize and isVectorVariableLengthType and only adds the nested-vector recursion; a new element type still needs to be classified only in those two existing functions.",
+      "scopeReason": "New function added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I029",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "math.MaxInt32 saturation sentinel returned as a plain int",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1137,
+      "kind": "design",
+      "verdictReason": "MaxInt32 is a valid lower bound on element size, not a sentinel the caller must distinguish: dividing any frame-size-limited payload by it yields 0, so every positive count is correctly rejected.",
+      "scopeReason": "New code added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I030",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "makeVectorType duplicates the existing vector-type test helpers",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal_vector_test.go",
+      "line": 557,
+      "kind": "style",
+      "verdictReason": "makeVectorType repeats the struct literal of makeDoubleVectorType/makeFloat32VectorType (lines 36/49) and vector_bench_test.go's makeFloatVectorType; the older helpers could delegate to it.",
+      "scopeReason": "Helper added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I031",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Roughly 400 lines of tests for two guard conditions",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "verdictReason": "The tests cover distinct wire-reachable inputs (wrap, nested, interface, zero-dimension, allocation placement); volume alone is not a defect.",
+      "scopeReason": "Tests added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I032",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Test comment claims 32-bit coverage the package cannot currently build for",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal_vector_test.go",
+      "line": 586,
+      "kind": "docs",
+      "verdictReason": "GOARCH=386 does fail to build (serialization/cqlint and varint constants overflow int), but the comment only explains why the rows use bits.UintSize, which is correct regardless.",
+      "scopeReason": "Test comment added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I033",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Commits and PR body carry Claude attribution",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "style",
+      "verdictReason": "Both commits end with 'Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>' and the PR body ends with '🤖 Generated with Claude Code', which the author's global instructions forbid.",
+      "scopeReason": "Commit messages and PR body are part of the change.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I034",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Commit messages do not follow CONTRIBUTING.md's subject/trailer format",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "CONTRIBUTING.md",
+      "line": 30,
+      "kind": "style",
+      "verdictReason": "The checked-in CONTRIBUTING.md requires a capitalized subject and Patch-by/Reviewed-by trailers, while these commits use lowercase conventional-commit subjects without the trailers. Recent main commits show that repository practice has drifted, which lowers actionability but does not make the documented-policy violation false.",
+      "scopeReason": "Repository-wide convention drift, not specific to this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I035",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Behaviour change not recorded in CHANGELOG.md",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "CONTRIBUTING.md",
+      "line": 24,
+      "kind": "docs",
+      "verdictReason": "No CHANGELOG.md exists in the repository, CONTRIBUTING.md allows stating an unmet requirement on the PR, and the PR body documents the behaviour change.",
+      "scopeReason": "Process requirement the repository no longer supports.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I036",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Short or empty non-NULL payload with Dimensions > 0 now errors instead of decoding to zero values",
+      "verdict": "false-positive",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "design",
+      "verdictReason": "Intended and documented: decoding vector<int,3> over an empty payload to [0 0 0] was silent corruption, and the PR's 'Behaviour change' section states the new error.",
+      "scopeReason": "Behaviour change introduced by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I037",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Commit 0276a66's message describes a one-byte floor while the code uses the type-aware vectorElemMinSize",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "The commit body says 'Every element takes at least one byte on the wire', but the same commit introduces the recursive vectorElemMinSize floor; the PR description is accurate, the commit body is not.",
+      "scopeReason": "Commit message of the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I038",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Negative vint length decodes a variable-length vector element to empty with a nil error",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1097,
+      "kind": "bug",
+      "verdictReason": "vector<text,1> over nine 0xff bytes decodes to [\"\"] with nil error: elemSize = int(m) narrows to negative and the elemSize >= 0 branch is skipped, leaving nil data.",
+      "scopeReason": "Pre-existing and explicitly listed as Out in the PR (#1106, which does not exist).",
+      "introducedByPr": false
+    },
+    {
+      "id": "tidepool-I039",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Scan(&any) on a vector yields []*T while goType/MapScan yields []T, and the new test pins []*T",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "out-of-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1044,
+      "kind": "bug",
+      "verdictReason": "reflect.TypeOf(info.Zero()) gives []*float32 for vector<float,3> (verified), whereas goType dereferences the pointer and returns []float32; the new 'resolvable element type' subtest asserts []*float32.",
+      "scopeReason": "Pre-existing inconsistency in Zero(); the PR only adds a nil check and a test that observes it.",
+      "introducedByPr": false
+    },
+    {
+      "id": "tidepool-I040",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "vectorElemMinSize is recomputed per value at O(depth^2)",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1125,
+      "kind": "perf",
+      "verdictReason": "Each level calls isVectorVariableLengthType, which itself recurses to the leaf, and the result is not cached; only very deep nesting makes it measurable, and parsing such a type name is already far costlier.",
+      "scopeReason": "New function added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I041",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "VectorType.Zero() discards the NewWithError error, so the new message cannot state the cause",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 2047,
+      "kind": "bug",
+      "verdictReason": "The discarded error is 'cannot create Go type for unknown CQL type <type>', which carries the same information as the new 'no Go type for element type <type>' message; no cause is misreported.",
+      "scopeReason": "Concerns the message the PR adds.",
+      "introducedByPr": false
+    },
+    {
+      "id": "tidepool-I042",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Negative-dimension check is undeclared scope creep",
+      "verdict": "false-positive",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 992,
+      "kind": "design",
+      "verdictReason": "The PR's first Scope-In bullet covers Dimensions reaching make/reflect.MakeSlice unbounded, and its verification cites 'reflect.MakeSlice: negative len'; the check is in scope.",
+      "scopeReason": "Check added by the PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I043",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Public Unmarshal behaviour change is not documented in godoc",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 992,
+      "kind": "docs",
+      "verdictReason": "Unmarshal now returns errors for negative dimensions and payloads too short for Dimensions, but its public documentation does not describe these new validation failures even though CONTRIBUTING.md requires API changes to be documented in godoc.",
+      "scopeReason": "Public behavior changed by this PR.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I044",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Nested VectorType with a nil inner SubType still panics in the new vectorElemMinSize recursion",
+      "verdict": "real",
+      "severity": "medium",
+      "scope": "in-scope",
+      "reviewedFrom": "model-comparison-2026-10-08",
+      "file": "marshal.go",
+      "line": 1126,
+      "kind": "bug",
+      "verdictReason": "VectorType{SubType: VectorType{Dimensions: 3}, Dimensions: 2} reaches the new recursive vectorElemMinSize path and panics when the inner nil SubType is classified. The exact caller-built shape also panicked later on base, so the PR does not introduce the observable panic, but its new recursion leaves the intended mitigation incomplete.",
+      "scopeReason": "The incomplete guard is in the PR's new recursive size helper.",
+      "introducedByPr": false
+    },
+    {
+      "id": "tidepool-I045",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Commit subject describes only vectors despite the wider custom-type change",
+      "verdict": "real",
+      "severity": "low",
+      "scope": "in-scope",
+      "reviewedFrom": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12",
+      "file": "",
+      "line": 0,
+      "kind": "docs",
+      "verdictReason": "Verified the diff: helpers.go:280-284's change (keep an unrecognised type name on the custom type instead of discarding it) applies to getCassandraLongType, which is used for every nested type parse path (collections, UDTs, tuples), not just vectors, yet the subject 'reject a vector element type that has no Go type' and the test coverage only exercise the vector path.",
+      "scopeReason": "The commit message and scope of testing are this PR's own content.",
+      "introducedByPr": true
+    },
+    {
+      "id": "tidepool-I046",
+      "targetId": "tidepool",
+      "revisionKey": "tidepool/24c789ec836b9382b24a38303e869de57d175e23/78891dd78461a2758585ce3545de0d55f2c114a3",
+      "title": "Basic-type comment now covers a named custom-type fallback",
+      "verdict": "real",
+      "severity": "nit",
+      "scope": "in-scope",
+      "reviewedFrom": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12",
+      "file": "helpers.go",
+      "line": 279,
+      "kind": "docs",
+      "verdictReason": "The pre-existing '// basic type' comment at helpers.go:279 sits directly above both the basic-type return and the PR's new fallback branch (helpers.go:281-284) that preserves an unrecognised type name as a named custom type; the label no longer describes everything underneath it.",
+      "scopeReason": "The new fallback branch was inserted under this pre-existing comment by this PR.",
+      "introducedByPr": true
+    }
+  ],
+  "mappings": [
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I1",
+      "identityIds": [
+        "ironweave-I001"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I10",
+      "identityIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I14",
+      "identityIds": [
+        "ironweave-I007"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I15",
+      "identityIds": [
+        "ironweave-I048"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I2",
+      "identityIds": [
+        "ironweave-I021"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I21",
+      "identityIds": [
+        "ironweave-I017"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I22",
+      "identityIds": [
+        "ironweave-I053"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I3",
+      "identityIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I35",
+      "identityIds": [
+        "ironweave-I009"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I4",
+      "identityIds": [
+        "ironweave-I002",
+        "ironweave-I007"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I40",
+      "identityIds": [
+        "ironweave-I011"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I41",
+      "identityIds": [
+        "ironweave-I020"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I5",
+      "identityIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I51",
+      "identityIds": [
+        "ironweave-I024"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I6",
+      "identityIds": [
+        "ironweave-I023"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I7",
+      "identityIds": [
+        "ironweave-I019"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I8",
+      "identityIds": [
+        "ironweave-I012"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/ironweave/I9",
+      "identityIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I1",
+      "identityIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I10",
+      "identityIds": [
+        "quillstone-I024"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I11",
+      "identityIds": [
+        "quillstone-I025"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I12",
+      "identityIds": [
+        "quillstone-I026"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I13",
+      "identityIds": [
+        "quillstone-I007"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I14",
+      "identityIds": [
+        "quillstone-I008"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I15",
+      "identityIds": [
+        "quillstone-I011"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I16",
+      "identityIds": [
+        "quillstone-I010"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I17",
+      "identityIds": [
+        "quillstone-I015"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I18",
+      "identityIds": [
+        "quillstone-I016"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I19",
+      "identityIds": [
+        "quillstone-I020"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I2",
+      "identityIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I20",
+      "identityIds": [
+        "quillstone-I042"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I21",
+      "identityIds": [
+        "quillstone-I036"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I22",
+      "identityIds": [
+        "quillstone-I040"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I23",
+      "identityIds": [
+        "quillstone-I039"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I24",
+      "identityIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I25",
+      "identityIds": [
+        "quillstone-I044"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I26",
+      "identityIds": [
+        "quillstone-I009"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I27",
+      "identityIds": [
+        "quillstone-I043"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I29",
+      "identityIds": [
+        "quillstone-I032"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I4",
+      "identityIds": [
+        "quillstone-I047",
+        "quillstone-I029"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I6",
+      "identityIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I8",
+      "identityIds": [
+        "quillstone-I005"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/quillstone/I9",
+      "identityIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I1",
+      "identityIds": [
+        "tidepool-I003",
+        "tidepool-I006"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I10",
+      "identityIds": [
+        "tidepool-I016"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I11",
+      "identityIds": [
+        "tidepool-I017"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I12",
+      "identityIds": [
+        "tidepool-I013"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I13",
+      "identityIds": [
+        "tidepool-I010"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I14",
+      "identityIds": [
+        "tidepool-I011"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I15",
+      "identityIds": [
+        "tidepool-I008"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I16",
+      "identityIds": [
+        "tidepool-I019"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I17",
+      "identityIds": [
+        "tidepool-I024"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I18",
+      "identityIds": [
+        "tidepool-I026"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I19",
+      "identityIds": [
+        "tidepool-I030"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I2",
+      "identityIds": [
+        "tidepool-I044"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I20",
+      "identityIds": [
+        "tidepool-I033"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I21",
+      "identityIds": [
+        "tidepool-I034"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I22",
+      "identityIds": [
+        "tidepool-I037"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I23",
+      "identityIds": [
+        "tidepool-I043"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I24",
+      "identityIds": [
+        "tidepool-I038"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I3",
+      "identityIds": [
+        "tidepool-I006"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I33",
+      "identityIds": [
+        "tidepool-I031"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I6",
+      "identityIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I7",
+      "identityIds": [
+        "tidepool-I007"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I8",
+      "identityIds": [
+        "tidepool-I022"
+      ]
+    },
+    {
+      "recordId": "fable-5-1-2026-09-29/tidepool/I9",
+      "identityIds": [
+        "tidepool-I015"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I12",
+      "identityIds": [
+        "ironweave-I030"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I13",
+      "identityIds": [
+        "ironweave-I015"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I15",
+      "identityIds": [
+        "ironweave-I041"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I19",
+      "identityIds": [
+        "ironweave-I006"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I2",
+      "identityIds": [
+        "ironweave-I003"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I24",
+      "identityIds": [
+        "ironweave-I049"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I28",
+      "identityIds": [
+        "ironweave-I033"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I29",
+      "identityIds": [
+        "ironweave-I034"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I30",
+      "identityIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I31",
+      "identityIds": [
+        "ironweave-I017"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I36",
+      "identityIds": [
+        "ironweave-I043"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I38",
+      "identityIds": [
+        "ironweave-I029"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I4",
+      "identityIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I41",
+      "identityIds": [
+        "ironweave-I038"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I42",
+      "identityIds": [
+        "ironweave-I040"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I7",
+      "identityIds": [
+        "ironweave-I012"
+      ]
+    },
+    {
+      "recordId": "legacy/ironweave/I9",
+      "identityIds": [
+        "ironweave-I020"
+      ]
+    },
+    {
+      "recordId": "legacy/quillstone/I10",
+      "identityIds": [
+        "quillstone-I024"
+      ]
+    },
+    {
+      "recordId": "legacy/quillstone/I16",
+      "identityIds": [
+        "quillstone-I039"
+      ]
+    },
+    {
+      "recordId": "legacy/quillstone/I19",
+      "identityIds": [
+        "quillstone-I038"
+      ]
+    },
+    {
+      "recordId": "legacy/quillstone/I21",
+      "identityIds": [
+        "quillstone-I020"
+      ]
+    },
+    {
+      "recordId": "legacy/quillstone/I23",
+      "identityIds": [
+        "quillstone-I019"
+      ]
+    },
+    {
+      "recordId": "legacy/quillstone/I28",
+      "identityIds": [
+        "quillstone-I010"
+      ]
+    },
+    {
+      "recordId": "legacy/quillstone/I30",
+      "identityIds": [
+        "quillstone-I012"
+      ]
+    },
+    {
+      "recordId": "legacy/quillstone/I33",
+      "identityIds": [
+        "quillstone-I045"
+      ]
+    },
+    {
+      "recordId": "legacy/quillstone/I34",
+      "identityIds": [
+        "quillstone-I046"
+      ]
+    },
+    {
+      "recordId": "legacy/quillstone/I4",
+      "identityIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "recordId": "legacy/tidepool/I10",
+      "identityIds": [
+        "tidepool-I033"
+      ]
+    },
+    {
+      "recordId": "legacy/tidepool/I11",
+      "identityIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "recordId": "legacy/tidepool/I19",
+      "identityIds": [
+        "tidepool-I005"
+      ]
+    },
+    {
+      "recordId": "legacy/tidepool/I21",
+      "identityIds": [
+        "tidepool-I014"
+      ]
+    },
+    {
+      "recordId": "legacy/tidepool/I22",
+      "identityIds": [
+        "tidepool-I013"
+      ]
+    },
+    {
+      "recordId": "legacy/tidepool/I29",
+      "identityIds": [
+        "tidepool-I018"
+      ]
+    },
+    {
+      "recordId": "legacy/tidepool/I36",
+      "identityIds": [
+        "tidepool-I029"
+      ]
+    },
+    {
+      "recordId": "legacy/tidepool/I6",
+      "identityIds": [
+        "tidepool-I007"
+      ]
+    },
+    {
+      "recordId": "legacy/tidepool/I8",
+      "identityIds": [
+        "tidepool-I041"
+      ]
+    },
+    {
+      "recordId": "legacy/tidepool/I9",
+      "identityIds": [
+        "tidepool-I027"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I1",
+      "identityIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I10",
+      "identityIds": [
+        "ironweave-I060"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I14",
+      "identityIds": [
+        "ironweave-I003"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I15",
+      "identityIds": [
+        "ironweave-I056"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I16",
+      "identityIds": [
+        "ironweave-I054"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I17",
+      "identityIds": [
+        "ironweave-I021"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I18",
+      "identityIds": [
+        "ironweave-I029"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I19",
+      "identityIds": [
+        "ironweave-I039"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I2",
+      "identityIds": [
+        "ironweave-I009"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I20",
+      "identityIds": [
+        "ironweave-I037"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I21",
+      "identityIds": [
+        "ironweave-I026"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I22",
+      "identityIds": [
+        "ironweave-I046"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I24",
+      "identityIds": [
+        "ironweave-I027",
+        "ironweave-I010"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I26",
+      "identityIds": [
+        "ironweave-I002"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I27",
+      "identityIds": [
+        "ironweave-I044"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I3",
+      "identityIds": [
+        "ironweave-I004"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I4",
+      "identityIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I5",
+      "identityIds": [
+        "ironweave-I001"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I6",
+      "identityIds": [
+        "ironweave-I012"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I7",
+      "identityIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I8",
+      "identityIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/ironweave/I9",
+      "identityIds": [
+        "ironweave-I018"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I1",
+      "identityIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I10",
+      "identityIds": [
+        "quillstone-I030"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I11",
+      "identityIds": [
+        "quillstone-I044"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I14",
+      "identityIds": [
+        "quillstone-I005"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I16",
+      "identityIds": [
+        "quillstone-I008"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I17",
+      "identityIds": [
+        "quillstone-I009"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I18",
+      "identityIds": [
+        "quillstone-I029"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I2",
+      "identityIds": [
+        "quillstone-I006"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I3",
+      "identityIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I4",
+      "identityIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I6",
+      "identityIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I7",
+      "identityIds": [
+        "quillstone-I013"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I8",
+      "identityIds": [
+        "quillstone-I037"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/quillstone/I9",
+      "identityIds": [
+        "quillstone-I036"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I1",
+      "identityIds": [
+        "tidepool-I004"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I12",
+      "identityIds": [
+        "tidepool-I006"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I13",
+      "identityIds": [
+        "tidepool-I010"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I14",
+      "identityIds": [
+        "tidepool-I010"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I16",
+      "identityIds": [
+        "tidepool-I035"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I17",
+      "identityIds": [
+        "tidepool-I034"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I18",
+      "identityIds": [
+        "tidepool-I027"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I19",
+      "identityIds": [
+        "tidepool-I028"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I2",
+      "identityIds": [
+        "tidepool-I015"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I20",
+      "identityIds": [
+        "tidepool-I030"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I21",
+      "identityIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I3",
+      "identityIds": [
+        "tidepool-I032"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-2026-09-29/tidepool/I4",
+      "identityIds": [
+        "tidepool-I033"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I1",
+      "identityIds": [
+        "ironweave-I005",
+        "ironweave-I006"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I10",
+      "identityIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I11",
+      "identityIds": [
+        "ironweave-I034"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I12",
+      "identityIds": [
+        "ironweave-I009"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I13",
+      "identityIds": [
+        "ironweave-I011"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I14",
+      "identityIds": [
+        "ironweave-I023"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I15",
+      "identityIds": [
+        "ironweave-I016"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I16",
+      "identityIds": [
+        "ironweave-I017"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I17",
+      "identityIds": [
+        "ironweave-I018",
+        "ironweave-I060"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I18",
+      "identityIds": [
+        "ironweave-D002"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I19",
+      "identityIds": [
+        "ironweave-I030"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I2",
+      "identityIds": [
+        "ironweave-I027"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I20",
+      "identityIds": [
+        "ironweave-I039"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I21",
+      "identityIds": [
+        "ironweave-I035"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I23",
+      "identityIds": [
+        "ironweave-I012"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I24",
+      "identityIds": [
+        "ironweave-I020"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I25",
+      "identityIds": [
+        "ironweave-I021"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I26",
+      "identityIds": [
+        "ironweave-I026"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I27",
+      "identityIds": [
+        "ironweave-I028"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I28",
+      "identityIds": [
+        "ironweave-I022"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I29",
+      "identityIds": [
+        "ironweave-I037",
+        "ironweave-I049"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I3",
+      "identityIds": [
+        "ironweave-D001"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I30",
+      "identityIds": [
+        "ironweave-I040"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I31",
+      "identityIds": [
+        "ironweave-I003"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I32",
+      "identityIds": [
+        "ironweave-I003"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I33",
+      "identityIds": [
+        "ironweave-I019"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I34",
+      "identityIds": [
+        "ironweave-I063"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I4",
+      "identityIds": [
+        "ironweave-D001"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I5",
+      "identityIds": [
+        "ironweave-I002",
+        "ironweave-I007"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I6",
+      "identityIds": [
+        "ironweave-I019"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I7",
+      "identityIds": [
+        "ironweave-I014"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I8",
+      "identityIds": [
+        "ironweave-I014"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r62-ironweave-2026-10-12/ironweave/I9",
+      "identityIds": [
+        "ironweave-I008",
+        "ironweave-I029"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I1",
+      "identityIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I10",
+      "identityIds": [
+        "quillstone-I054"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I11",
+      "identityIds": [
+        "quillstone-I048",
+        "quillstone-I049"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I12",
+      "identityIds": [
+        "quillstone-I038"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I13",
+      "identityIds": [
+        "quillstone-I036",
+        "quillstone-I037",
+        "quillstone-I039"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I14",
+      "identityIds": [
+        "quillstone-I009"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I15",
+      "identityIds": [
+        "quillstone-I012",
+        "quillstone-I013"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I16",
+      "identityIds": [
+        "quillstone-I007",
+        "quillstone-I008",
+        "quillstone-I010"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I17",
+      "identityIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I18",
+      "identityIds": [
+        "quillstone-I030"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I19",
+      "identityIds": [
+        "quillstone-I026",
+        "quillstone-I027"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I2",
+      "identityIds": [
+        "quillstone-I002"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I20",
+      "identityIds": [
+        "quillstone-I055"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I3",
+      "identityIds": [
+        "quillstone-I029"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I4",
+      "identityIds": [
+        "quillstone-I015",
+        "quillstone-I016",
+        "quillstone-I021",
+        "quillstone-I032"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I5",
+      "identityIds": [
+        "quillstone-I017",
+        "quillstone-I021"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I6",
+      "identityIds": [
+        "quillstone-I020",
+        "quillstone-I021"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I7",
+      "identityIds": [
+        "quillstone-I003",
+        "quillstone-I004"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I8",
+      "identityIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r64-quillstone-2026-10-12/quillstone/I9",
+      "identityIds": [
+        "quillstone-I043"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I1",
+      "identityIds": [
+        "tidepool-I001"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I10",
+      "identityIds": [
+        "tidepool-I033"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I11",
+      "identityIds": [
+        "tidepool-I004"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I12",
+      "identityIds": [
+        "tidepool-I037"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I13",
+      "identityIds": [
+        "tidepool-I045"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I14",
+      "identityIds": [
+        "tidepool-I028"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I15",
+      "identityIds": [
+        "tidepool-I040"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I16",
+      "identityIds": [
+        "tidepool-I030"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I2",
+      "identityIds": [
+        "tidepool-I032"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I20",
+      "identityIds": [
+        "tidepool-I024"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I22",
+      "identityIds": [
+        "tidepool-I046"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I23",
+      "identityIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I24",
+      "identityIds": [
+        "tidepool-I036"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I3",
+      "identityIds": [
+        "tidepool-I017"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I4",
+      "identityIds": [
+        "tidepool-I017"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I5",
+      "identityIds": [
+        "tidepool-I018"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I6",
+      "identityIds": [
+        "tidepool-I015"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I7",
+      "identityIds": [
+        "tidepool-I016"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I8",
+      "identityIds": [
+        "tidepool-I008",
+        "tidepool-I019"
+      ]
+    },
+    {
+      "recordId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/I9",
+      "identityIds": [
+        "tidepool-I027"
+      ]
+    },
+    {
+      "recordId": "rafp-added-diff-2026-10-09/ironweave/I2",
+      "identityIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "recordId": "rafp-added-diff-2026-10-09/quillstone/I8",
+      "identityIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "recordId": "rafp-added-diff-2026-10-09/tidepool/I5",
+      "identityIds": [
+        "tidepool-I007"
+      ]
+    },
+    {
+      "recordId": "rafp-added-diff-2026-10-09/tidepool/I8",
+      "identityIds": [
+        "tidepool-I034"
+      ]
+    },
+    {
+      "recordId": "rafp-baseline-2026-10-04/ironweave/I2",
+      "identityIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "recordId": "rafp-baseline-2026-10-04/ironweave/I9",
+      "identityIds": [
+        "ironweave-I017"
+      ]
+    },
+    {
+      "recordId": "rafp-baseline-2026-10-04/quillstone/I8",
+      "identityIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "recordId": "rafp-control-repeat-ironweave-2026-10-08/ironweave/I5",
+      "identityIds": [
+        "ironweave-I017"
+      ]
+    },
+    {
+      "recordId": "rafp-control-repeat-ironweave-2026-10-08/ironweave/I8",
+      "identityIds": [
+        "ironweave-I061"
+      ]
+    },
+    {
+      "recordId": "rafp-coverage-2026-10-04/ironweave/I12",
+      "identityIds": [
+        "ironweave-I027"
+      ]
+    },
+    {
+      "recordId": "rafp-coverage-2026-10-04/quillstone/I13",
+      "identityIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "recordId": "rafp-coverage-2026-10-04/quillstone/I17",
+      "identityIds": [
+        "quillstone-I038"
+      ]
+    },
+    {
+      "recordId": "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/I1",
+      "identityIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "recordId": "rafp-frozen-patch-tokens-ironweave-2026-10-08/ironweave/I2",
+      "identityIds": [
+        "ironweave-I061"
+      ]
+    },
+    {
+      "recordId": "rafp-native-claude-retest-2026-10-09/ironweave/I9",
+      "identityIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "recordId": "rafp-native-claude-retest-2026-10-09/quillstone/I11",
+      "identityIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "recordId": "rafp-native-claude-retest-2026-10-09/quillstone/I17",
+      "identityIds": [
+        "quillstone-I022"
+      ]
+    },
+    {
+      "recordId": "rafp-native-claude-retest-2026-10-09/quillstone/I4",
+      "identityIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "recordId": "rafp-native-claude-retest-2026-10-09/quillstone/I8",
+      "identityIds": [
+        "quillstone-I012"
+      ]
+    },
+    {
+      "recordId": "rafp-native-claude-retest-2026-10-09/tidepool/I13",
+      "identityIds": [
+        "tidepool-I007"
+      ]
+    },
+    {
+      "recordId": "rafp-native-claude-retest-2026-10-09/tidepool/I7",
+      "identityIds": [
+        "tidepool-I008"
+      ]
+    },
+    {
+      "recordId": "rafp-native-controller-ironweave-2026-10-09/ironweave/I8",
+      "identityIds": [
+        "ironweave-I061"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-batched-2026-10-08/ironweave/I11",
+      "identityIds": [
+        "ironweave-I061"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-batched-2026-10-08/ironweave/I6",
+      "identityIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-batched-2026-10-08/quillstone/I1",
+      "identityIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-batched-2026-10-08/quillstone/I6",
+      "identityIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-batched-2026-10-08/tidepool/I4",
+      "identityIds": [
+        "tidepool-I034"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-frozen-patch-2026-10-08/quillstone/I1",
+      "identityIds": [
+        "quillstone-I003"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-frozen-patch-2026-10-08/quillstone/I4",
+      "identityIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/ironweave/I1",
+      "identityIds": [
+        "ironweave-I005"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/ironweave/I10",
+      "identityIds": [
+        "ironweave-I003"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/ironweave/I11",
+      "identityIds": [
+        "ironweave-I015"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/ironweave/I12",
+      "identityIds": [
+        "ironweave-I062"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/ironweave/I3",
+      "identityIds": [
+        "ironweave-I013",
+        "ironweave-I014"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/ironweave/I4",
+      "identityIds": [
+        "ironweave-I012"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/ironweave/I5",
+      "identityIds": [
+        "ironweave-I033"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/ironweave/I6",
+      "identityIds": [
+        "ironweave-I002"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/ironweave/I7",
+      "identityIds": [
+        "ironweave-I001"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/ironweave/I8",
+      "identityIds": [
+        "ironweave-I019"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/ironweave/I9",
+      "identityIds": [
+        "ironweave-I061"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/quillstone/I1",
+      "identityIds": [
+        "quillstone-I001"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/quillstone/I10",
+      "identityIds": [
+        "quillstone-I007",
+        "quillstone-I011"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/quillstone/I2",
+      "identityIds": [
+        "quillstone-I006"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/quillstone/I4",
+      "identityIds": [
+        "quillstone-I050"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/quillstone/I5",
+      "identityIds": [
+        "quillstone-I051"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/quillstone/I6",
+      "identityIds": [
+        "quillstone-I014"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/quillstone/I7",
+      "identityIds": [
+        "quillstone-I053"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/quillstone/I8",
+      "identityIds": [
+        "quillstone-I052"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/quillstone/I9",
+      "identityIds": [
+        "quillstone-I008"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I1",
+      "identityIds": [
+        "tidepool-I008",
+        "tidepool-I009"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I10",
+      "identityIds": [
+        "tidepool-I011"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I11",
+      "identityIds": [
+        "tidepool-I044"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I12",
+      "identityIds": [
+        "tidepool-I015"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I13",
+      "identityIds": [
+        "tidepool-I003"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I14",
+      "identityIds": [
+        "tidepool-I033"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I3",
+      "identityIds": [
+        "tidepool-I016"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I4",
+      "identityIds": [
+        "tidepool-I034"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I5",
+      "identityIds": [
+        "tidepool-I035",
+        "tidepool-I043"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I6",
+      "identityIds": [
+        "tidepool-I014",
+        "tidepool-I017"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I7",
+      "identityIds": [
+        "tidepool-I032"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I8",
+      "identityIds": [
+        "tidepool-I012"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-parallel-broker-2026-10-08/tidepool/I9",
+      "identityIds": [
+        "tidepool-I013"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-sonnet-2026-10-08/ironweave/I7",
+      "identityIds": [
+        "ironweave-I013"
+      ]
+    },
+    {
+      "recordId": "rafp-six-pass-sonnet-2026-10-08/ironweave/I8",
+      "identityIds": [
+        "ironweave-I017"
+      ]
+    },
+    {
+      "recordId": "sonnet-5-5-2026-09-30/ironweave/I11",
+      "identityIds": [
+        "ironweave-I060"
+      ]
+    },
+    {
+      "recordId": "sonnet-5-5-2026-09-30/quillstone/I13",
+      "identityIds": [
+        "quillstone-I045"
+      ]
+    },
+    {
+      "recordId": "sonnet-5-5-2026-09-30/tidepool/I5",
+      "identityIds": [
+        "tidepool-I007"
+      ]
+    }
+  ]
+}

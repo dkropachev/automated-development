@@ -332,6 +332,27 @@ test('publish sweeps stale work files but leaves another batch that is still run
   assert.ok(fs.existsSync(cache + '.work.live')); assert.ok(!fs.existsSync(cache + '.work.dead')); assert.ok(!fs.existsSync(cache + '.work.orphan'))
 })
 
+test('publish preserves handed-off builds awaiting verification or publication', () => {
+  const h = tmp(); const cache = path.join(h, '.claude/pr-style-cache/github.com/o/r.md')
+  for (const batch of ['first', 'awaiting-verifier', 'awaiting-publish', 'expired']) {
+    assert.equal(startBuild(h, batch, cache).code, 0)
+    write(cache + '.work.' + batch, GOOD_PROMPT())
+    assert.equal(buildThrough(h, batch).code, 0)
+    if (batch !== 'awaiting-verifier') assert.equal(run(h, ['verified', '--batch', batch, '--verdict', 'unverified']).code, 0)
+  }
+  const old = new Date(Date.now() - 8 * 86400000)
+  fs.utimesSync(cache + '.work.expired', old, old)
+  const first = run(h, ['publish', '--batch', 'first'])
+  assert.equal(first.code, 0, first.out)
+  assert.ok(!fs.existsSync(cache + '.work.expired'))
+  for (const batch of ['awaiting-verifier', 'awaiting-publish']) assert.ok(fs.existsSync(cache + '.work.' + batch))
+  assert.equal(run(h, ['verified', '--batch', 'awaiting-verifier', '--verdict', 'unverified']).code, 0)
+  for (const batch of ['awaiting-verifier', 'awaiting-publish']) {
+    const result = run(h, ['publish', '--batch', batch])
+    assert.equal(result.code, 0, result.out)
+  }
+})
+
 test('critique exhaustion: the cap ends the loop without two zeros', () => {
   const h = tmp(); const cache = path.join(h, '.claude/pr-style-cache/github.com/o/r.md')
   startBuild(h, 'b4', cache); write(cache + '.work.b4', GOOD_PROMPT()); run(h, ['drafted', '--batch', 'b4'])

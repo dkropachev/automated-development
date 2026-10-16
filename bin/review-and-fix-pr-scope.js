@@ -1,26 +1,158 @@
 #!/usr/bin/env node
 'use strict'
 
-// Deterministic scope identity for review-and-fix-pr. The reviewing model may summarize these
-// sources, but it cannot choose their hash or the Git merge base used by coverage.
+// Deterministic initial scope for review-and-fix-pr. The reviewing model may summarize these
+// sources, but it cannot choose the exact GitHub commits or merge base used by coverage.
 
 const { execFileSync } = require('child_process')
-const crypto = require('crypto')
 const fs = require('fs')
 const path = require('path')
 
 const argv = process.argv.slice(2)
+const MAX_ISSUES = 20
+const MAX_ISSUE_BODY_CHARS = 100000
+const MAX_INSTRUCTION_BYTES = 256 * 1024
+const MAX_INSTRUCTION_TOTAL_BYTES = 1024 * 1024
 function run(command, args, options = {}) {
-  return execFileSync(command, args, Object.assign({ encoding: 'utf8', maxBuffer: 1 << 26 }, options)).trim()
+  return execFileSync(command, args, Object.assign({
+    encoding: 'utf8', maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'],
+  }, options)).trim()
 }
 function git(root, ...args) { return run('git', ['-C', root, ...args]) }
-function canonical(value) {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value)
-  if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']'
-  return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonical(value[key])).join(',') + '}'
+function utf8(bytes, label) {
+  const text = bytes.toString('utf8')
+  if (!Buffer.from(text, 'utf8').equals(bytes)) throw new Error(label + ' contains non-UTF-8 bytes')
+  return text
 }
-function sha256(value) { return crypto.createHash('sha256').update(value).digest('hex') }
+function stableCompare(left, right) { return left < right ? -1 : left > right ? 1 : 0 }
+function sanitizeRemoteUrl(value) {
+  if (typeof value !== 'string') throw new Error('remote URL must be a string')
+  const scheme = /^[A-Za-z][A-Za-z0-9+.-]*:\/\//.exec(value)
+  if (!scheme) return value
+  const authorityStart = scheme[0].length
+  const suffixStart = value.slice(authorityStart).search(/[/?#]/)
+  const authorityEnd = suffixStart < 0 ? value.length : authorityStart + suffixStart
+  const authority = value.slice(authorityStart, authorityEnd)
+  const userinfoEnd = authority.lastIndexOf('@')
+  if (userinfoEnd < 0) return value
+  return value.slice(0, authorityStart) + authority.slice(userinfoEnd + 1) + value.slice(authorityEnd)
+}
+function normalizeRemoteIdentity(remotes) {
+  if (!Array.isArray(remotes)) throw new Error('remotes must be an array')
+  const names = new Set()
+  const normalized = remotes.map((remote, index) => {
+    if (!remote || typeof remote !== 'object' || Array.isArray(remote) ||
+        typeof remote.name !== 'string' || !remote.name || remote.name.includes('\0')) {
+      throw new Error(`remote ${index} has an invalid name`)
+    }
+    if (names.has(remote.name)) throw new Error(`duplicate remote name: ${remote.name}`)
+    names.add(remote.name)
+    const urls = (values, label) => {
+      if (!Array.isArray(values) || !values.every(value => typeof value === 'string')) {
+        throw new Error(`remote ${remote.name} ${label} URLs must be an array of strings`)
+      }
+      return values.map(sanitizeRemoteUrl).sort(stableCompare)
+    }
+    return {
+      name: remote.name,
+      fetchUrls: urls(remote.fetchUrls, 'fetch'),
+      pushUrls: urls(remote.pushUrls, 'push'),
+    }
+  }).sort((left, right) => stableCompare(left.name, right.name))
+  return { remotes: normalized }
+}
+function normalizeUpstreamIdentity(branch, sha) {
+  if (branch == null || branch === '') {
+    if (sha != null && sha !== '') throw new Error('upstream SHA requires an upstream branch')
+    return { branch: null, sha: null }
+  }
+  if (typeof branch !== 'string' || branch.includes('\0')) throw new Error('upstream branch is invalid')
+  if (!/^[a-f0-9]{40}$/.test(sha || '')) throw new Error('upstream SHA is invalid')
+  return { branch, sha }
+}
+function gitConfigValues(root, key) {
+  let bytes
+  try {
+    bytes = execFileSync('git', ['-C', root, 'config', '--null', '--get-all', key], {
+      maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (error) {
+    if (error.status === 1) return []
+    throw error
+  }
+  const text = utf8(bytes, `git config ${key}`)
+  if (!text) return []
+  const values = text.split('\0')
+  if (values.at(-1) !== '') throw new Error(`git config ${key} did not return NUL-delimited values`)
+  values.pop()
+  return values
+}
+function collectRemoteIdentity(root) {
+  const names = git(root, 'remote').split(/\r?\n/).filter(Boolean)
+  return normalizeRemoteIdentity(names.map(name => ({
+    name,
+    fetchUrls: gitConfigValues(root, `remote.${name}.url`),
+    pushUrls: gitConfigValues(root, `remote.${name}.pushurl`),
+  })))
+}
+function collectUpstreamIdentity(root, branch) {
+  if (branch === 'HEAD') return normalizeUpstreamIdentity(null, null)
+  const configuredRemote = gitConfigValues(root, `branch.${branch}.remote`)
+  const configuredMerge = gitConfigValues(root, `branch.${branch}.merge`)
+  if (!configuredRemote.length && !configuredMerge.length) return normalizeUpstreamIdentity(null, null)
+  if (configuredRemote.length !== 1 || configuredMerge.length !== 1) {
+    throw new Error(`branch ${branch} has incomplete or ambiguous upstream configuration`)
+  }
+  const upstreamBranch = git(root, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}')
+  const upstreamSha = git(root, 'rev-parse', '--verify', '@{upstream}^{commit}')
+  return normalizeUpstreamIdentity(upstreamBranch, upstreamSha)
+}
+function instructionApplies(file, changedPaths) {
+  const directory = path.posix.dirname(file)
+  const basename = path.posix.basename(file)
+  const globalConvention = directory === '.github' &&
+    /^(?:CONTRIBUTING(?:\.[^/]*)?|DEVELOPING(?:\.[^/]*)?|copilot-instructions\.md)$/i.test(basename)
+  return directory === '.' || globalConvention || changedPaths.some(changed =>
+    changed === file || changed.startsWith(directory + '/'))
+}
+function collectIssueReferences(body, repo) {
+  const candidates = []
+  const occupiedHashes = new Set()
+  let ignoredCrossRepoIssueCount = 0
+  for (const match of String(body || '').matchAll(/\b([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)#([1-9][0-9]*)\b/g)) {
+    const issueRepo = match[1], number = Number(match[2])
+    if (issueRepo.toLowerCase() === repo.toLowerCase()) {
+      candidates.push({ index: match.index || 0, repo, number })
+    } else ignoredCrossRepoIssueCount++
+    occupiedHashes.add((match.index || 0) + match[0].lastIndexOf('#'))
+  }
+  for (const match of String(body || '').matchAll(/https:\/\/github\.com\/([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)\/issues\/([1-9][0-9]*)\b/g)) {
+    const issueRepo = match[1], number = Number(match[2])
+    if (issueRepo.toLowerCase() === repo.toLowerCase()) {
+      candidates.push({ index: match.index || 0, repo, number })
+    } else ignoredCrossRepoIssueCount++
+  }
+  for (const match of String(body || '').matchAll(/#([1-9][0-9]*)\b/g)) {
+    if (occupiedHashes.has(match.index || 0)) continue
+    const previous = (match.index || 0) > 0 ? String(body)[(match.index || 0) - 1] : ''
+    if (/[A-Za-z0-9_]/.test(previous)) continue
+    const number = Number(match[1])
+    candidates.push({ index: match.index || 0, repo, number })
+  }
+  const issueRefs = new Map()
+  for (const candidate of candidates.sort((a, b) => a.index - b.index || a.number - b.number)) {
+    issueRefs.set(repo.toLowerCase() + '#' + candidate.number,
+      { repo: candidate.repo, number: candidate.number })
+  }
+  const all = [...issueRefs.values()]
+  return {
+    refs: all.slice(0, MAX_ISSUES),
+    omittedIssueReferenceCount: Math.max(0, all.length - MAX_ISSUES),
+    ignoredCrossRepoIssueCount,
+  }
+}
 
+function main() {
 try {
   const rootIndex = argv.indexOf('--root')
   const requestedRoot = rootIndex >= 0 && argv[rootIndex + 1] && !argv[rootIndex + 1].startsWith('--')
@@ -59,83 +191,109 @@ try {
   if (baseCommit !== pr.baseRefOid) throw new Error('GitHub base commit is not available locally')
   const mergeBase = git(root, 'merge-base', baseCommit, head)
   if (!/^[a-f0-9]{40}$/.test(mergeBase)) throw new Error('git merge-base returned no full SHA')
+  const changedPathBytes = execFileSync('git', ['-C', root, '-c', 'color.ui=false',
+    '--literal-pathspecs', 'diff', '--name-only', '-z', '--no-renames', '--no-ext-diff',
+    '--no-textconv', mergeBase + '...' + head], { maxBuffer: 1 << 28 })
+  const changedPaths = utf8(changedPathBytes, 'changed path inventory').split('\0').filter(Boolean)
 
-  const body = String(pr.body || '')
-  const issueRefs = new Map()
-  const occupiedHashes = new Set()
-  for (const match of body.matchAll(/\b([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)#([1-9][0-9]*)\b/g)) {
-    const issueRepo = match[1], number = Number(match[2])
-    issueRefs.set(issueRepo.toLowerCase() + '#' + number, { repo: issueRepo, number })
-    occupiedHashes.add((match.index || 0) + match[0].lastIndexOf('#'))
-  }
-  for (const match of body.matchAll(/https:\/\/github\.com\/([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)\/issues\/([1-9][0-9]*)\b/g)) {
-    const issueRepo = match[1], number = Number(match[2])
-    issueRefs.set(issueRepo.toLowerCase() + '#' + number, { repo: issueRepo, number })
-  }
-  for (const match of body.matchAll(/#([1-9][0-9]*)\b/g)) {
-    if (occupiedHashes.has(match.index || 0)) continue
-    const previous = (match.index || 0) > 0 ? body[(match.index || 0) - 1] : ''
-    if (/[A-Za-z0-9_]/.test(previous)) continue
-    const number = Number(match[1])
-    issueRefs.set(repo.toLowerCase() + '#' + number, { repo, number })
-  }
+  const issueReferenceSummary = collectIssueReferences(pr.body, repo)
   const issues = []
-  for (const ref of [...issueRefs.values()].sort((a, b) => a.repo.localeCompare(b.repo) || a.number - b.number)) {
+  for (const ref of issueReferenceSummary.refs) {
     try {
       const issue = JSON.parse(run('gh', ['issue', 'view', String(ref.number), '--repo', ref.repo, '--json',
-        'number,title,body,state'], { cwd: root }))
+        'number,title,body,state,author'], { cwd: root }))
+      if (String(issue.body || '').length > MAX_ISSUE_BODY_CHARS) {
+        issue.body = String(issue.body).slice(0, MAX_ISSUE_BODY_CHARS)
+        issue.bodyTruncated = true
+      }
       issues.push(Object.assign({ repo: ref.repo }, issue))
-    } catch (error) {
-      throw new Error('linked issue ' + ref.repo + '#' + ref.number + ' could not be read: ' +
-        String(error.stderr || error.message || error),
-        { cause: error })
+    } catch {
+      // Blinded benchmark PRs and repository migrations can preserve issue references without
+      // republishing the linked issue. Retain a stable explicit absence in the frozen sources:
+      // never invent issue text, and never hash transient API errors or request IDs.
+      issues.push({
+        repo: ref.repo, number: ref.number, title: '', body: '', state: 'unavailable',
+        unavailable: true,
+      })
     }
   }
-  const treeRows = execFileSync('git', ['-C', root, 'ls-tree', '-r', '-z', head],
-    { encoding: 'utf8', maxBuffer: 1 << 26 })
-    .split('\0').filter(Boolean)
   const instructionPattern = /^(?:AGENTS\.md|CLAUDE\.md|CONTRIBUTING(?:\.[^/]*)?|DEVELOPING(?:\.[^/]*)?|copilot-instructions\.md)$/i
+  const instructionsByBlob = new Map()
+  for (const [source, commit] of [['base', mergeBase], ['head', head]]) {
+    const treeRows = execFileSync('git', ['-C', root, 'ls-tree', '-r', '-z', commit],
+      { encoding: 'utf8', maxBuffer: 1 << 26 }).split('\0').filter(Boolean)
+    for (const row of treeRows.sort()) {
+      const tab = row.indexOf('\t')
+      if (tab < 0) throw new Error('malformed git tree entry')
+      const [mode, type, oid] = row.slice(0, tab).split(/\s+/)
+      const file = row.slice(tab + 1)
+      if (!instructionPattern.test(path.basename(file)) || !instructionApplies(file, changedPaths)) continue
+      if (type !== 'blob' || !['100644', '100755'].includes(mode) || !/^[a-f0-9]{40}$/.test(oid)) {
+        throw new Error(`instruction source is not a regular file in pinned PR ${source}: ${file}`)
+      }
+      const key = file + '\0' + oid
+      const existing = instructionsByBlob.get(key)
+      if (existing) {
+        existing.sources.push(source)
+      } else {
+        instructionsByBlob.set(key, { path: file, oid, sources: [source] })
+      }
+    }
+  }
+  const instructionCandidates = [...instructionsByBlob.values()].sort((a, b) =>
+    a.path.split('/').length - b.path.split('/').length || a.path.localeCompare(b.path) || a.oid.localeCompare(b.oid))
   const instructions = []
-  for (const row of treeRows.sort()) {
-    const tab = row.indexOf('\t')
-    if (tab < 0) throw new Error('malformed git tree entry')
-    const [mode, type, oid] = row.slice(0, tab).split(/\s+/)
-    const file = row.slice(tab + 1)
-    if (!instructionPattern.test(path.basename(file))) continue
-    if (type !== 'blob' || !['100644', '100755'].includes(mode) || !/^[a-f0-9]{40}$/.test(oid)) {
-      throw new Error('instruction source is not a regular file in pinned PR head: ' + file)
+  const instructionOmissions = []
+  let instructionBytes = 0
+  for (const candidate of instructionCandidates) {
+    const bytes = execFileSync('git', ['-C', root, 'cat-file', 'blob', candidate.oid], { maxBuffer: 1 << 26 })
+    let content
+    try { content = utf8(bytes, candidate.path) } catch {
+      instructionOmissions.push({ ...candidate, bytes: bytes.length, reason: 'non-utf8' })
+      continue
     }
-    const bytes = execFileSync('git', ['-C', root, 'cat-file', 'blob', oid], { maxBuffer: 1 << 26 })
-    instructions.push({ path: file, sha256: sha256(bytes), content: bytes.toString('utf8') })
+    if (bytes.length > MAX_INSTRUCTION_BYTES) {
+      instructionOmissions.push({ ...candidate, bytes: bytes.length, reason: 'per-file-limit' })
+      continue
+    }
+    if (instructionBytes + bytes.length > MAX_INSTRUCTION_TOTAL_BYTES) {
+      instructionOmissions.push({ ...candidate, bytes: bytes.length, reason: 'aggregate-limit' })
+      continue
+    }
+    instructionBytes += bytes.length
+    instructions.push({ ...candidate, content })
   }
-  const sources = { repo, pr, issues, instructions }
-  const deferralIndex = argv.indexOf('--deferrals-base64')
-  let requestedDeferrals = []
-  if (deferralIndex >= 0) {
-    try { requestedDeferrals = JSON.parse(Buffer.from(argv[deferralIndex + 1] || '', 'base64').toString('utf8')) } catch (error) {
-      throw new Error('--deferrals-base64 is invalid', { cause: error })
-    }
-    if (!Array.isArray(requestedDeferrals) || requestedDeferrals.some(value => typeof value !== 'string' || !value)) {
-      throw new Error('--deferrals-base64 must encode nonempty strings')
-    }
-  }
-  const authorText = [pr.title || '', pr.body || '', JSON.stringify(pr.commits || []),
-    ...issues.flatMap(issue => [issue.title || '', issue.body || ''])].join('\n')
-  const unverifiedDeferrals = requestedDeferrals.filter(quote => !authorText.includes(quote))
-  if (unverifiedDeferrals.length) throw new Error('scope contains deferral text not found verbatim in authoritative sources')
   const startBranchRaw = git(root, 'rev-parse', '--abbrev-ref', 'HEAD')
   const startSha = git(root, 'rev-parse', '--verify', 'HEAD^{commit}')
   const clean = git(root, 'status', '--porcelain=v1', '-z') === ''
-  let ghUser = 'unknown'
-  try { ghUser = run('gh', ['api', 'user', '--jq', '.login'], { cwd: root }) || 'unknown' } catch {}
-  const sourceJson = JSON.stringify({ repo, pr, issues, instructions, repoRoot: root,
-    startBranch: startBranchRaw === 'HEAD' ? 'DETACHED' : startBranchRaw, startSha, treeClean: clean,
-    mergeBase, ghUser })
+  const remoteIdentity = collectRemoteIdentity(root)
+  const upstreamIdentity = collectUpstreamIdentity(root, startBranchRaw)
   process.stdout.write(JSON.stringify({ ok: true, repo, prNumber, baseRef: pr.baseRefName,
-    prHead: head, mergeBase, scopeFingerprint: sha256(Buffer.from(canonical(sources))),
-    issueCount: issues.length, instructionCount: instructions.length,
-    verifiedDeferrals: requestedDeferrals, sourceJson }, null, 2) + '\n')
+    baseSha: baseCommit, prHead: head, mergeBase,
+    repoRoot: root, startBranch: startBranchRaw === 'HEAD' ? 'DETACHED' : startBranchRaw,
+    startSha, treeClean: clean, remoteIdentity, upstreamIdentity,
+    pr, issues, changedPaths, instructions, instructionOmissions,
+    issueCount: issues.length, unavailableIssueCount: issues.filter(issue => issue.unavailable).length,
+    truncatedIssueCount: issues.filter(issue => issue.bodyTruncated).length,
+    omittedIssueReferenceCount: issueReferenceSummary.omittedIssueReferenceCount,
+    ignoredCrossRepoIssueCount: issueReferenceSummary.ignoredCrossRepoIssueCount,
+    instructionCount: instructions.length, instructionOmissionCount: instructionOmissions.length,
+    instructionBytes }, null, 2) + '\n')
 } catch (error) {
   process.stdout.write(JSON.stringify({ ok: false, error: String(error.stderr || error.message || error).trim().slice(0, 1000) }, null, 2) + '\n')
   process.exitCode = 3
+}
+}
+
+if (require.main === module) main()
+
+module.exports = {
+  collectIssueReferences,
+  collectRemoteIdentity,
+  collectUpstreamIdentity,
+  instructionApplies,
+  main,
+  normalizeRemoteIdentity,
+  normalizeUpstreamIdentity,
+  sanitizeRemoteUrl,
 }

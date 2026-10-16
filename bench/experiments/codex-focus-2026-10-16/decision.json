@@ -1,0 +1,10 @@
+{
+  "decision": "retain-installed-package-v5",
+  "sourceCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+  "completedRuns": 21,
+  "totalExperimentTokens": 38647703,
+  "reason": "No reliable overall bug-coverage gain within existing token use. Feature-area pilot lost a retained Rust bug and added none.",
+  "installedCodexUnchanged": true,
+  "claudeUnchanged": true,
+  "canonicalGoldChanged": false
+}

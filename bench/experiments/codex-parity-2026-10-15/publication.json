@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "recordId": "ironweave-baseline",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "ironweave",
+      "layout": "baseline",
+      "measurement": {
+        "file": "codex-focus-2026-10-16/category-baseline.json",
+        "pointer": "/reports/ironweave-baseline"
+      },
+      "featured": false
+    },
+    {
+      "recordId": "ironweave-claude-matched",
+      "platform": "claude",
+      "skill": "code-review-ad",
+      "target": "ironweave",
+      "layout": "claude-matched",
+      "measurement": {
+        "file": "codex-focus-2026-10-16/category-baseline.json",
+        "pointer": "/reports/ironweave-claude-matched"
+      },
+      "featured": true
+    },
+    {
+      "recordId": "ironweave-package-v5",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "ironweave",
+      "layout": "package-v5",
+      "measurement": {
+        "file": "codex-focus-2026-10-16/category-baseline.json",
+        "pointer": "/reports/ironweave-package-v5"
+      },
+      "featured": true
+    },
+    {
+      "recordId": "tidepool-baseline",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "tidepool",
+      "layout": "baseline",
+      "measurement": {
+        "file": "codex-focus-2026-10-16/category-baseline.json",
+        "pointer": "/reports/tidepool-baseline"
+      },
+      "featured": false
+    },
+    {
+      "recordId": "tidepool-claude-matched",
+      "platform": "claude",
+      "skill": "code-review-ad",
+      "target": "tidepool",
+      "layout": "claude-matched",
+      "measurement": {
+        "file": "codex-focus-2026-10-16/category-baseline.json",
+        "pointer": "/reports/tidepool-claude-matched"
+      },
+      "featured": true
+    },
+    {
+      "recordId": "tidepool-package-v5",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "tidepool",
+      "layout": "package-v5",
+      "measurement": {
+        "file": "codex-focus-2026-10-16/category-baseline.json",
+        "pointer": "/reports/tidepool-package-v5"
+      },
+      "featured": true
+    },
+    {
+      "recordId": "quillstone-baseline",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "baseline",
+      "measurement": {
+        "file": "codex-focus-2026-10-16/category-baseline.json",
+        "pointer": "/reports/quillstone-baseline"
+      },
+      "featured": false
+    },
+    {
+      "recordId": "quillstone-claude-matched",
+      "platform": "claude",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "claude-matched",
+      "measurement": {
+        "file": "codex-focus-2026-10-16/category-baseline.json",
+        "pointer": "/reports/quillstone-claude-matched"
+      },
+      "featured": true
+    },
+    {
+      "recordId": "quillstone-package-v5",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "package-v5",
+      "measurement": {
+        "file": "codex-focus-2026-10-16/category-baseline.json",
+        "pointer": "/reports/quillstone-package-v5"
+      },
+      "featured": true
+    }
+  ]
+}

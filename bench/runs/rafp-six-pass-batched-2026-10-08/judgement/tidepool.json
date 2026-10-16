@@ -1,0 +1,374 @@
+{
+  "schemaVersion": 2,
+  "runId": "rafp-six-pass-batched-2026-10-08",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.292 (Claude Code)",
+  "configSha256": "fdd879cd873eb3e535d39680ff82393e6e0b0a17bc852a5277e3b856b8185da6",
+  "pluginFingerprint": {
+    "contentSha256": "1dfe904c933bb322b7036091cdb8937f6bad59c6593b9ba6b0666dfb3fbf2507",
+    "gitCommit": "7ac66dc338912d459674b8669ca101e08040ab56",
+    "version": "0.5.0"
+  },
+  "codexJudge": {
+    "authenticated": true,
+    "cliVersion": "0.156.0",
+    "executableSha256": "024e823ebfd4bcd913080f00399becddb2783ee13c00b35fa5bb392239beafa3",
+    "model": "gpt-5.6-sol",
+    "provider": "openai",
+    "reasoningEffort": "high",
+    "schemaSha256": "75a63ed3f1ab0875fddff5c9d8c537878f5d6ed216900d3673210f2576b197d5"
+  },
+  "target": "tidepool",
+  "language": "Go",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "rawFindings": 13,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "vectorElemMinSize floors a zero-dim nested vector at 1 byte, rejecting valid payloads",
+      "file": "marshal.go",
+      "line": 1141,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Verified: unmarshalVector(outer dim=2, inner fixed vector dim=0, []byte{}) decodes to [[] []] on main but errors \"2 dimensions do not fit in 0 bytes\" on this branch, because vectorElemMinSize (marshal.go:1141-1144) floors a 0-dimension inner vector's true 0-byte size to 1.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The bound and its floor are wholly new code added by this PR and this is a regression it introduces.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "vectorElemMinSize floors a zero-dimension inner vector at 1 byte, but such an element really takes 0 bytes. The bound therefore rejects payloads that base decoded, and the test comment justifying the floor is false."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "vectorElemMinSize floors a zero-dimension inner vector at 1 byte, but such an element really takes 0 bytes. The bound therefore rejects payloads that base decoded, and the test comment justifying the floor is false."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "unmarshalVector head comment wrongly says every path allocates",
+      "file": "marshal.go",
+      "line": 986,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The array branch at marshal.go:1078-1081 writes into the caller's existing array via rv.Index(i) and calls neither make nor reflect.MakeSlice; the PR's own test comment at marshal_vector_test.go:649 says \"An array allocates nothing\", contradicting the new head comment.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new text added by this PR's own commit.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new head comment in unmarshalVector says 'every path below turns it into an allocation (make, reflect.MakeSlice)'. The array path allocates nothing, and the PR's own test comment says so."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "The new head comment in unmarshalVector says 'every path below turns it into an allocation (make, reflect.MakeSlice)'. The array path allocates nothing, and the PR's own test comment says so."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Fast-path comment is stale: new bound intercepts non-nil empty payloads first",
+      "file": "marshal.go",
+      "line": 1006,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "For data != nil, len(data)==0 and Dimensions>0, the new bound check at marshal.go:998-1003 runs first and rejects with len(data)/elemMin==0 < Dimensions, so the case no longer reaches or 'falls through' the fast-path code the comment describes.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The new bound, placed ahead of the pre-existing comment, is what makes the comment stale.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The pre-existing fast-path comment \"nil/empty and dim=0 fall through to the generic path\" is now stale: a non-nil empty payload with Dimensions>0 is rejected by the new bound before reaching the fast path or the generic path."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "The pre-existing fast-path comment \"nil/empty and dim=0 fall through to the generic path\" is now stale: a non-nil empty payload with Dimensions>0 is rejected by the new bound before reaching the fast path or the generic path."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Commit messages don't follow CONTRIBUTING.md's subject/trailer format",
+      "file": "CONTRIBUTING.md",
+      "line": 28,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "CONTRIBUTING.md requires a capitalized subject and a 'Patch by ...; reviewed by ... for #####' trailer; both commits use a lowercase 'fix(marshal): ...' subject and no such trailer. However every recent commit on this branch (e.g. 'fix(connectionpool): ...', 'docs(conn): ...') uses the identical conventional-commit style with no trailer, so this is the repo's actual established practice, not something this PR alone deviates from.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The whole branch's commit history already abandoned this CONTRIBUTING.md format; this PR just follows existing, if undocumented, project practice.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Both commit messages break CONTRIBUTING.md's required format. The short description is lowercase with a conventional-commit prefix (`fix(marshal): reject ...`), when it should start with a capital letter, and neither message has the `Patch by <authors>; reviewed by <Reviewers> for #####` trailer."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "Both commit messages break CONTRIBUTING.md's required format. The short description is lowercase with a conventional-commit prefix (`fix(marshal): reject ...`), when it should start with a capital letter, and neither message has the `Patch by <authors>; reviewed by <Reviewers> for #####` trailer."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "No CHANGELOG.md entry for two bugfixes, though CONTRIBUTING.md requires one",
+      "file": "CONTRIBUTING.md",
+      "line": 24,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "CONTRIBUTING.md still requires a CHANGELOG.md entry for bugfixes, but this fork deliberately deleted CHANGELOG.md (git history shows a 'Remove upstream's CHANGELOG.md' commit) and no file exists at all, so no commit on this branch, before or including this PR, can or does add one.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "CHANGELOG.md was removed from the repository before this PR; the requirement is stale project-wide, not something this PR's commits broke.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Two bugfixes (a crash on Scan from peer-supplied vector dimensions, and a nil-Type panic) ship without a CHANGELOG.md entry, which CONTRIBUTING.md requires for bugfixes."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "Two bugfixes (a crash on Scan from peer-supplied vector dimensions, and a nil-Type panic) ship without a CHANGELOG.md entry, which CONTRIBUTING.md requires for bugfixes."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Test doc's \"on or above the boundary\" claim doesn't fit the null-value subtest",
+      "file": "marshal_vector_test.go",
+      "line": 691,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Confirmed by reading unmarshalVector: the bound (marshal.go:998) only runs when data != nil, so for the 'null value' subtest (data: nil) the bound is skipped entirely rather than being met 'on or above' any computed boundary, and the bound is N*elemMin bytes, not 'N bytes' as the doc comment states.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The doc comment and the test it describes are both new in this PR.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "TestUnmarshalVectorAcceptsWellFormedPayloads' doc justifies non-narrowing by 'a vector of N elements is never encoded in fewer than N bytes, so each of these sits on or above the boundary', but the bound enforces N*elemMin bytes, and the 'null value' subtest is not on or above any boundary (the bound is skipped for nil)."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "TestUnmarshalVectorAcceptsWellFormedPayloads' doc justifies non-narrowing by 'a vector of N elements is never encoded in fewer than N bytes, so each of these sits on or above the boundary', but the bound enforces N*elemMin bytes, and the 'null value' subtest is not on or above any boundary (the bound is skipped for nil)."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Test comment wrongly claims the wrap case also lands on a 32-bit target",
+      "file": "marshal_vector_test.go",
+      "line": 585,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Verified: `GOARCH=386 go build -tags unit .` fails to compile this module at all (pre-existing int-overflow errors in serialization/varint, cqlint, bigint, counter packages), so the unit-tagged package this test lives in cannot be built for a 32-bit target, making the comment's '32-bit target' framing false regardless of word-size logic in the test itself.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The misleading comment is new text added by this PR, even though the underlying 32-bit incompatibility it misdescribes is pre-existing elsewhere in the module.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The new test comment claims the word-size-dependent dimensions make the wrap case \"land on a 32-bit target too\", but the unit-tagged package that contains this test cannot compile for a 32-bit target."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "The new test comment claims the word-size-dependent dimensions make the wrap case \"land on a 32-bit target too\", but the unit-tagged package that contains this test cannot compile for a 32-bit target."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "PR claim \"every new test fails against pristine marshal.go\" overstates it",
+      "file": "marshal_vector_test.go",
+      "line": 695,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Verified by replaying several of the new test scenarios (e.g. the nested-fixed-vector-at-exact-size shape, a plain float32 vector) directly against main's unmarshalVector: they succeed with no error, so their only 'failure' against base is the package failing to compile because TestVectorElemMinSize references the new vectorElemMinSize function, not that the scenario itself fails.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The overstated claim is in this PR's own description of its own new tests.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "The PR says \"Every new test fails against pristine marshal.go/helpers.go\", but several of the new tests and subtests pass against base. Their only base failure is that the package does not compile, because TestVectorElemMinSize references the new vectorElemMinSize."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "The PR says \"Every new test fails against pristine marshal.go/helpers.go\", but several of the new tests and subtests pass against base. Their only base failure is that the package does not compile, because TestVectorElemMinSize references the new vectorElemMinSize."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "Commit message's \"one byte per element\" claim misdescribes the per-type bound",
+      "file": "marshal.go",
+      "line": 999,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Commit 0276a66 adds vectorElemMinSize with per-type minimums (4 bytes for int/float, 8 for bigint/double, 16 for UUID, etc., marshal.go:1147-1159) in the same commit whose message claims 'every element takes at least one byte on the wire' -- the 1-byte value is only the fallback floor for degenerate (zero/negative-dimension) nested-vector elements, not the general rule the message describes.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The inaccurate description is in this PR's own commit message for the code it is introducing.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Commit 0276a66's message describes a one-byte-per-element floor that the code does not implement. It also says every element takes at least one byte, which is false for a zero-dimension fixed inner vector."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "Commit 0276a66's message describes a one-byte-per-element floor that the code does not implement. It also says every element takes at least one byte, which is false for a zero-dimension fixed inner vector."
+      }
+    },
+    {
+      "id": "I10",
+      "title": "Nested-vector \"no Go type\" error drops the inner element type and dimensions",
+      "file": "marshal.go",
+      "line": 1048,
+      "kind": "bug",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Verified: Unmarshal on a wire-decoded vector<vector<float,3>,2> into *any produces 'unmarshal vector: no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)'. VectorType has no own NewWithError/String, so both are promoted from its embedded NativeType, whose custom field (helpers.go/frame.go construction) is always the bare 'VectorType' prefix with no inner type or dimensions, so %v on info.SubType loses that information.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This error path and its %v formatting are new code added by this PR specifically to report which type the server sent.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "For a nested vector, the new error at marshal.go:1048 prints info.SubType with %v. The inner VectorType that getCassandraLongType builds has custom set to the bare prefix (helpers.go:271), and VectorType has no String method of its own, so the message reads \"no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)\". The inner element type and its dimensions are dropped."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "For a nested vector, the new error at marshal.go:1048 prints info.SubType with %v. The inner VectorType that getCassandraLongType builds has custom set to the bare prefix (helpers.go:271), and VectorType has no String method of its own, so the message reads \"no Go type for element type custom(org.apache.cassandra.db.marshal.VectorType)\". The inner element type and its dimensions are dropped."
+      }
+    },
+    {
+      "id": "I11",
+      "title": "Commits and PR body carry forbidden Claude/Anthropic attribution",
+      "file": "marshal.go",
+      "line": 985,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "git log shows both commits 0276a66 and 78891dd end with 'Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>', and `gh pr view 1` shows the PR body ends with '🤖 Generated with [Claude Code](https://claude.com/claude-code)'; the user's global CLAUDE.md explicitly forbids any Claude/Anthropic attribution in commits or PR descriptions.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The attribution lines are part of this PR's own commits and PR description.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Both commits carry a 'Co-Authored-By: Claude Opus 5' trailer and the PR body ends with '🤖 Generated with [Claude Code]'. The user's global instructions forbid Claude/Anthropic attribution in commits and PR descriptions."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "Both commits carry a 'Co-Authored-By: Claude Opus 5' trailer and the PR body ends with '🤖 Generated with [Claude Code]'. The user's global instructions forbid Claude/Anthropic attribution in commits and PR descriptions."
+      }
+    },
+    {
+      "id": "I12",
+      "title": "PR body omits the new NULL-with-negative-dimensions behavior change",
+      "file": "marshal.go",
+      "line": 993,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Verified: on main, unmarshalVector with data=nil and Dimensions=-3 returns nil (silently leaves dst empty); on this branch it now errors 'negative dimensions -3' because the new check at marshal.go:992-994 runs before the nil-data branch. The PR body (via gh pr view 1) documents only the short/zero-length non-NULL payload behavior change, not this NULL case.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The undocumented behavior change is produced directly by this PR's new ordering of checks.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "Commit 0276a66 changes behaviour so that a short or empty non-NULL payload now errors instead of decoding to zero values. A NULL value with negative dimensions also errors now (marshal.go:992-994 runs before the data==nil return). The commit message does not mention either change; only the PR body describes the short-payload case, and neither mentions the NULL case."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "Commit 0276a66 changes behaviour so that a short or empty non-NULL payload now errors instead of decoding to zero values. A NULL value with negative dimensions also errors now (marshal.go:992-994 runs before the data==nil return). The commit message does not mention either change; only the PR body describes the short-payload case, and neither mentions the NULL case."
+      }
+    },
+    {
+      "id": "I13",
+      "title": "Nested vector with nonpositive inner dimension defeats the new allocation bound",
+      "file": "marshal.go",
+      "line": 1141,
+      "kind": "security",
+      "severity": "high",
+      "verdict": "real",
+      "verdictReason": "Verified vectorElemMinSize(subtype) returns 1 whenever the subtype is itself a VectorType with Dimensions <= 0 (the vec.Dimensions > 0 branch is skipped and size floors to 1 at marshal.go:1141-1144), so an outer vector whose element type is a server-declared nested vector with a nonpositive inner dimension bounds Dimensions only by len(data), letting reflect.MakeSlice allocate up to one slice-header-sized element per payload byte (~24x overhead) before the inner vector's own dimension is ever validated -- exactly the unbounded-allocation class of defect this PR otherwise fixes.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize and its floor are new code from this PR, and this is a gap in the very protection the PR adds.",
+      "reportedBy": [
+        "review-and-fix-pr"
+      ],
+      "reportedByRuns": [
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr"
+      ],
+      "reportedAs": {
+        "review-and-fix-pr": "A nested vector with a nonpositive inner dimension still receives the one-byte fallback, so the outer bound can allow one claimed outer element per payload byte and allocate the entire outer slice before the inner decoder rejects the metadata."
+      },
+      "reportedAsByRun": {
+        "rafp-six-pass-batched-2026-10-08/tidepool/review-and-fix-pr": "A nested vector with a nonpositive inner dimension still receives the one-byte fallback, so the outer bound can allow one claimed outer element per payload byte and allocate the entire outer slice before the inner decoder rejects the metadata."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.7358232,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 102,
+      "outputTokens": 44676,
+      "cacheReadInputTokens": 4271756,
+      "cacheCreationInputTokens": 108627,
+      "webSearchRequests": 0,
+      "costUSD": 1.7358232,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 26919,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/tidepool/runs/rafp-six-pass-batched-2026-10-08/_judge/attempt-qQfk0E/repo",
+  "judgedAt": "2026-10-08T05:32:53.416Z"
+}

@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 2,
+  "runId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12",
+  "requestedModel": "claude-opus-5-5",
+  "modelLabel": "Claude Opus 5.5",
+  "claudeVersion": "2.1.296 (Claude Code)",
+  "configSha256": "d88c9e48fb07ad45586e5da5a32a6db75f3284333686136e4334b5537c11a454",
+  "pluginFingerprint": {
+    "contentSha256": "a2f9edc4f289b2cdcf58f0074f13727981d134f105ebe3f6d26d67f34fcdc1ec",
+    "gitCommit": "4c36ab8eba26fa7a4f819fd58f4b4b5ab777f779",
+    "version": "0.5.0"
+  },
+  "cellId": "opus-5-5-code-review-ad-r66-tidepool-2026-10-12/tidepool/code-review-ad",
+  "target": "tidepool",
+  "tool": "code-review-ad",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "5cd6873e8b0f66babd92f20d73a315682fe82ed5ff469a47eaf1343ef9990cd3",
+  "label": "Automated Development code-review-ad",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 1141,
+      "title": "Zero/negative inner vector dimensions let one payload byte drive a huge slice allocation",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "vectorElemMinSize floors any inner vector with Dimensions <= 0 to 1 byte, and the parser (frame.go:861, dim, _ := strconv.Atoi(...)) still accepts such dimensions since the dim < 1 rejection said to land with #1093 isn't present. For vector<vector<float,-3>,M> or vector<vector<float,0>,M> with an L-byte payload, the guard accepts M = L, so reflect.MakeSlice allocates about 24*L bytes before the inner decoder errors (about 12 B per payload byte for vector<vector<text,1>,N>), contradicting the PR's flat 3.5 KB claim. The same cause also wrongly rejects a valid empty vector<vector<float,0>,M> payload that actually encodes in 0 bytes.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 586,
+      "title": "32-bit wrap-arithmetic coverage claim can never run since the package doesn't build on 386",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "The wrap arithmetic is correct in principle (bits.UintSize gives 1<<29+1, which wraps to 8 on 386), but GOARCH=386 go vet . exits 1 because dependencies don't compile, e.g. serialization/varint/unmarshal_ints.go:25 and serialization/cqlint/unmarshal_utils.go:13 overflow. So the package does not build on 386 and these tests can never run there.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 813,
+      "title": "Comment claims no element describes zero bytes, but vector<float,0> is exactly zero bytes",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment says 'Neither can describe an element in zero bytes', but vector<float,0> is exactly zero bytes; the 1 is only a divide-by-zero clamp.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 693,
+      "title": "Comment claims an N-element vector is never fewer than N bytes, broken by zero-dim…",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment states 'a vector of N elements is never encoded in fewer than N bytes', which vector<vector<float,0>,N> breaks by encoding in 0 bytes.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 772,
+      "title": "Comment conflates one inner vector's byte size with the whole fixture's size",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment says 'Each inner vector … eight bytes', but each inner vector<text,3> is actually 1+3=4 bytes; 8 is the size of the two-element payload checked at :780.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1006,
+      "title": "Stale comment claims nil/empty and dim=0 still fall through to the generic path",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The comment 'nil/empty and dim=0 fall through to the generic path' no longer holds: with dim > 0, an empty non-nil payload is now rejected at :1000, and negative dimensions error at :992.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 987,
+      "title": "Comment overclaims that every path below turns the payload into an allocation",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The claim 'every path below turns it into an allocation' is false for array destinations, which only compare lengths rather than allocate.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1047,
+      "title": "Nested vector type errors omit the inner element type and dimension",
+      "severity": "low",
+      "kind": "bug",
+      "claim": "VectorType has no String(), and a nested type parsed from the wire keeps only the bare ...VectorType prefix (helpers.go:271), so the new error renders as custom(org.apache.cassandra.db.marshal.VectorType) with no element type or dimension. Likewise the bound error at :1001 doesn't give elemMin, so it can't show why a nested count was rejected, and the subtest at :872 only matches the generic string 'no Go type for element type'.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 998,
+      "title": "Duplicate condition info.Dimensions > 0 && data != nil appears in two separate blocks",
+      "severity": "nit",
+      "kind": "design",
+      "claim": "Both the block at :998 and :1007 test the same condition info.Dimensions > 0 && data != nil; the bound could open the fast-path block instead, which would also make the 'multiplication is safe' ordering obvious.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commits and PR body carry Claude/Anthropic attribution against user rule",
+      "severity": "high",
+      "kind": "style",
+      "claim": "Commits 0276a66 and 78891dd both carry 'Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>', and the PR body ends with '🤖 Generated with [Claude Code]', both forbidden by the user-level ~/.claude/CLAUDE.md.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body's referenced issue numbers don't resolve in the repo",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "gh issue view finds none of #1085, #1086, #1106, #1093 or #1091 in dkropachev/tidepool, so the PR body's out-of-scope and 'lands with' claims point at nothing.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit 0276a66's body describes the design it replaced, not what it adds",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The commit body says 'Every element takes at least one byte on the wire', but the commit itself adds the recursive vectorElemMinSize (marshal.go:1125), and the test comment at :831 explains that a one-byte floor is not enough.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "Commit 78891dd's subject omits a wider behavioral change it includes",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The subject covers only the vector guard, but the helpers.go:282 change makes every unknown type name, from every caller (collections, UDTs, tuples, frame.go), keep its name in Custom()/String(); it is tested only through the vector error path.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1125,
+      "title": "Three element-size classifiers must be kept manually in sync",
+      "severity": "nit",
+      "kind": "design",
+      "claim": "vectorElemMinSize, vectorFixedElemSize and isVectorVariableLengthType all classify the same element types; a type added to one but not the others would silently shift the bound. A cross-check test or a doc line naming the dependency would help.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 1125,
+      "title": "Nested vector size classification cost grows quadratically with nesting depth",
+      "severity": "nit",
+      "kind": "perf",
+      "claim": "Each level calls isVectorVariableLengthType, which walks the remaining depth again, so cost grows with nesting depth squared; the server controls depth through the type string, though the cost is bounded by that string's length.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 557,
+      "title": "makeVectorType duplicates makeDoubleVectorType with arguments that can disagree",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "makeVectorType repeats the existing makeDoubleVectorType (:35), and its separate elem and elemName arguments can disagree with each other.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 570,
+      "title": "makeNestedVectorType builds a custom name that differs from what the parser actually…",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "makeNestedVectorType builds a custom name that differs from the bare ...VectorType prefix the parser actually produces.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 860,
+      "title": "wireVectorType helper name doesn't convey that it parses via framer.readTypeInfo",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "wireVectorType actually parses through framer.readTypeInfo; a name that says so would be clearer.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 0,
+      "title": "New tests use t.Parallel() while the file's existing tests don't",
+      "severity": "nit",
+      "kind": "style",
+      "claim": "New tests use t.Parallel(); the file's existing tests don't, which is inconsistent within the file though not wrong.",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 831,
+      "title": "Allocation test reads process-wide TotalAlloc, which stray goroutines could make noisy",
+      "severity": "nit",
+      "kind": "test-gap",
+      "claim": "The allocation test reads process-wide TotalAlloc, so stray background goroutines can add noise; the 128 KiB threshold leaves wide margin, and the '25 MB' figure is correct on 64-bit (2^20 x 24 B).",
+      "selfRejected": true
+    },
+    {
+      "file": "marshal.go",
+      "line": 978,
+      "title": "Comment confirmed still accurate",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The comment at marshal.go:978 is still accurate.",
+      "selfRejected": true
+    },
+    {
+      "file": "helpers.go",
+      "line": 279,
+      "title": "\"// basic type\" comment now also covers the fallback to a named custom type",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "The '// basic type' comment at helpers.go:279 now also covers the fallback to a named custom type.",
+      "selfRejected": true
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "PR body's claim that every new test fails against pristine code overstates the reason",
+      "severity": "low",
+      "kind": "test-gap",
+      "claim": "This is true only because the base fails to compile without vectorElemMinSize; on behavior alone, TestUnmarshalVectorAcceptsWellFormedPayloads would pass on base.",
+      "selfRejected": false
+    },
+    {
+      "file": "",
+      "line": 0,
+      "title": "\"Short or zero-length payload now errors\" claim applies only to fixed-size elements",
+      "severity": "nit",
+      "kind": "docs",
+      "claim": "This applies only to fixed-size elements; variable-length elements already errored on empty data at base, and three empty texts (3 bytes) still decode.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 12854,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 75591,
+      "webSearchRequests": 0,
+      "costUSD": 0.43090800000000007,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 8734,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-12T11:36:47.239Z"
+}
