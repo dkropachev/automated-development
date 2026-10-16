@@ -1,0 +1,43 @@
+{
+  "selectedVariant": "package-v5",
+  "testedSkillSha256": {
+    "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+    "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+    "checks/pools.md": "9c3c7291e29a4e1248d6c7253cbc48b55ce405fe8111e781e1058205c101ceed",
+    "checks/counterexamples.md": "696b937a55ad8a0fc73acebb2dd1186b634ba498d786dc98fbc3f26a510aa959",
+    "checks/bounds.md": "ecad36a63910eb4e8a128f9db7d5cd7fa944f9890eca3f7248b081c58af9a249",
+    "checks/concurrency.md": "7853c61be4a3ff2f79a26d2acd14b0ce8571d8e118197b9ef9ea3a9d5f48bd75",
+    "checks/standards.md": "76859e7e4538375c9dad556bd803c030e49176a75a3164984322b275efe936fb",
+    "checks/claims.md": "ca473f6c23a6a13099fcfdbf888aa585fbdce2e410d78eb8d988fb845b13ecd1",
+    "checks/lifecycle.md": "9ee259bbeb89df1ca03419773b4f2e8a875ddd037397b099fd18b994680e9400",
+    "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+    "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+    "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+    "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f"
+  },
+  "installedRepositorySkillSha256": {
+    "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+    "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+    "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+    "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+    "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+    "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+    "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+    "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+    "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+    "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+    "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+    "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+    "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f"
+  },
+  "normalization": "Trailing spaces and trailing blank lines removed from Markdown only. Normalized contents verified equal; executable helper unchanged.",
+  "normalizedFiles": [
+    "checks/pools.md",
+    "checks/counterexamples.md",
+    "checks/bounds.md",
+    "checks/concurrency.md",
+    "checks/standards.md",
+    "checks/claims.md",
+    "checks/lifecycle.md"
+  ]
+}

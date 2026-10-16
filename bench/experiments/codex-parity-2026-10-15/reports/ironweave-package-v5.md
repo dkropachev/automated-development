@@ -1,0 +1,27 @@
+## Toolkit
+
+- **[P1] Queue draining can prevent shutdown from releasing a stalled write** — [src/rpc/rpc.cc:562](/tmp/ad-codex-parity-20261015/ironweave-package-v5/src/rpc/rpc.cc:562). An already accepted compressor frame can be blocked in a direct socket `put()`, with empty stream buffers and no active batch flush. Previously, closing those empty buffers could reach the POSIX sink’s `SHUT_WR`, releasing the write. The new wait requires that write to complete before reaching shutdown. If the peer stops consuming data without disconnecting, stream close can now wait indefinitely. A pending batch flush could already stall at base; this finding concerns the additional direct-write schedule.
+
+- **[P2] New sink wrapper breaks older supported API configurations** — [tests/unit/rpc_test.cc:1883](/tmp/ad-codex-parity-20261015/ironweave-package-v5/tests/unit/rpc_test.cc:1883). The unconditional `put(std::span<temporary_buffer<char>>) override` does not override a base method when `Seastar_API_LEVEL < 9`; those configurations require `put(net::packet)`. Consequently, `rpc_test` fails to compile with the supported API levels 7 and 8. The existing loopback sink conditionally implements both APIs.
+
+- **[P2] Fatal setup assertion bypasses required sink cleanup** — [tests/unit/rpc_test.cc:2000](/tmp/ad-codex-parity-20261015/ironweave-package-v5/tests/unit/rpc_test.cc:2000). If the negotiation-count assertion fails, unwinding destroys the sink created at line 1996 before calling its `close()`. `sink_impl::~sink_impl()` asserts `sink_closed()` at `rpc_impl.hh:935`, turning an ordinary test failure into a process abort. The fixture’s deferred client stop runs after this local destruction.
+
+- **[P2] New test waits have no local failure bound** — [tests/unit/rpc_test.cc:2011](/tmp/ad-codex-parity-20261015/ironweave-package-v5/tests/unit/rpc_test.cc:2011). The close-entry wait, followed by the hook’s `.get()` at line 2017, can remain pending before the release at line 2026. A regression that stalls either operation therefore prevents a bounded local failure. `test.py` supplies an external 300-second default timeout; this is a test failure-handling defect, not evidence that the current happy path hangs.
+
+## Standards
+
+- **[P2] Server negotiation mutates a fixture owned by another shard** — [tests/unit/rpc_test.cc:1957](/tmp/ad-codex-parity-20261015/ironweave-package-v5/tests/unit/rpc_test.cc:1957). One `server_factory` is constructed on the test shard and passed to every server shard. With two shards, the loopback acceptor routes the parent connection to shard 0 and the stream connection to shard 1; negotiation on shard 1 then mutates the original factory’s `hooks` vector. This violates the home-shard ownership guidance in `doc/tutorial.md:2238–2245`. Sequential negotiations do not establish compliance with that rule.
+
+- **[P3] “Pass-through” description contradicts the helper’s implementation** — [tests/unit/rpc_test.cc:1937](/tmp/ad-codex-parity-20261015/ironweave-package-v5/tests/unit/rpc_test.cc:1937). The helper delegates to `lz4_fragmented_compressor`, which adds a chunk header and compresses the input bytes (`lz4_fragmented_compressor.cc:94–103`). The newly added description therefore misstates the helper’s behavior.
+
+All three commits have explanatory bodies. The regression test follows the fix in a separate commit; no applicable rule requiring them in the same commit was established. Doxygen resolution of the new Markdown anchor remains unverified.
+
+## Spec
+
+- **[P2] A source exception does not necessarily close its connection half** — [doc/rpc-streaming.md:111](/tmp/ad-codex-parity-20261015/ironweave-package-v5/doc/rpc-streaming.md:111), also [rpc_types.hh:386](/tmp/ad-codex-parity-20261015/ironweave-package-v5/include/seastar/rpc/rpc_types.hh:386). The new contract says reading until the source throws closes/releases it. However, `unmarshall()` can throw while processing received data (`rpc_impl.hh:942–948,976–980`), outside the refill-error continuation that calls `close_source()`. An application following these instructions can stop reading after a decoding exception and leave `_source_closed` false even after closing its sink. The implementation behavior predates this PR; the inaccurate contract is new.
+
+- **[P2] The reproducer can observe the older error guard instead of the new closing guard** — [tests/unit/rpc_test.cc:2011](/tmp/ad-codex-parity-20261015/ironweave-package-v5/tests/unit/rpc_test.cc:2011). After receiving the client’s EOF, the server can finish stream close and shut down its socket. The client receive loop can then set `_error` before the hook runs. The existing stop path can also enter the wrapped sink close, so `close_entered` does not distinguish these paths. On that interleaving, the old `_error` guard rejects the hook and the regression check can pass without the fix.
+
+- **[P2] The regression check accepts successful silent dropping** — [tests/unit/rpc_test.cc:2017](/tmp/ad-codex-parity-20261015/ironweave-package-v5/tests/unit/rpc_test.cc:2017). The test catches `closed_error` but also accepts normal completion. An implementation that silently discards the frame and returns success would pass the final no-write assertion, despite the PR’s explicit promise that `send()` fails with `closed_error`.
+
+Review completed read-only against the pinned head; the worktree remains clean. No tests or builds were run, and the supplied execution claims and external issue contents were not independently verified.

@@ -195,6 +195,14 @@ to GitHub.
 /code-review-ad 1234
 ```
 
+The Codex counterpart lives in `.agents/skills/code-review-ad/`. It keeps the same three
+independent passes and read-only scope. Its bundled Node/Git helper prepares source facts from
+the pinned commits, including changed comments and commit-to-file mappings. Reviewers load
+the applicable check references within a six-read budget; GPT-6.1 Sol reviewers use `xhigh`
+unless the user specifies another effort. Findings are checked against their exact claim and
+category so a factual documentation defect is not lost when it shares evidence with a code
+defect. The Claude skill is maintained separately.
+
 ### `review-and-fix-pr`
 
 Reviews a frozen whole-PR scope in the invoking Claude Code session. Native Claude agents inspect

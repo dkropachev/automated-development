@@ -1,0 +1,7 @@
+# Applicable claims checks
+
+Apply the checks below addressed to your assigned pass. They are direct review obligations, not instructions to delegate or spawn agents.
+
+**Comment-level check in Standards, separate from larger defects:** For each newly added helper label such as "pass-through", compare the input and output bytes in every branch; an empty-buffer replacement or changed encoding means it is not literally pass-through and needs explanation. For each changed close/send-loop comment, list the state writes that occur synchronously before any future continuation, then state what breaks if one becomes deferred or is reordered; report an ordering dependency only if it causes a concrete current failure or violates an applicable rule. Count added comments with two spaces after a full stop and compare their frequency with adjacent unchanged comments in the same file; report a concrete new style mismatch only when it violates an applicable rule. Keep these observations distinct from correctness findings about the same code.
+
+**Numeric-comment audit required from Toolkit and Standards agents:** Return a brief list of every added comment that gives a byte count or element count, including words rather than only digits. For each, state whether it describes one element or the whole fixture and give the calculated value. If the comment is wrong, report it as a finding with its changed line; do not roll it into an unrelated bound defect.

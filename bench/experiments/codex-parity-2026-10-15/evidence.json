@@ -1,0 +1,290 @@
+{
+  "kind": "exploratory-skill-evaluation",
+  "canonicalGold": false,
+  "note": "Verified unique groups, not headings; this is a single final run per target, not a statistical parity guarantee. Input includes cached input; output includes reasoning. All three-pass reports use matched frozen PR metadata. Local report source links name isolated checkouts; target pins are retained here.",
+  "records": [
+    {
+      "repositoryCommit": "6a0a22dc8a6cc95db423f1fdd375d788ebecee95",
+      "targetBase": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+      "targetHead": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "skillSha256": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "review.md": "95ed2af9d381a7971c5f49ef10a003bf193ab72d9552fa838d59ce88a8b37197"
+      },
+      "promptSha256": "696e26c9cf970c489f3902a4a722c3583e6032cd2e9cb397be6ce1a0895a2322",
+      "reportSha256": "98cd7815e8716896c7b44ac64629c2e75a710db7045bb1551cbdb86066aceec9",
+      "totalTokens": 1919514,
+      "reportHashRecordedAtExport": false,
+      "id": "ironweave-baseline",
+      "verifiedGroups": 5,
+      "grading": {
+        "valid_groups": 5
+      },
+      "report": "reports/ironweave-baseline.md"
+    },
+    {
+      "repositoryCommit": "6a0a22dc8a6cc95db423f1fdd375d788ebecee95",
+      "targetBase": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+      "targetHead": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "model": "claude-opus-5-5",
+      "reasoningEffort": "medium",
+      "skillSha256": {
+        "SKILL.md": "9ebd3621031b2ca45d573b40449912cf09bdf6f8c9fa699f0d0c7a20b73c0d9b",
+        "review.md": "9c46f5199e758bd53ed570a0c68c8a271ff8339ecf06adcc4a68b935d3fe6fc7"
+      },
+      "promptSha256": "6b0f5f8276584121c8568b854d4fcfd99db6ec3b641ec9c16c449d5ab2e3394f",
+      "reportSha256": "57f01f8b9cbcc0ba37de6efb4193c916f78a209f179eb31d77b8d9e792729cfe",
+      "totalTokens": 1707068,
+      "reportHashRecordedAtExport": false,
+      "id": "ironweave-claude-matched",
+      "verifiedGroups": 8,
+      "grading": {
+        "valid_groups": 8,
+        "note": "Corrected from 11: exclude normative multiple-sink/enforcement claim; missing queue-branch tests are not standalone issue; generic error wording does not promise recovery."
+      },
+      "report": "reports/ironweave-claude-matched.md"
+    },
+    {
+      "repositoryCommit": "6a0a22dc8a6cc95db423f1fdd375d788ebecee95",
+      "targetBase": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+      "targetHead": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "skillSha256": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "checks/pools.md": "9c3c7291e29a4e1248d6c7253cbc48b55ce405fe8111e781e1058205c101ceed",
+        "checks/counterexamples.md": "696b937a55ad8a0fc73acebb2dd1186b634ba498d786dc98fbc3f26a510aa959",
+        "checks/bounds.md": "ecad36a63910eb4e8a128f9db7d5cd7fa944f9890eca3f7248b081c58af9a249",
+        "checks/concurrency.md": "7853c61be4a3ff2f79a26d2acd14b0ce8571d8e118197b9ef9ea3a9d5f48bd75",
+        "checks/standards.md": "76859e7e4538375c9dad556bd803c030e49176a75a3164984322b275efe936fb",
+        "checks/claims.md": "ca473f6c23a6a13099fcfdbf888aa585fbdce2e410d78eb8d988fb845b13ecd1",
+        "checks/lifecycle.md": "9ee259bbeb89df1ca03419773b4f2e8a875ddd037397b099fd18b994680e9400",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f"
+      },
+      "promptSha256": "1dc4f16b1753f194ed68cab86cbc33ef022209f74fdc2ce72ff5db9f16090a20",
+      "reportSha256": "7c6ae7bf01cdd49b138b9526d8fa68dac335b4709700571bd718bada1690f0ce",
+      "totalTokens": 1887535,
+      "reportHashRecordedAtExport": false,
+      "id": "ironweave-package-v5",
+      "verifiedGroups": 8,
+      "grading": {
+        "valid_groups": 8,
+        "total_tokens": 1887535,
+        "valid": [
+          "queue shutdown",
+          "compatibility build",
+          "assertion cleanup",
+          "local deadlines",
+          "shard ownership",
+          "pass-through documentation",
+          "source-exception documentation",
+          "weak regression assertion (two manifestations merged)"
+        ],
+        "gains_vs_baseline": 3,
+        "losses_vs_baseline": [],
+        "excluded": [],
+        "missing_vs_claude_matched": [
+          "absolute shutdown-prerequisite documentation"
+        ],
+        "qualification": "Claude misses source-deserialization exception that this run retains; shared counts do not mean identical coverage."
+      },
+      "report": "reports/ironweave-package-v5.md"
+    },
+    {
+      "repositoryCommit": "6a0a22dc8a6cc95db423f1fdd375d788ebecee95",
+      "targetBase": "24c789ec836b9382b24a38303e869de57d175e23",
+      "targetHead": "78891dd78461a2758585ce3545de0d55f2c114a3",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "skillSha256": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "review.md": "95ed2af9d381a7971c5f49ef10a003bf193ab72d9552fa838d59ce88a8b37197"
+      },
+      "promptSha256": "2b9245c8b5937cda3dc8640e5b632311fa1660f09a5d41bdd68c4d8c191b7b96",
+      "reportSha256": "542fbfdf7efd74ad12b4a654d96dca339c54b79a3fc9752aefc55feb2eadddaa",
+      "reportHashRecordedAtExport": true,
+      "totalTokens": 1645174,
+      "id": "tidepool-baseline",
+      "verifiedGroups": 5,
+      "grading": {
+        "valid_groups": 5
+      },
+      "report": "reports/tidepool-baseline.md"
+    },
+    {
+      "repositoryCommit": "6a0a22dc8a6cc95db423f1fdd375d788ebecee95",
+      "targetBase": "24c789ec836b9382b24a38303e869de57d175e23",
+      "targetHead": "78891dd78461a2758585ce3545de0d55f2c114a3",
+      "model": "claude-opus-5-5",
+      "reasoningEffort": "medium",
+      "skillSha256": {
+        "SKILL.md": "9ebd3621031b2ca45d573b40449912cf09bdf6f8c9fa699f0d0c7a20b73c0d9b",
+        "review.md": "9c46f5199e758bd53ed570a0c68c8a271ff8339ecf06adcc4a68b935d3fe6fc7"
+      },
+      "promptSha256": "8e8c3c00d3369ee56e353bb7f699fd7e5a469ed9054825132766cbabcd5b914d",
+      "reportSha256": "005bb794d7427d3d0637181dc9ebe649beb7fd58fdf18e3c63702cf40f654910",
+      "totalTokens": 1508537,
+      "reportHashRecordedAtExport": false,
+      "id": "tidepool-claude-matched",
+      "verifiedGroups": 7,
+      "grading": {
+        "valid_groups": 7
+      },
+      "report": "reports/tidepool-claude-matched.md"
+    },
+    {
+      "repositoryCommit": "6a0a22dc8a6cc95db423f1fdd375d788ebecee95",
+      "targetBase": "24c789ec836b9382b24a38303e869de57d175e23",
+      "targetHead": "78891dd78461a2758585ce3545de0d55f2c114a3",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "skillSha256": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "checks/pools.md": "9c3c7291e29a4e1248d6c7253cbc48b55ce405fe8111e781e1058205c101ceed",
+        "checks/counterexamples.md": "696b937a55ad8a0fc73acebb2dd1186b634ba498d786dc98fbc3f26a510aa959",
+        "checks/bounds.md": "ecad36a63910eb4e8a128f9db7d5cd7fa944f9890eca3f7248b081c58af9a249",
+        "checks/concurrency.md": "7853c61be4a3ff2f79a26d2acd14b0ce8571d8e118197b9ef9ea3a9d5f48bd75",
+        "checks/standards.md": "76859e7e4538375c9dad556bd803c030e49176a75a3164984322b275efe936fb",
+        "checks/claims.md": "ca473f6c23a6a13099fcfdbf888aa585fbdce2e410d78eb8d988fb845b13ecd1",
+        "checks/lifecycle.md": "9ee259bbeb89df1ca03419773b4f2e8a875ddd037397b099fd18b994680e9400",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f"
+      },
+      "promptSha256": "7aa4268050e1bd4f8da577d8afe6a28b82e5558e73c7cb33aba0a64ea6164693",
+      "reportSha256": "f1427a1a904063d9aad1cd267a6b2c638caf22ff0b5a9805c0dc625422352cb7",
+      "totalTokens": 1747279,
+      "reportHashRecordedAtExport": false,
+      "id": "tidepool-package-v5",
+      "verifiedGroups": 8,
+      "grading": {
+        "valid_groups": 8,
+        "total_tokens": 1747279,
+        "valid": [
+          "empty nested regression",
+          "recursive CPU",
+          "fixture bytes",
+          "zero-byte universal documentation",
+          "array allocation comment",
+          "public documentation",
+          "commit format",
+          "regression-validation claim"
+        ],
+        "gains_vs_baseline": 3,
+        "losses_vs_baseline": [],
+        "excluded": [],
+        "missing_vs_package_v3": [
+          "text128 exact-minimum documentation"
+        ],
+        "qualification": "Pre-existing allocation risk retained with accurate scope, no added group. Exact visit counts consistent with 1000 vector levels: 999*1000*1004/6=167166000 additional visits; original classifications 1000*1001/2-1=500499."
+      },
+      "report": "reports/tidepool-package-v5.md"
+    },
+    {
+      "repositoryCommit": "6a0a22dc8a6cc95db423f1fdd375d788ebecee95",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "skillSha256": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "review.md": "95ed2af9d381a7971c5f49ef10a003bf193ab72d9552fa838d59ce88a8b37197"
+      },
+      "promptSha256": "113be9efd8cd5fee212f7b655e1538122c71221a185b9979aa32f56260808664",
+      "reportSha256": "449bf0203671037e07de0a089be5e66b6b8c405c68dfbfeec8b8a08b9157d871",
+      "totalTokens": 1580717,
+      "reportHashRecordedAtExport": false,
+      "id": "quillstone-baseline",
+      "verifiedGroups": 2,
+      "grading": {
+        "valid_groups": 2,
+        "excluded": [
+          "persistent rejected keyspace is intended namespace admission policy, no recovery contract proved"
+        ]
+      },
+      "report": "reports/quillstone-baseline.md"
+    },
+    {
+      "repositoryCommit": "6a0a22dc8a6cc95db423f1fdd375d788ebecee95",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "claude-opus-5-5",
+      "reasoningEffort": "medium",
+      "skillSha256": {
+        "SKILL.md": "9ebd3621031b2ca45d573b40449912cf09bdf6f8c9fa699f0d0c7a20b73c0d9b",
+        "review.md": "9c46f5199e758bd53ed570a0c68c8a271ff8339ecf06adcc4a68b935d3fe6fc7"
+      },
+      "promptSha256": "7826f2f006deffc771f01651c18b1cece18dace7b61206d3b628df1e77551338",
+      "reportSha256": "165c45de68d976b82822e233577eb9a092b88bae0f9a12cd3ed8d9815adff0c2",
+      "totalTokens": 1161741,
+      "reportHashRecordedAtExport": false,
+      "id": "quillstone-claude-matched",
+      "verifiedGroups": 8,
+      "grading": {
+        "valid_groups": 8,
+        "note": "Corrected from 9: reject persistent-keyspace finding absent requirement to admit wrong-namespace connections or roll back rejected selection."
+      },
+      "report": "reports/quillstone-claude-matched.md"
+    },
+    {
+      "repositoryCommit": "6a0a22dc8a6cc95db423f1fdd375d788ebecee95",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "skillSha256": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "checks/pools.md": "9c3c7291e29a4e1248d6c7253cbc48b55ce405fe8111e781e1058205c101ceed",
+        "checks/counterexamples.md": "696b937a55ad8a0fc73acebb2dd1186b634ba498d786dc98fbc3f26a510aa959",
+        "checks/bounds.md": "ecad36a63910eb4e8a128f9db7d5cd7fa944f9890eca3f7248b081c58af9a249",
+        "checks/concurrency.md": "7853c61be4a3ff2f79a26d2acd14b0ce8571d8e118197b9ef9ea3a9d5f48bd75",
+        "checks/standards.md": "76859e7e4538375c9dad556bd803c030e49176a75a3164984322b275efe936fb",
+        "checks/claims.md": "ca473f6c23a6a13099fcfdbf888aa585fbdce2e410d78eb8d988fb845b13ecd1",
+        "checks/lifecycle.md": "9ee259bbeb89df1ca03419773b4f2e8a875ddd037397b099fd18b994680e9400",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f"
+      },
+      "promptSha256": "f85a19fa44e48e1d12fcd803b43e9a70140bb2d88ab3c0ab9f7c7efa18a2be93",
+      "reportSha256": "7c42a3f7edd656c768fc3e51b374e91204cd4e511ecf08cbc6996e39711db86b",
+      "totalTokens": 1512595,
+      "reportHashRecordedAtExport": false,
+      "id": "quillstone-package-v5",
+      "verifiedGroups": 6,
+      "grading": {
+        "valid_groups": 6,
+        "total_tokens": 1512595,
+        "valid": [
+          "warning visibility",
+          "missing local deadlines",
+          "ineffective promised refill assertion",
+          "required tracing",
+          "production commit motivation",
+          "omitted metrics PR scope"
+        ],
+        "gains_vs_baseline": 4,
+        "losses_vs_baseline": [],
+        "missing_vs_claude_matched": [
+          "proxy failure cleanup",
+          "incorrect post-teardown gauge assertion"
+        ],
+        "excluded": [],
+        "qualification": "Correctly avoids presumed namespace rollback; records excess-coverage gap as limitation rather than standalone defect."
+      },
+      "report": "reports/quillstone-package-v5.md"
+    }
+  ]
+}

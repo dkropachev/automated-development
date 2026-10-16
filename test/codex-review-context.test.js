@@ -1,0 +1,125 @@
+'use strict'
+const { test } = require('node:test')
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
+const { execFileSync } = require('node:child_process')
+const helper = path.resolve(__dirname, '../.agents/skills/code-review-ad/scripts/prepare-review.js')
+const { prepareReview, renderInventory } = require(helper)
+
+function fixture(t) {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-review-context-'))
+  t.after(() => fs.rmSync(repo, { recursive: true, force: true }))
+  const git = (...args) => execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+    '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', '-C', repo, ...args], { encoding: 'utf8' }).trim()
+  git('init', '--quiet')
+  const write = (file, contents) => fs.writeFileSync(path.join(repo, file), contents)
+  const commit = (message) => { git('add', '--all'); git('commit', '--quiet', '-m', message); return git('rev-parse', 'HEAD') }
+  return { repo, git, write, commit }
+}
+
+test('Codex context reads frozen blobs with exact lines despite dirty worktree contents', (t) => {
+  const f = fixture(t)
+  f.write('code.js', 'const before = 1\n// Old context\nconst after = 2\n')
+  const base = f.commit('base')
+  f.write('code.js', 'const before = 1\n// Old context\n// Each entry occupies one byte.\nif (ready) {\n  for (const item of items) use(item)\n}\nconst after = 2\nif (ready) {\n  use(before)\n}\n')
+  const head = f.commit('head')
+  const dirty = '// DIRTY WORKTREE MUST NOT ENTER THE PINNED INVENTORY\n'
+  f.write('code.js', dirty)
+  const status = f.git('status', '--porcelain')
+  const data = prepareReview({ repo: f.repo, base, head })
+  assert.equal(data.mergeBase, base)
+  assert.deepEqual(data.comments, [{ path: 'code.js', line: 3, text: '// Each entry occupies one byte.' }])
+  assert.ok(data.nearby.some((row) => row.line === 2 && row.text === '// Old context'))
+  assert.ok(data.risks.some((row) => row.line === 5 && row.kind === 'changed-construct'))
+  assert.ok(data.risks.some((row) => row.line === 4 && row.relatedLine === 8))
+  assert.deepEqual(data.commits[0].files, ['code.js'])
+  assert.equal(data.commits[0].filesComparedWith, base)
+  assert.ok(!JSON.stringify(data).includes('DIRTY WORKTREE'))
+  assert.equal(fs.readFileSync(path.join(f.repo, 'code.js'), 'utf8'), dirty)
+  assert.equal(f.git('status', '--porcelain'), status)
+  const cli = JSON.parse(execFileSync(process.execPath, [helper, '--repo', f.repo, '--base', base, '--head', head, '--json'], { encoding: 'utf8' }))
+  assert.deepEqual(cli, data)
+})
+
+test('Codex context handles renamed hostile-looking filenames and deletions without shell interpretation', (t) => {
+  const f = fixture(t)
+  f.write('old.go', Array.from({ length: 30 }, (_, i) => `// unchanged line ${i}`).join('\n') + '\n')
+  f.write('deleted.md', 'A statement removed from the head.\n')
+  const base = f.commit('base')
+  const renamed = 'a\tb\n\'$(touch escaped)\'[x].go'
+  fs.renameSync(path.join(f.repo, 'old.go'), path.join(f.repo, renamed))
+  fs.appendFileSync(path.join(f.repo, renamed), '// The added statement.\n')
+  fs.unlinkSync(path.join(f.repo, 'deleted.md'))
+  const head = f.commit('rename and delete')
+  const data = prepareReview({ repo: f.repo, base, head })
+  assert.ok(data.files.some((file) => file.path === renamed && file.oldPath === 'old.go' && file.status.startsWith('R')))
+  assert.ok(data.files.some((file) => file.path === 'deleted.md' && file.status === 'D'))
+  assert.deepEqual(data.comments, [{ path: renamed, line: 31, text: '// The added statement.' }])
+  assert.ok(renderInventory(data).includes(`${JSON.stringify(renamed)}:31:`))
+  assert.ok(!fs.existsSync(path.join(f.repo, 'escaped')))
+})
+
+test('Codex context rejects unfrozen revisions and a checkout at another head', (t) => {
+  const f = fixture(t)
+  f.write('a.js', '// first\n')
+  const base = f.commit('base')
+  f.write('a.js', '// second\n')
+  const head = f.commit('head')
+  assert.throws(() => prepareReview({ repo: f.repo, base: 'HEAD~1', head }), /full commit object ID/)
+  assert.throws(() => prepareReview({ repo: f.repo, base, head: base }), /HEAD does not match/)
+})
+
+test('Codex context does not mix a renamed file with descendants reusing its old path', (t) => {
+  const f = fixture(t)
+  f.write('old.go', Array.from({ length: 30 }, (_, i) => `// retained ${i}`).join('\n') + '\n')
+  const base = f.commit('base')
+  fs.renameSync(path.join(f.repo, 'old.go'), path.join(f.repo, 'new.go'))
+  fs.appendFileSync(path.join(f.repo, 'new.go'), '// New file claim.\n')
+  fs.mkdirSync(path.join(f.repo, 'old.go'))
+  f.write('old.go/other.go', '// Other file claim.\n')
+  const head = f.commit('rename and reuse directory')
+  const data = prepareReview({ repo: f.repo, base, head })
+  assert.ok(data.files.some((file) => file.path === 'new.go' && file.status.startsWith('R')))
+  assert.deepEqual(data.comments, [
+    { path: 'new.go', line: 31, text: '// New file claim.' },
+    { path: 'old.go/other.go', line: 1, text: '// Other file claim.' },
+  ])
+})
+
+test('Codex context exposes display omissions and retains the complete machine inventory', (t) => {
+  const f = fixture(t)
+  f.write('readme.md', 'Base statement.\n')
+  const base = f.commit('base')
+  f.write('readme.md', 'Base statement.\nFirst added claim.\nSecond added claim.\nThird added claim.\n')
+  const head = f.commit('head')
+  const data = prepareReview({ repo: f.repo, base, head })
+  const rendered = renderInventory(data, { comments: 1, nearby: 1, risks: 1 })
+  assert.equal(data.comments.length, 3)
+  assert.match(rendered, /Added comment\/documentation candidates \(1\/3\)/)
+  assert.match(rendered, /INCOMPLETE: 2 comments rows omitted/)
+  assert.ok(!rendered.includes('Second added claim.'))
+  const keys = JSON.parse(rendered.split('Claim audit keys for displayed evidence: ')[1])
+  assert.ok(keys.includes('readme.md:2'))
+  assert.ok(!keys.includes('readme.md:3'))
+})
+
+test('Codex context records merge changes against the stated first parent', (t) => {
+  const f = fixture(t)
+  f.write('base.js', '// base\n')
+  const base = f.commit('base')
+  f.git('checkout', '--quiet', '-b', 'feature')
+  f.write('feature.js', '// feature claim\n')
+  f.commit('feature')
+  f.git('checkout', '--quiet', '-b', 'base-side', base)
+  f.write('base-side.js', '// existing on base\n')
+  const baseTip = f.commit('base side')
+  f.git('merge', '--quiet', '--no-ff', '-m', 'merge feature', 'feature')
+  const head = f.git('rev-parse', 'HEAD')
+  const data = prepareReview({ repo: f.repo, base: baseTip, head })
+  const merge = data.commits.find((commit) => commit.oid === head)
+  assert.equal(merge.filesComparedWith, baseTip)
+  assert.deepEqual(merge.files, ['feature.js'])
+  assert.deepEqual(data.files.map((file) => file.path), ['feature.js'])
+})
