@@ -386,3 +386,7 @@ pre { max-height: 560px; margin: 0; padding: 1rem 1.1rem; overflow: auto; border
   .shell { width: 100%; }
   .panel, .kpi { box-shadow: none; break-inside: avoid; }
 }
+
+.experiment-raw-report { white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; max-height: 70vh; overflow: auto; }
+.experiment-table td { vertical-align: top; }
+.experiment-panel > h2, .experiment-panel > p { margin: 1rem 1.1rem; }

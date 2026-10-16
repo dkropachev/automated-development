@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "recordId": "ironweave-focused-four",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "ironweave",
+      "layout": "focused-four"
+    },
+    {
+      "recordId": "ironweave-focused-three",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "ironweave",
+      "layout": "focused-three"
+    },
+    {
+      "recordId": "ironweave-split-tests",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "ironweave",
+      "layout": "split-tests"
+    },
+    {
+      "recordId": "ironweave-toolkit-code-budget",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "ironweave",
+      "layout": "toolkit-code-budget"
+    },
+    {
+      "recordId": "ironweave-toolkit-preserved-checks",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "ironweave",
+      "layout": "toolkit-preserved-checks"
+    },
+    {
+      "recordId": "ironweave-toolkit-split",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "ironweave",
+      "layout": "toolkit-split"
+    },
+    {
+      "recordId": "quillstone-control-three",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "control-three"
+    },
+    {
+      "recordId": "quillstone-feature-scopes",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "feature-scopes"
+    },
+    {
+      "recordId": "quillstone-focused-four",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "focused-four"
+    },
+    {
+      "recordId": "quillstone-focused-three",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "focused-three"
+    },
+    {
+      "recordId": "quillstone-focused-three-r2",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "focused-three-r2"
+    },
+    {
+      "recordId": "quillstone-split-tests",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "split-tests"
+    },
+    {
+      "recordId": "quillstone-split-tests-output",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "split-tests-output"
+    },
+    {
+      "recordId": "quillstone-toolkit-code-budget",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "toolkit-code-budget"
+    },
+    {
+      "recordId": "quillstone-toolkit-preserved-checks",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "toolkit-preserved-checks"
+    },
+    {
+      "recordId": "quillstone-toolkit-split",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "toolkit-split"
+    },
+    {
+      "recordId": "quillstone-toolkit-split-compact",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "toolkit-split-compact"
+    },
+    {
+      "recordId": "quillstone-toolkit-split-r2",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "quillstone",
+      "layout": "toolkit-split-r2"
+    },
+    {
+      "recordId": "tidepool-focused-three",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "tidepool",
+      "layout": "focused-three"
+    },
+    {
+      "recordId": "tidepool-toolkit-preserved-checks",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "tidepool",
+      "layout": "toolkit-preserved-checks"
+    },
+    {
+      "recordId": "tidepool-toolkit-split",
+      "platform": "codex",
+      "skill": "code-review-ad",
+      "target": "tidepool",
+      "layout": "toolkit-split"
+    }
+  ]
+}

@@ -68,7 +68,7 @@ changed. Use a new `RUN` to extend the matrix, rerun a cell, or make any fresh m
 creates `complete.json` only after every sealed finding and target judgement exists. Reports and the
 dashboard accept new cohorts only through that hash-verified complete snapshot. `make bench-publish`
 discovers every such modern cohort without a model allow-list, renders standalone reports except
-for cohorts containing `code-review-ad`, and renders both dashboards. It leaves the
+for cohorts containing `code-review-ad`, renders an experiment summary, and renders both dashboards. It leaves the
 hand-written legacy report untouched. `make bench-publish-check`
 fails on a missing or stale generated file. `ARGS`
 passes other flags through, for example `make bench-run ARGS="--only ironweave --concurrency 2"`.
@@ -343,3 +343,21 @@ or static docs host. After any completed-cohort or dashboard change, run `make b
 test suite fails if any required cohort report or either tracked dashboard export has drifted. A
 GitHub Actions workflow runs the same publisher, verifies it, and deploys `docs/` on pushes to
 `main`.
+
+## Skill platforms and archived experiments
+
+Dashboard skill identity is `platform:skill`, independent of the reviewer model or adjudicator.
+Existing benchmark snapshots describe Claude skills; their original tool IDs and evidence IDs
+remain intact. Unqualified skill links and filters continue to resolve to Claude. Browsing defaults
+to all platforms and models without changing the configured runner model.
+
+`#experiments` publishes every record in the archived experiment evidence inventories. Separate
+`publication.json` annotations bind each receipt to a platform, skill, target, and layout. Publication
+requires every report hash and annotation reference to resolve. The October 16 category review
+supplies corrected earlier counts (matched Claude: 7 Rust groups, 22 total); original receipts and
+reports are unchanged. Reports are embedded for offline viewing, and repeated trials remain separate.
+
+Experiment records never enter benchmark runs, precision, completeness, cost rankings, issue
+identity mappings, or canonical gold. `make bench-publish` and `make bench-publish-check` also cover
+`docs/review-skill-experiments.md` and both dashboard exports. `code-review-ad` completed cohorts
+retain their dashboard-only standalone-report policy.

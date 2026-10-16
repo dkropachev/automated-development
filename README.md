@@ -6,8 +6,8 @@ driver, alongside a direct PR review-and-fix protocol; the layout expects more.
 
 The [`Review Bench`](docs/index.html) compares installed review skills by verified quality, cost,
 requested model, language, and target. Benchmark runs are kept as immutable model cohorts, so a new
-model can be measured without replacing the historical results. Its model picker defaults to the
-pinned Claude Opus 5.5 cohort while keeping legacy runs available. The site includes focused
+model can be measured without replacing the historical results. Browsing defaults to all platforms and models; the benchmark runner still pins Claude Opus 5.5.
+Skills use platform-qualified identities, with Codex and Claude experiments in a separate view. The site includes focused
 choose, compare, findings, insights, and raw-run views and is published to GitHub Pages from `main`.
 
 ## Install

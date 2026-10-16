@@ -1371,7 +1371,7 @@ test('report requires a complete hash snapshot and uses only its frozen target/t
     assert.equal(report.status, 0, report.stderr)
     assert.match(report.stdout, /1 review configuration, 1 real PR/)
     assert.match(report.stdout, /\| `sample` \| JS \| 42 B/)
-    assert.match(report.stdout, /\| Reviewer \| 1 \|/)
+    assert.match(report.stdout, /\| Reviewer · Claude \| 1 \|/)
     assert.match(report.stdout, /## Cohort accounting/)
     assert.match(report.stdout, /Reviews: 1 calls, 3 tokens, \$0\.25/)
     assert.match(report.stdout, /Extraction: 1 calls, 1 raw claims, \$0\.05/)

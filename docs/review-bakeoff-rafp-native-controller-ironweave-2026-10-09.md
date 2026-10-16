@@ -1,6 +1,6 @@
 # Review-tool bake-off: 1 review configuration, 1 real PR
 
-**Cohort:** `rafp-native-controller-ironweave-2026-10-09`. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
+**Cohort:** `rafp-native-controller-ironweave-2026-10-09`. **Skill platform:** Claude. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
 
 **Experimental cohort-local evidence:** `review-and-fix-pr` is experimental and self-authored. These results are not canonical gold.
 
@@ -73,13 +73,13 @@ its output, so they are deliberately not added on top of it here.
 
 | Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Tokens | Cost | Wall | Lost to limits |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Automated Development review-and-fix-pr | 1 | 20 | 13 | 6 | 1 | 10 | 3 | 11,713,104 | $10.01 | 12.4 min | - |
+| Automated Development review-and-fix-pr · Claude | 1 | 20 | 13 | 6 | 1 | 10 | 3 | 11,713,104 | $10.01 | 12.4 min | - |
 
 ### Spend per run
 
 | Tool | ironweave |
 |---|---:|
-| Automated Development review-and-fix-pr | 11,713,104 tok / $10.01 / 12.4 min |
+| Automated Development review-and-fix-pr · Claude | 11,713,104 tok / $10.01 / 12.4 min |
 
 **The 1 scored reviews' recorded attempts cost 11,713,104 tokens, $10.01.**
 Retry attempts, judging, and extraction are not included.
@@ -90,7 +90,7 @@ What each run said before verification. Self-rejected claims are excluded, and t
 
 | Tool | ironweave |
 |---|---:|
-| Automated Development review-and-fix-pr | 20 |
+| Automated Development review-and-fix-pr · Claude | 20 |
 
 ## What the maintainers actually said
 

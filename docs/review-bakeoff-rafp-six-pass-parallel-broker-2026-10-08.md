@@ -1,6 +1,6 @@
 # Review-tool bake-off: 1 review configuration, 3 real PRs
 
-**Cohort:** `rafp-six-pass-parallel-broker-2026-10-08`. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
+**Cohort:** `rafp-six-pass-parallel-broker-2026-10-08`. **Skill platform:** Claude. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
 
 **Experimental cohort-local evidence:** `review-and-fix-pr` is experimental and self-authored. Its confirmed claims are mapped in the sealed model-comparison-2026-10-08 gold snapshot; suggestions are excluded from confirmed credit. The cohort-local judgements below remain separate.
 
@@ -108,13 +108,13 @@ its output, so they are deliberately not added on top of it here.
 
 | Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Tokens | Cost | Wall | Lost to limits |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Automated Development review-and-fix-pr | 3 | 36 | 32 | 4 | 0 | 30 | 2 | 12,695,932 | $16.42 | 45.6 min | - |
+| Automated Development review-and-fix-pr · Claude | 3 | 36 | 32 | 4 | 0 | 30 | 2 | 12,695,932 | $16.42 | 45.6 min | - |
 
 ### Spend per run
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Automated Development review-and-fix-pr | 3,530,403 tok / $5.35 / 17.8 min | 4,474,105 tok / $5.67 / 12.6 min | 4,691,424 tok / $5.39 / 15.3 min |
+| Automated Development review-and-fix-pr · Claude | 3,530,403 tok / $5.35 / 17.8 min | 4,474,105 tok / $5.67 / 12.6 min | 4,691,424 tok / $5.39 / 15.3 min |
 
 **The 3 scored reviews' recorded attempts cost 12,695,932 tokens, $16.42.**
 Retry attempts, judging, and extraction are not included.
@@ -125,7 +125,7 @@ Extracted claims include 74 suggestions. They remain visible for reviewer judgme
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Automated Development review-and-fix-pr | 53 (19 confirmed, 34 suggestions) | 33 (10 confirmed, 23 suggestions) | 35 (18 confirmed, 17 suggestions) |
+| Automated Development review-and-fix-pr · Claude | 53 (19 confirmed, 34 suggestions) | 33 (10 confirmed, 23 suggestions) | 35 (18 confirmed, 17 suggestions) |
 
 ## What the maintainers actually said
 

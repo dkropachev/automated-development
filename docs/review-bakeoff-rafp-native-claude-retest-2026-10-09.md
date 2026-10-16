@@ -1,6 +1,6 @@
 # Review-tool bake-off: 1 review configuration, 3 real PRs
 
-**Cohort:** `rafp-native-claude-retest-2026-10-09`. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
+**Cohort:** `rafp-native-claude-retest-2026-10-09`. **Skill platform:** Claude. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
 
 **Experimental cohort-local evidence:** `review-and-fix-pr` is experimental and self-authored. These results are not canonical gold.
 
@@ -115,13 +115,13 @@ its output, so they are deliberately not added on top of it here.
 
 | Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Tokens | Cost | Wall | Lost to limits |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Automated Development review-and-fix-pr | 3 | 58 | 40 | 18 | 0 | 39 | 1 | 27,062,254 | $24.69 | 26.9 min | - |
+| Automated Development review-and-fix-pr · Claude | 3 | 58 | 40 | 18 | 0 | 39 | 1 | 27,062,254 | $24.69 | 26.9 min | - |
 
 ### Spend per run
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Automated Development review-and-fix-pr | 8,805,418 tok / $8.68 / 10.6 min | 8,860,450 tok / $7.68 / 7.2 min | 9,396,386 tok / $8.33 / 9.2 min |
+| Automated Development review-and-fix-pr · Claude | 8,805,418 tok / $8.68 / 10.6 min | 8,860,450 tok / $7.68 / 7.2 min | 9,396,386 tok / $8.33 / 9.2 min |
 
 **The 3 scored reviews' recorded attempts cost 27,062,254 tokens, $24.69.**
 Retry attempts, judging, and extraction are not included.
@@ -132,7 +132,7 @@ What each run said before verification. Self-rejected claims are excluded, and t
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Automated Development review-and-fix-pr | 21 | 17 | 20 |
+| Automated Development review-and-fix-pr · Claude | 21 | 17 | 20 |
 
 ## What the maintainers actually said
 

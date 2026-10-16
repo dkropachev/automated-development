@@ -287,7 +287,7 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
   assert.ok(data.cohorts.filter((cohort) => !cohort.legacy).every((cohort) => cohort.complete))
   assert.ok(data.cohorts.some((cohort) => cohort.id === 'sonnet-5-5-2026-09-30' && cohort.complete))
   assert.equal(data.targets.length, 3)
-  assert.equal(data.tools.length, 10)
+  assert.equal(data.tools.length, 11)
   assert.ok(data.tools.some((tool) => tool.id === 'code-review-ad'))
   assert.deepEqual(data.tools.filter((tool) => tool.id === 'review-and-fix-pr').map((tool) => ({
     experimental: tool.experimental,
@@ -435,7 +435,7 @@ test('artifact loader uses complete cohort snapshots after live state and tools 
     const run = data.runs[0]
     assert.equal(run.targetSnapshot.title, 'Pinned snapshot target')
     assert.equal(run.targetSnapshot.language, 'Snapshot JS')
-    assert.equal(run.toolSnapshot.label, 'Pinned Tool')
+    assert.equal(run.toolSnapshot.label, 'Pinned Tool · Claude')
     assert.equal(run.toolSnapshot.source, 'snapshot-source')
     assert.equal(run.prompt, 'Pinned review of snapshot/project')
     assert.equal(run.requestedModel, 'claude-future-9')
@@ -514,14 +514,14 @@ test('dashboard exposes tested-skill metadata and exact run-set links', () => {
   const html = dashboard.render(data)
   assert.match(html, /function renderSkills\(focusId = null, params = new URLSearchParams\(\)\)/)
   assert.match(html, /function runsHash\(rows\)/)
-  assert.match(html, /View \$\{skill\.rows\.length\} run/)
+  assert.match(html, /\$\{skill\.rows\.length\} benchmark runs/)
 })
 
-test('dashboard model picker defaults to requested model and keeps observed stack separate', () => {
+test('dashboard model picker defaults to all models and keeps observed stack separate', () => {
   const html = dashboard.render(dashboard.loadArtifacts())
   assert.match(html, /"id":"claude-fable-5-1","label":"Claude Fable 5\.1"/)
   assert.match(html, /function selectedModel\(params\)/)
-  assert.match(html, /return DATA\.defaultModel \|\|/)
+  assert.match(html, /return 'all'/)
   assert.match(html, /\['all', 'All models \/ history'\]/)
   assert.match(html, /return selected === 'all' \|\| run\.modelId === selected/)
   assert.match(html, /summaryItem\('Model under test'/)

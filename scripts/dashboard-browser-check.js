@@ -86,7 +86,8 @@ try {
   assert.ok(fs.existsSync(DASHBOARD), 'run make bench-dashboard before the browser check')
 
   const defaultHome = render('home')
-  assert.match(defaultHome.app, /<option value="claude-opus-5-5" selected="">Claude Opus 5\.5<\/option>/)
+  assert.match(defaultHome.app, /<option value="all" selected="">All models \/ history<\/option>/)
+  assert.match(defaultHome.app, /<option value="all" selected="">All platforms<\/option>/)
   if (/No benchmark runs recorded for Claude Opus 5\.5 yet/.test(defaultHome.app)) {
     assert.match(defaultHome.app, /<strong>0<\/strong><span>review runs<\/span>/)
   } else {
@@ -123,7 +124,7 @@ try {
   assert.doesNotMatch(valueCards, /value-leader-card|class="eyebrow"|See leaderboard/)
   const opusSkills = new Set(DASHBOARD_DATA.runs.filter((run) => run.cohortId !== 'legacy' && run.modelId === 'claude-opus-5-5').map((run) => run.toolId))
   assert.equal(count(home.app, /class="skill-summary-card"/g), opusSkills.size)
-  assert.match(home.app, /href="#skills\/superpowers-review\?model=claude-opus-5-5"/)
+  assert.match(home.app, /href="#skills\/claude%3Asuperpowers-review\?model=claude-opus-5-5"/)
   assert.doesNotMatch(home.app, /review-bakeoff\.md/)
   assert.match(home.app, /Best coverage · All issues/)
   assert.match(home.app, /class="landing-rank-grid completeness-grid"/)
@@ -172,7 +173,7 @@ try {
   }
   assert.equal(count(choose.app, /aria-sort="none"/g), 8, 'the hidden best-value preset must not mark a visible column as sorted')
   assert.match(choose.app, /href="#runs\?runIds=[^"]+" class="runs-link">3 runs<\/a>/)
-  assert.match(choose.app, /href="#skills\/superpowers-review\?model=claude-opus-5-5" class="skill-info-link">Skill info<\/a>/)
+  assert.match(choose.app, /href="#skills\/claude%3Asuperpowers-review\?model=claude-opus-5-5" class="skill-info-link">Skill info<\/a>/)
   assert.match(choose.dom, /class="hint-tooltip" role="tooltip" hidden=""/)
 
   const candidateAscending = render('choose?model=claude-opus-5-5&decision=candidate')
@@ -187,7 +188,7 @@ try {
   assert.equal(count(candidateDescending.app, /aria-sort="descending"/g), 1)
 
   const costDescending = render('choose?model=claude-opus-5-5&decision=cost&decisionDir=desc')
-  assert.equal(leaderboardRows(costDescending.app)[0], 'Automated Development review-and-fix-pr')
+  assert.equal(leaderboardRows(costDescending.app)[0], 'Automated Development review-and-fix-pr · Claude')
   assert.match(costDescending.app, /<option value="cost" selected="">Cost<\/option>/)
 
   const models = render('choose?tab=models')
@@ -299,16 +300,16 @@ try {
   const runBody = runs.app.match(/<tbody>([\s\S]*?)<\/tbody>/)
   assert.ok(runBody, 'the exact run-set view must render a table body')
   assert.equal(count(runBody[1], /<tr>/g), 1, 'the exact run-set link must render one row')
-  assert.match(runs.app, /href="#run\/legacy%2Fironweave%2Ftob-c-review" class="run-link">Trail of Bits c-review<\/a>/)
+  assert.match(runs.app, /href="#run\/legacy%2Fironweave%2Ftob-c-review" class="run-link">Trail of Bits c-review · Claude<\/a>/)
   assert.match(runs.app, /Read from the stored Claude Code transcript cost and usage records\./)
 
   const anthropicRun = render('runs?runIds=tidepool%2Fanthropic-pr-review')
-  assert.match(anthropicRun.app, /<span class="subline">tidepool · Claude Opus 5 · legacy · <a href="#skills\/anthropic-pr-review" class="skill-info-link">anthropic-pr-review<\/a><\/span>/)
+  assert.match(anthropicRun.app, /<span class="subline">tidepool · Claude Opus 5 · legacy · <a href="#skills\/claude%3Aanthropic-pr-review" class="skill-info-link">claude:anthropic-pr-review<\/a><\/span>/)
   assert.doesNotMatch(anthropicRun.app, /pr-review-toolkit@claude-plugins-official|>Skill info</)
 
   const pickedRuns = render('runs?pick=tidepool%2Fbuiltin-code-review%2Ctidepool%2Fsuperpowers-review')
-  assert.match(pickedRuns.app, /href="#run\/legacy%2Ftidepool%2Fbuiltin-code-review" class="run-link">Claude Code \/code-review<\/a> ↔/)
-  assert.match(pickedRuns.app, /href="#run\/legacy%2Ftidepool%2Fsuperpowers-review" class="run-link">Superpowers requesting-code-review<\/a>/)
+  assert.match(pickedRuns.app, /href="#run\/legacy%2Ftidepool%2Fbuiltin-code-review" class="run-link">Claude Code \/code-review · Claude<\/a> ↔/)
+  assert.match(pickedRuns.app, /href="#run\/legacy%2Ftidepool%2Fsuperpowers-review" class="run-link">Superpowers requesting-code-review · Claude<\/a>/)
 
   const run = render('run/ironweave/tob-c-review')
   for (const label of ['Input', 'Output', 'Cache read', 'Cache creation', 'Thinking (within output)', 'Field provenance']) {
@@ -337,14 +338,14 @@ try {
   assert.equal(count(skills.app, /class="skill-card"/g), opusSkills.size)
   assert.equal(count(skills.app, />GitHub ↗<\/a>/g), opusSkills.size)
   assert.equal(count(skills.app, />Skill page ↗<\/a>/g), opusSkills.size)
-  assert.match(skills.app, /The benchmark ran these as Claude Code plugins\./)
+  assert.match(skills.app, /Skills are identified by platform and name/)
 
   const skillComparison = render('compare?model=claude-opus-5-5&compareSkills=builtin-code-review%2Csuperpowers-review')
   for (const label of ['Attempted cost', 'Distinct real', 'Only this skill', 'Shared', 'Total real found', 'Completeness', 'Precision', 'Success']) {
     assert.match(skillComparison.app, new RegExp(`${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*?class="hint-mark"`, 's'), `${label} needs a rendered hint`)
   }
   assert.match(skillComparison.app, />6 attempted runs<\/a>/)
-  assert.match(skillComparison.app, /href="#skills\/builtin-code-review\?model=claude-opus-5-5" class="skill-info-link">Skill info<\/a>/)
+  assert.match(skillComparison.app, /href="#skills\/claude%3Abuiltin-code-review\?model=claude-opus-5-5" class="skill-info-link">Skill info<\/a>/)
 
   const unmatchedSkills = render('compare?compareSkills=anthropic-pr-review%2Cmattpocock-review%2Ccode-review-ad%2Creview-and-fix-pr&targets=ironweave')
   assert.match(unmatchedSkills.app, /Completed evidence/)
@@ -365,7 +366,7 @@ try {
   }
   const crossRunPair = render('compare?model=all&compareSkills=anthropic-pr-review%2Ccode-review-ad')
   const coverageFor = (html) => {
-    const row = html.match(/<tr><td><strong><a[^>]*>Automated Development code-review-ad<\/a><\/strong>[\s\S]*?<\/tr>/)
+    const row = html.match(/<tr><td><strong><a[^>]*>code-review-ad · Claude<\/a><\/strong>[\s\S]*?<\/tr>/)
     assert.ok(row, 'the cross-run skill must be shown')
     const cells = [...row[0].matchAll(/<td class="num">([^<]+)<\/td>/g)].map((match) => match[1])
     return { everFound: cells[4], completeness: cells[5] }
@@ -389,6 +390,66 @@ try {
   assert.match(comparison.app, /href="#run\/legacy%2Ftidepool%2Fbuiltin-code-review" class="run-link">legacy\/tidepool\/builtin-code-review<\/a>/)
   assert.match(comparison.app, /href="#run\/legacy%2Ftidepool%2Fsuperpowers-review" class="run-link">legacy\/tidepool\/superpowers-review<\/a>/)
   assert.match(comparison.app, /Thinking<span class="hint-mark"/)
+
+  const catalogue = render('skills')
+  assert.match(catalogue.app, /code-review-ad · Codex/)
+  assert.match(catalogue.app, /code-review-ad · Claude/)
+  const codexSkill = render('skills/codex%3Acode-review-ad')
+  assert.match(codexSkill.app, /<h1>code-review-ad · Codex<\/h1>/)
+  assert.equal(count(codexSkill.app, /class="skill-card"/g), 1)
+  assert.match(codexSkill.app, /0 benchmark runs/)
+  assert.match(codexSkill.app, /27 experiment records/)
+  assert.match(codexSkill.app, /\.agents\/skills\/code-review-ad\/SKILL.md/)
+  const codexWithClaudeModel = render('skills/codex%3Acode-review-ad?model=claude-opus-5-5')
+  assert.match(codexWithClaudeModel.app, /<h1>code-review-ad · Codex<\/h1>/)
+  assert.match(codexWithClaudeModel.app, /0 experiment records/)
+  const claudeSkill = render('skills/claude%3Acode-review-ad')
+  assert.match(claudeSkill.app, /<h1>code-review-ad · Claude<\/h1>/)
+  assert.match(claudeSkill.app, /3 experiment records/)
+  assert.doesNotMatch(claudeSkill.app, /\.agents\/skills/)
+  assert.equal(render('skills/code-review-ad').app, claudeSkill.app, 'unqualified old skill page aliases Claude')
+  const codexCatalogue = render('skills?platform=codex')
+  assert.equal(count(codexCatalogue.app, /class="skill-card"/g), 1)
+  assert.match(codexCatalogue.app, /<option value="codex" selected="">Codex<\/option>/)
+  const experimentModelCatalogue = render('skills?model=gpt-6.1-sol')
+  assert.equal(count(experimentModelCatalogue.app, /class="skill-card"/g), 1)
+  assert.match(experimentModelCatalogue.app, /27 experiment records/)
+
+  const experiments = render('experiments')
+  assert.match(experiments.app, /Every archived trial · 30 records/)
+  assert.match(experiments.app, /code-review-ad · Claude: 3 target records · 22 verified groups · 11 bug groups/)
+  assert.match(experiments.app, /7 Rust groups and 22 total groups/)
+  assert.ok(experiments.app.indexOf('Installed Codex versus matched Claude') < experiments.app.indexOf('Every archived trial'))
+  assert.match(experiments.app, /quillstone-toolkit-split-r2/)
+  assert.match(experiments.app, /quillstone-toolkit-split<\/span>/)
+  assert.match(experiments.app, /medium \/ unavailable/)
+  const codexExperiments = render('experiments?platform=codex')
+  assert.match(codexExperiments.app, /Every archived trial · 27 records/)
+  const claudeExperiments = render('experiments?skills=claude%3Acode-review-ad')
+  assert.match(claudeExperiments.app, /Every archived trial · 3 records/)
+  assert.match(render('experiments?skills=code-review-ad').app, /Every archived trial · 3 records/)
+  const focusedExperiments = render('experiments?platform=codex&skills=codex%3Acode-review-ad&model=gpt-6.1-sol&targets=quillstone&experiment=codex-focus-2026-10-16')
+  const expectedFocused = DASHBOARD_DATA.experiments.filter((r) => r.experimentId === 'codex-focus-2026-10-16' && r.targetId === 'quillstone')
+  assert.match(focusedExperiments.app, new RegExp(`Every archived trial · ${expectedFocused.length} records`))
+  assert.equal(count(focusedExperiments.app, /data-experiment-record=/g), expectedFocused.length)
+  const offlineReport = render('experiments?report=codex-parity-2026-10-15%2Fquillstone-claude-matched')
+  assert.match(offlineReport.app, /id="experiment-report"/)
+  assert.match(offlineReport.app, /class="experiment-raw-report"/)
+  assert.match(offlineReport.app, /165c45de68d976b82822e233577eb9a092b88bae0f9a12cd3ed8d9815adff0c2/)
+  assert.match(offlineReport.app, /Correction evidence/)
+
+  const crossPlatformComparison = render('compare?compareSkills=claude%3Acode-review-ad,codex%3Acode-review-ad')
+  assert.match(crossPlatformComparison.app, /<span>Selected<\/span><strong>2<\/strong>/)
+  assert.equal(count(crossPlatformComparison.app, /class="selection-card selected"/g), 2)
+  assert.match(crossPlatformComparison.app, /Benchmark metrics unavailable · no completed benchmark runs/)
+  assert.match(crossPlatformComparison.app, /code-review-ad · Claude/)
+  assert.match(crossPlatformComparison.app, /code-review-ad · Codex/)
+  const qualifiedModels = render('choose?tab=models&skills=claude%3Abuiltin-code-review')
+  assert.deepEqual(linkedEvidenceCounts(qualifiedModels.app), linkedEvidenceCounts(skillFilteredModels.app))
+  assert.deepEqual(modelCompletenessDenominators(qualifiedModels.app), modelCompletenessDenominators(skillFilteredModels.app))
+  const codexModels = render('choose?tab=models&platform=codex')
+  assert.deepEqual(discoveredRuns(codexModels.app), [])
+  assert.ok(linkedEvidenceCounts(codexModels.app).every((count) => !count), 'Codex experiments receive no canonical credit')
 
   process.stdout.write('dashboard-browser-check: all rendered routes passed\n')
 } finally {

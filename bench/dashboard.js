@@ -11,6 +11,8 @@ const {
 } = require('./lib/artifacts')
 const { applyIdentities, loadCatalog, revisionKey } = require('./issue-identities')
 
+const { loadExperiments, experimentTools } = require('./experiments')
+
 const ROOT = __dirname
 const ASSET_DIR = path.join(ROOT, 'dashboard')
 const USAGE_FIELDS = ['input', 'output', 'thinking', 'cacheRead', 'cacheCreation', 'costUsd', 'sessions']
@@ -129,7 +131,7 @@ function deriveModelMetrics(comparison, options = {}) {
 
   const modelIds = options.modelIds || scope.modelIds || []
   const targetFilter = options.targetIds ? new Set(options.targetIds) : null
-  const toolFilter = options.toolIds ? new Set(options.toolIds) : null
+  const toolFilter = options.toolIds ? new Set(options.toolIds.map((id) => id.startsWith('claude:') ? id.slice('claude:'.length) : id)) : null
   const cellFilter = options.cellIds ? new Set(options.cellIds) : null
   const scopeCells = (scope.matchedCells || []).map((cell) => ({
     ...cell,
@@ -339,7 +341,7 @@ function toolView(tool) {
     requiresPluginDir, resultContract, cohortOnly,
   } = tool
   return {
-    id, label, source, languages: languages || null, parked: Boolean(parked), parkedReason: parkedReason || null,
+    id, platform: 'claude', skillId: `claude:${id}`, label: `${id === 'code-review-ad' ? id : label} · Claude`, source, languages: languages || null, parked: Boolean(parked), parkedReason: parkedReason || null,
     catalogId: catalogId || id, catalogLabel: catalogLabel || label, description: description || null,
     install: install || null, invoke: invoke || null, repoUrl: repoUrl || null, pageUrl: pageUrl || null,
     ...(experimental == null ? {} : { experimental: Boolean(experimental) }),
@@ -652,7 +654,7 @@ function loadArtifacts(root = ROOT) {
         const claims = findingRecord.findings || []
         const usage = normalizeUsage(record)
         const tool = toolById.get(record.tool)
-        const toolSnapshot = tool ? toolView(tool) : { id: record.tool, label: record.label || record.tool }
+        const toolSnapshot = toolView(tool || { id: record.tool, label: record.label || record.tool })
         if (!toolDataById.has(record.tool)) toolDataById.set(record.tool, { ...toolSnapshot, snapshots: {} })
         toolDataById.get(record.tool).snapshots[cohortId] = toolSnapshot
         const identity = modelIdentity(cohort, record, configuredModels, usage)
@@ -669,7 +671,9 @@ function loadArtifacts(root = ROOT) {
           targetLabel: `${target.id} · ${target.language}`,
           targetSnapshot: snapshot,
           toolId: record.tool,
-          toolLabel: (tool && tool.label) || record.label || record.tool,
+          platform: 'claude',
+          skillId: `claude:${record.tool}`,
+          toolLabel: toolSnapshot.label,
           toolSource: (tool && tool.source) || record.source || null,
           toolSnapshot,
           ...('experimental' in toolSnapshot ? { experimental: toolSnapshot.experimental } : {}),
@@ -718,7 +722,11 @@ function loadArtifacts(root = ROOT) {
   }
   const cohorts = contexts.map((context) => context.cohort)
   const targetData = [...targetDataById.values()]
+  const experiments = loadExperiments(root)
   const tools = [...toolDataById.values()]
+  for (const tool of experimentTools(experiments)) {
+    if (!tools.some((entry) => entry.skillId === tool.skillId)) tools.push(tool)
+  }
   const models = (modelConfig.models || []).map(({ id, label, cliModel }) => ({ id, label: label || id, cliModel: cliModel || null }))
   for (const cohort of cohorts) {
     const modelId = cohort.requestedModel || cohort.observedModel
@@ -760,6 +768,7 @@ function loadArtifacts(root = ROOT) {
     issues,
     runs,
     modelComparison,
+    experiments,
   }, loadCatalog(root))
 }
 
@@ -778,8 +787,8 @@ function render(data, assets = ASSET_DIR) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark light">
-<meta name="description" content="A verified benchmark of Claude Code review skills, with clear findings-per-dollar and completeness-per-dollar leaders">
-<title>Review Bench · Claude Code review skill benchmark</title>
+<meta name="description" content="Claude and Codex review skills: verified benchmarks and separate archived experiments, with clear findings-per-dollar and completeness-per-dollar leaders">
+<title>Review Bench · Claude and Codex review skills</title>
 <style>\n${css}\n</style>
 </head>
 <body>

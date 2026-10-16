@@ -1,6 +1,6 @@
 # Review-tool bake-off: 7 review configurations, 3 real PRs
 
-**Cohort:** `opus-5-5-2026-09-29`. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.284 (Claude Code)`.
+**Cohort:** `opus-5-5-2026-09-29`. **Skill platform:** Claude. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.284 (Claude Code)`.
 
 Every number below is produced by `bench/` in this repository and can be regenerated with
 `make bench-report RUN=opus-5-5-2026-09-29`.
@@ -128,25 +128,25 @@ its output, so they are deliberately not added on top of it here.
 
 | Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Only this tool | Tokens | Cost | Wall | Lost to limits |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Claude Code /code-review | 3 | 15 | 6 | 9 | 0 | 1 | 5 | 3 | 1,557,924 | $1.55 | 5.9 min | - |
-| Compound Engineering ce-code-review | 3 | 15 | 10 | 5 | 0 | 7 | 3 | 2 | 5,400,430 | $4.28 | 24.1 min | - |
-| Trail of Bits differential-review | 3 | 13 | 8 | 5 | 0 | 6 | 2 | 2 | 1,607,254 | $2.03 | 5.6 min | - |
-| Trail of Bits rust-review | 1 | 2 | 2 | 0 | 0 | 1 | 1 | 0 | 464,268 | $0.78 | 1.4 min | - |
-| Anthropic pr-review-toolkit | 3 | 18 | 17 | 1 | 0 | 15 | 1 | 6 | 2,020,007 | $2.33 | 7.7 min | - |
-| Superpowers requesting-code-review | 3 | 20 | 19 | 1 | 0 | 18 | 1 | 3 | 6,343,858 | $4.32 | 12.9 min | - |
-| Matt Pocock code-review | 3 | 34 | 31 | 2 | 1 | 27 | 3 | 20 | 9,829,764 | $6.07 | 10.5 min | - |
+| Claude Code /code-review · Claude | 3 | 15 | 6 | 9 | 0 | 1 | 5 | 3 | 1,557,924 | $1.55 | 5.9 min | - |
+| Compound Engineering ce-code-review · Claude | 3 | 15 | 10 | 5 | 0 | 7 | 3 | 2 | 5,400,430 | $4.28 | 24.1 min | - |
+| Trail of Bits differential-review · Claude | 3 | 13 | 8 | 5 | 0 | 6 | 2 | 2 | 1,607,254 | $2.03 | 5.6 min | - |
+| Trail of Bits rust-review · Claude | 1 | 2 | 2 | 0 | 0 | 1 | 1 | 0 | 464,268 | $0.78 | 1.4 min | - |
+| Anthropic pr-review-toolkit · Claude | 3 | 18 | 17 | 1 | 0 | 15 | 1 | 6 | 2,020,007 | $2.33 | 7.7 min | - |
+| Superpowers requesting-code-review · Claude | 3 | 20 | 19 | 1 | 0 | 18 | 1 | 3 | 6,343,858 | $4.32 | 12.9 min | - |
+| Matt Pocock code-review · Claude | 3 | 34 | 31 | 2 | 1 | 27 | 3 | 20 | 9,829,764 | $6.07 | 10.5 min | - |
 
 ### Spend per run
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Claude Code /code-review | 420,034 tok / $0.53 / 1.9 min | 505,406 tok / $0.45 / 1.6 min | 632,484 tok / $0.57 / 2.3 min |
-| Compound Engineering ce-code-review | 1,768,091 tok / $1.31 / 6.7 min | 1,499,281 tok / $1.54 / 5.0 min | 2,133,058 tok / $1.43 / 12.4 min |
-| Trail of Bits differential-review | 530,448 tok / $0.70 / 2.0 min | 356,626 tok / $0.60 / 1.4 min | 720,180 tok / $0.74 / 2.2 min |
-| Trail of Bits rust-review | - | 464,268 tok / $0.78 / 1.4 min | - |
-| Anthropic pr-review-toolkit | 766,619 tok / $0.75 / 2.5 min | 520,013 tok / $0.78 / 2.0 min | 733,375 tok / $0.80 / 3.1 min |
-| Superpowers requesting-code-review | 3,838,672 tok / $1.89 / 3.5 min | 1,181,892 tok / $1.22 / 4.3 min | 1,323,294 tok / $1.21 / 5.1 min |
-| Matt Pocock code-review | 2,512,768 tok / $1.86 / 4.3 min | 983,640 tok / $1.49 / 2.9 min | 6,333,356 tok / $2.72 / 3.4 min |
+| Claude Code /code-review · Claude | 420,034 tok / $0.53 / 1.9 min | 505,406 tok / $0.45 / 1.6 min | 632,484 tok / $0.57 / 2.3 min |
+| Compound Engineering ce-code-review · Claude | 1,768,091 tok / $1.31 / 6.7 min | 1,499,281 tok / $1.54 / 5.0 min | 2,133,058 tok / $1.43 / 12.4 min |
+| Trail of Bits differential-review · Claude | 530,448 tok / $0.70 / 2.0 min | 356,626 tok / $0.60 / 1.4 min | 720,180 tok / $0.74 / 2.2 min |
+| Trail of Bits rust-review · Claude | - | 464,268 tok / $0.78 / 1.4 min | - |
+| Anthropic pr-review-toolkit · Claude | 766,619 tok / $0.75 / 2.5 min | 520,013 tok / $0.78 / 2.0 min | 733,375 tok / $0.80 / 3.1 min |
+| Superpowers requesting-code-review · Claude | 3,838,672 tok / $1.89 / 3.5 min | 1,181,892 tok / $1.22 / 4.3 min | 1,323,294 tok / $1.21 / 5.1 min |
+| Matt Pocock code-review · Claude | 2,512,768 tok / $1.86 / 4.3 min | 983,640 tok / $1.49 / 2.9 min | 6,333,356 tok / $2.72 / 3.4 min |
 
 **The 19 scored reviews' recorded attempts cost 27,223,505 tokens, $21.36.**
 Retry attempts, judging, and extraction are not included.
@@ -157,13 +157,13 @@ What each run said before verification. Self-rejected claims are excluded, and t
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Claude Code /code-review | 5 | 2 | 8 |
-| Compound Engineering ce-code-review | 3 | 9 | 3 |
-| Trail of Bits differential-review | 2 | 4 | 7 |
-| Trail of Bits rust-review | - | 2 | - |
-| Anthropic pr-review-toolkit | 9 | 5 | 4 |
-| Superpowers requesting-code-review | 7 | 11 | 3 |
-| Matt Pocock code-review | 15 | 13 | 7 |
+| Claude Code /code-review · Claude | 5 | 2 | 8 |
+| Compound Engineering ce-code-review · Claude | 3 | 9 | 3 |
+| Trail of Bits differential-review · Claude | 2 | 4 | 7 |
+| Trail of Bits rust-review · Claude | - | 2 | - |
+| Anthropic pr-review-toolkit · Claude | 9 | 5 | 4 |
+| Superpowers requesting-code-review · Claude | 7 | 11 | 3 |
+| Matt Pocock code-review · Claude | 15 | 13 | 7 |
 
 ## What the maintainers actually said
 

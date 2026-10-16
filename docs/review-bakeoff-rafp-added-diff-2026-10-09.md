@@ -1,6 +1,6 @@
 # Review-tool bake-off: 1 review configuration, 3 real PRs
 
-**Cohort:** `rafp-added-diff-2026-10-09`. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
+**Cohort:** `rafp-added-diff-2026-10-09`. **Skill platform:** Claude. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
 
 **Experimental cohort-local evidence:** `review-and-fix-pr` is experimental and self-authored. These results are not canonical gold.
 
@@ -90,13 +90,13 @@ its output, so they are deliberately not added on top of it here.
 
 | Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Tokens | Cost | Wall | Lost to limits |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Automated Development review-and-fix-pr | 3 | 33 | 32 | 1 | 0 | 30 | 3 | 9,631,122 | $14.49 | 46.3 min | - |
+| Automated Development review-and-fix-pr · Claude | 3 | 33 | 32 | 1 | 0 | 30 | 3 | 9,631,122 | $14.49 | 46.3 min | - |
 
 ### Spend per run
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Automated Development review-and-fix-pr | 2,514,407 tok / $4.79 / 12.0 min | 3,360,210 tok / $4.67 / 12.6 min | 3,756,505 tok / $5.03 / 21.6 min |
+| Automated Development review-and-fix-pr · Claude | 2,514,407 tok / $4.79 / 12.0 min | 3,360,210 tok / $4.67 / 12.6 min | 3,756,505 tok / $5.03 / 21.6 min |
 
 **The 3 scored reviews' recorded attempts cost 9,631,122 tokens, $14.49.**
 Retry attempts, judging, and extraction are not included.
@@ -107,7 +107,7 @@ Extracted claims include 68 suggestions. They remain visible for reviewer judgme
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Automated Development review-and-fix-pr | 31 (9 confirmed, 22 suggestions) | 36 (15 confirmed, 21 suggestions) | 43 (18 confirmed, 25 suggestions) |
+| Automated Development review-and-fix-pr · Claude | 31 (9 confirmed, 22 suggestions) | 36 (15 confirmed, 21 suggestions) | 43 (18 confirmed, 25 suggestions) |
 
 ## What the maintainers actually said
 

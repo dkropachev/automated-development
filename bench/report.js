@@ -77,7 +77,7 @@ const state = cohort.legacy
 const toolConfig = cohort.legacy
   ? JSON.parse(fs.readFileSync(path.join(ROOT, 'tools.json'), 'utf8'))
   : cohort.toolConfig
-const tools = toolConfig.tools
+const tools = toolConfig.tools.map((tool) => ({ ...tool, label: `${tool.label} · Claude` }))
 const SHORT = {
   'builtin-code-review': 'CR', 'ce-code-review': 'CE', 'tob-diff-review': 'TB-D',
   'tob-rust-review': 'TB-R', 'tob-c-review': 'TB-C', 'anthropic-pr-review': 'ANT',
@@ -320,7 +320,7 @@ if (cohort.legacy) {
     P(`**Accounting note:** local legacy transcripts were unavailable for ${storedFallbacks} run${storedFallbacks === 1 ? '' : 's'}, so those cells use committed aggregate usage. Their successful and discarded retry spend cannot be separated.\n`)
   }
 } else {
-  P(`**Cohort:** \`${cohort.runId}\`. **Requested model:** ${cohort.modelLabel} (\`${cohort.requestedModel}\`). Claude Code: \`${cohort.claudeVersion}\`.\n`)
+  P(`**Cohort:** \`${cohort.runId}\`. **Skill platform:** Claude. **Requested model:** ${cohort.modelLabel} (\`${cohort.requestedModel}\`). Claude Code: \`${cohort.claudeVersion}\`.\n`)
   const experimental = used.filter(tool => tool.experimental)
   if (experimental.length) {
     const authored = experimental.some(tool => tool.selfAuthored) ? ' and self-authored' : ''

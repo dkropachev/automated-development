@@ -1,6 +1,6 @@
 # Review-tool bake-off: 1 review configuration, 1 real PR
 
-**Cohort:** `rafp-six-pass-frozen-patch-2026-10-08`. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
+**Cohort:** `rafp-six-pass-frozen-patch-2026-10-08`. **Skill platform:** Claude. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
 
 **Experimental cohort-local evidence:** `review-and-fix-pr` is experimental and self-authored. These results are not canonical gold.
 
@@ -63,13 +63,13 @@ its output, so they are deliberately not added on top of it here.
 
 | Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Tokens | Cost | Wall | Lost to limits |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Automated Development review-and-fix-pr | 1 | 10 | 10 | 0 | 0 | 8 | 3 | 3,085,611 | $5.32 | 11.9 min | - |
+| Automated Development review-and-fix-pr · Claude | 1 | 10 | 10 | 0 | 0 | 8 | 3 | 3,085,611 | $5.32 | 11.9 min | - |
 
 ### Spend per run
 
 | Tool | quillstone |
 |---|---:|
-| Automated Development review-and-fix-pr | 3,085,611 tok / $5.32 / 11.9 min |
+| Automated Development review-and-fix-pr · Claude | 3,085,611 tok / $5.32 / 11.9 min |
 
 **The 1 scored reviews' recorded attempts cost 3,085,611 tokens, $5.32.**
 Retry attempts, judging, and extraction are not included.
@@ -80,7 +80,7 @@ Extracted claims include 25 suggestions. They remain visible for reviewer judgme
 
 | Tool | quillstone |
 |---|---:|
-| Automated Development review-and-fix-pr | 38 (13 confirmed, 25 suggestions) |
+| Automated Development review-and-fix-pr · Claude | 38 (13 confirmed, 25 suggestions) |
 
 ## What the maintainers actually said
 

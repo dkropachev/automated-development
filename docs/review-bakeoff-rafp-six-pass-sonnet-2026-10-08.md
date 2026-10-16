@@ -1,6 +1,6 @@
 # Review-tool bake-off: 1 review configuration, 1 real PR
 
-**Cohort:** `rafp-six-pass-sonnet-2026-10-08`. **Requested model:** Claude Sonnet 5.5 (`claude-sonnet-5-5`). Claude Code: `2.1.292 (Claude Code)`.
+**Cohort:** `rafp-six-pass-sonnet-2026-10-08`. **Skill platform:** Claude. **Requested model:** Claude Sonnet 5.5 (`claude-sonnet-5-5`). Claude Code: `2.1.292 (Claude Code)`.
 
 **Experimental cohort-local evidence:** `review-and-fix-pr` is experimental and self-authored. These results are not canonical gold.
 
@@ -61,13 +61,13 @@ its output, so they are deliberately not added on top of it here.
 
 | Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Tokens | Cost | Wall | Lost to limits |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Automated Development review-and-fix-pr | 1 | 8 | 8 | 0 | 0 | 8 | 0 | 1,461,095 | $1.80 | 9.9 min | - |
+| Automated Development review-and-fix-pr · Claude | 1 | 8 | 8 | 0 | 0 | 8 | 0 | 1,461,095 | $1.80 | 9.9 min | - |
 
 ### Spend per run
 
 | Tool | ironweave |
 |---|---:|
-| Automated Development review-and-fix-pr | 1,461,095 tok / $1.80 / 9.9 min |
+| Automated Development review-and-fix-pr · Claude | 1,461,095 tok / $1.80 / 9.9 min |
 
 **The 1 scored reviews' recorded attempts cost 1,461,095 tokens, $1.80.**
 Retry attempts, judging, and extraction are not included.
@@ -78,7 +78,7 @@ Extracted claims include 21 suggestions. They remain visible for reviewer judgme
 
 | Tool | ironweave |
 |---|---:|
-| Automated Development review-and-fix-pr | 34 (13 confirmed, 21 suggestions) |
+| Automated Development review-and-fix-pr · Claude | 34 (13 confirmed, 21 suggestions) |
 
 ## What the maintainers actually said
 

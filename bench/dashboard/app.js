@@ -1,5 +1,8 @@
 'use strict';
 
+const qualifiedSkill = (id) => id.includes(':') ? id : `claude:${id}`
+const skillIdentity = (run) => run.skillId || `${run.platform || 'claude'}:${run.toolId}`
+
 function calculateSkillModelGroups(items, params, dependencies) {
   const { eligibleTargets, issueUniverse, issueKey, testedModel, total } = dependencies
   const grouped = new Map()
@@ -8,8 +11,8 @@ function calculateSkillModelGroups(items, params, dependencies) {
     const modelNames = Object.keys(run.usage.models || {}).sort()
     const modelMix = modelNames.length ? modelNames.join(' + ') : 'model unavailable'
     const modelUnderTest = testedModel(run)
-    const key = `${run.toolId}::${run.modelId || 'unavailable'}::${modelMix}`
-    if (!grouped.has(key)) grouped.set(key, { key, toolId: run.toolId, label: run.toolLabel, source: run.toolSource, modelUnderTest, modelMix, runs: [], cost: 0, issues: new Map() })
+    const key = `${skillIdentity(run)}::${run.modelId || 'unavailable'}::${modelMix}`
+    if (!grouped.has(key)) grouped.set(key, { key, toolId: skillIdentity(run), label: run.toolLabel, source: run.toolSource, modelUnderTest, modelMix, runs: [], cost: 0, issues: new Map() })
     const group = grouped.get(key)
     group.runs.push(run)
     group.cost += run.usage.costUsd
@@ -81,7 +84,7 @@ if (typeof module !== 'undefined' && module.exports) {
   const verifiedRunIds = new Set(verifiedRuns.map((run) => run.id))
   const legacyRunAliases = new Map(DATA.runs.filter((run) => run.cohortId === 'legacy').map((run) => [`${run.targetId}/${run.toolId}`, run.id]))
   const targets = new Map(DATA.targets.map((target) => [target.id, target]))
-  const tools = new Map(DATA.tools.map((tool) => [tool.id, tool]))
+  const tools = new Map(DATA.tools.flatMap((tool) => [[tool.skillId || qualifiedSkill(tool.id), tool], ...(tool.platform === 'codex' ? [] : [[tool.id, tool]])]))
   const targetForRun = (run) => {
     const global = targets.get(run.targetId) || {}
     const cohort = global.snapshots?.[run.cohortId] || {}
@@ -315,6 +318,7 @@ if (typeof module !== 'undefined' && module.exports) {
             navLink('Insights', 'insights'),
             navLink('Findings', 'findings'),
             navLink('Runs', 'runs'),
+            navLink('Experiments', 'experiments'),
           ),
         ),
         el('main', { id: 'main' }, content),
@@ -345,6 +349,7 @@ if (typeof module !== 'undefined' && module.exports) {
     else if (activeView === 'compare') renderSkillCompare(params)
     else if (activeView === 'insights') renderInsights(params)
     else if (activeView === 'findings') renderFindings(params)
+    else if (activeView === 'experiments') renderExperiments(params)
     else if (activeView === 'skills') renderSkills(parts[1] || null, params)
     else renderOverview(params)
     const focusedPanel = activeView === 'choose' && params.get('tab') === 'models'
@@ -359,7 +364,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
   const runHash = (run) => preserveModel(`#run/${encodeURIComponent(run.id)}`)
   const compareHash = (left, right) => preserveModel(`#compare/${encodeURIComponent(left.id)}/${encodeURIComponent(right.id)}`)
-  const catalogueId = (toolId) => tools.get(toolId)?.catalogId || toolId
+  const catalogueId = (toolId) => tools.get(toolId)?.skillId || qualifiedSkill(toolId)
   const skillHash = (toolId) => preserveModel(`#skills/${encodeURIComponent(catalogueId(toolId))}`)
   const skillInfoLink = (toolId) => hashLink('Skill info', skillHash(toolId), 'skill-info-link')
   const resolveRunId = (id) => runs.has(id) ? id : legacyRunAliases.get(id) || id
@@ -402,7 +407,8 @@ if (typeof module !== 'undefined' && module.exports) {
   const overviewParams = viewParams
 
   function values(params, key) {
-    return (params.get(key) || '').split(',').map((value) => value.trim()).filter(Boolean)
+    const selected = (params.get(key) || '').split(',').map((value) => value.trim()).filter(Boolean)
+    return ['skills', 'compareSkills'].includes(key) ? selected.map(qualifiedSkill) : selected
   }
 
   function patchValues(params, key, value, checked) {
@@ -433,8 +439,8 @@ if (typeof module !== 'undefined' && module.exports) {
     // preserved rows as an all-model snapshot and keep the picker honest about that scope.
     if (requested == null && values(params, 'runIds').length) return 'all'
     if (requested === 'all') return 'all'
-    if (configuredModels.some((model) => model.id === requested)) return requested
-    return DATA.defaultModel || (configuredModels[0] && configuredModels[0].id) || 'all'
+    if (configuredModels.some((model) => model.id === requested) || (DATA.experiments || []).some((record) => record.modelId === requested)) return requested
+    return 'all'
   }
 
   function modelLabel(id) {
@@ -444,10 +450,10 @@ if (typeof module !== 'undefined' && module.exports) {
 
   function modelPicker(params, extraClass = '') {
     const selected = selectedModel(params)
-    const choices = configuredModels.map((model) => [model.id, model.label])
+    const choices = [...new Map([...configuredModels.map((model) => [model.id, model.label]), ...(DATA.experiments || []).map((record) => [record.modelId, modelLabel(record.modelId)])]).entries()]
     choices.push(['all', 'All models / history'])
     return field('Model under test', select('model-filter', choices, selected, (event) => {
-      viewParams(params, { model: event.target.value === DATA.defaultModel ? '' : event.target.value })
+      viewParams(params, { model: event.target.value === 'all' ? '' : event.target.value })
     }), extraClass)
   }
 
@@ -456,12 +462,22 @@ if (typeof module !== 'undefined' && module.exports) {
     return selected === 'all' || run.modelId === selected
   }
 
+  function matchesPlatform(item, params) {
+    const platform = params.get('platform') || 'all'
+    return platform === 'all' || (item.platform || 'claude') === platform
+  }
+
+  function platformPicker(params) {
+    return field('Platform', select('platform-filter', [['all', 'All platforms'], ['codex', 'Codex'], ['claude', 'Claude']], params.get('platform') || 'all', (event) => viewParams(params, { platform: event.target.value === 'all' ? '' : event.target.value })))
+  }
+
   function filterBar(params, { search = false, status = false, skills = true, models = true } = {}) {
     const bar = el('section', { class: 'filter-bar', 'aria-label': 'Benchmark filters' })
-    const sourceRuns = status ? DATA.runs : verifiedRuns
+    bar.append(platformPicker(params))
+    const sourceRuns = (status ? DATA.runs : verifiedRuns).filter((run) => matchesPlatform(run, params))
     const runsInModel = models ? sourceRuns.filter((run) => matchesSelectedModel(run, params)) : sourceRuns
-    const skillChoices = [...new Map(runsInModel.map((run) => [run.toolId, run.toolLabel])).entries()]
-    const targetChoices = [...new Map(runsInModel.map((run) => [run.targetId, targetForRun(run)])).entries()]
+    const skillChoices = [...new Map([...runsInModel.map((run) => [skillIdentity(run), run.toolLabel]), ...(DATA.experiments || []).filter((record) => matchesPlatform(record, params) && matchesSelectedModel(record, params)).map((record) => [record.skillId, record.skillLabel])]).entries()]
+    const targetChoices = [...new Map([...runsInModel.map((run) => [run.targetId, targetForRun(run)]), ...(DATA.experiments || []).filter((record) => matchesPlatform(record, params) && matchesSelectedModel(record, params)).map((record) => [record.targetId, targets.get(record.targetId)])]).entries()]
     const linkedRuns = values(params, 'runIds')
     if (linkedRuns.length) bar.append(el('span', { class: 'linked-run-set' }, `Linked set · ${linkedRuns.length} run${linkedRuns.length === 1 ? '' : 's'}`))
     if (skills) bar.append(checklist('Skills', 'skills', skillChoices, params))
@@ -475,26 +491,27 @@ if (typeof module !== 'undefined' && module.exports) {
       const input = el('input', { id: 'run-search', type: 'search', value: params.get('q') || '', placeholder: 'Search…', onchange: (event) => viewParams(params, { q: event.target.value.trim() }) })
       bar.append(field('Search', input, 'search'))
     }
-    const hasFilters = ['skills', 'model', 'languages', 'targets', 'q', 'status', 'runIds'].some((key) => params.has(key))
+    const hasFilters = ['platform', 'skills', 'model', 'languages', 'targets', 'q', 'status', 'runIds'].some((key) => params.has(key))
     if (hasFilters) bar.append(el('button', { class: 'clear-filters', onclick: () => {
       const next = new URLSearchParams(params)
-      for (const key of ['skills', 'model', 'languages', 'targets', 'q', 'status', 'runIds']) next.delete(key)
+      for (const key of ['platform', 'skills', 'model', 'languages', 'targets', 'q', 'status', 'runIds']) next.delete(key)
       location.hash = activeView + (next.toString() ? '?' + next.toString() : '')
     } }, 'Clear filters'))
     return bar
   }
 
   function matchesOverviewDimensions(run, params) {
+    if (!matchesPlatform(run, params)) return false
     const selectedTargets = values(params, 'targets')
     const selectedTools = values(params, 'skills')
     const selectedLanguages = values(params, 'languages')
     const target = targetForRun(run)
     const q = (params.get('q') || '').toLowerCase()
     if (selectedTargets.length && !selectedTargets.includes(run.targetId)) return false
-    if (selectedTools.length && !selectedTools.includes(run.toolId)) return false
+    if (selectedTools.length && !selectedTools.includes(skillIdentity(run))) return false
     if (selectedLanguages.length && (!target || !selectedLanguages.includes(target.language))) return false
     if (!matchesSelectedModel(run, params)) return false
-    if (q && !`${run.id} ${run.cohortLabel || ''} ${run.targetId} ${target ? target.language : ''} ${run.toolId} ${run.toolLabel} ${run.toolSource || ''} ${run.modelId || ''} ${run.modelLabel || ''} ${Object.keys(run.usage.models || {}).join(' ')}`.toLowerCase().includes(q)) return false
+    if (q && !`${run.id} ${run.cohortLabel || ''} ${run.targetId} ${target ? target.language : ''} ${skillIdentity(run)} ${run.toolLabel} ${run.toolSource || ''} ${run.modelId || ''} ${run.modelLabel || ''} ${Object.keys(run.usage.models || {}).join(' ')}`.toLowerCase().includes(q)) return false
     return true
   }
 
@@ -600,7 +617,7 @@ if (typeof module !== 'undefined' && module.exports) {
       languages: [...new Set(rows.map((run) => targetForRun(run)?.language).filter(Boolean))],
       modelStacks: [...new Set(rows.map(modelStack))],
       testedModels: [...new Set(rows.map(testedModel))],
-      skillIds: [...new Set(rows.map((run) => run.toolId))],
+      skillIds: [...new Set(rows.map((run) => skillIdentity(run)))],
     }
   }
 
@@ -614,8 +631,8 @@ if (typeof module !== 'undefined' && module.exports) {
       const target = targetForRun(run)
       if (groupBy === 'model') add(run.modelId || 'unavailable', testedModel(run), 'Model under test', run)
       else if (groupBy === 'language') add(target?.language || 'Unknown', target?.language || 'Unknown', 'Language', run)
-      else if (groupBy === 'skillModel') add(`${run.toolId}::${run.modelId || 'unavailable'}`, `${run.toolLabel} · ${testedModel(run)}`, 'Skill + model', run)
-      else add(run.toolId, run.toolLabel, 'Skill', run)
+      else if (groupBy === 'skillModel') add(`${skillIdentity(run)}::${run.modelId || 'unavailable'}`, `${run.toolLabel} · ${testedModel(run)}`, 'Skill + model', run)
+      else add(skillIdentity(run), run.toolLabel, 'Skill', run)
     }
     return [...grouped.values()].map((group) => aggregateRuns(group.id, group.label, group.dimension, group.rows, universeRows))
   }
@@ -678,7 +695,7 @@ if (typeof module !== 'undefined' && module.exports) {
       experimentalToolBadge(skill),
       el('h3', {}, hashLink(skill.label, `#skills/${encodeURIComponent(skill.id)}`)),
       el('p', {}, skill.description || 'No description is recorded for this skill.'),
-      el('span', { class: 'skill-facts' }, `${skill.rows.length} run${skill.rows.length === 1 ? '' : 's'} · ${stats.real} discovered real finding${stats.real === 1 ? '' : 's'} · ${fmt(stats.cost, 'money')} attempted cost`),
+      el('span', { class: 'skill-facts' }, !skill.rows.length ? `${skill.experiments.length} experiment records · Benchmark metrics unavailable` : `${skill.rows.length} benchmark runs · ${skill.experiments.length} experiment records · ${stats.real} discovered real finding${stats.real === 1 ? '' : 's'} · ${fmt(stats.cost, 'money')} attempted cost`),
     )
   }
 
@@ -694,7 +711,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const selectedLanguage = languages.includes(requestedLanguage) ? requestedLanguage : 'all'
     const scopeLabels = { all: 'All issues', major: 'Major only', majorMinor: 'Major + minor' }
     const scopeSeverities = { all: ['blocker', 'high', 'medium', 'low', 'nit'], major: ['blocker', 'high'], majorMinor: ['blocker', 'high', 'medium'] }
-    const leaderRuns = verifiedRuns.filter((run) => matchesSelectedModel(run, params) && (selectedLanguage === 'all' || targetForRun(run)?.language === selectedLanguage))
+    const leaderRuns = verifiedRuns.filter((run) => matchesSelectedModel(run, params) && matchesPlatform(run, params) && (selectedLanguage === 'all' || targetForRun(run)?.language === selectedLanguage))
     const verifiedReal = new Set(leaderRuns.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
     const catalogue = skillCatalogue(leaderRuns)
     const groups = groupedStats(leaderRuns, 'skill', leaderRuns).filter((group) => group.cost > 0)
@@ -726,15 +743,16 @@ if (typeof module !== 'undefined' && module.exports) {
     const sectionScope = `${scopeLabels[completenessScope]}${selectedLanguage === 'all' ? '' : ` · ${selectedLanguage}`}`
     const completenessPicker = field('Count', select('completeness-scope', Object.entries(scopeLabels), completenessScope, (event) => viewParams(params, { completeness: event.target.value === 'all' ? '' : event.target.value })), 'landing-picker')
     const languagePicker = field('Language', select('language-scope', [['all', 'All languages'], ...languages.map((language) => [language, language])], selectedLanguage, (event) => viewParams(params, { language: event.target.value === 'all' ? '' : event.target.value })), 'landing-picker')
-    const selectedModelPicker = modelPicker(params, 'landing-picker')
+    const selectedModelPicker = el('div', {}, platformPicker(params), modelPicker(params, 'landing-picker'))
     frame(el('div', {},
       el('section', { class: 'landing-hero hero' },
         el('div', {},
-          el('div', { class: 'eyebrow' }, 'Claude Code review benchmark'),
+          el('div', { class: 'eyebrow' }, 'Claude and Codex review skills'),
           el('h1', {}, 'Find the code-review skill worth its price.'),
-          el('p', {}, 'We ran Claude Code review skills on real Go, Rust, and C++ pull requests. Every finding was merged, checked against the code, and compared with the recorded cost.'),
+          el('p', {}, 'Compare Claude benchmark results and separate Codex and Claude experiments on real Go, Rust, and C++ pull requests. Experimental groups never contribute to benchmark rankings.'),
           el('div', { class: 'hero-actions' },
             hashLink('Explore the leaderboard', '#choose', 'button-link primary'),
+            hashLink('Archived experiments', '#experiments', 'button-link'),
           ),
         ),
         el('div', { class: 'landing-proof', 'aria-label': 'Benchmark size' },
@@ -1042,8 +1060,8 @@ if (typeof module !== 'undefined' && module.exports) {
   function modelComparisonFilterBar(params, snapshot, scope) {
     const sources = snapshot && scope ? enrichScopeSources(snapshot, scope) : []
     const cohortRuns = completedCohortRuns()
-    const skillLabels = new Map(sources.map((source) => [source.toolId, tools.get(source.toolId)?.label || source.toolId]))
-    for (const run of cohortRuns) skillLabels.set(run.toolId, run.toolLabel || tools.get(run.toolId)?.label || run.toolId)
+    const skillLabels = new Map(sources.map((source) => [qualifiedSkill(source.toolId), tools.get(source.toolId)?.label || source.toolId]))
+    for (const run of cohortRuns) skillLabels.set(skillIdentity(run), run.toolLabel || tools.get(skillIdentity(run))?.label || skillIdentity(run))
     const skillChoices = [...skillLabels.entries()].filter(([id]) => id).sort((left, right) => left[1].localeCompare(right[1]))
     const targetLabels = new Map(sources.map((source) => {
       const language = targets.get(source.targetId)?.language || 'unknown'
@@ -1056,6 +1074,7 @@ if (typeof module !== 'undefined' && module.exports) {
       ...cohortRuns.map((run) => targetForRun(run)?.language),
     ].filter(Boolean))].sort().map((language) => [language, language])
     const bar = el('section', { class: 'filter-bar model-filter-bar', 'aria-label': 'Model comparison filters' },
+      platformPicker(params),
       checklist('Skills', 'skills', skillChoices, params),
       checklist('Languages', 'languages', languageChoices, params),
       checklist('Targets', 'targets', targetChoices, params),
@@ -1078,7 +1097,8 @@ if (typeof module !== 'undefined' && module.exports) {
     const selectedTargets = values(params, 'targets')
     const selectedLanguages = values(params, 'languages')
     return enrichScopeSources(snapshot, scope).filter((source) => {
-      if (selectedTools.length && !selectedTools.includes(source.toolId)) return false
+      if (!matchesPlatform({ platform: 'claude' }, params)) return false
+      if (selectedTools.length && !selectedTools.includes(qualifiedSkill(source.toolId))) return false
       if (selectedTargets.length && !selectedTargets.includes(source.targetId)) return false
       const language = targets.get(source.targetId)?.language
       return !selectedLanguages.length || selectedLanguages.includes(language)
@@ -1355,7 +1375,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const selectedTools = values(params, 'skills')
     const selectedTargets = values(params, 'targets')
     const selectedLanguages = values(params, 'languages')
-    const eligible = verifiedRuns.filter((run) => run.status === 'complete' && (!selectedTools.length || selectedTools.includes(run.toolId)) && (!selectedTargets.length || selectedTargets.includes(run.targetId)) && (!selectedLanguages.length || selectedLanguages.includes(targetForRun(run)?.language)))
+    const eligible = verifiedRuns.filter((run) => matchesPlatform(run, params) && run.status === 'complete' && (!selectedTools.length || selectedTools.includes(skillIdentity(run))) && (!selectedTargets.length || selectedTargets.includes(run.targetId)) && (!selectedLanguages.length || selectedLanguages.includes(targetForRun(run)?.language)))
     const allReal = new Set(eligible.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issue.id)))
     const body = el('tbody')
     for (const group of groupedStats(eligible, 'model', eligible).sort((a, b) => a.label.localeCompare(b.label))) {
@@ -1417,9 +1437,9 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function compareSelector(params, selected) {
-    return el('section', { class: 'selection-grid' }, DATA.tools.filter((tool) => verifiedRuns.some((run) => run.toolId === tool.id)).map((tool) => {
-      const checked = selected.includes(tool.id)
-      const box = el('input', { type: 'checkbox', checked, disabled: !checked && selected.length >= 5, onchange: (event) => setComparison(params, tool.id, event.target.checked) })
+    return el('section', { class: 'selection-grid' }, DATA.tools.filter((tool) => matchesPlatform(tool, params) && (verifiedRuns.some((run) => skillIdentity(run) === tool.skillId) || (DATA.experiments || []).some((record) => record.skillId === tool.skillId))).map((tool) => {
+      const checked = selected.includes(tool.skillId)
+      const box = el('input', { type: 'checkbox', checked, disabled: !checked && selected.length >= 5, onchange: (event) => setComparison(params, tool.skillId, event.target.checked) })
       return el('label', { class: `selection-card${checked ? ' selected' : ''}` }, box, el('span', {}, el('strong', {}, tool.label), experimentalToolBadge(tool), el('small', {}, tool.source || tool.id)))
     }))
   }
@@ -1433,6 +1453,10 @@ if (typeof module !== 'undefined' && module.exports) {
       allIssues.get(key).add(group.id)
     }
     for (const group of groups) {
+      if (!group.rows.length) {
+        body.append(el('tr', {}, el('td', {}, el('strong', {}, group.label), skillInfoLink(group.id)), el('td', { colspan: 8 }, 'Benchmark metrics unavailable · no completed benchmark runs')))
+        continue
+      }
       const unique = [...allIssues.values()].filter((reporters) => reporters.size === 1 && reporters.has(group.id)).length
       const shared = [...allIssues.values()].filter((reporters) => reporters.size > 1 && reporters.has(group.id)).length
       body.append(el('tr', {}, el('td', {}, el('strong', {}, runSetLink(group.rows, group.label)), el('span', { class: 'subline' }, skillInfoLink(group.id), ' · ', runCountLink(group.rows)), experimentalToolBadge(group.rows)), el('td', { class: 'num' }, fmt(group.cost, 'money')), el('td', { class: 'num' }, fmt(group.real)), el('td', { class: 'num' }, fmt(unique)), el('td', { class: 'num' }, fmt(shared)), el('td', { class: 'num' }, fmt(group.completenessBreakdown.all.possible)), el('td', { class: 'num' }, fmt(group.completeness, 'percent')), el('td', { class: 'num' }, fmt(group.precision, 'percent')), el('td', { class: 'num' }, fmt(group.successRate, 'percent'))))
@@ -1445,13 +1469,14 @@ if (typeof module !== 'undefined' && module.exports) {
     const dimensionParams = new URLSearchParams(params)
     dimensionParams.delete('skills')
     const base = verifiedRuns.filter((run) => matchesOverviewDimensions(run, dimensionParams))
-    const displayRows = base.filter((run) => selected.includes(run.toolId))
-    const groups = selected.map((toolId) => aggregateRuns(toolId, tools.get(toolId)?.label || toolId, 'Skill', displayRows.filter((run) => run.toolId === toolId), base, true))
+    const displayRows = base.filter((run) => selected.includes(skillIdentity(run)))
+    const groups = selected.map((toolId) => aggregateRuns(toolId, tools.get(toolId)?.label || toolId, 'Skill', displayRows.filter((run) => skillIdentity(run) === toolId), base, true))
     const unionReal = new Set(groups.flatMap((group) => group.realRows.map((row) => issueKey(row.targetId, row.issue))))
     const portfolioCost = total(groups, (group) => group.cost)
     frame(el('div', {},
       compactHero('Compare skills', 'Put reviewers head to head.', 'Select two to five skills. Completed runs on the same pinned PR revision share reviewed issue identities across cohorts.'),
       filterBar(dimensionParams, { skills: false }),
+      el('p', {}, 'Experiment-only skills have no benchmark scores. ', hashLink('Compare archived experiment evidence', `#experiments?skills=${encodeURIComponent(selected.join(','))}`)),
       compareSelector(params, selected),
       selected.length < 2 ? el('div', { class: 'empty panel' }, 'Select at least two skills to build a comparison.') : el('div', {},
         el('div', { class: 'notice info evidence-note' }, 'Completeness uses all discovered real issues from completed runs for the selected model, target, and language filters. Unreviewed findings have provisional identities.'),
@@ -1462,7 +1487,7 @@ if (typeof module !== 'undefined' && module.exports) {
           kpi('Combined coverage', fmt(unionReal.size), 'distinct real issues'),
         ),
         el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Head-to-head evidence'), el('p', {}, 'Unique contribution shows what each skill adds beyond the other selected skills.'))), comparisonMatrix(groups)),
-        el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Cost / completeness'), el('p', {}, 'Upper-left candidates provide more discovered coverage for less total spend.'))), el('div', { class: 'panel-body' }, paretoChart(groups))),
+        el('section', { class: 'panel' }, el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Cost / completeness'), el('p', {}, 'Upper-left candidates provide more discovered coverage for less total spend.'))), el('div', { class: 'panel-body' }, paretoChart(groups.filter((group) => group.rows.length)))),
       ),
     ))
   }
@@ -1478,20 +1503,84 @@ if (typeof module !== 'undefined' && module.exports) {
     ))
   }
 
-  function skillCatalogue(sourceRuns = verifiedRuns) {
-    const grouped = new Map()
-    const visibleTools = [...new Map(sourceRuns.map((run) => {
-      const global = tools.get(run.toolId) || {}
-      return [run.toolId, { ...global, ...(run.toolSnapshot || {}), id: run.toolId }]
-    })).values()]
-    for (const tool of visibleTools) {
-      const key = tool.catalogId || tool.id
-      if (!grouped.has(key)) grouped.set(key, { ...tool, id: key, label: tool.catalogLabel || tool.label, tools: [], rows: [] })
-      const entry = grouped.get(key)
-      entry.tools.push(tool)
-      entry.rows.push(...sourceRuns.filter((run) => run.toolId === tool.id))
-    }
-    return [...grouped.values()].sort((a, b) => a.label.localeCompare(b.label))
+  function matchesExperiment(record, params) {
+    return matchesPlatform(record, params) && matchesSelectedModel(record, params) &&
+      (!values(params, 'skills').length || values(params, 'skills').includes(record.skillId)) &&
+      (!values(params, 'targets').length || values(params, 'targets').includes(record.targetId)) &&
+      (!values(params, 'languages').length || values(params, 'languages').includes(targets.get(record.targetId)?.language)) &&
+      (!params.get('experiment') || params.get('experiment') === record.experimentId)
+  }
+
+  function experimentTable(records) {
+    const measurement = (value) => value == null ? 'unavailable' : fmt(value)
+    return el('div', { class: 'table-wrap' }, el('table', { class: 'experiment-table' },
+      el('thead', {}, el('tr', {}, ['Skill', 'Trial / layout', 'Target', 'Model', 'Effort (parent / reviewers)', 'Verified groups', 'Bug groups', 'Tokens', 'Evidence'].map((label) => el('th', {}, label)))),
+      el('tbody', {}, records.map((record) => el('tr', { 'data-experiment-record': record.id },
+        el('td', {}, hashLink(record.skillLabel, `#skills/${encodeURIComponent(record.skillId)}`)),
+        el('td', {}, record.layout, el('span', { class: 'subline' }, record.recordId), el('span', { class: 'subline' }, record.experimentId)),
+        el('td', {}, record.targetId, el('span', { class: 'subline' }, targets.get(record.targetId)?.language || 'unavailable')),
+        el('td', {}, record.modelId || 'unavailable'),
+        el('td', {}, `${record.effort || 'unavailable'} / ${record.reviewerEffort || 'unavailable'}`),
+        el('td', { class: 'num' }, measurement(record.verifiedGroups)),
+        el('td', { class: 'num' }, measurement(record.bugGroups)),
+        el('td', { class: 'num' }, measurement(record.totalTokens)),
+        el('td', {}, hashLink('Raw report (offline)', `#experiments?report=${encodeURIComponent(record.id)}`), record.correction ? el('span', { class: 'subline' }, externalLink('October 16 correction', record.correction.url)) : null),
+      ))),
+    ))
+  }
+
+  function renderExperiments(params) {
+    const all = DATA.experiments || []
+    const records = all.filter((record) => matchesExperiment(record, params))
+    const featured = records.filter((record) => record.featured)
+    const correction = all.find((record) => record.correction)?.correction
+    const choices = (key, label) => [...new Map(all.map((record) => [record[key], label(record)])).entries()]
+    const report = params.get('report') ? all.find((record) => record.id === params.get('report')) : null
+    const totals = [...new Set(featured.map((record) => record.skillId))].map((id) => {
+      const rows = featured.filter((record) => record.skillId === id)
+      const sum = (key) => rows.every((row) => row[key] != null) ? fmt(rows.reduce((n, row) => n + row[key], 0)) : 'unavailable'
+      return el('p', {}, `${rows[0].skillLabel}: ${rows.length} target records · ${sum('verifiedGroups')} verified groups · ${sum('bugGroups')} bug groups · ${sum('totalTokens')} tokens`)
+    })
+    frame(el('div', {},
+      compactHero('Archived experiments', 'Codex and Claude skill experiments', 'Exploratory, repeated trials. These records contribute no benchmark precision, completeness, cost ranking, or canonical gold credit. Missing measurements are unavailable; raw reports retain rejected claims.'),
+      el('section', { class: 'filter-bar', 'aria-label': 'Experiment filters' },
+        platformPicker(params),
+        checklist('Skills', 'skills', choices('skillId', (r) => r.skillLabel), params),
+        field('Model', select('experiment-model', [['all', 'All models'], ...choices('modelId', (r) => r.modelId)], params.get('model') || 'all', (event) => viewParams(params, { model: event.target.value === 'all' ? '' : event.target.value }))),
+        checklist('Targets', 'targets', choices('targetId', (r) => r.targetId), params),
+        field('Experiment', select('experiment-filter', [['', 'All experiments'], ...choices('experimentId', (r) => r.experimentId)], params.get('experiment') || '', (event) => viewParams(params, { experiment: event.target.value }))),
+        hashLink('Clear filters', '#experiments', 'button-link'),
+      ),
+      params.get('report') ? report ? el('section', { class: 'panel experiment-panel', id: 'experiment-report' },
+        el('h2', {}, `${report.skillLabel} · ${report.recordId}`),
+        el('p', {}, `Original report · SHA-256 ${report.reportSha256}`),
+        externalLink('Archived receipt', report.evidenceUrl),
+        report.correction ? el('p', {}, report.correction.note, ' ', externalLink('Correction evidence', report.correction.url)) : null,
+        el('pre', { class: 'experiment-raw-report' }, report.report),
+      ) : el('p', { class: 'empty' }, 'Report not found') : null,
+      el('section', { class: 'panel experiment-panel' },
+        el('h2', {}, 'Installed Codex versus matched Claude'),
+        el('p', {}, 'Archived package-v5 and matched Claude reference on the same pinned targets. These fixtures were reused during iteration; this is not a general model ranking.'),
+        correction ? el('p', {}, correction.note, ' ', externalLink('Correction evidence', correction.url)) : null,
+        ...totals,
+        featured.length ? experimentTable(featured) : el('p', {}, 'No matched reference records for these filters.'),
+      ),
+      el('section', { class: 'panel experiment-panel' },
+        el('h2', {}, `Every archived trial · ${records.length} records`),
+        el('p', {}, 'Bug groups count runtime, test/build, and diagnostic defects. Documentation and repository rules count only toward verified groups. Repeated trials remain separate.'),
+        records.length ? experimentTable(records) : el('p', { class: 'empty' }, 'No experiment records match these filters.'),
+      ),
+    ))
+  }
+
+  function skillCatalogue(sourceRuns = verifiedRuns, params = activeParams) {
+    const experimentRows = (DATA.experiments || []).filter((record) => matchesExperiment(record, params))
+    return DATA.tools.filter((tool) => matchesPlatform(tool, params)).map((tool) => {
+      const id = tool.skillId || qualifiedSkill(tool.id)
+      const rows = sourceRuns.filter((run) => skillIdentity(run) === id)
+      const experiments = experimentRows.filter((record) => record.skillId === id)
+      return { ...tool, id, tools: [tool], rows, experiments }
+    }).filter((skill) => skill.rows.length || skill.experiments.length).sort((a, b) => a.label.localeCompare(b.label))
   }
 
   function skillCard(skill) {
@@ -1508,7 +1597,8 @@ if (typeof module !== 'undefined' && module.exports) {
         el('div', {}, el('dt', {}, 'Use it'), el('dd', {}, skill.invoke ? el('code', {}, skill.invoke) : 'See the skill page for invocation details.')),
       ),
       el('div', { class: 'skill-actions' },
-        runCountLink(skill.rows, `View ${skill.rows.length} run${skill.rows.length === 1 ? '' : 's'}`),
+        skill.rows.length ? runCountLink(skill.rows, `${skill.rows.length} benchmark runs`) : el('span', {}, '0 benchmark runs'),
+        hashLink(`${skill.experiments.length} experiment records`, `#experiments?skills=${encodeURIComponent(skill.id)}`),
         skill.repoUrl ? externalLink('GitHub ↗', skill.repoUrl) : null,
         skill.pageUrl ? externalLink('Skill page ↗', skill.pageUrl) : null,
       ),
@@ -1516,13 +1606,15 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function renderSkills(focusId = null, params = new URLSearchParams()) {
-    const catalogue = skillCatalogue(verifiedRuns.filter((run) => matchesSelectedModel(run, params)))
-    const focused = focusId ? catalogue.find((skill) => skill.id === focusId) : null
+    const catalogue = skillCatalogue(verifiedRuns.filter((run) => matchesOverviewDimensions(run, params)), params)
+    const known = focusId ? tools.get(qualifiedSkill(focusId)) : null
+    const focused = focusId ? catalogue.find((skill) => skill.id === qualifiedSkill(focusId)) ||
+      (known ? { ...known, id: known.skillId, tools: [known], rows: [], experiments: [] } : null) : null
     if (focusId && !focused) return renderNotFound('Skill not found', focusId)
     const visible = focused ? [focused] : catalogue
     frame(el('div', {},
-      compactHero('Tested skills', focused ? focused.label : 'Know what was benchmarked—and how to try it.', focused ? 'Tested skill details, Claude Code installation and invocation, source references, and exact benchmark evidence.' : 'The benchmark ran these as Claude Code plugins. Each entry explains the skill, links to its exact run evidence, and points to its GitHub project and skill page.'),
-      modelPicker(params),
+      compactHero('Tested skills', focused ? focused.label : 'Know what was benchmarked—and how to try it.', focused ? 'Platform-specific source, invocation, benchmark evidence, and archived experiments.' : 'Skills are identified by platform and name, independently of model and experimental layout. Benchmark and experiment evidence counts remain separate.'),
+      filterBar(params),
       focused ? el('div', { class: 'catalogue-back' }, hashLink('← View all tested skills', '#skills')) : null,
       el('section', { class: 'kpis decision-kpis' },
         kpi('Skills', fmt(catalogue.length), 'distinct tested skills'),
@@ -1624,7 +1716,7 @@ if (typeof module !== 'undefined' && module.exports) {
       })
       body.append(el('tr', {},
         el('td', {}, box),
-        el('td', {}, hashLink(run.toolLabel, runHash(run), 'run-link'), experimentalToolBadge(run), el('span', { class: 'subline' }, `${run.targetId} · ${run.modelLabel || 'model unavailable'} · ${run.cohortId} · `, hashLink(run.toolId, skillHash(run.toolId), 'skill-info-link'))),
+        el('td', {}, hashLink(run.toolLabel, runHash(run), 'run-link'), experimentalToolBadge(run), el('span', { class: 'subline' }, `${run.targetId} · ${run.modelLabel || 'model unavailable'} · ${run.cohortId} · `, hashLink(skillIdentity(run), skillHash(skillIdentity(run)), 'skill-info-link'))),
         el('td', {}, badge(run.status, run.status)),
         el('td', { class: 'num' }, fmt(run.usage.costUsd, 'money'), el('span', { class: 'subline' }, usageSourceLabel(run.usage.source))),
         el('td', { class: 'num' }, fmt(run.wallMs, 'minutes')),
@@ -1730,7 +1822,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
   function toolChart(items, key) {
     const width = 680, rowHeight = 31, left = 250, right = 46
-    const toolsInView = [...new Map(items.map((run) => [run.toolId, run.toolSnapshot || tools.get(run.toolId) || { id: run.toolId, label: run.toolLabel }])).values()]
+    const toolsInView = [...new Map(items.map((run) => [skillIdentity(run), run.toolSnapshot || tools.get(skillIdentity(run)) || { id: skillIdentity(run), label: run.toolLabel }])).values()]
     const targetsInView = [...new Map(items.map((run) => [run.targetId, targetForRun(run)])).entries()]
     const height = Math.max(300, 55 + toolsInView.length * rowHeight)
     const [getter, label] = chartAccessors[key]
@@ -1755,7 +1847,7 @@ if (typeof module !== 'undefined' && module.exports) {
       labelText.addEventListener('keydown', (event) => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); location.hash = skillHash(tool.id) } })
       graph.append(labelText)
       targetsInView.forEach(([targetId], targetIndex) => {
-        const targetRuns = items.filter((item) => item.toolId === tool.id && item.targetId === targetId)
+        const targetRuns = items.filter((item) => skillIdentity(item) === (tool.skillId || qualifiedSkill(tool.id)) && item.targetId === targetId)
         if (!targetRuns.length) {
           const circle = svg('circle', { class: 'na', cx: left, cy: y + (targetIndex - (targetsInView.length - 1) / 2) * 6, r: 4, fill: '#3a4553', 'aria-label': `${tool.label} on ${targetId}: no run` })
           const title = svg('title'); title.textContent = `${tool.label} · ${targetId}: N/A`; circle.append(title); graph.append(circle)
@@ -1778,7 +1870,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const selectedLanguages = values(params, 'languages')
     const eligible = new Set()
     for (const run of verifiedRuns) {
-      if (run.toolId !== toolId || !matchesSelectedModel(run, params)) continue
+      if (skillIdentity(run) !== toolId || !matchesSelectedModel(run, params)) continue
       const target = targetForRun(run)
       const tool = run.toolSnapshot || tools.get(toolId)
       if (selectedTargets.length && !selectedTargets.includes(run.targetId)) continue
@@ -1947,7 +2039,7 @@ if (typeof module !== 'undefined' && module.exports) {
     if (!run) return renderNotFound('Run not found', id)
     const target = targetForRun(run)
     const content = el('div', {},
-      hero('Run detail', run.toolLabel, `${run.targetId} · ${run.toolSource || run.toolId}`, [hashLink('Overview', '#overview'), ' / ', hashLink(run.id, runHash(run))]),
+      hero('Run detail', run.toolLabel, `${run.targetId} · ${run.toolSource || skillIdentity(run)}`, [hashLink('Overview', '#overview'), ' / ', hashLink(run.id, runHash(run))]),
       runSummary(run, target),
       runMetrics(run),
       issueSection(run),
@@ -2166,7 +2258,7 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function compareRun(run) {
-    return el('div', { class: 'compare-run' }, hashLink(run.toolLabel, runHash(run), 'run-link'), experimentalToolBadge(run), el('span', { class: 'subline' }, hashLink(run.id, runHash(run), 'run-link'), ` · ${run.modelLabel || 'model unavailable'} · `, skillInfoLink(run.toolId)), el('div', { class: 'badges' }, badge(run.status, run.status), usageSourceLabel(run.usage.source, true)))
+    return el('div', { class: 'compare-run' }, hashLink(run.toolLabel, runHash(run), 'run-link'), experimentalToolBadge(run), el('span', { class: 'subline' }, hashLink(run.id, runHash(run), 'run-link'), ` · ${run.modelLabel || 'model unavailable'} · `, skillInfoLink(skillIdentity(run))), el('div', { class: 'badges' }, badge(run.status, run.status), usageSourceLabel(run.usage.source, true)))
   }
 
   function comparisonTable(left, right) {

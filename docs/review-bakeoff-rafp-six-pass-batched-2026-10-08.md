@@ -1,6 +1,6 @@
 # Review-tool bake-off: 1 review configuration, 3 real PRs
 
-**Cohort:** `rafp-six-pass-batched-2026-10-08`. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
+**Cohort:** `rafp-six-pass-batched-2026-10-08`. **Skill platform:** Claude. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
 
 **Experimental cohort-local evidence:** `review-and-fix-pr` is experimental and self-authored. These results are not canonical gold.
 
@@ -92,13 +92,13 @@ its output, so they are deliberately not added on top of it here.
 
 | Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Tokens | Cost | Wall | Lost to limits |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Automated Development review-and-fix-pr | 3 | 35 | 33 | 2 | 0 | 29 | 4 | 14,549,023 | $18.07 | 40.8 min | - |
+| Automated Development review-and-fix-pr · Claude | 3 | 35 | 33 | 2 | 0 | 29 | 4 | 14,549,023 | $18.07 | 40.8 min | - |
 
 ### Spend per run
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Automated Development review-and-fix-pr | 4,374,623 tok / $5.63 / 11.4 min | 4,611,957 tok / $6.26 / 14.8 min | 5,562,443 tok / $6.18 / 14.6 min |
+| Automated Development review-and-fix-pr · Claude | 4,374,623 tok / $5.63 / 11.4 min | 4,611,957 tok / $6.26 / 14.8 min | 5,562,443 tok / $6.18 / 14.6 min |
 
 **The 3 scored reviews' recorded attempts cost 14,549,023 tokens, $18.07.**
 Retry attempts, judging, and extraction are not included.
@@ -109,7 +109,7 @@ Extracted claims include 71 suggestions. They remain visible for reviewer judgme
 
 | Tool | ironweave | quillstone | tidepool |
 |---|---:|---:|---:|
-| Automated Development review-and-fix-pr | 39 (14 confirmed, 25 suggestions) | 40 (15 confirmed, 25 suggestions) | 34 (13 confirmed, 21 suggestions) |
+| Automated Development review-and-fix-pr · Claude | 39 (14 confirmed, 25 suggestions) | 40 (15 confirmed, 25 suggestions) | 34 (13 confirmed, 21 suggestions) |
 
 ## What the maintainers actually said
 

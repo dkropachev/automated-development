@@ -1,6 +1,6 @@
 # Review-tool bake-off: 1 review configuration, 1 real PR
 
-**Cohort:** `rafp-frozen-patch-tokens-ironweave-2026-10-08`. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
+**Cohort:** `rafp-frozen-patch-tokens-ironweave-2026-10-08`. **Skill platform:** Claude. **Requested model:** Claude Opus 5.5 (`claude-opus-5-5`). Claude Code: `2.1.292 (Claude Code)`.
 
 **Experimental cohort-local evidence:** `review-and-fix-pr` is experimental and self-authored. These results are not canonical gold.
 
@@ -61,13 +61,13 @@ its output, so they are deliberately not added on top of it here.
 
 | Tool | Runs | Raised | Real | False | Unproven | In scope | Pre-existing | Tokens | Cost | Wall | Lost to limits |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Automated Development review-and-fix-pr | 1 | 8 | 8 | 0 | 0 | 8 | 0 | 2,359,207 | $4.70 | 10.2 min | - |
+| Automated Development review-and-fix-pr · Claude | 1 | 8 | 8 | 0 | 0 | 8 | 0 | 2,359,207 | $4.70 | 10.2 min | - |
 
 ### Spend per run
 
 | Tool | ironweave |
 |---|---:|
-| Automated Development review-and-fix-pr | 2,359,207 tok / $4.70 / 10.2 min |
+| Automated Development review-and-fix-pr · Claude | 2,359,207 tok / $4.70 / 10.2 min |
 
 **The 1 scored reviews' recorded attempts cost 2,359,207 tokens, $4.70.**
 Retry attempts, judging, and extraction are not included.
@@ -78,7 +78,7 @@ Extracted claims include 21 suggestions. They remain visible for reviewer judgme
 
 | Tool | ironweave |
 |---|---:|
-| Automated Development review-and-fix-pr | 29 (8 confirmed, 21 suggestions) |
+| Automated Development review-and-fix-pr · Claude | 29 (8 confirmed, 21 suggestions) |
 
 ## What the maintainers actually said
 
