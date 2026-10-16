@@ -4,6 +4,12 @@ This is an exploratory skill evaluation, not a completed benchmark cohort or a c
 comparison. Claude's `skills/code-review-ad/` files were unchanged. The user observed a local
 recall gap but supplied no saved example; these three repository fixtures are the available proxy.
 
+**October 16 correction:** the follow-up investigation retracted the Opus Rust proxy-cleanup
+claim. Corrected Opus counts are **7 Rust groups and 22 total**, rather than the historical 8 and
+23 below. The table and raw receipts remain the original record. See the
+[correction and focused-agent follow-up](../codex-focus-2026-10-16/README.md) for the source-based
+reason and corrected category comparison. The installed Codex counts are unchanged.
+
 ## Matched comparison
 
 All reviews used the same pinned PR source and metadata, isolated read-only checkouts, and three

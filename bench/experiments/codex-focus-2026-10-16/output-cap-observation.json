@@ -1,0 +1,28 @@
+{
+  "run": "quillstone-focused-four",
+  "threadId": "01a142c5-c245-7501-8f09-8f690a2761df",
+  "rolloutSha256": "739cb39e5eac77621a793179792270aa13cbc1fb03192c0c7ca92def455297a3",
+  "observation": "Nested max_output_tokens22000/23000 with default outer10000. First and repeated broad reads returned explicit truncation notices. Agent also called list_agents and received completed-peer text; corrected candidate explicitly forbids that.",
+  "outputs": [
+    {
+      "characters": 40149,
+      "containsTruncationNotice": true
+    },
+    {
+      "characters": 215,
+      "containsTruncationNotice": false
+    },
+    {
+      "characters": 40150,
+      "containsTruncationNotice": true
+    },
+    {
+      "characters": 38378,
+      "containsTruncationNotice": false
+    },
+    {
+      "characters": 29488,
+      "containsTruncationNotice": false
+    }
+  ]
+}

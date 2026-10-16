@@ -1,0 +1,3129 @@
+{
+  "kind": "exploratory-focused-reviewer-evaluation",
+  "canonicalGold": false,
+  "note": "Raw reports include rejected claims. Bug groups count runtime, test/build and diagnostic defects separately from documentation and rule findings. These fixtures were used during iteration, not held out.",
+  "records": [
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "focused-four",
+      "target": "ironweave",
+      "targetBase": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+      "targetHead": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "production",
+        "tests",
+        "contracts",
+        "standards"
+      ],
+      "startedAt": 1792121535.2861803,
+      "finishedAt": 1792122059.3293595,
+      "skillSha256": {
+        "SKILL.md": "a3e93b6372e4b4b8d5e6e886b433ecdcd0fc25fb1663d3cf6fc8b5c9f467c619",
+        "reviewer.md": "f598845dcdccd9baf36cef5dc139525bc7c13579cd61f41d1d70d1fca85e1962",
+        "review.md": "9b495f0908ed73058614adb5171f06a265e01155885f2e16c0fa3949a02f8506",
+        "checks/pools.md": "c7deb427ec5866fb674192263be105fb1053c6f5b082b7f27befab38bbc49b00",
+        "checks/counterexamples.md": "093ad067f401adc4752b3f88a19ef856755cbee1be3a0c59eeb23db1086592b4",
+        "checks/bounds.md": "a7c4f0fac9b03d83e3df4c7fde4bbd9504b11647c31d334e5f1ae4681c1e7e2a",
+        "checks/concurrency.md": "ef29ee1a5aeb13808afa08cd08492a2ed87de45c43ded9e9bac5f91018e9f020",
+        "checks/standards.md": "f382cefb3f0a5bdf299b4b1d150fa690c7c2fc3012ce412f5490e408d5e52acc",
+        "checks/claims.md": "060d8664e0e27002b449daada1c0604e06c491622820313795abd73686a261d5",
+        "checks/lifecycle.md": "97ceeb8178a520cc9b095b5fd8a353fac2b1eab9564a306f79ba1264de518c83",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/tests.md": "2d835660ac56d3785ba5aceab3de5a5b2a8cd3481366244f4506157122e5aefc",
+        "passes/contracts.md": "e31147b5cf816f394ae6bd724296bfa977e8dec643a56da148f6dcc2ac209787",
+        "passes/standards.md": "b39ac16149d8a24aab94192ca26bebe7b4ce4805e732d71b9e7fac7e41023cd9",
+        "passes/production.md": "fcf84356d848a67a3278d52937c1d3f79f93a9f174e61e7f0080e22e769a6596"
+      },
+      "promptSha256": "b9c1021909a2c704ace6c9ad30ec4a35a71cae9f2c402f4309599f78b5dd0e67",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "bdce2f2f157ae756dbe91f3861831b2a0a9adba152086efec7f1dd7350e4cd98",
+      "totalTokens": 1866584,
+      "id": "ironweave-focused-four",
+      "grade": {
+        "bug_groups": 5,
+        "valid_groups": 8,
+        "categories": {
+          "runtime": 1,
+          "test_build": 1,
+          "test": 3,
+          "documentation": 2,
+          "repository_rule": 1
+        },
+        "issue_ids": [
+          "ironweave.queue_shutdown",
+          "ironweave.api_build",
+          "ironweave.weak_regression",
+          "ironweave.assertion_cleanup",
+          "ironweave.deadlines",
+          "ironweave.pass_through",
+          "ironweave.shard_ownership",
+          "ironweave.source_exception"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "tokens": 1866584,
+        "comparison": "Same five bug groups/eight total as selected package-v5; no new verified group.",
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": []
+      },
+      "report": "reports/ironweave-focused-four.md",
+      "prompt": "prompts/ironweave-focused-four.txt",
+      "skillSnapshot": "skills/focused-four.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142c4-7bf8-7460-93d9-a5a4e433a930",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 764290,
+            "cached_input_tokens": 692608,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 13452,
+            "reasoning_output_tokens": 1670,
+            "total_tokens": 777742
+          },
+          "rolloutSha256": "f294926c7de75475d72df3db64872daff928d80f498a8fc54023caba80aad963"
+        },
+        {
+          "threadId": "01a142c5-6305-7a21-a6cc-6a821cfdc803",
+          "role": "/root/production",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 334091,
+            "cached_input_tokens": 290688,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4729,
+            "reasoning_output_tokens": 2013,
+            "total_tokens": 338820
+          },
+          "rolloutSha256": "dbd9a8658e86229c5359b26e6bc1f183d83bf2882c10497b736e2b3193181c9f"
+        },
+        {
+          "threadId": "01a142c5-e51d-7130-9a85-a52caf8865f4",
+          "role": "/root/tests",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 300919,
+            "cached_input_tokens": 253568,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4858,
+            "reasoning_output_tokens": 2759,
+            "total_tokens": 305777
+          },
+          "rolloutSha256": "5ac1eaf447d04a8d4f7fcc10ab99a395aac5e6b903071c4501cd040d8e2c709b"
+        },
+        {
+          "threadId": "01a142c6-8f76-7fb2-b143-72096048a49d",
+          "role": "/root/contracts",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 219723,
+            "cached_input_tokens": 181632,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 6476,
+            "reasoning_output_tokens": 4151,
+            "total_tokens": 226199
+          },
+          "rolloutSha256": "128639b7e530ad2e32a9b3d245dca00a6f2bc3ebfc57249c9127be4a1ab68557"
+        },
+        {
+          "threadId": "01a142c7-133a-7982-ada2-7e8c2615d416",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 214977,
+            "cached_input_tokens": 184832,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3069,
+            "reasoning_output_tokens": 1342,
+            "total_tokens": 218046
+          },
+          "rolloutSha256": "c40a286ca26f00e9fe6381ca78dd6a61e7983c2b5ae885fef717e470344fc781"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "focused-three",
+      "target": "ironweave",
+      "targetBase": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+      "targetHead": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "production",
+        "tests",
+        "contracts_rules"
+      ],
+      "startedAt": 1792123139.123137,
+      "finishedAt": 1792123710.9225967,
+      "skillSha256": {
+        "SKILL.md": "3653277b4788bd81ee94aad63ea2dbcc02ac78118a8de2714d1f9fd903667f9c",
+        "reviewer.md": "88fb84498f678abd29bce42a69a265aca45be2df600271302b38d7ce3edf69e0",
+        "review.md": "66fd69145acef6fa40c4aea0e742c84d5b70e192d40e6bda789cd5c1f7ea4de2",
+        "checks/pools.md": "c7deb427ec5866fb674192263be105fb1053c6f5b082b7f27befab38bbc49b00",
+        "checks/counterexamples.md": "093ad067f401adc4752b3f88a19ef856755cbee1be3a0c59eeb23db1086592b4",
+        "checks/bounds.md": "a7c4f0fac9b03d83e3df4c7fde4bbd9504b11647c31d334e5f1ae4681c1e7e2a",
+        "checks/concurrency.md": "ef29ee1a5aeb13808afa08cd08492a2ed87de45c43ded9e9bac5f91018e9f020",
+        "checks/standards.md": "f382cefb3f0a5bdf299b4b1d150fa690c7c2fc3012ce412f5490e408d5e52acc",
+        "checks/claims.md": "060d8664e0e27002b449daada1c0604e06c491622820313795abd73686a261d5",
+        "checks/lifecycle.md": "97ceeb8178a520cc9b095b5fd8a353fac2b1eab9564a306f79ba1264de518c83",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/tests.md": "3185d376694bcd2ac1fa0f537e940eab52ad6406988cf66413a042df766b3c86",
+        "passes/contracts-rules.md": "c83cf149073f3064de41c91fd6ba9c1a94021505be281b6bf666780318c176dc",
+        "passes/production.md": "fcf84356d848a67a3278d52937c1d3f79f93a9f174e61e7f0080e22e769a6596"
+      },
+      "promptSha256": "eb00d0a0a27d8da6d753c616e63283574bb455aaba85e550d2e71c4f39116acc",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "2fea3719d521c0a967c77ef77e1e48138671b236b5dcdf6308d8df1640fc9b76",
+      "totalTokens": 2189453,
+      "id": "ironweave-focused-three",
+      "grade": {
+        "bug_groups": 4,
+        "valid_groups": 7,
+        "categories": {
+          "runtime": 1,
+          "test_build": 1,
+          "test": 2,
+          "repository_rule": 1,
+          "documentation": 2
+        },
+        "issue_ids": [
+          "ironweave.api_build",
+          "ironweave.queue_shutdown",
+          "ironweave.weak_regression",
+          "ironweave.assertion_cleanup",
+          "ironweave.shard_ownership",
+          "ironweave.source_exception",
+          "ironweave.pass_through"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [
+          "ironweave.deadlines"
+        ],
+        "selected_v5_bug_gains": [],
+        "tokens": 2189453,
+        "qualification": "Two rejection-test headings merged as one weak-regression group. Higher cost than selected v5 and loses deadline protection."
+      },
+      "report": "reports/ironweave-focused-three.md",
+      "prompt": "prompts/ironweave-focused-three.txt",
+      "skillSnapshot": "skills/focused-three.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142dc-f597-7522-a46d-3f5e5b92aad4",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 862990,
+            "cached_input_tokens": 732032,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 16786,
+            "reasoning_output_tokens": 5677,
+            "total_tokens": 879776
+          },
+          "rolloutSha256": "4153ac780018ca051e53e19642cb6c926e565ec55dca07e7544c2c9673b05ac3"
+        },
+        {
+          "threadId": "01a142de-3b1a-76a1-b4a3-b9797f5962b1",
+          "role": "/root/production",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 412609,
+            "cached_input_tokens": 344832,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 8746,
+            "reasoning_output_tokens": 5894,
+            "total_tokens": 421355
+          },
+          "rolloutSha256": "f75e44233a3deddf756bb70d0b6cb0701705652df44ec7d8d81e08ade73fa84d"
+        },
+        {
+          "threadId": "01a142de-d186-7b80-8f5a-c82750fd82a8",
+          "role": "/root/tests",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 449387,
+            "cached_input_tokens": 388352,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 6741,
+            "reasoning_output_tokens": 3782,
+            "total_tokens": 456128
+          },
+          "rolloutSha256": "fbe4a4f6f269523610cb3f0e165aa63a5d20ce82a43e7101e2e13535d75eb8b2"
+        },
+        {
+          "threadId": "01a142df-6f5a-78a2-a547-5e9199e39f27",
+          "role": "/root/contracts_rules",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 423176,
+            "cached_input_tokens": 368000,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 9018,
+            "reasoning_output_tokens": 5626,
+            "total_tokens": 432194
+          },
+          "rolloutSha256": "e53d7a4724c79e24b629ee583eacf765423fc823c639c97e18b815d4622803f9"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "split-tests",
+      "target": "ironweave",
+      "targetBase": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+      "targetHead": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "production",
+        "test_semantics",
+        "test_safety",
+        "contracts_rules"
+      ],
+      "startedAt": 1792122132.920767,
+      "finishedAt": 1792122529.6738238,
+      "skillSha256": {
+        "SKILL.md": "c77ca06e14ab8519a4b502b74efba9487605e4075a7cf98f5b1686b09f3e6ed0",
+        "reviewer.md": "f598845dcdccd9baf36cef5dc139525bc7c13579cd61f41d1d70d1fca85e1962",
+        "review.md": "97d180686925a01ba7915e678e7bfb7465f9d245a44c94dd29fe532da8ddacda",
+        "checks/pools.md": "c7deb427ec5866fb674192263be105fb1053c6f5b082b7f27befab38bbc49b00",
+        "checks/counterexamples.md": "093ad067f401adc4752b3f88a19ef856755cbee1be3a0c59eeb23db1086592b4",
+        "checks/bounds.md": "a7c4f0fac9b03d83e3df4c7fde4bbd9504b11647c31d334e5f1ae4681c1e7e2a",
+        "checks/concurrency.md": "ef29ee1a5aeb13808afa08cd08492a2ed87de45c43ded9e9bac5f91018e9f020",
+        "checks/standards.md": "f382cefb3f0a5bdf299b4b1d150fa690c7c2fc3012ce412f5490e408d5e52acc",
+        "checks/claims.md": "060d8664e0e27002b449daada1c0604e06c491622820313795abd73686a261d5",
+        "checks/lifecycle.md": "97ceeb8178a520cc9b095b5fd8a353fac2b1eab9564a306f79ba1264de518c83",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-safety.md": "80238c8cfd06679e35f434f2e89266f95669a172648f50bc9ae9f8842fe2093f",
+        "passes/contracts-rules.md": "c83cf149073f3064de41c91fd6ba9c1a94021505be281b6bf666780318c176dc",
+        "passes/test-semantics.md": "887f4228d822cfe17dec0fbd20b3733bd5fdb053bb50b6162601f4547ff7112a",
+        "passes/production.md": "fcf84356d848a67a3278d52937c1d3f79f93a9f174e61e7f0080e22e769a6596"
+      },
+      "promptSha256": "2a41bda6846c31c7aaef8cf697f32199e4635710a655c93fec51b6eb0a2c1f26",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "fd6a7955eb108df94c0de87421cb9b6673cd79664be5819450c7134183ea7592",
+      "totalTokens": 2328743,
+      "id": "ironweave-split-tests",
+      "grade": {
+        "bug_groups": 3,
+        "valid_groups": 5,
+        "categories": {
+          "runtime": 1,
+          "test": 2,
+          "documentation": 2
+        },
+        "issue_ids": [
+          "ironweave.queue_shutdown",
+          "ironweave.weak_regression",
+          "ironweave.assertion_cleanup",
+          "ironweave.pass_through",
+          "ironweave.source_exception"
+        ],
+        "unsupported": [],
+        "baseline_losses": [
+          "ironweave.api_build",
+          "ironweave.shard_ownership"
+        ],
+        "tokens": 2328743,
+        "vs_focused_four": {
+          "gained": [],
+          "lost": [
+            "ironweave.api_build",
+            "ironweave.shard_ownership",
+            "ironweave.deadlines"
+          ],
+          "bug_group_delta": -2,
+          "total_group_delta": -3,
+          "token_delta": 462159
+        },
+        "vs_selected_package_v5": {
+          "gained": [],
+          "lost": [
+            "ironweave.api_build",
+            "ironweave.shard_ownership",
+            "ironweave.deadlines"
+          ],
+          "bug_group_delta": -2,
+          "total_group_delta": -3,
+          "token_delta": 441208
+        },
+        "original_baseline_bug_losses": [
+          "ironweave.api_build"
+        ],
+        "selected_v5_bug_losses": [
+          "ironweave.api_build",
+          "ironweave.deadlines"
+        ],
+        "selected_v5_bug_gains": []
+      },
+      "report": "reports/ironweave-split-tests.md",
+      "prompt": "prompts/ironweave-split-tests.txt",
+      "skillSnapshot": "skills/split-tests.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142cd-9a87-7281-bc99-45d94a111b93",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 1043651,
+            "cached_input_tokens": 960768,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 12536,
+            "reasoning_output_tokens": 1853,
+            "total_tokens": 1056187
+          },
+          "rolloutSha256": "b990e09df9a5638ecbe4780312c34c86bee9fe457927ff40746857667730ec1a"
+        },
+        {
+          "threadId": "01a142ce-7d33-7d42-8fba-6244cc21f859",
+          "role": "/root/production",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 446212,
+            "cached_input_tokens": 382720,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4600,
+            "reasoning_output_tokens": 2198,
+            "total_tokens": 450812
+          },
+          "rolloutSha256": "488805cba81ff0acaaaa1a3b016c61ef6a0de9ece8d8959748414d559f34def4"
+        },
+        {
+          "threadId": "01a142ce-ec84-79f3-b311-d7db76c2cadd",
+          "role": "/root/test_semantics",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 214683,
+            "cached_input_tokens": 190720,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3406,
+            "reasoning_output_tokens": 1733,
+            "total_tokens": 218089
+          },
+          "rolloutSha256": "17b69d02312dbe9a07879d7625a0e056133a293987ed10b7bb89cf96a7fe2011"
+        },
+        {
+          "threadId": "01a142cf-53d9-7080-9f3c-81de90d51115",
+          "role": "/root/test_safety",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 234038,
+            "cached_input_tokens": 196096,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3880,
+            "reasoning_output_tokens": 2209,
+            "total_tokens": 237918
+          },
+          "rolloutSha256": "2acc753c2abcb3c01211697472d798a574a027404877106a0d7160058d32be4f"
+        },
+        {
+          "threadId": "01a142cf-d46e-7170-9be6-b476bbe265cb",
+          "role": "/root/contracts_rules",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 359413,
+            "cached_input_tokens": 315392,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 6324,
+            "reasoning_output_tokens": 3342,
+            "total_tokens": 365737
+          },
+          "rolloutSha256": "dc23900e5ecdba9f9ac609294472193aa864568267183b87783abd7011e61e5c"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "toolkit-code-budget",
+      "target": "ironweave",
+      "targetBase": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+      "targetHead": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "toolkit",
+        "test_assertions",
+        "standards",
+        "spec"
+      ],
+      "startedAt": 1792125572.3723261,
+      "finishedAt": 1792126261.5216708,
+      "skillSha256": {
+        "SKILL.md": "592804410752c93fb962e96cd2034484b9880a80e54fc921fea71894782c9487",
+        "review.md": "d06792e28096cd17010f867b54ba95556b6ab7b0418fc6c74fd811920753d9e2",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-assertions.md": "a336f735062c377ce8dd53a094197400903d99654b391bef2daa10c5d184092d",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "702d8a0d427b8763224b7eec9c3ddc268a908bb637a3df6df595fb1c51cd1e4e"
+      },
+      "promptSha256": "6ffc715ec5ef03b68b47c213a2fcb68b2131c705aca5775e4f48cc4b1bc63840",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "a0211f9d8d8ec8fcf2e70952a30a2bbb94575eb472f8c60ab998608a2e5b9bf6",
+      "totalTokens": 2172137,
+      "id": "ironweave-toolkit-code-budget",
+      "grade": {
+        "bug_groups": 4,
+        "valid_groups": 5,
+        "categories": {
+          "runtime": 1,
+          "test": 3,
+          "documentation": 1
+        },
+        "issue_ids": [
+          "ironweave.queue_shutdown",
+          "ironweave.weak_regression",
+          "ironweave.assertion_cleanup",
+          "ironweave.deadlines",
+          "ironweave.source_exception"
+        ],
+        "unsupported": [],
+        "baseline_losses": [
+          "ironweave.api_build",
+          "ironweave.shard_ownership",
+          "ironweave.pass_through"
+        ],
+        "original_baseline_bug_losses": [
+          "ironweave.api_build"
+        ],
+        "selected_v5_bug_losses": [
+          "ironweave.api_build"
+        ],
+        "selected_v5_bug_gains": [],
+        "selected_v5_other_losses": [
+          "ironweave.shard_ownership",
+          "ironweave.pass_through"
+        ],
+        "tokens": 2172137,
+        "qualification": "Weak-regression group supported by absent required exception, but old-error-guard schedule unverified in this report. Increasing code reads did not preserve compatibility/ownership/comment coverage."
+      },
+      "report": "reports/ironweave-toolkit-code-budget.md",
+      "prompt": "prompts/ironweave-toolkit-code-budget.txt",
+      "skillSnapshot": "skills/toolkit-code-budget.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a14302-15ec-7642-b4ea-c5e086a6ca46",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 1029919,
+            "cached_input_tokens": 928768,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 27469,
+            "reasoning_output_tokens": 4688,
+            "total_tokens": 1057388
+          },
+          "rolloutSha256": "2b0ffdd390a909f026624ab97932841fd2ef4e8b946e94d69ba407daea2f3213"
+        },
+        {
+          "threadId": "01a14303-bda1-7d60-9e32-5f5c2acef857",
+          "role": "/root/toolkit",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 353041,
+            "cached_input_tokens": 272896,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 10944,
+            "reasoning_output_tokens": 6635,
+            "total_tokens": 363985
+          },
+          "rolloutSha256": "a481045ec83fcd9bc27efc99038b36f8526a3b2bc675aba24fbd51b2947cf443"
+        },
+        {
+          "threadId": "01a14304-c76a-7eb3-8372-64370488d225",
+          "role": "/root/test_assertions",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 149646,
+            "cached_input_tokens": 110976,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4122,
+            "reasoning_output_tokens": 2518,
+            "total_tokens": 153768
+          },
+          "rolloutSha256": "e84d418c9664b5378d290e1de2d90150211fa65358858e6c55d7ff658d2a534a"
+        },
+        {
+          "threadId": "01a14305-d8f8-74a1-be7c-7cadb33d32a3",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 203510,
+            "cached_input_tokens": 171136,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 9628,
+            "reasoning_output_tokens": 6220,
+            "total_tokens": 213138
+          },
+          "rolloutSha256": "5acf89d43baa09140d4c4860749b0107b613d0a0e0d311ce09c1559b7e63fb32"
+        },
+        {
+          "threadId": "01a14306-dfdf-73e0-8c93-37584e3ebbde",
+          "role": "/root/spec",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 373559,
+            "cached_input_tokens": 270848,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 10299,
+            "reasoning_output_tokens": 5606,
+            "total_tokens": 383858
+          },
+          "rolloutSha256": "fd222749268702ed82a7e3e605f9020d29839a7767cf6b4845c5c68e81c69c9e"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "toolkit-preserved-checks",
+      "target": "ironweave",
+      "targetBase": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+      "targetHead": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "toolkit",
+        "test_assertions",
+        "standards",
+        "spec"
+      ],
+      "startedAt": 1792126735.0547729,
+      "finishedAt": 1792127418.0051725,
+      "skillSha256": {
+        "SKILL.md": "592804410752c93fb962e96cd2034484b9880a80e54fc921fea71894782c9487",
+        "review.md": "d06792e28096cd17010f867b54ba95556b6ab7b0418fc6c74fd811920753d9e2",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-assertions.md": "a336f735062c377ce8dd53a094197400903d99654b391bef2daa10c5d184092d",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "6f5ed6fa390ab0bc6ddf44508a4a35ed21e740efd6057be06779f639822b0f24"
+      },
+      "promptSha256": "bb439a8a13fc9ac21fcb256f3ba13d468833ac2fb65ec798df3c93e51283c0ff",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "b5f0fbb2e624e6dcbfbdf3143c97b642d3bc7d72e283c7629ab5e8000b945522",
+      "totalTokens": 1915929,
+      "id": "ironweave-toolkit-preserved-checks",
+      "grade": {
+        "bug_groups": 5,
+        "valid_groups": 8,
+        "categories": {
+          "runtime": 1,
+          "test_build": 1,
+          "test": 3,
+          "repository_rule": 1,
+          "documentation": 2
+        },
+        "issue_ids": [
+          "ironweave.queue_shutdown",
+          "ironweave.api_build",
+          "ironweave.weak_regression",
+          "ironweave.deadlines",
+          "ironweave.assertion_cleanup",
+          "ironweave.shard_ownership",
+          "ironweave.pass_through",
+          "ironweave.source_exception"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": [],
+        "qualification": "Old-error-guard and missing required exception merged as weak-regression group. Restored compatibility obligation recovers API-build finding, preserving all selected-v5 groups. No net bug gain.",
+        "tokens": 1915929
+      },
+      "report": "reports/ironweave-toolkit-preserved-checks.md",
+      "prompt": "prompts/ironweave-toolkit-preserved-checks.txt",
+      "skillSnapshot": "skills/toolkit-preserved-checks.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a14313-d3d4-7d91-9a23-8e1ea0eb20c7",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 825894,
+            "cached_input_tokens": 683520,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 18183,
+            "reasoning_output_tokens": 2944,
+            "total_tokens": 844077
+          },
+          "rolloutSha256": "00d1f8aebc4ae1e71fdadc76479b954f212e8ed00f3f67e8ee944f987d9059e7"
+        },
+        {
+          "threadId": "01a14314-f1a1-70e2-aa3e-a736f092eef9",
+          "role": "/root/toolkit",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 341406,
+            "cached_input_tokens": 263040,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 9889,
+            "reasoning_output_tokens": 5194,
+            "total_tokens": 351295
+          },
+          "rolloutSha256": "aee0e1a22945f2d895ca14c647093312c57d1211ad8e2be680db7dab7b474226"
+        },
+        {
+          "threadId": "01a14318-68fb-7ff1-b5a9-f946085664c7",
+          "role": "/root/test_assertions",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 192237,
+            "cached_input_tokens": 150528,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 6069,
+            "reasoning_output_tokens": 3822,
+            "total_tokens": 198306
+          },
+          "rolloutSha256": "43581cea65848a6677d84c7d36caa4384a3140794318e0706b5a18a70a2beffb"
+        },
+        {
+          "threadId": "01a14318-fbd6-7fe2-acf5-85e463cce7f2",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 140897,
+            "cached_input_tokens": 104448,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 6105,
+            "reasoning_output_tokens": 2800,
+            "total_tokens": 147002
+          },
+          "rolloutSha256": "cebd696ecd3e357bc863abd08ed166d144feecfba45e135ba493acae00469e2c"
+        },
+        {
+          "threadId": "01a14319-8a62-7971-bc85-5691910a9fbe",
+          "role": "/root/spec",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 366313,
+            "cached_input_tokens": 294656,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 8936,
+            "reasoning_output_tokens": 4013,
+            "total_tokens": 375249
+          },
+          "rolloutSha256": "5b25696c0798352d31437ca9e6d28cf9b65c388ad6dcf22897860e7f0407b343"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "toolkit-split",
+      "target": "ironweave",
+      "targetBase": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+      "targetHead": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "toolkit",
+        "test_assertions",
+        "standards",
+        "spec"
+      ],
+      "startedAt": 1792124687.5040061,
+      "finishedAt": 1792125185.851922,
+      "skillSha256": {
+        "SKILL.md": "592804410752c93fb962e96cd2034484b9880a80e54fc921fea71894782c9487",
+        "review.md": "693a1ead1411cda9071ca07ef5e6a5fcc4666657d766d344a97ad31472eaaad1",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-assertions.md": "a336f735062c377ce8dd53a094197400903d99654b391bef2daa10c5d184092d",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "f6f75f6ed1a2de9bdb65c41cd090fd097667ea2694f3670c09781769e580fa5a"
+      },
+      "promptSha256": "8d44d29cbfe0b1ba9762e67e3161dfa454be256e5bff0ba0dac1794e92f1b9aa",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "e745bb068a09676f915bbbb262fa9151e1a174902ac086e9527bcd296632b4c0",
+      "totalTokens": 1863764,
+      "id": "ironweave-toolkit-split",
+      "grade": {
+        "bug_groups": 4,
+        "valid_groups": 7,
+        "categories": {
+          "runtime": 1,
+          "test": 3,
+          "repository_rule": 1,
+          "documentation": 2
+        },
+        "issue_ids": [
+          "ironweave.queue_shutdown",
+          "ironweave.weak_regression",
+          "ironweave.deadlines",
+          "ironweave.assertion_cleanup",
+          "ironweave.shard_ownership",
+          "ironweave.pass_through",
+          "ironweave.source_exception"
+        ],
+        "unsupported": [],
+        "baseline_losses": [
+          "ironweave.api_build"
+        ],
+        "original_baseline_bug_losses": [
+          "ironweave.api_build"
+        ],
+        "selected_v5_bug_losses": [
+          "ironweave.api_build"
+        ],
+        "selected_v5_bug_gains": [],
+        "tokens": 1863764,
+        "qualification": "Two weak rejection-check headings merged. Toolkit code pass incomplete; compatibility finding absent."
+      },
+      "report": "reports/ironweave-toolkit-split.md",
+      "prompt": "prompts/ironweave-toolkit-split.txt",
+      "skillSnapshot": "skills/toolkit-split.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142f4-95dd-71b0-9d28-112afd121756",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 747202,
+            "cached_input_tokens": 683648,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 16743,
+            "reasoning_output_tokens": 4554,
+            "total_tokens": 763945
+          },
+          "rolloutSha256": "b9ab6d3f6b1b2383e335ecd8aa917c48b4084d9569e047102e49bff1a032371d"
+        },
+        {
+          "threadId": "01a142f5-85ca-7253-abb3-103f85f2713f",
+          "role": "/root/toolkit",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 185286,
+            "cached_input_tokens": 136192,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5157,
+            "reasoning_output_tokens": 2305,
+            "total_tokens": 190443
+          },
+          "rolloutSha256": "bc2312778bafbdd21bfc8d7d2fd60e99ef186fa39db2712d6943d4da3842675e"
+        },
+        {
+          "threadId": "01a142f5-fca2-78d2-9e03-9307de1831eb",
+          "role": "/root/test_assertions",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 144236,
+            "cached_input_tokens": 105344,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 8180,
+            "reasoning_output_tokens": 5655,
+            "total_tokens": 152416
+          },
+          "rolloutSha256": "59ef5127748a81737de86a59bebde3f633c7aa2f5f9bdb1d1a5e777c5aed3638"
+        },
+        {
+          "threadId": "01a142f6-7d2a-7003-a4fe-53c003e7c6fc",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 313480,
+            "cached_input_tokens": 247552,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 10644,
+            "reasoning_output_tokens": 5712,
+            "total_tokens": 324124
+          },
+          "rolloutSha256": "de6cedb2ab55cb8d92863065dbe665e9f127e9f8fa679fd5f10d1aeac89874e0"
+        },
+        {
+          "threadId": "01a142f6-f5b0-7441-a4ed-f1343c804ed3",
+          "role": "/root/spec",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 423344,
+            "cached_input_tokens": 358400,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 9492,
+            "reasoning_output_tokens": 5501,
+            "total_tokens": 432836
+          },
+          "rolloutSha256": "f4ca9b35876d894936510b357582923310681f26c3d4dc114906e26e72a33d38"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "control-three",
+      "target": "quillstone",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "toolkit",
+        "standards",
+        "spec"
+      ],
+      "startedAt": 1792121574.9949722,
+      "finishedAt": 1792121967.90396,
+      "skillSha256": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f"
+      },
+      "promptSha256": "66635f59fa4cbdea3cba62224943e4c8828948d72b84b670603a0c4f1c5a0855",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "3f6dcf5c6704ace92bf01a98e1abd29c066fce14801bed5ff83544c79b9a7161",
+      "totalTokens": 1662573,
+      "id": "quillstone-control-three",
+      "grade": {
+        "bug_groups": 3,
+        "valid_groups": 5,
+        "categories": {
+          "diagnostic": 1,
+          "test": 2,
+          "repository_rule": 2
+        },
+        "issue_ids": [
+          "quillstone.warn_visibility",
+          "quillstone.deadlines",
+          "quillstone.refill_assertion",
+          "quillstone.tracing",
+          "quillstone.commit_motivation"
+        ],
+        "unsupported": [
+          {
+            "claim": "resharding test does not exercise excess-count term",
+            "reason": "Coverage limitation only: no explicit acceptance criterion for this missing input or incorrect current assertion established; retain prior exclusion."
+          }
+        ],
+        "baseline_losses": [],
+        "tokens": 1662573,
+        "comparison": "Same three bugs as focused-four; additionally commit rationale, costs390870 fewer tokens. Both miss stale-gauge assertion and PR scope from broader union.",
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": []
+      },
+      "report": "reports/quillstone-control-three.md",
+      "prompt": "prompts/quillstone-control-three.txt",
+      "skillSnapshot": "skills/control-three.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142c5-171e-7601-a4f8-a362f9d23337",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 582314,
+            "cached_input_tokens": 513408,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 13890,
+            "reasoning_output_tokens": 1804,
+            "total_tokens": 596204
+          },
+          "rolloutSha256": "27d24521c9d29462dba6dde9fb32da378a79b7c060e405d1dd919fa0fbe5fe3c"
+        },
+        {
+          "threadId": "01a142c6-458a-71f0-a05a-f331b9c33dad",
+          "role": "/root/toolkit",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 332852,
+            "cached_input_tokens": 253824,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 7809,
+            "reasoning_output_tokens": 3917,
+            "total_tokens": 340661
+          },
+          "rolloutSha256": "2621291d6f279d3a5f0b55072a473d6f2527c147c379f32aa0bfa536fe6dfb02"
+        },
+        {
+          "threadId": "01a142c6-fdec-7e32-ac0e-ba6f9088a8df",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 383992,
+            "cached_input_tokens": 334080,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 8233,
+            "reasoning_output_tokens": 3857,
+            "total_tokens": 392225
+          },
+          "rolloutSha256": "e6f12b7e2c04920873bb34e2c32c0dab8e6ac36127b0e8d916d1209d953e5962"
+        },
+        {
+          "threadId": "01a142c7-b779-7a20-bcc9-844eb9f29fa0",
+          "role": "/root/spec",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 327762,
+            "cached_input_tokens": 271232,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5721,
+            "reasoning_output_tokens": 2435,
+            "total_tokens": 333483
+          },
+          "rolloutSha256": "6b8a6e611fe943b9fa65dfc1ef48de88e64d214d374cec65e037c896960e0e9e"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "feature-scopes",
+      "target": "quillstone",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "feature_one",
+        "feature_two",
+        "standards"
+      ],
+      "startedAt": 1792128422.6738575,
+      "finishedAt": 1792128858.827828,
+      "skillSha256": {
+        "SKILL.md": "c0cda0ed47bcb4c890971e6fab36f219644e8209fcec73eadeb39c07557acd3e",
+        "review.md": "563080bd5567726baba753c1e750aae6ec385f1ac4bf0e7711f03a2a06bc817e",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f"
+      },
+      "promptSha256": "98053e400afe5b910dbd0be9a17a25350acf6af3e4d89fc80fbccb5ba96c00b8",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "69b657742cc1104bdb583f0253e7f38365ff1f93b956a50ede5c13028899aa9c",
+      "totalTokens": 1574625,
+      "id": "quillstone-feature-scopes",
+      "grade": {
+        "bug_groups": 2,
+        "valid_groups": 5,
+        "categories": {
+          "diagnostic": 1,
+          "test": 1,
+          "repository_rule": 3
+        },
+        "issue_ids": [
+          "quillstone.warn_visibility",
+          "quillstone.deadlines",
+          "quillstone.tracing",
+          "quillstone.pr_scope",
+          "quillstone.commit_motivation"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [
+          "quillstone.refill_assertion"
+        ],
+        "selected_v5_bug_gains": [],
+        "tokens": 1574625,
+        "vs_selected_v5": {
+          "bug_group_delta": -1,
+          "total_group_delta": -1,
+          "tokens_delta": 62030
+        },
+        "missing_vs_verified_bug_union": [
+          "quillstone.refill_assertion",
+          "quillstone.gauge_assertion"
+        ],
+        "qualification": "Validation excludes metrics correctly stated as limitation, not standalone finding. No active report inspected; waited for complete manifest."
+      },
+      "report": "reports/quillstone-feature-scopes.md",
+      "prompt": "prompts/quillstone-feature-scopes.txt",
+      "skillSnapshot": "skills/feature-scopes.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a1432d-940a-79b1-b733-4cd0f41701c1",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 568028,
+            "cached_input_tokens": 516864,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 12538,
+            "reasoning_output_tokens": 2445,
+            "total_tokens": 580566
+          },
+          "rolloutSha256": "638eb799a20ac50f954904c71584735550aad216f10c4698e73a83ac35d75f4f"
+        },
+        {
+          "threadId": "01a1432e-902a-7c11-922d-c8347493914d",
+          "role": "/root/feature_one",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 328918,
+            "cached_input_tokens": 266496,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 7174,
+            "reasoning_output_tokens": 3915,
+            "total_tokens": 336092
+          },
+          "rolloutSha256": "809f141b3e4d5a58d5cd992b7e7644a1653b03291ce56343f4d83146452c6e2a"
+        },
+        {
+          "threadId": "01a1432f-23f3-7b82-a9b0-8dfaf51935cc",
+          "role": "/root/feature_two",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 275689,
+            "cached_input_tokens": 231552,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 6203,
+            "reasoning_output_tokens": 2959,
+            "total_tokens": 281892
+          },
+          "rolloutSha256": "7ca1168bc094162afbaaedd52f854f3684a508cf224cf3f831784f2bec8dd5c1"
+        },
+        {
+          "threadId": "01a1432f-cf06-7571-b132-e2ac29d9b472",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 366525,
+            "cached_input_tokens": 320256,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 9550,
+            "reasoning_output_tokens": 5852,
+            "total_tokens": 376075
+          },
+          "rolloutSha256": "7f78bd14fa6437b368053e8569b83291c1a1bea1e6822f9ef467e7efb10d4807"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "focused-four",
+      "target": "quillstone",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "production",
+        "tests",
+        "contracts",
+        "standards"
+      ],
+      "startedAt": 1792121535.2150629,
+      "finishedAt": 1792121863.1307068,
+      "skillSha256": {
+        "SKILL.md": "a3e93b6372e4b4b8d5e6e886b433ecdcd0fc25fb1663d3cf6fc8b5c9f467c619",
+        "reviewer.md": "f598845dcdccd9baf36cef5dc139525bc7c13579cd61f41d1d70d1fca85e1962",
+        "review.md": "9b495f0908ed73058614adb5171f06a265e01155885f2e16c0fa3949a02f8506",
+        "checks/pools.md": "c7deb427ec5866fb674192263be105fb1053c6f5b082b7f27befab38bbc49b00",
+        "checks/counterexamples.md": "093ad067f401adc4752b3f88a19ef856755cbee1be3a0c59eeb23db1086592b4",
+        "checks/bounds.md": "a7c4f0fac9b03d83e3df4c7fde4bbd9504b11647c31d334e5f1ae4681c1e7e2a",
+        "checks/concurrency.md": "ef29ee1a5aeb13808afa08cd08492a2ed87de45c43ded9e9bac5f91018e9f020",
+        "checks/standards.md": "f382cefb3f0a5bdf299b4b1d150fa690c7c2fc3012ce412f5490e408d5e52acc",
+        "checks/claims.md": "060d8664e0e27002b449daada1c0604e06c491622820313795abd73686a261d5",
+        "checks/lifecycle.md": "97ceeb8178a520cc9b095b5fd8a353fac2b1eab9564a306f79ba1264de518c83",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/tests.md": "2d835660ac56d3785ba5aceab3de5a5b2a8cd3481366244f4506157122e5aefc",
+        "passes/contracts.md": "e31147b5cf816f394ae6bd724296bfa977e8dec643a56da148f6dcc2ac209787",
+        "passes/standards.md": "b39ac16149d8a24aab94192ca26bebe7b4ce4805e732d71b9e7fac7e41023cd9",
+        "passes/production.md": "fcf84356d848a67a3278d52937c1d3f79f93a9f174e61e7f0080e22e769a6596"
+      },
+      "promptSha256": "2c6f21c4e4849a5e550b6724d436469e192c6a6637dc03edd80b9d97a3cd2d6f",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "d63c130f6dfd257856ec06d58881375b9f8cde17af33351da2125dab6d894c96",
+      "totalTokens": 2053443,
+      "id": "quillstone-focused-four",
+      "grade": {
+        "bug_groups": 3,
+        "valid_groups": 4,
+        "categories": {
+          "diagnostic": 1,
+          "test": 2,
+          "repository_rule": 1
+        },
+        "issue_ids": [
+          "quillstone.warn_visibility",
+          "quillstone.deadlines",
+          "quillstone.refill_assertion",
+          "quillstone.tracing"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "missing_vs_package_v5": [
+          "commit motivation",
+          "PR metrics scope"
+        ],
+        "missing_bugs_vs_fresh_claude": [
+          "incorrect post-teardown gauge assertion"
+        ],
+        "tokens": 2053443,
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": []
+      },
+      "report": "reports/quillstone-focused-four.md",
+      "prompt": "prompts/quillstone-focused-four.txt",
+      "skillSnapshot": "skills/focused-four.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142c4-7bb5-7653-a084-35fd105cd22e",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 823812,
+            "cached_input_tokens": 753280,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 11709,
+            "reasoning_output_tokens": 1976,
+            "total_tokens": 835521
+          },
+          "rolloutSha256": "9a8e3ba5a0fd53f0414f78c9366b2fcc6209ce33f9859f17545981420b5a7bde"
+        },
+        {
+          "threadId": "01a142c5-619e-7220-ac6b-aaf99546d3bd",
+          "role": "/root/production",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 241350,
+            "cached_input_tokens": 184576,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3320,
+            "reasoning_output_tokens": 1863,
+            "total_tokens": 244670
+          },
+          "rolloutSha256": "382d7a00f49b49632a7c3d9478d48ea24e326c32140d362d7c03d94dd90898ff"
+        },
+        {
+          "threadId": "01a142c5-c245-7501-8f09-8f690a2761df",
+          "role": "/root/tests",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 493074,
+            "cached_input_tokens": 446080,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5877,
+            "reasoning_output_tokens": 3658,
+            "total_tokens": 498951
+          },
+          "rolloutSha256": "739cb39e5eac77621a793179792270aa13cbc1fb03192c0c7ca92def455297a3"
+        },
+        {
+          "threadId": "01a142c6-3d05-77b3-8ceb-9e2721ec3d2c",
+          "role": "/root/contracts",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 260956,
+            "cached_input_tokens": 226176,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3134,
+            "reasoning_output_tokens": 1683,
+            "total_tokens": 264090
+          },
+          "rolloutSha256": "620c01f4bed1af93afce48af553dfe76e2f56d71d7f6b003f5749d971e8cc24d"
+        },
+        {
+          "threadId": "01a142c6-ad8f-7430-ae6e-c7901f030863",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 206283,
+            "cached_input_tokens": 178688,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3928,
+            "reasoning_output_tokens": 2013,
+            "total_tokens": 210211
+          },
+          "rolloutSha256": "e2f6f2817a4428f710a52593605a4eeee15017c88638c4f43a2bc08d44a04138"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "focused-three",
+      "target": "quillstone",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "production",
+        "tests",
+        "contracts_rules"
+      ],
+      "startedAt": 1792122737.6239944,
+      "finishedAt": 1792123032.077336,
+      "skillSha256": {
+        "SKILL.md": "3653277b4788bd81ee94aad63ea2dbcc02ac78118a8de2714d1f9fd903667f9c",
+        "reviewer.md": "88fb84498f678abd29bce42a69a265aca45be2df600271302b38d7ce3edf69e0",
+        "review.md": "66fd69145acef6fa40c4aea0e742c84d5b70e192d40e6bda789cd5c1f7ea4de2",
+        "checks/pools.md": "c7deb427ec5866fb674192263be105fb1053c6f5b082b7f27befab38bbc49b00",
+        "checks/counterexamples.md": "093ad067f401adc4752b3f88a19ef856755cbee1be3a0c59eeb23db1086592b4",
+        "checks/bounds.md": "a7c4f0fac9b03d83e3df4c7fde4bbd9504b11647c31d334e5f1ae4681c1e7e2a",
+        "checks/concurrency.md": "ef29ee1a5aeb13808afa08cd08492a2ed87de45c43ded9e9bac5f91018e9f020",
+        "checks/standards.md": "f382cefb3f0a5bdf299b4b1d150fa690c7c2fc3012ce412f5490e408d5e52acc",
+        "checks/claims.md": "060d8664e0e27002b449daada1c0604e06c491622820313795abd73686a261d5",
+        "checks/lifecycle.md": "97ceeb8178a520cc9b095b5fd8a353fac2b1eab9564a306f79ba1264de518c83",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/tests.md": "3185d376694bcd2ac1fa0f537e940eab52ad6406988cf66413a042df766b3c86",
+        "passes/contracts-rules.md": "c83cf149073f3064de41c91fd6ba9c1a94021505be281b6bf666780318c176dc",
+        "passes/production.md": "fcf84356d848a67a3278d52937c1d3f79f93a9f174e61e7f0080e22e769a6596"
+      },
+      "promptSha256": "786d1302bece0afdd6f20a79a8cd0c1e2ce138060770814752ab31ec1730e9d2",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "57f9e4bf91a6548d9dd8aed30e190bad4ce54586703ee1a57653a1a3cb5454d3",
+      "totalTokens": 1563269,
+      "id": "quillstone-focused-three",
+      "grade": {
+        "bug_groups": 4,
+        "valid_groups": 6,
+        "categories": {
+          "diagnostic": 1,
+          "test": 3,
+          "repository_rule": 2
+        },
+        "issue_ids": [
+          "quillstone.warn_visibility",
+          "quillstone.refill_assertion",
+          "quillstone.deadlines",
+          "quillstone.gauge_assertion",
+          "quillstone.tracing",
+          "quillstone.commit_motivation"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": [
+          "quillstone.gauge_assertion"
+        ],
+        "selected_v5_rule_losses": [
+          "quillstone.pr_scope"
+        ],
+        "tokens": 1563269,
+        "vs_fresh_control": {
+          "bug_group_delta": 1,
+          "total_group_delta": 1,
+          "tokens_delta": -99304,
+          "gained": [
+            "quillstone.gauge_assertion"
+          ],
+          "lost": []
+        },
+        "vs_selected_v5": {
+          "bug_group_delta": 1,
+          "total_group_delta": 0,
+          "tokens_delta": 50674
+        },
+        "vs_fresh_claude": {
+          "bug_group_delta": 0,
+          "total_group_delta": -1,
+          "missing": [
+            "quillstone.pr_scope"
+          ]
+        },
+        "qualification": "All four bugs verified from prior source evidence; no presumed namespace rollback or standalone missing excess-input test counted."
+      },
+      "report": "reports/quillstone-focused-three.md",
+      "prompt": "prompts/quillstone-focused-three.txt",
+      "skillSnapshot": "skills/focused-three.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142d6-d4c6-7f12-b97e-952a3e5b91f1",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 720053,
+            "cached_input_tokens": 652288,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 9683,
+            "reasoning_output_tokens": 1677,
+            "total_tokens": 729736
+          },
+          "rolloutSha256": "b5b3a43bbe45b7d5da2405ccab65b769a255fb9a9041ceb062235873a976707c"
+        },
+        {
+          "threadId": "01a142d7-acc3-7fb2-8886-be01bb40ef3e",
+          "role": "/root/production",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 240450,
+            "cached_input_tokens": 184704,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 6179,
+            "reasoning_output_tokens": 3621,
+            "total_tokens": 246629
+          },
+          "rolloutSha256": "22a1f729e8477b9d213f9084b527f45a6002f2cea1e9635d4140d17f46cd584f"
+        },
+        {
+          "threadId": "01a142d8-14ab-7481-b111-5aea1861fdf1",
+          "role": "/root/tests",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 320312,
+            "cached_input_tokens": 278656,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4583,
+            "reasoning_output_tokens": 2619,
+            "total_tokens": 324895
+          },
+          "rolloutSha256": "b8b5a5a90008912b3acfb2d4b6c24d2390f8912d9a5a44e95185673aebf8698b"
+        },
+        {
+          "threadId": "01a142d8-874d-7913-80ca-5bf7af7c8865",
+          "role": "/root/contracts_rules",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 258059,
+            "cached_input_tokens": 221184,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3950,
+            "reasoning_output_tokens": 1523,
+            "total_tokens": 262009
+          },
+          "rolloutSha256": "2ab901ed1b52a8404b5a471bbb2dbaafc7f4de7dffd8af38103ddc8a8c8edb01"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "focused-three-r2",
+      "target": "quillstone",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "production",
+        "tests",
+        "contracts_rules"
+      ],
+      "startedAt": 1792123140.6465435,
+      "finishedAt": 1792123473.2229667,
+      "skillSha256": {
+        "SKILL.md": "3653277b4788bd81ee94aad63ea2dbcc02ac78118a8de2714d1f9fd903667f9c",
+        "reviewer.md": "88fb84498f678abd29bce42a69a265aca45be2df600271302b38d7ce3edf69e0",
+        "review.md": "66fd69145acef6fa40c4aea0e742c84d5b70e192d40e6bda789cd5c1f7ea4de2",
+        "checks/pools.md": "c7deb427ec5866fb674192263be105fb1053c6f5b082b7f27befab38bbc49b00",
+        "checks/counterexamples.md": "093ad067f401adc4752b3f88a19ef856755cbee1be3a0c59eeb23db1086592b4",
+        "checks/bounds.md": "a7c4f0fac9b03d83e3df4c7fde4bbd9504b11647c31d334e5f1ae4681c1e7e2a",
+        "checks/concurrency.md": "ef29ee1a5aeb13808afa08cd08492a2ed87de45c43ded9e9bac5f91018e9f020",
+        "checks/standards.md": "f382cefb3f0a5bdf299b4b1d150fa690c7c2fc3012ce412f5490e408d5e52acc",
+        "checks/claims.md": "060d8664e0e27002b449daada1c0604e06c491622820313795abd73686a261d5",
+        "checks/lifecycle.md": "97ceeb8178a520cc9b095b5fd8a353fac2b1eab9564a306f79ba1264de518c83",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/tests.md": "3185d376694bcd2ac1fa0f537e940eab52ad6406988cf66413a042df766b3c86",
+        "passes/contracts-rules.md": "c83cf149073f3064de41c91fd6ba9c1a94021505be281b6bf666780318c176dc",
+        "passes/production.md": "fcf84356d848a67a3278d52937c1d3f79f93a9f174e61e7f0080e22e769a6596"
+      },
+      "promptSha256": "df4292012e414af8b7a16c68b04d491ce5ca154c696b758a559fd5e8d564e3e2",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "306d6191925cc3e35d38bce3baf2e26050519ec5286e75f5db8afdc3aa373f54",
+      "totalTokens": 1490941,
+      "id": "quillstone-focused-three-r2",
+      "grade": {
+        "bug_groups": 2,
+        "valid_groups": 3,
+        "categories": {
+          "diagnostic": 1,
+          "test": 1,
+          "repository_rule": 1
+        },
+        "issue_ids": [
+          "quillstone.warn_visibility",
+          "quillstone.gauge_assertion",
+          "quillstone.tracing"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [
+          "quillstone.deadlines",
+          "quillstone.refill_assertion"
+        ],
+        "selected_v5_bug_gains": [
+          "quillstone.gauge_assertion"
+        ],
+        "tokens": 1490941,
+        "vs_first_focused_three": {
+          "bug_group_delta": -2,
+          "total_group_delta": -3,
+          "lost": [
+            "quillstone.deadlines",
+            "quillstone.refill_assertion",
+            "quillstone.commit_motivation"
+          ],
+          "tokens_delta": -72328
+        },
+        "qualification": "Same frozen layout fails to repeat pilot bug coverage; reduced cost does not establish preservation."
+      },
+      "report": "reports/quillstone-focused-three-r2.md",
+      "prompt": "prompts/quillstone-focused-three-r2.txt",
+      "skillSnapshot": "skills/focused-three.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142dc-fc3a-7e73-882d-f635d858ecb6",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 530572,
+            "cached_input_tokens": 474112,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 10175,
+            "reasoning_output_tokens": 1611,
+            "total_tokens": 540747
+          },
+          "rolloutSha256": "a5193dc2b8a249b35f529fa2040f9a14f251b4331b740041e5aa002cb8d0952b"
+        },
+        {
+          "threadId": "01a142de-201e-7043-97ca-169f84a3bc98",
+          "role": "/root/production",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 380661,
+            "cached_input_tokens": 312448,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5328,
+            "reasoning_output_tokens": 2711,
+            "total_tokens": 385989
+          },
+          "rolloutSha256": "a63930378531de1913788b8cdd86c6bb95b8d03e20a7f0e30f6da9055b203861"
+        },
+        {
+          "threadId": "01a142de-8fa2-7632-be31-ad716d5271b6",
+          "role": "/root/tests",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 306018,
+            "cached_input_tokens": 259328,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5361,
+            "reasoning_output_tokens": 3151,
+            "total_tokens": 311379
+          },
+          "rolloutSha256": "ee241c7ca0b158dedb6e58c678c0581a520f666b8d3b0dd34c7340d0b1a46e83"
+        },
+        {
+          "threadId": "01a142df-262e-7553-8fd2-29cd398f64ce",
+          "role": "/root/contracts_rules",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 247564,
+            "cached_input_tokens": 202624,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5262,
+            "reasoning_output_tokens": 3403,
+            "total_tokens": 252826
+          },
+          "rolloutSha256": "f9b8a90778d042d20c7834f4148832854fa040c3813e22cab1b917ed1b25bf17"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "split-tests",
+      "target": "quillstone",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "production",
+        "test_semantics",
+        "test_safety",
+        "contracts_rules"
+      ],
+      "startedAt": 1792122132.8918176,
+      "finishedAt": 1792122423.5150802,
+      "skillSha256": {
+        "SKILL.md": "c77ca06e14ab8519a4b502b74efba9487605e4075a7cf98f5b1686b09f3e6ed0",
+        "reviewer.md": "f598845dcdccd9baf36cef5dc139525bc7c13579cd61f41d1d70d1fca85e1962",
+        "review.md": "97d180686925a01ba7915e678e7bfb7465f9d245a44c94dd29fe532da8ddacda",
+        "checks/pools.md": "c7deb427ec5866fb674192263be105fb1053c6f5b082b7f27befab38bbc49b00",
+        "checks/counterexamples.md": "093ad067f401adc4752b3f88a19ef856755cbee1be3a0c59eeb23db1086592b4",
+        "checks/bounds.md": "a7c4f0fac9b03d83e3df4c7fde4bbd9504b11647c31d334e5f1ae4681c1e7e2a",
+        "checks/concurrency.md": "ef29ee1a5aeb13808afa08cd08492a2ed87de45c43ded9e9bac5f91018e9f020",
+        "checks/standards.md": "f382cefb3f0a5bdf299b4b1d150fa690c7c2fc3012ce412f5490e408d5e52acc",
+        "checks/claims.md": "060d8664e0e27002b449daada1c0604e06c491622820313795abd73686a261d5",
+        "checks/lifecycle.md": "97ceeb8178a520cc9b095b5fd8a353fac2b1eab9564a306f79ba1264de518c83",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-safety.md": "80238c8cfd06679e35f434f2e89266f95669a172648f50bc9ae9f8842fe2093f",
+        "passes/contracts-rules.md": "c83cf149073f3064de41c91fd6ba9c1a94021505be281b6bf666780318c176dc",
+        "passes/test-semantics.md": "887f4228d822cfe17dec0fbd20b3733bd5fdb053bb50b6162601f4547ff7112a",
+        "passes/production.md": "fcf84356d848a67a3278d52937c1d3f79f93a9f174e61e7f0080e22e769a6596"
+      },
+      "promptSha256": "c722563d8ef3f3e2a4ec95bdbd8fcbbd135b4c31319cfece3e9dec73d58ed9b7",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "ff64731d949c8822001ac90145691835bc11d03716ba3265043e6b898f3b5b15",
+      "totalTokens": 1634981,
+      "id": "quillstone-split-tests",
+      "grade": {
+        "bug_groups": 3,
+        "valid_groups": 4,
+        "categories": {
+          "diagnostic": 1,
+          "test": 2,
+          "repository_rule": 1
+        },
+        "issue_ids": [
+          "quillstone.warn_visibility",
+          "quillstone.gauge_assertion",
+          "quillstone.deadlines",
+          "quillstone.tracing"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "tokens": 1634981,
+        "vs_control_three": {
+          "gained": [
+            "quillstone.gauge_assertion"
+          ],
+          "lost": [
+            "quillstone.refill_assertion",
+            "quillstone.commit_motivation"
+          ],
+          "bug_group_delta": 0,
+          "total_group_delta": -1,
+          "token_delta": -27592
+        },
+        "vs_selected_package_v5": {
+          "gained": [
+            "quillstone.gauge_assertion"
+          ],
+          "lost": [
+            "quillstone.refill_assertion",
+            "quillstone.commit_motivation",
+            "quillstone.pr_scope"
+          ],
+          "bug_group_delta": 0,
+          "total_group_delta": -2
+        },
+        "qualification": "New test asserts pre-existing gauge leak, not newly introduced production leak. No skipped-explicit-proxy-cleanup issue counted.",
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [
+          "quillstone.refill_assertion"
+        ],
+        "selected_v5_bug_gains": [
+          "quillstone.gauge_assertion"
+        ]
+      },
+      "report": "reports/quillstone-split-tests.md",
+      "prompt": "prompts/quillstone-split-tests.txt",
+      "skillSnapshot": "skills/split-tests.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142cd-9a5e-7fc1-94ea-83f8e9ef9d86",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 700616,
+            "cached_input_tokens": 632320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 9864,
+            "reasoning_output_tokens": 950,
+            "total_tokens": 710480
+          },
+          "rolloutSha256": "5326d4eb5497718875bef696054e8dc7f23aa4f62a9382fd3834406fbcb76dfd"
+        },
+        {
+          "threadId": "01a142ce-67b9-7563-a61c-730ae66a615f",
+          "role": "/root/production",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 275785,
+            "cached_input_tokens": 225920,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4262,
+            "reasoning_output_tokens": 2441,
+            "total_tokens": 280047
+          },
+          "rolloutSha256": "77da51e05297d3139cd11cd1666ab8c93fca0ef1f276f47f1dc7dcdb409a932e"
+        },
+        {
+          "threadId": "01a142ce-c4dc-7e23-9618-b8de8be7f61b",
+          "role": "/root/test_semantics",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 234860,
+            "cached_input_tokens": 180864,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2883,
+            "reasoning_output_tokens": 1318,
+            "total_tokens": 237743
+          },
+          "rolloutSha256": "3a2ac22dc482588312c5bffbada268a50b8c70b5ed48df1c8e8901a384ac44e7"
+        },
+        {
+          "threadId": "01a142cf-1bfe-7163-a969-e869744b86d5",
+          "role": "/root/test_safety",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 223390,
+            "cached_input_tokens": 177920,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 2846,
+            "reasoning_output_tokens": 1040,
+            "total_tokens": 226236
+          },
+          "rolloutSha256": "db18e5b3737805c3f8fde1c0c941512481ad9bdabc00ac0851f03e09fcae24f7"
+        },
+        {
+          "threadId": "01a142cf-9b93-74f2-a11f-af9ad256ee82",
+          "role": "/root/contracts_rules",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 176834,
+            "cached_input_tokens": 126848,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3641,
+            "reasoning_output_tokens": 2081,
+            "total_tokens": 180475
+          },
+          "rolloutSha256": "3da9aafec048e1a8b82ba9e09752e9902435afa77950a895eeba41d7de9ae52d"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "split-tests-output",
+      "target": "quillstone",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "production",
+        "test_semantics",
+        "test_safety",
+        "contracts_rules"
+      ],
+      "startedAt": 1792122379.9810176,
+      "finishedAt": 1792122714.7334154,
+      "skillSha256": {
+        "SKILL.md": "c77ca06e14ab8519a4b502b74efba9487605e4075a7cf98f5b1686b09f3e6ed0",
+        "reviewer.md": "1776f97d00a37c8b29f9acc5f0e12e4b252a7ba1d047649cbc96f1e7058e58f2",
+        "review.md": "97d180686925a01ba7915e678e7bfb7465f9d245a44c94dd29fe532da8ddacda",
+        "checks/pools.md": "c7deb427ec5866fb674192263be105fb1053c6f5b082b7f27befab38bbc49b00",
+        "checks/counterexamples.md": "093ad067f401adc4752b3f88a19ef856755cbee1be3a0c59eeb23db1086592b4",
+        "checks/bounds.md": "a7c4f0fac9b03d83e3df4c7fde4bbd9504b11647c31d334e5f1ae4681c1e7e2a",
+        "checks/concurrency.md": "ef29ee1a5aeb13808afa08cd08492a2ed87de45c43ded9e9bac5f91018e9f020",
+        "checks/standards.md": "f382cefb3f0a5bdf299b4b1d150fa690c7c2fc3012ce412f5490e408d5e52acc",
+        "checks/claims.md": "060d8664e0e27002b449daada1c0604e06c491622820313795abd73686a261d5",
+        "checks/lifecycle.md": "97ceeb8178a520cc9b095b5fd8a353fac2b1eab9564a306f79ba1264de518c83",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-safety.md": "80238c8cfd06679e35f434f2e89266f95669a172648f50bc9ae9f8842fe2093f",
+        "passes/contracts-rules.md": "c83cf149073f3064de41c91fd6ba9c1a94021505be281b6bf666780318c176dc",
+        "passes/test-semantics.md": "887f4228d822cfe17dec0fbd20b3733bd5fdb053bb50b6162601f4547ff7112a",
+        "passes/production.md": "fcf84356d848a67a3278d52937c1d3f79f93a9f174e61e7f0080e22e769a6596"
+      },
+      "promptSha256": "05dc9f982f1f0dbe91bdbc3bde79ce0f9a328b1a4f4502cee26ecc61ac613809",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "545f9389886a8d26c251d1e6214068504c78cb84c98d88b7ed85031f02e3efe2",
+      "totalTokens": 1632900,
+      "id": "quillstone-split-tests-output",
+      "grade": {
+        "bug_groups": 3,
+        "valid_groups": 4,
+        "categories": {
+          "diagnostic": 1,
+          "test": 2,
+          "repository_rule": 1
+        },
+        "issue_ids": [
+          "quillstone.warn_visibility",
+          "quillstone.gauge_assertion",
+          "quillstone.refill_assertion",
+          "quillstone.tracing"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "selected_v5_bug_losses": [
+          "quillstone.deadlines"
+        ],
+        "selected_v5_bug_gains": [
+          "quillstone.gauge_assertion"
+        ],
+        "selected_v5_rule_losses": [
+          "quillstone.commit_motivation",
+          "quillstone.pr_scope"
+        ],
+        "tokens": 1632900,
+        "qualification": "No new proxy cleanup issue credited; skipped explicit finish previously retracted.",
+        "original_baseline_bug_losses": []
+      },
+      "report": "reports/quillstone-split-tests-output.md",
+      "prompt": "prompts/quillstone-split-tests-output.txt",
+      "skillSnapshot": "skills/split-tests-output.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142d1-5f9a-73f3-9b56-edf84a03768a",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 652789,
+            "cached_input_tokens": 585088,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 12293,
+            "reasoning_output_tokens": 1701,
+            "total_tokens": 665082
+          },
+          "rolloutSha256": "31d431e8c5dfc55ef3e1e45f738d3af854601bff6ea769ae32b2a1149cf9ce50"
+        },
+        {
+          "threadId": "01a142d2-5776-7471-ba3d-9608e36dcd72",
+          "role": "/root/production",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 243277,
+            "cached_input_tokens": 182784,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4647,
+            "reasoning_output_tokens": 2763,
+            "total_tokens": 247924
+          },
+          "rolloutSha256": "0357ddd9acd59a81552d8d002ebb0126d0eefa1c9d1d1d924da4fbbc457e06ac"
+        },
+        {
+          "threadId": "01a142d2-c317-7b72-99e4-61f7a7ba040d",
+          "role": "/root/test_semantics",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 197382,
+            "cached_input_tokens": 162304,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5158,
+            "reasoning_output_tokens": 2956,
+            "total_tokens": 202540
+          },
+          "rolloutSha256": "4713dd04843afb8970a6e4c41c301f63953aa5ad2a0b6d4964d626b33c0e7838"
+        },
+        {
+          "threadId": "01a142d3-2071-7f53-9c75-30a9f5a39b25",
+          "role": "/root/test_safety",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 237986,
+            "cached_input_tokens": 197504,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3537,
+            "reasoning_output_tokens": 2033,
+            "total_tokens": 241523
+          },
+          "rolloutSha256": "5ae8f18f2fab007b81d045d60eeb3319f6b08e700d0d5b66a584174559ea1792"
+        },
+        {
+          "threadId": "01a142d3-c57c-7422-b666-4b9fb79f4b8a",
+          "role": "/root/contracts_rules",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 271400,
+            "cached_input_tokens": 235008,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4431,
+            "reasoning_output_tokens": 2604,
+            "total_tokens": 275831
+          },
+          "rolloutSha256": "47fb9f087aae3d2cf74898c68919412028a23edaa0dd209b95898573b5f1a7e6"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "toolkit-code-budget",
+      "target": "quillstone",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "toolkit",
+        "test_assertions",
+        "standards",
+        "spec"
+      ],
+      "startedAt": 1792125572.2709868,
+      "finishedAt": 1792126048.8436582,
+      "skillSha256": {
+        "SKILL.md": "592804410752c93fb962e96cd2034484b9880a80e54fc921fea71894782c9487",
+        "review.md": "d06792e28096cd17010f867b54ba95556b6ab7b0418fc6c74fd811920753d9e2",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-assertions.md": "a336f735062c377ce8dd53a094197400903d99654b391bef2daa10c5d184092d",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "702d8a0d427b8763224b7eec9c3ddc268a908bb637a3df6df595fb1c51cd1e4e"
+      },
+      "promptSha256": "91a87e4d6ce65f81183fa19df9d7c4f068f79ccd1843e1c050bec1ca74a5d772",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "4a2c8f7de7bee12965b47b5b07926049cfb9b539856c2f547a4a7d3889521ded",
+      "totalTokens": 1832400,
+      "id": "quillstone-toolkit-code-budget",
+      "grade": {
+        "bug_groups": 4,
+        "valid_groups": 6,
+        "categories": {
+          "diagnostic": 1,
+          "test": 3,
+          "repository_rule": 2
+        },
+        "issue_ids": [
+          "quillstone.warn_visibility",
+          "quillstone.deadlines",
+          "quillstone.refill_assertion",
+          "quillstone.tracing",
+          "quillstone.gauge_assertion",
+          "quillstone.commit_motivation"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": [
+          "quillstone.gauge_assertion"
+        ],
+        "selected_v5_rule_losses": [
+          "quillstone.pr_scope"
+        ],
+        "tokens": 1832400
+      },
+      "report": "reports/quillstone-toolkit-code-budget.md",
+      "prompt": "prompts/quillstone-toolkit-code-budget.txt",
+      "skillSnapshot": "skills/toolkit-code-budget.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a14302-159b-7940-a8ca-35245ec13b3a",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 793879,
+            "cached_input_tokens": 712448,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 18528,
+            "reasoning_output_tokens": 3182,
+            "total_tokens": 812407
+          },
+          "rolloutSha256": "c92b81a125c1bf57b780309f67d441a228c6076dcbcef7f19aadaf691b6480ec"
+        },
+        {
+          "threadId": "01a14303-3cde-7673-aa3b-8d5ddf0bac01",
+          "role": "/root/toolkit",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 336597,
+            "cached_input_tokens": 260096,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 7588,
+            "reasoning_output_tokens": 3938,
+            "total_tokens": 344185
+          },
+          "rolloutSha256": "fae8ca537adee58e51e2a188a15e4c66b8dd4ebe789ee284084dff19d3ad8a00"
+        },
+        {
+          "threadId": "01a14303-e531-7433-a081-7745466b6f34",
+          "role": "/root/test_assertions",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 135245,
+            "cached_input_tokens": 103040,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5332,
+            "reasoning_output_tokens": 3406,
+            "total_tokens": 140577
+          },
+          "rolloutSha256": "4b9a142175a907200487516f6ffefb1cefe5ffa4f83ec5f22d8b20f9bfb77c97"
+        },
+        {
+          "threadId": "01a14304-920e-7f11-a055-1aafd6a19d9d",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 186813,
+            "cached_input_tokens": 151808,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 6361,
+            "reasoning_output_tokens": 3371,
+            "total_tokens": 193174
+          },
+          "rolloutSha256": "f3c691611f130139100744cbfc2b687a70ffad9938a70423ffbfae684d5e5b65"
+        },
+        {
+          "threadId": "01a14305-392b-7202-a835-e28f1c0757cf",
+          "role": "/root/spec",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 334894,
+            "cached_input_tokens": 276480,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 7163,
+            "reasoning_output_tokens": 3652,
+            "total_tokens": 342057
+          },
+          "rolloutSha256": "2963210d55d39ef7eaa6cf1fa162b0fb80f8aaf7bc51ccd3c3fe4ee019f857a8"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "toolkit-preserved-checks",
+      "target": "quillstone",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "toolkit",
+        "test_assertions",
+        "standards",
+        "spec"
+      ],
+      "startedAt": 1792126735.0449767,
+      "finishedAt": 1792127337.678049,
+      "skillSha256": {
+        "SKILL.md": "592804410752c93fb962e96cd2034484b9880a80e54fc921fea71894782c9487",
+        "review.md": "d06792e28096cd17010f867b54ba95556b6ab7b0418fc6c74fd811920753d9e2",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-assertions.md": "a336f735062c377ce8dd53a094197400903d99654b391bef2daa10c5d184092d",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "6f5ed6fa390ab0bc6ddf44508a4a35ed21e740efd6057be06779f639822b0f24"
+      },
+      "promptSha256": "6a72394fb852f65fc99f444865802ff9a88ed600b78dd8b2a8400679dbb55998",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "5c30766f5fc6202ade5e9cfc7770f984e49f2cd06ce03e2d0f9a42d674f7e484",
+      "totalTokens": 1802650,
+      "id": "quillstone-toolkit-preserved-checks",
+      "grade": {
+        "bug_groups": 3,
+        "valid_groups": 5,
+        "categories": {
+          "diagnostic": 1,
+          "test": 2,
+          "repository_rule": 2
+        },
+        "issue_ids": [
+          "quillstone.warn_visibility",
+          "quillstone.deadlines",
+          "quillstone.refill_assertion",
+          "quillstone.tracing",
+          "quillstone.commit_motivation"
+        ],
+        "unsupported": [
+          {
+            "claim": "full retained old pool not scheduling replacement violates refill promise",
+            "reason": "Fixture manually opens while old nonsharded pool already full. Scheduler normally opens only deficit and suppresses scheduling while opens pending. No concrete production trace to this fixture state supplied. More importantly no required capacity/recovery consequence established when preserved pool already satisfies target; PR refill wording does not require redundant opens after any rejected candidate regardless fullness."
+          }
+        ],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": [],
+        "selected_v5_rule_losses": [
+          "quillstone.pr_scope"
+        ],
+        "tokens": 1802650
+      },
+      "report": "reports/quillstone-toolkit-preserved-checks.md",
+      "prompt": "prompts/quillstone-toolkit-preserved-checks.txt",
+      "skillSnapshot": "skills/toolkit-preserved-checks.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a14313-d3c7-76d1-ac65-0f671ff21058",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 829436,
+            "cached_input_tokens": 746496,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 16935,
+            "reasoning_output_tokens": 2048,
+            "total_tokens": 846371
+          },
+          "rolloutSha256": "10dc3b0e541ff9d649ef1f9906f925b217592f5fc7c7aefbc672bb05fe921fdd"
+        },
+        {
+          "threadId": "01a14315-03c5-7ba1-ad70-1e7da1c6b935",
+          "role": "/root/toolkit",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 315133,
+            "cached_input_tokens": 241280,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 10343,
+            "reasoning_output_tokens": 5326,
+            "total_tokens": 325476
+          },
+          "rolloutSha256": "72334d8ae9aa25a21d39f06a7c5461d763630157d1f7748f8ad16f74296f1bb9"
+        },
+        {
+          "threadId": "01a14315-a6c6-7462-a7a3-e1e9f05a68c3",
+          "role": "/root/test_assertions",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 139601,
+            "cached_input_tokens": 104320,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4200,
+            "reasoning_output_tokens": 2374,
+            "total_tokens": 143801
+          },
+          "rolloutSha256": "06e0db38974809133a3f7d9a7dc0471b14a900598f748de883292f95433b0377"
+        },
+        {
+          "threadId": "01a14316-4a2e-70f2-8fb0-0062c10e062d",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 114040,
+            "cached_input_tokens": 87040,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 15054,
+            "reasoning_output_tokens": 11087,
+            "total_tokens": 129094
+          },
+          "rolloutSha256": "899e540d1dcc364f85ffab0c4e4978a56009c8389de2bec509903273edfea446"
+        },
+        {
+          "threadId": "01a14316-e954-7e81-b6a9-7dd8f0c4845e",
+          "role": "/root/spec",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 343879,
+            "cached_input_tokens": 279552,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 14029,
+            "reasoning_output_tokens": 9294,
+            "total_tokens": 357908
+          },
+          "rolloutSha256": "3dcced177780e77bf1ccd75fab55c66fc24ad59f3a15a249c7a469bb946942e8"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "toolkit-split",
+      "target": "quillstone",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "toolkit",
+        "test_assertions",
+        "standards",
+        "spec"
+      ],
+      "startedAt": 1792123837.0125785,
+      "finishedAt": 1792124368.2355075,
+      "skillSha256": {
+        "SKILL.md": "592804410752c93fb962e96cd2034484b9880a80e54fc921fea71894782c9487",
+        "review.md": "693a1ead1411cda9071ca07ef5e6a5fcc4666657d766d344a97ad31472eaaad1",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-assertions.md": "a336f735062c377ce8dd53a094197400903d99654b391bef2daa10c5d184092d",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "f6f75f6ed1a2de9bdb65c41cd090fd097667ea2694f3670c09781769e580fa5a"
+      },
+      "promptSha256": "f4446f1c20ecb7ef55155b830597f99f3ea64481c6e420749682f3cd36aa53c8",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "4fc06ce875019e8f1d7711c6a5533cf376b47ef2b259e56f6861898cbd17a672",
+      "totalTokens": 1822666,
+      "id": "quillstone-toolkit-split",
+      "grade": {
+        "bug_groups": 4,
+        "valid_groups": 5,
+        "categories": {
+          "diagnostic": 1,
+          "test": 3,
+          "repository_rule": 1
+        },
+        "issue_ids": [
+          "quillstone.warn_visibility",
+          "quillstone.deadlines",
+          "quillstone.refill_assertion",
+          "quillstone.gauge_assertion",
+          "quillstone.tracing"
+        ],
+        "unsupported": [
+          {
+            "claim": "excess-count resharding coverage",
+            "reason": "Consistent exclusion: absent input case alone lacks explicit acceptance obligation or incorrect current assertion."
+          }
+        ],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": [
+          "quillstone.gauge_assertion"
+        ],
+        "selected_v5_rule_losses": [
+          "quillstone.commit_motivation",
+          "quillstone.pr_scope"
+        ],
+        "tokens": 1822666,
+        "vs_control_three": {
+          "gained_bug": [
+            "quillstone.gauge_assertion"
+          ],
+          "lost_rule": [
+            "quillstone.commit_motivation"
+          ],
+          "token_delta": 160093
+        },
+        "vs_selected_v5": {
+          "bug_group_delta": 1,
+          "total_group_delta": -1,
+          "token_delta": 310071
+        },
+        "qualification": "Four source-verified bug groups repeat; current selected-v5 bugs preserved. No presumed namespace rollback or skipped proxy cleanup credit."
+      },
+      "report": "reports/quillstone-toolkit-split.md",
+      "prompt": "prompts/quillstone-toolkit-split.txt",
+      "skillSnapshot": "skills/toolkit-split.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142e7-9c5a-72f3-b763-54410eb53665",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 807438,
+            "cached_input_tokens": 732032,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 16474,
+            "reasoning_output_tokens": 2059,
+            "total_tokens": 823912
+          },
+          "rolloutSha256": "29b87207efbab5266d984d4804974717ff6dd9d867526cc22d792812574f6474"
+        },
+        {
+          "threadId": "01a142e8-cdb3-7952-ae29-75e43cd982c9",
+          "role": "/root/toolkit",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 135503,
+            "cached_input_tokens": 86400,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 4167,
+            "reasoning_output_tokens": 1767,
+            "total_tokens": 139670
+          },
+          "rolloutSha256": "70f9315adcbcee474a81dbe3a3afe0af59f7df57995c8135519cf049049d8310"
+        },
+        {
+          "threadId": "01a142e9-7201-73e1-b8ec-a781e6684b9a",
+          "role": "/root/test_assertions",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 173700,
+            "cached_input_tokens": 147584,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5498,
+            "reasoning_output_tokens": 3019,
+            "total_tokens": 179198
+          },
+          "rolloutSha256": "3ce033d5467271c3489a26980a49962f2696c5af1ee4929e9341e5ecd02b4e29"
+        },
+        {
+          "threadId": "01a142ea-08cc-7a20-8668-dde6a70f01b8",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 333156,
+            "cached_input_tokens": 278912,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 13078,
+            "reasoning_output_tokens": 6794,
+            "total_tokens": 346234
+          },
+          "rolloutSha256": "a949db83117c34fc0dceeed43f9edb5a512d93c9cd1087ae035f5c81d267ff89"
+        },
+        {
+          "threadId": "01a142ea-9d4b-7a41-b94d-0f2017e232cc",
+          "role": "/root/spec",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 325837,
+            "cached_input_tokens": 268800,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 7815,
+            "reasoning_output_tokens": 4113,
+            "total_tokens": 333652
+          },
+          "rolloutSha256": "fff41e3485e544c9db936881f6aff8189dce72dc54d40745b6ceca79e79d13c4"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "toolkit-split-compact",
+      "target": "quillstone",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "toolkit",
+        "test_assertions",
+        "standards",
+        "spec"
+      ],
+      "startedAt": 1792125101.5942645,
+      "finishedAt": 1792125468.9790897,
+      "skillSha256": {
+        "SKILL.md": "592804410752c93fb962e96cd2034484b9880a80e54fc921fea71894782c9487",
+        "review.md": "1b47ca8ada032c21a5cebb244c920e6ad8475458bb9cd6266a42d04c4722c900",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-assertions.md": "a336f735062c377ce8dd53a094197400903d99654b391bef2daa10c5d184092d",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "f6f75f6ed1a2de9bdb65c41cd090fd097667ea2694f3670c09781769e580fa5a"
+      },
+      "promptSha256": "102e6e6af4ea3887797570eacf8cffc257c04964e98e5d54ce97f6803bed25cf",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "da2d8d59c18b2403dc291a844c44daf54d14824e6420b5ef73b2a644f1f3b546",
+      "totalTokens": 1518621,
+      "id": "quillstone-toolkit-split-compact",
+      "grade": {
+        "bug_groups": 3,
+        "valid_groups": 4,
+        "categories": {
+          "diagnostic": 1,
+          "test": 2,
+          "repository_rule": 1
+        },
+        "issue_ids": [
+          "quillstone.warn_visibility",
+          "quillstone.deadlines",
+          "quillstone.refill_assertion",
+          "quillstone.tracing"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": [],
+        "selected_v5_rule_losses": [
+          "quillstone.pr_scope",
+          "quillstone.commit_motivation"
+        ],
+        "tokens": 1518621
+      },
+      "report": "reports/quillstone-toolkit-split-compact.md",
+      "prompt": "prompts/quillstone-toolkit-split-compact.txt",
+      "skillSnapshot": "skills/toolkit-split-compact.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142fa-e74a-7771-a9fc-8b328d33d154",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 638042,
+            "cached_input_tokens": 569600,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 7659,
+            "reasoning_output_tokens": 941,
+            "total_tokens": 645701
+          },
+          "rolloutSha256": "ed2fa52f811f94fa2fa638e593d251e38c89f5cbb635d1d1c1997af3d0f899bb"
+        },
+        {
+          "threadId": "01a142fb-8133-7b21-8854-fe5ab28144d0",
+          "role": "/root/toolkit",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 144462,
+            "cached_input_tokens": 104064,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5356,
+            "reasoning_output_tokens": 2779,
+            "total_tokens": 149818
+          },
+          "rolloutSha256": "27da508c98f126dbe3943a7b2bddad797aaf491977bbb59aab36c1fae6f8cdc8"
+        },
+        {
+          "threadId": "01a142fb-c302-7c30-b219-176a598ff181",
+          "role": "/root/test_assertions",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 129379,
+            "cached_input_tokens": 98304,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5692,
+            "reasoning_output_tokens": 3506,
+            "total_tokens": 135071
+          },
+          "rolloutSha256": "5cffc18f2ed0c5441b3eaac1e6d9306e7f90ec8f8d8000522a5f9b5da2fd2546"
+        },
+        {
+          "threadId": "01a142fc-0566-78c0-9961-1d9eaef4f62f",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 265676,
+            "cached_input_tokens": 216576,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 11478,
+            "reasoning_output_tokens": 6353,
+            "total_tokens": 277154
+          },
+          "rolloutSha256": "2a5db9fe2d532e6074bb9532b8a50d409bfcef4826ef2fda38fbb61d7b83ba2a"
+        },
+        {
+          "threadId": "01a142fc-44a2-7b83-89a1-e058e073575a",
+          "role": "/root/spec",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 303517,
+            "cached_input_tokens": 252416,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 7360,
+            "reasoning_output_tokens": 3589,
+            "total_tokens": 310877
+          },
+          "rolloutSha256": "2512792e9ccc5c2342a2d2a69463dda4756e770ee3940b9cde551a659125c32b"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "toolkit-split-r2",
+      "target": "quillstone",
+      "targetBase": "ec5003868283c23a1cecb7c8070c72870315502c",
+      "targetHead": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "toolkit",
+        "test_assertions",
+        "standards",
+        "spec"
+      ],
+      "startedAt": 1792123837.4497185,
+      "finishedAt": 1792124473.1302505,
+      "skillSha256": {
+        "SKILL.md": "592804410752c93fb962e96cd2034484b9880a80e54fc921fea71894782c9487",
+        "review.md": "693a1ead1411cda9071ca07ef5e6a5fcc4666657d766d344a97ad31472eaaad1",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-assertions.md": "a336f735062c377ce8dd53a094197400903d99654b391bef2daa10c5d184092d",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "f6f75f6ed1a2de9bdb65c41cd090fd097667ea2694f3670c09781769e580fa5a"
+      },
+      "promptSha256": "49a8a8172cad11d21295fb4d41053d29580ab73dce8049d023b2fa5b52f0fbb6",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "2a15d71f6535183e20060b3c8c3a58b407c5ac2a157775fbe1504abb6193bb70",
+      "totalTokens": 1759984,
+      "id": "quillstone-toolkit-split-r2",
+      "grade": {
+        "bug_groups": 4,
+        "valid_groups": 5,
+        "categories": {
+          "diagnostic": 1,
+          "test": 3,
+          "repository_rule": 1
+        },
+        "issue_ids": [
+          "quillstone.warn_visibility",
+          "quillstone.deadlines",
+          "quillstone.refill_assertion",
+          "quillstone.gauge_assertion",
+          "quillstone.tracing"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": [
+          "quillstone.gauge_assertion"
+        ],
+        "selected_v5_rule_losses": [
+          "quillstone.commit_motivation",
+          "quillstone.pr_scope"
+        ],
+        "tokens": 1759984,
+        "vs_control_three": {
+          "gained_bug": [
+            "quillstone.gauge_assertion"
+          ],
+          "lost_rule": [
+            "quillstone.commit_motivation"
+          ],
+          "token_delta": 97411
+        },
+        "vs_selected_v5": {
+          "bug_group_delta": 1,
+          "total_group_delta": -1,
+          "token_delta": 247389
+        },
+        "qualification": "Four source-verified bug groups repeat; current selected-v5 bugs preserved. No presumed namespace rollback or skipped proxy cleanup credit."
+      },
+      "report": "reports/quillstone-toolkit-split-r2.md",
+      "prompt": "prompts/quillstone-toolkit-split-r2.txt",
+      "skillSnapshot": "skills/toolkit-split.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142e7-9df6-7d61-a8a1-802305c79a5f",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 748215,
+            "cached_input_tokens": 664704,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 22902,
+            "reasoning_output_tokens": 4233,
+            "total_tokens": 771117
+          },
+          "rolloutSha256": "b9dd45df75cd20afc097e17ecb99a1e3e3ce15ee672933d80ceb7d51ad181f4d"
+        },
+        {
+          "threadId": "01a142e9-1469-7310-a5d9-6710a53e21a5",
+          "role": "/root/toolkit",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 139371,
+            "cached_input_tokens": 89728,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5864,
+            "reasoning_output_tokens": 3286,
+            "total_tokens": 145235
+          },
+          "rolloutSha256": "0cd9bb6bb661bb3da2e7c2cedd409c1df5fe5b17397a26dcf8d821d96fe2e95e"
+        },
+        {
+          "threadId": "01a142e9-f079-7df2-9264-064c8dc6f524",
+          "role": "/root/test_assertions",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 191280,
+            "cached_input_tokens": 155776,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 3274,
+            "reasoning_output_tokens": 1767,
+            "total_tokens": 194554
+          },
+          "rolloutSha256": "92807c3ce419d38fcfb75dfc9c32b0b6f445d2d1203abd280cc73c784633ba7f"
+        },
+        {
+          "threadId": "01a142ea-bab2-7970-9346-f5e9a8e86e6b",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 337293,
+            "cached_input_tokens": 270208,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 9599,
+            "reasoning_output_tokens": 5398,
+            "total_tokens": 346892
+          },
+          "rolloutSha256": "b159b481be9945797d8390521bfe5e72539de78dea5436ccf3fe4671cacb78bd"
+        },
+        {
+          "threadId": "01a142eb-8f65-7a80-80a9-ff22a5cc8837",
+          "role": "/root/spec",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 290848,
+            "cached_input_tokens": 234496,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 11338,
+            "reasoning_output_tokens": 6514,
+            "total_tokens": 302186
+          },
+          "rolloutSha256": "d95ee9d72aebba9641dbb7073aa3ad3e0519cc7139bf742107df52e470f53076"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "focused-three",
+      "target": "tidepool",
+      "targetBase": "24c789ec836b9382b24a38303e869de57d175e23",
+      "targetHead": "78891dd78461a2758585ce3545de0d55f2c114a3",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "production",
+        "tests",
+        "contracts_rules"
+      ],
+      "startedAt": 1792123139.1814926,
+      "finishedAt": 1792123645.4421318,
+      "skillSha256": {
+        "SKILL.md": "3653277b4788bd81ee94aad63ea2dbcc02ac78118a8de2714d1f9fd903667f9c",
+        "reviewer.md": "88fb84498f678abd29bce42a69a265aca45be2df600271302b38d7ce3edf69e0",
+        "review.md": "66fd69145acef6fa40c4aea0e742c84d5b70e192d40e6bda789cd5c1f7ea4de2",
+        "checks/pools.md": "c7deb427ec5866fb674192263be105fb1053c6f5b082b7f27befab38bbc49b00",
+        "checks/counterexamples.md": "093ad067f401adc4752b3f88a19ef856755cbee1be3a0c59eeb23db1086592b4",
+        "checks/bounds.md": "a7c4f0fac9b03d83e3df4c7fde4bbd9504b11647c31d334e5f1ae4681c1e7e2a",
+        "checks/concurrency.md": "ef29ee1a5aeb13808afa08cd08492a2ed87de45c43ded9e9bac5f91018e9f020",
+        "checks/standards.md": "f382cefb3f0a5bdf299b4b1d150fa690c7c2fc3012ce412f5490e408d5e52acc",
+        "checks/claims.md": "060d8664e0e27002b449daada1c0604e06c491622820313795abd73686a261d5",
+        "checks/lifecycle.md": "97ceeb8178a520cc9b095b5fd8a353fac2b1eab9564a306f79ba1264de518c83",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/tests.md": "3185d376694bcd2ac1fa0f537e940eab52ad6406988cf66413a042df766b3c86",
+        "passes/contracts-rules.md": "c83cf149073f3064de41c91fd6ba9c1a94021505be281b6bf666780318c176dc",
+        "passes/production.md": "fcf84356d848a67a3278d52937c1d3f79f93a9f174e61e7f0080e22e769a6596"
+      },
+      "promptSha256": "4128a4d54281ae1cabd543b8b12dff46335653c100d5289ac0458308ac825c1b",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "5c86c3bfb256faaf69b2ca8dfc9ee30261f97cd38038beff081567a862012ee4",
+      "totalTokens": 2149225,
+      "id": "tidepool-focused-three",
+      "grade": {
+        "bug_groups": 2,
+        "valid_groups": 9,
+        "categories": {
+          "runtime": 2,
+          "documentation": 5,
+          "repository_rule": 2
+        },
+        "issue_ids": [
+          "tidepool.empty_nested",
+          "tidepool.recursive_cpu",
+          "tidepool.fixture_bytes",
+          "tidepool.universal_bytes",
+          "tidepool.list_exact_minimum",
+          "tidepool.every_path",
+          "tidepool.commit_format",
+          "tidepool.public_docs",
+          "tidepool.validation_claim"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": [],
+        "tokens": 2149225,
+        "qualification": "New list exact-minimum documentation group valid: readCollectionSize explicitly rejects fewer than four bytes, so empty non-NULL list plus vector vint needs five bytes; helper returns one. This is documentation only, no new bug gain."
+      },
+      "report": "reports/tidepool-focused-three.md",
+      "prompt": "prompts/tidepool-focused-three.txt",
+      "skillSnapshot": "skills/focused-three.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142dc-f628-7213-881c-bfc80e14fa39",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 822876,
+            "cached_input_tokens": 743296,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 13811,
+            "reasoning_output_tokens": 1731,
+            "total_tokens": 836687
+          },
+          "rolloutSha256": "9b9f3ae1e71b4cf5d920ea1078fe47705ce61bf3089e6bf0593535252f0d3a09"
+        },
+        {
+          "threadId": "01a142de-0c54-72b3-a747-7fb46216bdcd",
+          "role": "/root/production",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 310857,
+            "cached_input_tokens": 246784,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 7701,
+            "reasoning_output_tokens": 5411,
+            "total_tokens": 318558
+          },
+          "rolloutSha256": "ce4a6d9cd59891fc14226919fc71b7f579a8548ccef1d10d5bb8278a3c1a61bc"
+        },
+        {
+          "threadId": "01a142de-ba1f-7682-b39e-ee56e923332a",
+          "role": "/root/tests",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 438500,
+            "cached_input_tokens": 375808,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 6543,
+            "reasoning_output_tokens": 4034,
+            "total_tokens": 445043
+          },
+          "rolloutSha256": "5a50964b4f4670362e7f0d4af3be5d39aabe73fe8d5bb32f0c8fc785386582a8"
+        },
+        {
+          "threadId": "01a142df-8f4c-7881-9336-5cd4b7d59b49",
+          "role": "/root/contracts_rules",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 538160,
+            "cached_input_tokens": 473728,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 10777,
+            "reasoning_output_tokens": 5339,
+            "total_tokens": 548937
+          },
+          "rolloutSha256": "a860c652b75630052d3245e21e43e6b9fdee75d0889fa7df93b90418bbb49cb3"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "toolkit-preserved-checks",
+      "target": "tidepool",
+      "targetBase": "24c789ec836b9382b24a38303e869de57d175e23",
+      "targetHead": "78891dd78461a2758585ce3545de0d55f2c114a3",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "toolkit",
+        "test_assertions",
+        "standards",
+        "spec"
+      ],
+      "startedAt": 1792126734.9469073,
+      "finishedAt": 1792127313.1729567,
+      "skillSha256": {
+        "SKILL.md": "592804410752c93fb962e96cd2034484b9880a80e54fc921fea71894782c9487",
+        "review.md": "d06792e28096cd17010f867b54ba95556b6ab7b0418fc6c74fd811920753d9e2",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-assertions.md": "a336f735062c377ce8dd53a094197400903d99654b391bef2daa10c5d184092d",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "6f5ed6fa390ab0bc6ddf44508a4a35ed21e740efd6057be06779f639822b0f24"
+      },
+      "promptSha256": "f9b87b0257765eed8f52ddc34f77cfde0b6e2581abc6586265000062b2199f16",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "13c8606eb2bbaadd1014c578dcde2c57469632dbe41fa1230661cae4d0d52a52",
+      "totalTokens": 1955711,
+      "id": "tidepool-toolkit-preserved-checks",
+      "grade": {
+        "bug_groups": 2,
+        "valid_groups": 8,
+        "categories": {
+          "runtime": 2,
+          "documentation": 4,
+          "repository_rule": 2
+        },
+        "issue_ids": [
+          "tidepool.recursive_cpu",
+          "tidepool.empty_nested",
+          "tidepool.public_docs",
+          "tidepool.fixture_bytes",
+          "tidepool.universal_bytes",
+          "tidepool.every_path",
+          "tidepool.commit_format",
+          "tidepool.validation_claim"
+        ],
+        "unsupported": [],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": [],
+        "tokens": 1955711
+      },
+      "report": "reports/tidepool-toolkit-preserved-checks.md",
+      "prompt": "prompts/tidepool-toolkit-preserved-checks.txt",
+      "skillSnapshot": "skills/toolkit-preserved-checks.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a14313-d36c-7e73-921d-0c9f6f7f8848",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 912513,
+            "cached_input_tokens": 819456,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 23696,
+            "reasoning_output_tokens": 2758,
+            "total_tokens": 936209
+          },
+          "rolloutSha256": "8c78d905fabe3cdfa996a28cacef962a65698e5f26665a11863002efab9d3ce0"
+        },
+        {
+          "threadId": "01a14315-29ea-7a21-82d4-10ed87568084",
+          "role": "/root/toolkit",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 310327,
+            "cached_input_tokens": 231680,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 13078,
+            "reasoning_output_tokens": 8566,
+            "total_tokens": 323405
+          },
+          "rolloutSha256": "569d477b0207d5dd9d2199712c60e5d2b15cc2d6932bad314ec753955e6ffea7"
+        },
+        {
+          "threadId": "01a14316-1f46-7951-8d5e-dcfc738939fb",
+          "role": "/root/test_assertions",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 226682,
+            "cached_input_tokens": 187264,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 5279,
+            "reasoning_output_tokens": 3332,
+            "total_tokens": 231961
+          },
+          "rolloutSha256": "9a52d817b01e3d57b9db3261e0ce50fccd2c4f88bfca906ff1ef0fbb81ca4440"
+        },
+        {
+          "threadId": "01a14317-095f-7a60-abdd-b6a470af3b67",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 148997,
+            "cached_input_tokens": 106112,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 11046,
+            "reasoning_output_tokens": 7167,
+            "total_tokens": 160043
+          },
+          "rolloutSha256": "3c83b9c4d5cc56299a0c0ea10d45bcc7afb5857a9cd93b532ae5d07d6d51117a"
+        },
+        {
+          "threadId": "01a14317-f9c6-7f42-bd3d-6ff1ef1f006a",
+          "role": "/root/spec",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 295036,
+            "cached_input_tokens": 244864,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 9057,
+            "reasoning_output_tokens": 5234,
+            "total_tokens": 304093
+          },
+          "rolloutSha256": "942c7a37b57e15d1921a1ed57017bb66823951292573d1541aa90fcd4a1e20d8"
+        }
+      ]
+    },
+    {
+      "repositoryCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+      "variant": "toolkit-split",
+      "target": "tidepool",
+      "targetBase": "24c789ec836b9382b24a38303e869de57d175e23",
+      "targetHead": "78891dd78461a2758585ce3545de0d55f2c114a3",
+      "model": "gpt-6.1-sol",
+      "reasoningEffort": "high",
+      "reviewerReasoningEffort": "xhigh",
+      "reviewerRoles": [
+        "toolkit",
+        "test_assertions",
+        "standards",
+        "spec"
+      ],
+      "startedAt": 1792124687.4868293,
+      "finishedAt": 1792125269.465502,
+      "skillSha256": {
+        "SKILL.md": "592804410752c93fb962e96cd2034484b9880a80e54fc921fea71894782c9487",
+        "review.md": "693a1ead1411cda9071ca07ef5e6a5fcc4666657d766d344a97ad31472eaaad1",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+        "passes/test-assertions.md": "a336f735062c377ce8dd53a094197400903d99654b391bef2daa10c5d184092d",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "f6f75f6ed1a2de9bdb65c41cd090fd097667ea2694f3670c09781769e580fa5a"
+      },
+      "promptSha256": "024d5c87a628ef666c71461f41e897cf966736fed03d481e61f8a0a61b65b522",
+      "scriptSha256": "453a71f3dfe63322fd1c314de7697c8fd922e98105ad87e6dc8d794a2b719321",
+      "reportSha256": "0006382d77b09082023ab6e9087e4856bab65cb01097005cf532ac1ea79554b2",
+      "totalTokens": 1857104,
+      "id": "tidepool-toolkit-split",
+      "grade": {
+        "bug_groups": 2,
+        "valid_groups": 8,
+        "categories": {
+          "runtime": 2,
+          "documentation": 4,
+          "repository_rule": 2
+        },
+        "issue_ids": [
+          "tidepool.recursive_cpu",
+          "tidepool.empty_nested",
+          "tidepool.universal_bytes",
+          "tidepool.fixture_bytes",
+          "tidepool.every_path",
+          "tidepool.public_docs",
+          "tidepool.commit_format",
+          "tidepool.validation_claim"
+        ],
+        "unsupported": [
+          {
+            "claim": "minimum-size assertion is independent test defect",
+            "reason": "One-byte floor is intentional division protection. A valid zero-inner handling fix can preserve helper floor/test and bypass outer rejection. No independently wrong assertion contract established beyond same documented-minimum/runtime issue; no extra bug credit."
+          }
+        ],
+        "baseline_losses": [],
+        "original_baseline_bug_losses": [],
+        "selected_v5_bug_losses": [],
+        "selected_v5_bug_gains": [],
+        "tokens": 1857104
+      },
+      "report": "reports/tidepool-toolkit-split.md",
+      "prompt": "prompts/tidepool-toolkit-split.txt",
+      "skillSnapshot": "skills/toolkit-split.tar.gz",
+      "agents": [
+        {
+          "threadId": "01a142f4-95d8-7640-817b-5a53a695e283",
+          "role": "/root",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "high",
+          "usage": {
+            "input_tokens": 814690,
+            "cached_input_tokens": 726528,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 23157,
+            "reasoning_output_tokens": 3952,
+            "total_tokens": 837847
+          },
+          "rolloutSha256": "95c7e71b1be8c6b336c7dd91c19508ec9bff5fd66f308bc7672200e21f89044c"
+        },
+        {
+          "threadId": "01a142f5-d917-7323-8783-fd088edd1e00",
+          "role": "/root/toolkit",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 156045,
+            "cached_input_tokens": 96896,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 12337,
+            "reasoning_output_tokens": 8589,
+            "total_tokens": 168382
+          },
+          "rolloutSha256": "a2956cbebb51915715ebe3477cb9bac27cdb02c09e46e1bcfc69a56ad4a1a6ae"
+        },
+        {
+          "threadId": "01a142f6-a5ed-7651-a4be-b44e292f7b1f",
+          "role": "/root/test_assertions",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 149633,
+            "cached_input_tokens": 111232,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 6305,
+            "reasoning_output_tokens": 3963,
+            "total_tokens": 155938
+          },
+          "rolloutSha256": "ff41893911069db520e89baf64dba6cebea0be3ff31460616e92fab2cfa67a17"
+        },
+        {
+          "threadId": "01a142f7-69f0-7640-925d-6d6c2be008f0",
+          "role": "/root/standards",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 354750,
+            "cached_input_tokens": 291712,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 10487,
+            "reasoning_output_tokens": 5359,
+            "total_tokens": 365237
+          },
+          "rolloutSha256": "6ef50e07cd22c91a05f830f2b6dc3dbae823fa592004ff81286b64effb033ddc"
+        },
+        {
+          "threadId": "01a142f8-2abd-7952-ab7b-ac3821d99177",
+          "role": "/root/spec",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": "xhigh",
+          "usage": {
+            "input_tokens": 319415,
+            "cached_input_tokens": 267264,
+            "cache_write_input_tokens": 0,
+            "output_tokens": 10285,
+            "reasoning_output_tokens": 6506,
+            "total_tokens": 329700
+          },
+          "rolloutSha256": "a54e5427d2ca97adf8b436215a346c663720940c69f95b42dae50a85bcd351e8"
+        }
+      ]
+    }
+  ]
+}

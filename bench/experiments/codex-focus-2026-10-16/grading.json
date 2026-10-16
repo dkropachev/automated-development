@@ -1,0 +1,763 @@
+{
+  "reports": {
+    "quillstone-focused-four": {
+      "bug_groups": 3,
+      "valid_groups": 4,
+      "categories": {
+        "diagnostic": 1,
+        "test": 2,
+        "repository_rule": 1
+      },
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.deadlines",
+        "quillstone.refill_assertion",
+        "quillstone.tracing"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "missing_vs_package_v5": [
+        "commit motivation",
+        "PR metrics scope"
+      ],
+      "missing_bugs_vs_fresh_claude": [
+        "incorrect post-teardown gauge assertion"
+      ],
+      "tokens": 2053443,
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": []
+    },
+    "ironweave-focused-four": {
+      "bug_groups": 5,
+      "valid_groups": 8,
+      "categories": {
+        "runtime": 1,
+        "test_build": 1,
+        "test": 3,
+        "documentation": 2,
+        "repository_rule": 1
+      },
+      "issue_ids": [
+        "ironweave.queue_shutdown",
+        "ironweave.api_build",
+        "ironweave.weak_regression",
+        "ironweave.assertion_cleanup",
+        "ironweave.deadlines",
+        "ironweave.pass_through",
+        "ironweave.shard_ownership",
+        "ironweave.source_exception"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "tokens": 1866584,
+      "comparison": "Same five bug groups/eight total as selected package-v5; no new verified group.",
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": []
+    },
+    "quillstone-control-three": {
+      "bug_groups": 3,
+      "valid_groups": 5,
+      "categories": {
+        "diagnostic": 1,
+        "test": 2,
+        "repository_rule": 2
+      },
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.deadlines",
+        "quillstone.refill_assertion",
+        "quillstone.tracing",
+        "quillstone.commit_motivation"
+      ],
+      "unsupported": [
+        {
+          "claim": "resharding test does not exercise excess-count term",
+          "reason": "Coverage limitation only: no explicit acceptance criterion for this missing input or incorrect current assertion established; retain prior exclusion."
+        }
+      ],
+      "baseline_losses": [],
+      "tokens": 1662573,
+      "comparison": "Same three bugs as focused-four; additionally commit rationale, costs390870 fewer tokens. Both miss stale-gauge assertion and PR scope from broader union.",
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": []
+    },
+    "quillstone-split-tests": {
+      "bug_groups": 3,
+      "valid_groups": 4,
+      "categories": {
+        "diagnostic": 1,
+        "test": 2,
+        "repository_rule": 1
+      },
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.gauge_assertion",
+        "quillstone.deadlines",
+        "quillstone.tracing"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "tokens": 1634981,
+      "vs_control_three": {
+        "gained": [
+          "quillstone.gauge_assertion"
+        ],
+        "lost": [
+          "quillstone.refill_assertion",
+          "quillstone.commit_motivation"
+        ],
+        "bug_group_delta": 0,
+        "total_group_delta": -1,
+        "token_delta": -27592
+      },
+      "vs_selected_package_v5": {
+        "gained": [
+          "quillstone.gauge_assertion"
+        ],
+        "lost": [
+          "quillstone.refill_assertion",
+          "quillstone.commit_motivation",
+          "quillstone.pr_scope"
+        ],
+        "bug_group_delta": 0,
+        "total_group_delta": -2
+      },
+      "qualification": "New test asserts pre-existing gauge leak, not newly introduced production leak. No skipped-explicit-proxy-cleanup issue counted.",
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [
+        "quillstone.refill_assertion"
+      ],
+      "selected_v5_bug_gains": [
+        "quillstone.gauge_assertion"
+      ]
+    },
+    "ironweave-split-tests": {
+      "bug_groups": 3,
+      "valid_groups": 5,
+      "categories": {
+        "runtime": 1,
+        "test": 2,
+        "documentation": 2
+      },
+      "issue_ids": [
+        "ironweave.queue_shutdown",
+        "ironweave.weak_regression",
+        "ironweave.assertion_cleanup",
+        "ironweave.pass_through",
+        "ironweave.source_exception"
+      ],
+      "unsupported": [],
+      "baseline_losses": [
+        "ironweave.api_build",
+        "ironweave.shard_ownership"
+      ],
+      "tokens": 2328743,
+      "vs_focused_four": {
+        "gained": [],
+        "lost": [
+          "ironweave.api_build",
+          "ironweave.shard_ownership",
+          "ironweave.deadlines"
+        ],
+        "bug_group_delta": -2,
+        "total_group_delta": -3,
+        "token_delta": 462159
+      },
+      "vs_selected_package_v5": {
+        "gained": [],
+        "lost": [
+          "ironweave.api_build",
+          "ironweave.shard_ownership",
+          "ironweave.deadlines"
+        ],
+        "bug_group_delta": -2,
+        "total_group_delta": -3,
+        "token_delta": 441208
+      },
+      "original_baseline_bug_losses": [
+        "ironweave.api_build"
+      ],
+      "selected_v5_bug_losses": [
+        "ironweave.api_build",
+        "ironweave.deadlines"
+      ],
+      "selected_v5_bug_gains": []
+    },
+    "quillstone-split-tests-output": {
+      "bug_groups": 3,
+      "valid_groups": 4,
+      "categories": {
+        "diagnostic": 1,
+        "test": 2,
+        "repository_rule": 1
+      },
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.gauge_assertion",
+        "quillstone.refill_assertion",
+        "quillstone.tracing"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "selected_v5_bug_losses": [
+        "quillstone.deadlines"
+      ],
+      "selected_v5_bug_gains": [
+        "quillstone.gauge_assertion"
+      ],
+      "selected_v5_rule_losses": [
+        "quillstone.commit_motivation",
+        "quillstone.pr_scope"
+      ],
+      "tokens": 1632900,
+      "qualification": "No new proxy cleanup issue credited; skipped explicit finish previously retracted.",
+      "original_baseline_bug_losses": []
+    },
+    "quillstone-focused-three": {
+      "bug_groups": 4,
+      "valid_groups": 6,
+      "categories": {
+        "diagnostic": 1,
+        "test": 3,
+        "repository_rule": 2
+      },
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.refill_assertion",
+        "quillstone.deadlines",
+        "quillstone.gauge_assertion",
+        "quillstone.tracing",
+        "quillstone.commit_motivation"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": [
+        "quillstone.gauge_assertion"
+      ],
+      "selected_v5_rule_losses": [
+        "quillstone.pr_scope"
+      ],
+      "tokens": 1563269,
+      "vs_fresh_control": {
+        "bug_group_delta": 1,
+        "total_group_delta": 1,
+        "tokens_delta": -99304,
+        "gained": [
+          "quillstone.gauge_assertion"
+        ],
+        "lost": []
+      },
+      "vs_selected_v5": {
+        "bug_group_delta": 1,
+        "total_group_delta": 0,
+        "tokens_delta": 50674
+      },
+      "vs_fresh_claude": {
+        "bug_group_delta": 0,
+        "total_group_delta": -1,
+        "missing": [
+          "quillstone.pr_scope"
+        ]
+      },
+      "qualification": "All four bugs verified from prior source evidence; no presumed namespace rollback or standalone missing excess-input test counted."
+    },
+    "quillstone-focused-three-r2": {
+      "bug_groups": 2,
+      "valid_groups": 3,
+      "categories": {
+        "diagnostic": 1,
+        "test": 1,
+        "repository_rule": 1
+      },
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.gauge_assertion",
+        "quillstone.tracing"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [
+        "quillstone.deadlines",
+        "quillstone.refill_assertion"
+      ],
+      "selected_v5_bug_gains": [
+        "quillstone.gauge_assertion"
+      ],
+      "tokens": 1490941,
+      "vs_first_focused_three": {
+        "bug_group_delta": -2,
+        "total_group_delta": -3,
+        "lost": [
+          "quillstone.deadlines",
+          "quillstone.refill_assertion",
+          "quillstone.commit_motivation"
+        ],
+        "tokens_delta": -72328
+      },
+      "qualification": "Same frozen layout fails to repeat pilot bug coverage; reduced cost does not establish preservation."
+    },
+    "ironweave-focused-three": {
+      "bug_groups": 4,
+      "valid_groups": 7,
+      "categories": {
+        "runtime": 1,
+        "test_build": 1,
+        "test": 2,
+        "repository_rule": 1,
+        "documentation": 2
+      },
+      "issue_ids": [
+        "ironweave.api_build",
+        "ironweave.queue_shutdown",
+        "ironweave.weak_regression",
+        "ironweave.assertion_cleanup",
+        "ironweave.shard_ownership",
+        "ironweave.source_exception",
+        "ironweave.pass_through"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [
+        "ironweave.deadlines"
+      ],
+      "selected_v5_bug_gains": [],
+      "tokens": 2189453,
+      "qualification": "Two rejection-test headings merged as one weak-regression group. Higher cost than selected v5 and loses deadline protection."
+    },
+    "tidepool-focused-three": {
+      "bug_groups": 2,
+      "valid_groups": 9,
+      "categories": {
+        "runtime": 2,
+        "documentation": 5,
+        "repository_rule": 2
+      },
+      "issue_ids": [
+        "tidepool.empty_nested",
+        "tidepool.recursive_cpu",
+        "tidepool.fixture_bytes",
+        "tidepool.universal_bytes",
+        "tidepool.list_exact_minimum",
+        "tidepool.every_path",
+        "tidepool.commit_format",
+        "tidepool.public_docs",
+        "tidepool.validation_claim"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": [],
+      "tokens": 2149225,
+      "qualification": "New list exact-minimum documentation group valid: readCollectionSize explicitly rejects fewer than four bytes, so empty non-NULL list plus vector vint needs five bytes; helper returns one. This is documentation only, no new bug gain."
+    },
+    "quillstone-toolkit-split": {
+      "bug_groups": 4,
+      "valid_groups": 5,
+      "categories": {
+        "diagnostic": 1,
+        "test": 3,
+        "repository_rule": 1
+      },
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.deadlines",
+        "quillstone.refill_assertion",
+        "quillstone.gauge_assertion",
+        "quillstone.tracing"
+      ],
+      "unsupported": [
+        {
+          "claim": "excess-count resharding coverage",
+          "reason": "Consistent exclusion: absent input case alone lacks explicit acceptance obligation or incorrect current assertion."
+        }
+      ],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": [
+        "quillstone.gauge_assertion"
+      ],
+      "selected_v5_rule_losses": [
+        "quillstone.commit_motivation",
+        "quillstone.pr_scope"
+      ],
+      "tokens": 1822666,
+      "vs_control_three": {
+        "gained_bug": [
+          "quillstone.gauge_assertion"
+        ],
+        "lost_rule": [
+          "quillstone.commit_motivation"
+        ],
+        "token_delta": 160093
+      },
+      "vs_selected_v5": {
+        "bug_group_delta": 1,
+        "total_group_delta": -1,
+        "token_delta": 310071
+      },
+      "qualification": "Four source-verified bug groups repeat; current selected-v5 bugs preserved. No presumed namespace rollback or skipped proxy cleanup credit."
+    },
+    "quillstone-toolkit-split-r2": {
+      "bug_groups": 4,
+      "valid_groups": 5,
+      "categories": {
+        "diagnostic": 1,
+        "test": 3,
+        "repository_rule": 1
+      },
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.deadlines",
+        "quillstone.refill_assertion",
+        "quillstone.gauge_assertion",
+        "quillstone.tracing"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": [
+        "quillstone.gauge_assertion"
+      ],
+      "selected_v5_rule_losses": [
+        "quillstone.commit_motivation",
+        "quillstone.pr_scope"
+      ],
+      "tokens": 1759984,
+      "vs_control_three": {
+        "gained_bug": [
+          "quillstone.gauge_assertion"
+        ],
+        "lost_rule": [
+          "quillstone.commit_motivation"
+        ],
+        "token_delta": 97411
+      },
+      "vs_selected_v5": {
+        "bug_group_delta": 1,
+        "total_group_delta": -1,
+        "token_delta": 247389
+      },
+      "qualification": "Four source-verified bug groups repeat; current selected-v5 bugs preserved. No presumed namespace rollback or skipped proxy cleanup credit."
+    },
+    "ironweave-toolkit-split": {
+      "bug_groups": 4,
+      "valid_groups": 7,
+      "categories": {
+        "runtime": 1,
+        "test": 3,
+        "repository_rule": 1,
+        "documentation": 2
+      },
+      "issue_ids": [
+        "ironweave.queue_shutdown",
+        "ironweave.weak_regression",
+        "ironweave.deadlines",
+        "ironweave.assertion_cleanup",
+        "ironweave.shard_ownership",
+        "ironweave.pass_through",
+        "ironweave.source_exception"
+      ],
+      "unsupported": [],
+      "baseline_losses": [
+        "ironweave.api_build"
+      ],
+      "original_baseline_bug_losses": [
+        "ironweave.api_build"
+      ],
+      "selected_v5_bug_losses": [
+        "ironweave.api_build"
+      ],
+      "selected_v5_bug_gains": [],
+      "tokens": 1863764,
+      "qualification": "Two weak rejection-check headings merged. Toolkit code pass incomplete; compatibility finding absent."
+    },
+    "tidepool-toolkit-split": {
+      "bug_groups": 2,
+      "valid_groups": 8,
+      "categories": {
+        "runtime": 2,
+        "documentation": 4,
+        "repository_rule": 2
+      },
+      "issue_ids": [
+        "tidepool.recursive_cpu",
+        "tidepool.empty_nested",
+        "tidepool.universal_bytes",
+        "tidepool.fixture_bytes",
+        "tidepool.every_path",
+        "tidepool.public_docs",
+        "tidepool.commit_format",
+        "tidepool.validation_claim"
+      ],
+      "unsupported": [
+        {
+          "claim": "minimum-size assertion is independent test defect",
+          "reason": "One-byte floor is intentional division protection. A valid zero-inner handling fix can preserve helper floor/test and bypass outer rejection. No independently wrong assertion contract established beyond same documented-minimum/runtime issue; no extra bug credit."
+        }
+      ],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": [],
+      "tokens": 1857104
+    },
+    "quillstone-toolkit-code-budget": {
+      "bug_groups": 4,
+      "valid_groups": 6,
+      "categories": {
+        "diagnostic": 1,
+        "test": 3,
+        "repository_rule": 2
+      },
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.deadlines",
+        "quillstone.refill_assertion",
+        "quillstone.tracing",
+        "quillstone.gauge_assertion",
+        "quillstone.commit_motivation"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": [
+        "quillstone.gauge_assertion"
+      ],
+      "selected_v5_rule_losses": [
+        "quillstone.pr_scope"
+      ],
+      "tokens": 1832400
+    },
+    "quillstone-toolkit-split-compact": {
+      "bug_groups": 3,
+      "valid_groups": 4,
+      "categories": {
+        "diagnostic": 1,
+        "test": 2,
+        "repository_rule": 1
+      },
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.deadlines",
+        "quillstone.refill_assertion",
+        "quillstone.tracing"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": [],
+      "selected_v5_rule_losses": [
+        "quillstone.pr_scope",
+        "quillstone.commit_motivation"
+      ],
+      "tokens": 1518621
+    },
+    "ironweave-toolkit-code-budget": {
+      "bug_groups": 4,
+      "valid_groups": 5,
+      "categories": {
+        "runtime": 1,
+        "test": 3,
+        "documentation": 1
+      },
+      "issue_ids": [
+        "ironweave.queue_shutdown",
+        "ironweave.weak_regression",
+        "ironweave.assertion_cleanup",
+        "ironweave.deadlines",
+        "ironweave.source_exception"
+      ],
+      "unsupported": [],
+      "baseline_losses": [
+        "ironweave.api_build",
+        "ironweave.shard_ownership",
+        "ironweave.pass_through"
+      ],
+      "original_baseline_bug_losses": [
+        "ironweave.api_build"
+      ],
+      "selected_v5_bug_losses": [
+        "ironweave.api_build"
+      ],
+      "selected_v5_bug_gains": [],
+      "selected_v5_other_losses": [
+        "ironweave.shard_ownership",
+        "ironweave.pass_through"
+      ],
+      "tokens": 2172137,
+      "qualification": "Weak-regression group supported by absent required exception, but old-error-guard schedule unverified in this report. Increasing code reads did not preserve compatibility/ownership/comment coverage."
+    },
+    "quillstone-toolkit-preserved-checks": {
+      "bug_groups": 3,
+      "valid_groups": 5,
+      "categories": {
+        "diagnostic": 1,
+        "test": 2,
+        "repository_rule": 2
+      },
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.deadlines",
+        "quillstone.refill_assertion",
+        "quillstone.tracing",
+        "quillstone.commit_motivation"
+      ],
+      "unsupported": [
+        {
+          "claim": "full retained old pool not scheduling replacement violates refill promise",
+          "reason": "Fixture manually opens while old nonsharded pool already full. Scheduler normally opens only deficit and suppresses scheduling while opens pending. No concrete production trace to this fixture state supplied. More importantly no required capacity/recovery consequence established when preserved pool already satisfies target; PR refill wording does not require redundant opens after any rejected candidate regardless fullness."
+        }
+      ],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": [],
+      "selected_v5_rule_losses": [
+        "quillstone.pr_scope"
+      ],
+      "tokens": 1802650
+    },
+    "tidepool-toolkit-preserved-checks": {
+      "bug_groups": 2,
+      "valid_groups": 8,
+      "categories": {
+        "runtime": 2,
+        "documentation": 4,
+        "repository_rule": 2
+      },
+      "issue_ids": [
+        "tidepool.recursive_cpu",
+        "tidepool.empty_nested",
+        "tidepool.public_docs",
+        "tidepool.fixture_bytes",
+        "tidepool.universal_bytes",
+        "tidepool.every_path",
+        "tidepool.commit_format",
+        "tidepool.validation_claim"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": [],
+      "tokens": 1955711
+    },
+    "ironweave-toolkit-preserved-checks": {
+      "bug_groups": 5,
+      "valid_groups": 8,
+      "categories": {
+        "runtime": 1,
+        "test_build": 1,
+        "test": 3,
+        "repository_rule": 1,
+        "documentation": 2
+      },
+      "issue_ids": [
+        "ironweave.queue_shutdown",
+        "ironweave.api_build",
+        "ironweave.weak_regression",
+        "ironweave.deadlines",
+        "ironweave.assertion_cleanup",
+        "ironweave.shard_ownership",
+        "ironweave.pass_through",
+        "ironweave.source_exception"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [],
+      "selected_v5_bug_gains": [],
+      "qualification": "Old-error-guard and missing required exception merged as weak-regression group. Restored compatibility obligation recovers API-build finding, preserving all selected-v5 groups. No net bug gain.",
+      "tokens": 1915929
+    },
+    "quillstone-feature-scopes": {
+      "bug_groups": 2,
+      "valid_groups": 5,
+      "categories": {
+        "diagnostic": 1,
+        "test": 1,
+        "repository_rule": 3
+      },
+      "issue_ids": [
+        "quillstone.warn_visibility",
+        "quillstone.deadlines",
+        "quillstone.tracing",
+        "quillstone.pr_scope",
+        "quillstone.commit_motivation"
+      ],
+      "unsupported": [],
+      "baseline_losses": [],
+      "original_baseline_bug_losses": [],
+      "selected_v5_bug_losses": [
+        "quillstone.refill_assertion"
+      ],
+      "selected_v5_bug_gains": [],
+      "tokens": 1574625,
+      "vs_selected_v5": {
+        "bug_group_delta": -1,
+        "total_group_delta": -1,
+        "tokens_delta": 62030
+      },
+      "missing_vs_verified_bug_union": [
+        "quillstone.refill_assertion",
+        "quillstone.gauge_assertion"
+      ],
+      "qualification": "Validation excludes metrics correctly stated as limitation, not standalone finding. No active report inspected; waited for complete manifest."
+    }
+  },
+  "corrections": {
+    "proxy_cleanup": "Retracted across models: tokio::test runtime teardown drops async workers/sockets after panic; skipped explicit finish alone insufficient. Fresh Claude Rust now 7 total/4 bug groups; selected package remains6 total/3 bugs. Historical archive counts require correction."
+  },
+  "toolkit_split_cross_language": {
+    "first_rust_tokens_total": 5543534,
+    "first_rust_bug_groups": 10,
+    "first_rust_total_groups": 20,
+    "selected_v5_tokens": 5147409,
+    "selected_v5_bug_groups": 10,
+    "selected_v5_total_groups": 22,
+    "token_increase": 396125,
+    "token_increase_pct": 7.6956,
+    "selected_bug_gain": [
+      "quillstone.gauge_assertion"
+    ],
+    "selected_bug_loss": [
+      "ironweave.api_build"
+    ],
+    "conclusion": "Rust gain repeats but cross-language bug preservation fails; no net bug-count improvement at higher cost."
+  },
+  "source_rechecks": {
+    "Go_zero_inner_framing": {
+      "verdict": "retain runtime rejection and zero-byte documentation findings across all models",
+      "evidence": [
+        "marshal.go:916 computes framing with isVectorVariableLengthType(inner)",
+        "marshal.go:1190-1196 recursively classifies VectorType by its float SubType; float returns false",
+        "marshal.go:930-933 writes enclosing vint only if classifier true; fixed inner vector contributes zero item bytes and no prefix",
+        "marshal.go:1065-1076 explicitly accepts zero-dimensional fixed inner vector with zero bytes"
+      ],
+      "qualification": "Not merely parser admission or permissive base decoding: pinned encoder independently selects fixed-element framing. Contrast nested text vectors, classifier true, which carry prefix. Zero dimensions need not be accepted by external Cassandra versions to establish admitted public pinned-driver type behavior; no missing one-byte prefix in this pinned encoder."
+    },
+    "Rust_full_old_pool_refill": {
+      "verdict": "unsupported as reported; no new bug credit",
+      "evidence": [
+        "connection_pool.rs:743-745 is_filling tracks pending opens",
+        "connection_pool.rs:760-762 need_filling requires not filling and not full",
+        "connection_pool.rs:806-812 empty pool starts exactly one connection",
+        "connection_pool.rs:819-829 and835-857 opens only current deficit",
+        "connection_pool.rs:722-738 refill scheduled only when need_filling true"
+      ],
+      "qualification": "Does not prove every full-plus-pending configuration impossible; topology changes/multiple existing opens require explicit generation trace. The artificial one-connection full nonsharded fixture alone does not provide that trace or prove retry is required despite satisfied old target."
+    }
+  }
+}

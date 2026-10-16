@@ -1,0 +1,108 @@
+"""Refresh complete-run audit from hash-verified native rollout metadata.
+
+Historical readBatches counts functions.exec invocations, including attempts that
+fail and any replay of already-loaded output. Preserve that field's semantics;
+sourceReadAttemptBatches excludes exec cells with no exec_command call. Nested
+shell commands within one exec are one batch, not independent read batches.
+Parent phase boundaries are the first spawn_agent call. Post-delegation batches
+are a conservative verification upper bound (some also read pass instructions).
+Only explicit tool-output truncation/error markers are counted. This does not
+prove full evidence visibility, semantic compliance, or absence of leakage in
+encrypted messages. Active runs are skipped before opening their usage/rollouts.
+"""
+
+import hashlib
+import json
+from pathlib import Path
+import re
+
+ROOT = Path(__file__).resolve().parent
+DEST = ROOT / "protocol-audit.json"
+TRUNCATION = re.compile(r"Warning: truncated output|\d+ tokens truncated|\d+ chars truncated")
+SOURCE_READ = re.compile(r"tools\.exec_command\s*\(")
+PEER_TOOL = re.compile(r"\b(?:list_agents|read_thread)\b")
+
+
+def output_text(payload):
+    output = payload.get("output", "")
+    if isinstance(output, list):
+        return "\n".join(part.get("text", "") for part in output if isinstance(part, dict))
+    return output if isinstance(output, str) else json.dumps(output)
+
+
+def audit_agent(agent):
+    raw = Path(agent["rolloutPath"]).read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    assert digest == agent["rolloutSha256"], agent["rolloutPath"]
+    payloads = [json.loads(line).get("payload", {}) for line in raw.splitlines()]
+    calls = [(i, p) for i, p in enumerate(payloads)
+             if p.get("type") == "custom_tool_call" and p.get("name") == "exec"]
+    outputs = [(p.get("call_id"), output_text(p)) for p in payloads
+               if p.get("type") == "custom_tool_call_output"]
+    functions = [p for p in payloads if p.get("type") == "function_call"]
+    peers = [p["name"] for p in functions if PEER_TOOL.search(p.get("name", ""))]
+    # Nested tool invocation metadata is in exec source rather than function_call.
+    nested_peers = [p["call_id"] for _, p in calls
+                    if re.search(r"tools\.[\w]*(?:list_agents|read_thread)\s*\(", p.get("input", ""))]
+    truncations = [call_id for call_id, out in outputs if TRUNCATION.search(out)]
+    heredocs = [call_id for call_id, out in outputs
+                if "can't create temp file for here document: read-only file system" in out]
+    row = {
+        "role": agent["role"],
+        "model": agent["model"],
+        "reasoningEffort": agent["reasoningEffort"],
+        "readBatches": len(calls),
+        "peerInspectionCalls": peers,
+        "truncatedResults": len(truncations),
+        "readFailures": ["read-only heredoc"] if heredocs else [],
+        "threadId": agent["threadId"],
+        "rolloutSha256": digest,
+        "rolloutHashVerified": True,
+        "sourceReadAttemptBatches": sum(bool(SOURCE_READ.search(p.get("input", ""))) for _, p in calls),
+        "nonReadExecCallIds": [p["call_id"] for _, p in calls if not SOURCE_READ.search(p.get("input", ""))],
+        "nestedPeerInspectionCallIds": nested_peers,
+        "truncatedResultCallIds": truncations,
+        "heredocReadFailureCallIds": heredocs,
+    }
+    if agent["role"] == "/root":
+        first_spawn = next((i for i, p in enumerate(payloads)
+                            if p.get("type") == "function_call" and p.get("name") == "spawn_agent"), None)
+        row["preparationExecBatches"] = sum(i < first_spawn for i, _ in calls) if first_spawn is not None else None
+        row["postDelegationExecBatches"] = sum(i > first_spawn for i, _ in calls) if first_spawn is not None else None
+        row["verificationBatchUpperBound"] = row["postDelegationExecBatches"]
+        row["phaseCountingNote"] = "Before first spawn is preparation; after first spawn conservatively bounds verification. Total readBatches is not subject to the three-verification-batch limit."
+        row["auditLimitations"] = "Counts explicit native exec/output markers, not semantic compliance; encrypted reviewer messages are not inspected. readBatches retains the historical count of all exec calls, including failures and cached-output replay."
+    else:
+        row["nonParentMessageTargets"] = [json.loads(p["arguments"]).get("target") for p in functions
+                                          if p.get("name") == "send_message"
+                                          and json.loads(p["arguments"]).get("target") != "/root"]
+    return row
+
+
+def main():
+    old = json.loads(DEST.read_text()) if DEST.exists() else {}
+    result = dict(old)
+    for manifest_path in sorted(ROOT.glob("*/manifest.json")):
+        manifest = json.loads(manifest_path.read_text())
+        if manifest.get("status") != "complete":
+            continue
+        run = manifest_path.parent.name
+        usage = json.loads((manifest_path.parent / "usage.json").read_text())
+        rows = [audit_agent(agent) for agent in usage["agents"]]
+        for prior in old.get(run, []):
+            current = next(row for row in rows if row["role"] == prior["role"])
+            for field in ("role", "model", "reasoningEffort", "readBatches", "peerInspectionCalls", "truncatedResults", "readFailures"):
+                assert current[field] == prior[field], (run, prior["role"], field, prior[field], current[field])
+            # Retain any existing fields this version does not compute.
+            current.update({key: value for key, value in prior.items() if key not in current})
+        result[run] = rows
+    DEST.write_text(json.dumps(result, indent=2) + "\n")
+    print(json.dumps({"completeRuns": len(result), "nativeAgents": sum(map(len, result.values())),
+                      "parentVerificationUpperBoundMax": max(rows[0]["verificationBatchUpperBound"] for rows in result.values()),
+                      "peerInspectionCalls": sum(len(row["peerInspectionCalls"]) for rows in result.values() for row in rows),
+                      "truncatedResults": sum(row["truncatedResults"] for rows in result.values() for row in rows),
+                      "heredocFailures": sum(len(row["heredocReadFailureCallIds"]) for rows in result.values() for row in rows)}))
+
+
+if __name__ == "__main__":
+    main()

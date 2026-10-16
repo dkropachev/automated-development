@@ -1,0 +1,26 @@
+{
+  "variant": "focused-three",
+  "sourceCommit": "b075eb4881f6e059417f4818f31b6d6daef38097",
+  "roles": {
+    "production": 6,
+    "tests": 6,
+    "contracts_rules": 6
+  },
+  "hypothesis": "Final bounded comparison: keep narrower responsibility ownership but restore3agents/6reads each to avoid4agent context overhead. Test lane assesses semantic oracles before safety; retain verified output-budget fixes and avoid observed heredoc failure. Same model/effort.",
+  "skillSha256": {
+    "SKILL.md": "3653277b4788bd81ee94aad63ea2dbcc02ac78118a8de2714d1f9fd903667f9c",
+    "reviewer.md": "88fb84498f678abd29bce42a69a265aca45be2df600271302b38d7ce3edf69e0",
+    "review.md": "66fd69145acef6fa40c4aea0e742c84d5b70e192d40e6bda789cd5c1f7ea4de2",
+    "checks/pools.md": "c7deb427ec5866fb674192263be105fb1053c6f5b082b7f27befab38bbc49b00",
+    "checks/counterexamples.md": "093ad067f401adc4752b3f88a19ef856755cbee1be3a0c59eeb23db1086592b4",
+    "checks/bounds.md": "a7c4f0fac9b03d83e3df4c7fde4bbd9504b11647c31d334e5f1ae4681c1e7e2a",
+    "checks/concurrency.md": "ef29ee1a5aeb13808afa08cd08492a2ed87de45c43ded9e9bac5f91018e9f020",
+    "checks/standards.md": "f382cefb3f0a5bdf299b4b1d150fa690c7c2fc3012ce412f5490e408d5e52acc",
+    "checks/claims.md": "060d8664e0e27002b449daada1c0604e06c491622820313795abd73686a261d5",
+    "checks/lifecycle.md": "97ceeb8178a520cc9b095b5fd8a353fac2b1eab9564a306f79ba1264de518c83",
+    "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa",
+    "passes/tests.md": "3185d376694bcd2ac1fa0f537e940eab52ad6406988cf66413a042df766b3c86",
+    "passes/contracts-rules.md": "c83cf149073f3064de41c91fd6ba9c1a94021505be281b6bf666780318c176dc",
+    "passes/production.md": "fcf84356d848a67a3278d52937c1d3f79f93a9f174e61e7f0080e22e769a6596"
+  }
+}

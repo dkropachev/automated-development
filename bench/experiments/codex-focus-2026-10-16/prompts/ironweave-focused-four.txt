@@ -1,0 +1,75 @@
+Use code-review-ad at /tmp/ad-codex-focus-20261015/ironweave-focused-four-skill/SKILL.md to review this pull request. Follow its independent review passes using native Codex agents. The checkout is pinned to the head below. For this offline evaluation, use the supplied PR metadata in place of gh pr view; do not fetch reviews or comments. Read source, repository guidance and Git history in this checkout as needed. Review only: do not edit files, commit, post, or run model subprocesses. Never read benchmark results, reports, judgements, other review sessions, or anything under /extra/dkropachev/automated-development. Do not use a different installed skill. Use gpt-6.1-sol for the parent and all reviewers. Follow the supplied skill's reviewer reasoning settings. Return the skill's final report.
+
+Frozen PR metadata:
+{
+  "baseRefOid": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "body": "`connection::stream_close()` closes the connection's write buffer while `_error` is still false; `_error` is only set by the `stop()` it runs afterwards. In between, `connection::send()` keeps accepting frames. Sinks cannot send at that point, but the `send_empty_frame` hook handed to every negotiated compressor is `[this] { return send({}); }` and is not guarded, and a compressor may call it at any time. Scylla's does whenever a new compression dictionary is announced, on every connection on the shard at once.\n\nA frame accepted in that window is written into the closed `output_stream` and `flush()`ed, which registers a batch flush that nothing waits for or closes: `stream_close()` has moved on, and `stop_send_loop()` skips `write_buf.close()` because `_sink_closed_future` already reports the buffer closed. The loop then ends, the application drops its sink and source as it is entitled to, and the connection is destroyed with the flush still pending:\n\n```\nseastar::output_stream<char>::~output_stream(): Assertion `!_in_batch && \"Was this stream properly closed?\"' failed.\n```\n\nThis is what two Scylla nodes hit during tablet streaming. The core dump shows the same 141-byte compressor control frame sitting unflushed on both the stream connection being destroyed and on its parent client, with the stream fully closed and its loop already over.\n\nThe fix marks the connection as closing in `stream_close()` before the write buffer is touched, and `send()` fails with `closed_error` from then on. Frames that `send()` accepted just before the mark may still be queued, so `stream_close()` also waits for `_outgoing_queue` to drain, by chaining on `_outgoing_queue_ready` the way `send()` does, before it closes the buffer. Setting `_error` there instead is not an option: `stop()` would then skip the `shutdown_input()` that wakes the receive loop, and `stop_send_loop()` would `shutdown_output()` before the eof marker written by this very close reaches the peer.\n\nThe series:\n\n1. the fix;\n2. a deterministic reproducer: the stream socket's `data_sink::close()` is parked, the captured `send_empty_frame` hook is fired while it is parked, and any `put()` after `close()` is recorded. Without the fix it fails on the recorded write; leaving the late `put()` unresolved instead reproduces the exact assertion above;\n3. documentation of the stream shutdown contract (close the sink, drain the source to eof or error), which was nowhere written down, and a correction of the sentence in `doc/rpc-streaming.md` that read as if closing the client were a substitute.\n\nOnly the first two commits are needed for a backport.\n\nFixes #3663\nRefs #3653\nRefs https://scylladb.atlassian.net/browse/CUSTOMER-666\nRefs https://scylladb.atlassian.net/browse/CUSTOMER-678\nRefs https://scylladb.atlassian.net/browse/SCYLLADB-4034\n\nVerification: `rpc_test` passes in the debug build (ASan, UBSan, vptr) with the whole series, on 1 and 2 shards; the new test fails without the first commit.\n\n\ud83e\udd16 Generated with [Claude Code](https://claude.com/claude-code)\n\n\n",
+  "commits": [
+    {
+      "authoredDate": "2026-09-03T07:12:03Z",
+      "authors": [
+        {
+          "email": "bench@example.invalid",
+          "id": "",
+          "login": "",
+          "name": "Bench Author"
+        },
+        {
+          "email": "noreply@anthropic.com",
+          "id": "MDQ6VXNlcjgxODQ3",
+          "login": "claude",
+          "name": "Claude Fable 5.1"
+        }
+      ],
+      "committedDate": "2026-09-20T17:10:39Z",
+      "messageBody": "connection::stream_close() closes the connection's write buffer while\n_error is still false.  _error is only set by the stop() it runs\nafterwards, and in between connection::send() keeps accepting frames.\nNothing is supposed to send at that point, and the sinks indeed cannot:\nsink_impl::send_buffer() checks sink_closed().  But the send_empty_frame\nhook handed to every negotiated compressor is `[this] { return send({}); }`\nand is not guarded, and a compressor may call it at any time -- Scylla's\ndoes whenever a new compression dictionary is announced, on every\nconnection on the shard at once.\n\nA frame accepted in that window is written into the closed output_stream\nand flush()ed, which registers it for a batch flush that nothing waits\nfor or closes: stream_close() has moved on, and stop_send_loop() skips\nits own write_buf.close() because _sink_closed_future already reports\nthat the buffer was closed by stream_close().  The loop then ends, the\napplication drops its sink and source as it is entitled to, and the\nconnection is destroyed with the flush still pending:\n\n  seastar::output_stream<char>::~output_stream(): Assertion `!_in_batch\n  && \"Was this stream properly closed?\"' failed.\n\nThat is the crash a Scylla node hit during tablet streaming, with the\nsame 141-byte compressor control frame sitting unflushed on both the\nstream connection being destroyed and its parent client.  Without the\nassertion the flush poller would run on freed memory.\n\nMark the connection as closing in stream_close() before the write buffer\nis touched and have send() fail with closed_error from then on, the same\nway it does once _error is set.  A frame that send() accepted just\nbefore the mark may still be sitting in _outgoing_queue, waiting for its\nturn, so also wait for the queue to drain before closing the buffer, by\nwaiting for _outgoing_queue_ready: by construction it resolves once the\nlast accepted entry has been written and flushed into the batch the\nclose then covers.\n\nSetting _error itself in stream_close() is not an option: stop() would\nthen find it already set and skip the shutdown_input() that wakes the\nreceive loop, and stop_send_loop() would shutdown_output() before the\neof marker written by this very close has reached the peer.\n\nFixes #3663\nRefs #3653\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+      "messageHeadline": "rpc: refuse to send on a stream connection once stream_close() has begun",
+      "oid": "f545c28a9af9e3bbda15920604244c1928a83d42"
+    },
+    {
+      "authoredDate": "2026-09-03T07:12:03Z",
+      "authors": [
+        {
+          "email": "bench@example.invalid",
+          "id": "",
+          "login": "",
+          "name": "Bench Author"
+        },
+        {
+          "email": "noreply@anthropic.com",
+          "id": "MDQ6VXNlcjgxODQ3",
+          "login": "claude",
+          "name": "Claude Fable 5.1"
+        }
+      ],
+      "committedDate": "2026-09-20T17:10:40Z",
+      "messageBody": "Regression test for the previous commit.\n\nThe stream connection's socket is wrapped so that its data_sink::close()\nparks until the test releases it and any put() that arrives after close()\nwas entered is recorded.  A pass-through compressor hands the test the\nsend_empty_frame hook rpc gives it.  The peer closes its sink first, so\nthe client's later sink.close() is what runs stream_close() and closes\nthe write buffer.  While that close is parked the test calls the stream\ncompressor's hook.\n\nWithout the fix the hook's frame is written into the closed output\nstream and the test fails on the recorded write.  Had the write been\nleft in flight instead of completing, dropping the sink and source at\nthe end would trip ~output_stream()'s `!_in_batch` assertion -- the\nexact failure seen in the field; verified by temporarily making the late\nput() never resolve.  With the fix the hook fails with closed_error and\nnothing is written.\n\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+      "messageHeadline": "rpc_test: reproduce a send racing stream_close()",
+      "oid": "5e25ebdbda11a47bdc2e0fd8f2e4e3125ef197dc"
+    },
+    {
+      "authoredDate": "2026-09-02T09:52:07Z",
+      "authors": [
+        {
+          "email": "bench@example.invalid",
+          "id": "",
+          "login": "",
+          "name": "Bench Author"
+        },
+        {
+          "email": "noreply@anthropic.com",
+          "id": "MDQ6VXNlcjgxODQ3",
+          "login": "claude",
+          "name": "Claude Opus 5 (1M context)"
+        }
+      ],
+      "committedDate": "2026-09-20T17:10:40Z",
+      "messageBody": "Shutting a stream down has a contract that was nowhere written down.\nBoth halves have to be closed: the sink via close(), the source by\nreading it to eof or error, since rpc::source deliberately has no\nclose(). Only once both are closed does stream_close() run and wait for\nthe connection's loop to stop. Close one half alone and nothing waits\nfor the connection, and it is never shut down.\n\nUntil now the only trace of any of this was the SEASTAR_ASSERT in\n~sink_impl, which covers the sink half only; abandoning a source fails\nsilently. doc/rpc-streaming.md said nothing about it, and what it did\nsay about teardown was misleading: \"the stream will be aborted if the\nclient is closed before streaming is\" reads as a sanctioned way to\nabandon a stream that never reaches eof, which it is not -- dropping the\nunclosed sink afterwards still asserts.\n\nWrite the contract down in doc/rpc-streaming.md, correct that sentence,\nand put it on rpc::sink and rpc::source themselves, where someone\nreaching for the API will see it.\n\nDocumentation only, no functional change.\n\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>",
+      "messageHeadline": "rpc: document the stream shutdown contract",
+      "oid": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0"
+    }
+  ],
+  "headRefOid": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "title": "rpc: refuse to send on a stream connection once stream_close() has begun",
+  "url": "https://github.com/dkropachev/ironweave/pull/1"
+}
