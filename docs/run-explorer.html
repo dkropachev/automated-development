@@ -688,9 +688,13 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function preserveModel(hash) {
-    const model = activeParams.get('model')
-    if (!hash.startsWith('#') || !model || /(?:^|[?&])model=/.test(hash)) return hash
-    return `${hash}${hash.includes('?') ? '&' : '?'}model=${encodeURIComponent(model)}`
+    if (!hash.startsWith('#')) return hash
+    const query = new URLSearchParams(hash.split('?')[1] || '')
+    for (const key of ['platform', 'model']) {
+      const value = activeParams.get(key)
+      if (value && !query.has(key)) hash += `${hash.includes('?') ? '&' : '?'}${key}=${encodeURIComponent(value)}`
+    }
+    return hash
   }
 
   const hashLink = (label, hash, className) => el('a', { href: preserveModel(hash), class: className }, label)
@@ -842,13 +846,8 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function selectedModel(params) {
-    const requested = params.get('model')
-    // Exact linked run sets predate model filters. When they do not name a model, show their
-    // preserved rows as an all-model snapshot and keep the picker honest about that scope.
-    if (requested == null && values(params, 'runIds').length) return 'all'
-    if (requested === 'all') return 'all'
-    if (configuredModels.some((model) => model.id === requested) || (DATA.experiments || []).some((record) => record.modelId === requested)) return requested
-    return 'all'
+    // An explicit unknown model is an empty selection, never an implicit reset to all models.
+    return params.get('model') || 'all'
   }
 
   function modelLabel(id) {
@@ -925,18 +924,21 @@ if (typeof module !== 'undefined' && module.exports) {
     return bar
   }
 
-  function matchesOverviewDimensions(run, params) {
-    if (!matchesPlatform(run, params)) return false
+  // Use the same dimensions for benchmark, canonical, and experiment evidence.
+  function matchesEvidenceDimensions(record, params) {
     const selectedTargets = values(params, 'targets')
-    const selectedTools = values(params, 'skills')
+    const selectedSkills = values(params, 'skills')
     const selectedLanguages = values(params, 'languages')
-    const target = targetForRun(run)
+    return matchesPlatform(record, params) && matchesSelectedModel(record, params) &&
+      (!selectedTargets.length || selectedTargets.includes(record.targetId)) &&
+      (!selectedSkills.length || selectedSkills.includes(skillIdentity(record))) &&
+      (!selectedLanguages.length || selectedLanguages.includes(targetForRun(record)?.language))
+  }
+
+  function matchesOverviewDimensions(run, params) {
+    if (!matchesEvidenceDimensions(run, params)) return false
     const q = (params.get('q') || '').toLowerCase()
-    if (selectedTargets.length && !selectedTargets.includes(run.targetId)) return false
-    if (selectedTools.length && !selectedTools.includes(skillIdentity(run))) return false
-    if (selectedLanguages.length && (!target || !selectedLanguages.includes(target.language))) return false
-    if (!matchesSelectedModel(run, params)) return false
-    if (q && !`${run.id} ${run.cohortLabel || ''} ${run.targetId} ${target ? target.language : ''} ${skillIdentity(run)} ${run.toolLabel} ${run.toolSource || ''} ${run.modelId || ''} ${run.modelLabel || ''} ${Object.keys(run.usage.models || {}).join(' ')}`.toLowerCase().includes(q)) return false
+    if (q && !`${run.id} ${run.cohortLabel || ''} ${run.targetId} ${targetForRun(run)?.language || ''} ${skillIdentity(run)} ${run.toolLabel} ${run.toolSource || ''} ${run.modelId || ''} ${run.modelLabel || ''} ${Object.keys(run.usage.models || {}).join(' ')}`.toLowerCase().includes(q)) return false
     return true
   }
 
@@ -1136,9 +1138,11 @@ if (typeof module !== 'undefined' && module.exports) {
     const selectedLanguage = languages.includes(requestedLanguage) ? requestedLanguage : 'all'
     const scopeLabels = { all: 'All issues', major: 'Major only', majorMinor: 'Major + minor' }
     const scopeSeverities = { all: ['blocker', 'high', 'medium', 'low', 'nit'], major: ['blocker', 'high'], majorMinor: ['blocker', 'high', 'medium'] }
-    const leaderRuns = verifiedRuns.filter((run) => matchesSelectedModel(run, params) && matchesPlatform(run, params) && (selectedLanguage === 'all' || targetForRun(run)?.language === selectedLanguage))
+    const evidenceParams = new URLSearchParams(params)
+    if (selectedLanguage !== 'all') evidenceParams.set('languages', selectedLanguage)
+    const leaderRuns = verifiedRuns.filter((run) => matchesEvidenceDimensions(run, evidenceParams))
     const verifiedReal = new Set(leaderRuns.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issueKey(run.targetId, issue))))
-    const catalogue = skillCatalogue(leaderRuns)
+    const catalogue = skillCatalogue(leaderRuns, evidenceParams)
     const groups = groupedStats(leaderRuns, 'skill', leaderRuns).filter((group) => group.cost > 0)
     const scopedGroups = groups.map((group) => {
       const completeness = group.completenessBreakdown[completenessScope]
@@ -1186,13 +1190,14 @@ if (typeof module !== 'undefined' && module.exports) {
           el('div', {}, el('strong', {}, fmt(verifiedReal.size)), el('span', {}, 'discovered real findings')),
         ),
       ),
-      leaderRuns.length ? null : el('div', { class: 'notice info evidence-note' }, `No benchmark runs recorded for ${modelLabel(selectedModel(params))} yet. Choose “All models / history” to inspect preserved earlier runs.`),
+      leaderRuns.length ? null : el('div', { class: 'notice info evidence-note' }, 'No completed benchmark runs match these filters. Experimental reports do not contribute to benchmark rankings.'),
+      leaderRuns.length ? null : experimentEvidencePanel(evidenceParams),
       el('section', { class: 'landing-section leaders-section', 'aria-labelledby': 'leaders-title' },
         el('div', { class: 'landing-section-head' },
           el('div', {}, el('div', { class: 'eyebrow' }, 'Benchmark leaders'), el('h2', { id: 'leaders-title' }, 'Leaders'), el('p', {}, 'The strongest value, coverage, speed, and discovery results for the selected filters.')),
           el('div', { class: 'leader-pickers' }, selectedModelPicker, completenessPicker, languagePicker),
         ),
-        el('div', { class: 'leader-section', 'aria-labelledby': 'value-leaders-title' },
+        el('div', { class: 'leader-section', hidden: groups.length ? null : '', 'aria-labelledby': 'value-leaders-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'value-leaders-title' }, `Best return for the money · ${sectionScope}`),
             el('p', {}, 'Ranked by discovered real findings per attempted dollar. Failed and interrupted attempts are included in the cost.'),
@@ -1204,14 +1209,14 @@ if (typeof module !== 'undefined' && module.exports) {
             `${group.completenessBreakdown[completenessScope].found} discovered real findings · ${fmt(group.completenessBreakdown[completenessScope].value, 'percent')} coverage · ${fmt(group.cost, 'money')} attempted cost`,
           ))),
         ),
-        el('div', { class: 'leader-section', 'aria-labelledby': 'completeness-title' },
+        el('div', { class: 'leader-section', hidden: groups.length ? null : '', 'aria-labelledby': 'completeness-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'completeness-title' }, `Best coverage · ${sectionScope}`),
             el('p', {}, 'Ranked by the share of distinct discovered real issues found. Major includes blocker and high severity; major + minor also includes medium.'),
           ),
           el('div', { class: 'landing-rank-grid completeness-grid' }, completenessGroups.map((group, index) => completenessRankCard(group, index + 1, completenessScope))),
         ),
-        el('div', { class: 'leader-section', 'aria-labelledby': 'fastest-title' },
+        el('div', { class: 'leader-section', hidden: groups.length ? null : '', 'aria-labelledby': 'fastest-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'fastest-title' }, `Fastest useful review · ${sectionScope}`),
             el('p', {}, 'Ranked by elapsed minutes per discovered real finding. Lower is better; failed and interrupted attempts remain in the elapsed time.'),
@@ -1223,7 +1228,7 @@ if (typeof module !== 'undefined' && module.exports) {
             `${group.completenessBreakdown[completenessScope].found} discovered real findings · ${group.attempts} attempt${group.attempts === 1 ? '' : 's'}`,
           ))),
         ),
-        el('div', { class: 'leader-section', 'aria-labelledby': 'unique-title' },
+        el('div', { class: 'leader-section', hidden: groups.length ? null : '', 'aria-labelledby': 'unique-title' },
           el('div', { class: 'leader-section-head' },
             el('h3', { id: 'unique-title' }, `Most unique discoveries · ${sectionScope}`),
             el('p', {}, 'Ranked by discovered real issues found by only one skill. Ties are broken by total discovered real findings.'),
@@ -1247,7 +1252,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ))
   }
 
-  function selectionFrom(params) { return values(params, 'compareSkills').filter((id) => tools.has(id)).slice(0, 5) }
+  function selectionFrom(params) { return values(params, 'compareSkills').filter((id) => tools.has(id) && matchesPlatform(tools.get(id), params)).slice(0, 5) }
 
   function setComparison(params, toolId, checked) {
     const selected = new Set(selectionFrom(params))
@@ -1427,16 +1432,19 @@ if (typeof module !== 'undefined' && module.exports) {
 
   function sourceIdentity(source) { return `${source.modelId || ''}::${source.cellId || source.runId || ''}` }
 
-  function comparisonScopeLabel(scope) {
-    const count = cellsForScope(scope).length
+  function comparisonScopeName(scope) {
     const label = scope.label || (scope.id === 'controlled-pair' ? 'Current controlled pair' : 'All models')
-    return /matched cell/i.test(label) ? label : `${label} · ${count} matched cell${count === 1 ? '' : 's'}`
+    return label.replace(/\s*·\s*\d+\s+matched cells?/i, '')
+  }
+
+  function comparisonScopeLabel(scope, params = null) {
+    const count = params ? new Set(filteredComparisonSources(modelComparisonSnapshot(), scope, params).map((source) => `${source.targetId}/${source.toolId}`)).size : cellsForScope(scope).length
+    return `${comparisonScopeName(scope)} · ${count} matched cell${count === 1 ? '' : 's'}`
   }
 
   function comparisonParams(params, patch = {}) {
     const next = new URLSearchParams(params)
     next.delete('group')
-    next.delete('model')
     next.set('tab', 'models')
     for (const [key, value] of Object.entries(patch)) {
       if (value == null || value === '') next.delete(key)
@@ -1483,27 +1491,20 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function modelComparisonFilterBar(params, snapshot, scope) {
-    const sources = snapshot && scope ? enrichScopeSources(snapshot, scope) : []
-    const cohortRuns = completedCohortRuns()
-    const skillLabels = new Map(sources.map((source) => [qualifiedSkill(source.toolId), tools.get(source.toolId)?.label || source.toolId]))
-    for (const run of cohortRuns) skillLabels.set(skillIdentity(run), run.toolLabel || tools.get(skillIdentity(run))?.label || skillIdentity(run))
-    const skillChoices = [...skillLabels.entries()].filter(([id]) => id).sort((left, right) => left[1].localeCompare(right[1]))
-    const targetLabels = new Map(sources.map((source) => {
-      const language = targets.get(source.targetId)?.language || 'unknown'
-      return [source.targetId, `${source.targetId} · ${language}`]
-    }))
-    for (const run of cohortRuns) targetLabels.set(run.targetId, `${run.targetId} · ${targetForRun(run)?.language || 'unknown'}`)
-    const targetChoices = [...targetLabels.entries()].filter(([id]) => id).sort((left, right) => left[0].localeCompare(right[0]))
-    const languageChoices = [...new Set([
-      ...sources.map((source) => targets.get(source.targetId)?.language),
-      ...cohortRuns.map((run) => targetForRun(run)?.language),
-    ].filter(Boolean))].sort().map((language) => [language, language])
+    const sources = snapshot && scope ? enrichScopeSources(snapshot, scope).map((source) => ({ ...source, platform: 'claude', skillId: qualifiedSkill(source.toolId) })) : []
+    const evidence = [...sources, ...completedCohortRuns(), ...(DATA.experiments || [])]
+      .filter((record) => matchesPlatform(record, params) && matchesSelectedModel(record, params))
+    const skillChoices = [...new Map(evidence.map((record) => [skillIdentity(record), tools.get(skillIdentity(record))?.label || skillIdentity(record)])).entries()]
+      .sort((left, right) => left[1].localeCompare(right[1]))
+    const targetChoices = [...new Set(evidence.map((record) => record.targetId))].sort()
+      .map((id) => [id, `${id} · ${targets.get(id)?.language || 'unknown'}`])
+    const languageChoices = [...new Set(evidence.map((record) => targets.get(record.targetId)?.language).filter(Boolean))].sort().map((language) => [language, language])
     const bar = el('section', { class: 'filter-bar model-filter-bar', 'aria-label': 'Model comparison filters' },
       checklist('Skills', 'skills', skillChoices, params),
       checklist('Languages', 'languages', languageChoices, params),
       checklist('Targets', 'targets', targetChoices, params),
     )
-    if (['platform', 'skills', 'languages', 'targets'].some((key) => params.has(key))) bar.append(el('button', { class: 'clear-filters', onclick: () => viewParams(params, { platform: '', skills: '', languages: '', targets: '', evidenceModel: '', evidenceVerdict: '' }) }, 'Clear filters'))
+    if (['platform', 'model', 'skills', 'languages', 'targets'].some((key) => params.has(key))) bar.append(el('button', { class: 'clear-filters', onclick: () => viewParams(params, { platform: '', model: '', skills: '', languages: '', targets: '', evidenceModel: '', evidenceVerdict: '' }) }, 'Clear filters'))
     return bar
   }
 
@@ -1517,16 +1518,8 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function filteredComparisonSources(snapshot, scope, params) {
-    const selectedTools = values(params, 'skills')
-    const selectedTargets = values(params, 'targets')
-    const selectedLanguages = values(params, 'languages')
-    return enrichScopeSources(snapshot, scope).filter((source) => {
-      if (!matchesPlatform({ platform: 'claude' }, params)) return false
-      if (selectedTools.length && !selectedTools.includes(qualifiedSkill(source.toolId))) return false
-      if (selectedTargets.length && !selectedTargets.includes(source.targetId)) return false
-      const language = targets.get(source.targetId)?.language
-      return !selectedLanguages.length || selectedLanguages.includes(language)
-    })
+    return enrichScopeSources(snapshot, scope).filter((source) =>
+      matchesEvidenceDimensions({ ...source, platform: 'claude', skillId: qualifiedSkill(source.toolId) }, params))
   }
 
   function successfulEvidence(source) { return ['complete', 'completed', 'success', 'succeeded', 'passed'].includes(source.status) }
@@ -1550,7 +1543,7 @@ if (typeof module !== 'undefined' && module.exports) {
       if (!mappingsByCell.has(mapping.cellId)) mappingsByCell.set(mapping.cellId, [])
       mappingsByCell.get(mapping.cellId).push(mapping)
     }
-    return scopeModelIds(snapshot, scope).map((modelId) => {
+    return scopeModelIds(snapshot, scope).filter((modelId) => selectedSources.some((source) => source.modelId === modelId)).map((modelId) => {
       const model = comparisonModelMeta(snapshot, modelId)
       const evidence = selectedSources.filter((source) => source.modelId === modelId)
       const issueSources = new Map()
@@ -1754,6 +1747,8 @@ if (typeof module !== 'undefined' && module.exports) {
       return frame(el('div', {},
         compactHero('Choose a reviewer', 'Review model results.', 'Completed runs appear in discovered coverage. A separate canonical ranking appears only when a gold snapshot has been sealed.'),
         chooseTabs(params, 'models'),
+        modelPicker(params),
+        experimentEvidencePanel(params),
         modelComparisonFilterBar(params, null, null),
         discoveredModelCoverage(params),
         el('div', { class: 'notice info evidence-note' }, 'The published gold-standard model comparison is unavailable in this dashboard export. Discovered coverage is separate from canonical scores.'),
@@ -1769,46 +1764,38 @@ if (typeof module !== 'undefined' && module.exports) {
     const legacyPresent = stats.some((row) => row.legacy)
     const issueUrl = snapshot.issueUrl || 'https://github.com/dkropachev/automated-development/issues/42'
     const modelScopes = snapshot.scopes.filter((item) => !item.id.startsWith('supplemental-'))
-    const platform = params.get('platform') || 'all'
-    const scopeControl = el('select', { id: 'model-scope', onchange: (event) => {
-      const [platform, scope] = event.target.value.split(':')
-      location.hash = comparisonParams(params, { platform: platform === 'all' ? '' : platform, scope, evidenceModel: '', evidenceVerdict: '' })
-    } })
-    for (const [id, label] of [['all', 'All platforms'], ['codex', 'Codex'], ['claude', 'Claude']]) {
-      scopeControl.append(el('optgroup', { label }, modelScopes.map((item) => option(`${id}:${item.id}`, `${comparisonScopeLabel(item)}${id === 'all' ? '' : ` · ${label}`}`, id === platform && item.id === scope.id))))
-    }
-    scopeControl.value = `${platform}:${scope.id}`
-    const scopePicker = field('Comparison scope', scopeControl)
+    const scopePicker = field('Benchmark scope', select('model-scope', modelScopes.map((item) => [item.id, comparisonScopeName(item)]), scope.id, (event) => {
+      location.hash = comparisonParams(params, { scope: event.target.value, evidenceModel: '', evidenceVerdict: '' })
+    }))
+    const hasCanonicalSelection = modelScopes.some((candidate) => filteredComparisonSources(snapshot, candidate, params).length)
     frame(el('div', {},
-      compactHero('Choose a reviewer', 'Compare models against the canonical gold standard.', 'Recorded benchmark spend, verified detections, runtime, and reliability over pinned pull requests. Supplemental skills appear on the Skills tab.'),
+      compactHero('Choose a reviewer', stats.length ? 'Compare models against the canonical gold standard.' : 'No canonical benchmark results for these filters.', stats.length ? 'Recorded benchmark spend, verified detections, runtime, and reliability over pinned pull requests. Supplemental skills appear on the Skills tab.' : 'Only evidence in an accepted gold snapshot can enter this ranking. Experimental reports are shown separately when available.'),
       chooseTabs(params, 'models'),
-      el('section', { class: 'model-scope-controls' }, scopePicker, el('p', {}, 'The completeness denominator is the same for every model: all canonical real issues on the targets selected below.')),
+      el('section', { class: 'model-scope-controls' }, modelPicker(params), hasCanonicalSelection ? scopePicker : null, el('p', {}, stats.length ? 'The completeness denominator is the same for every model: all canonical real issues on the targets selected below.' : 'No selected evidence is eligible for this canonical ranking.')),
       modelComparisonFilterBar(params, snapshot, scope),
       legacyPresent ? el('div', { class: 'notice model-legacy-warning', role: 'note' }, 'Claude Opus 5 is historical/inferred: its request, effort, target pins, prompts, and accounting were not fully recorded. Salvaged reports can expand the canonical gold set but never receive detection credit. ', externalLink('Track the controlled 19-cell rerun in issue #42 ↗', issueUrl)) : null,
-      el('section', { class: 'panel model-results-panel', id: 'model-ranking', tabindex: -1 },
-        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Model ranking'), el('p', {}, `${comparisonScopeLabel(scope)}. Only matched model evidence affects this ranking; separately tested skills appear on the Skills tab.`))),
-        stats.length ? modelComparisonTable(stats, params) : el('div', { class: 'empty' }, 'No models are declared for this comparison scope.'),
-      ),
-      el('section', { class: 'model-winners', 'aria-label': 'Model comparison winners' },
+      stats.length ? el('section', { class: 'panel model-results-panel', id: 'model-ranking', tabindex: -1 },
+        el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Model ranking'), el('p', {}, `${comparisonScopeLabel(scope, params)}. Only matched model evidence affects this ranking; separately tested skills appear on the Skills tab.`))),
+        modelComparisonTable(stats, params),
+      ) : null,
+      stats.length ? el('section', { class: 'model-winners', 'aria-label': 'Model comparison winners' },
         modelWinnerCard('Best value', valueWinner, (row) => `${fmt(row.realPerDollar)} real / $`, (row) => `${row.real} canonical real · ${fmt(row.cost, 'money')} recorded total`),
         modelWinnerCard('Most complete', completenessWinner, (row) => fmt(row.completeness, 'percent'), (row) => `${row.real} of ${row.possible} canonical real issues`),
         modelWinnerCard('Lowest median cost', costWinner, (row) => fmt(row.medianCost, 'money'), (row) => `${row.attempts} matched attempt${row.attempts === 1 ? '' : 's'}`),
         modelWinnerCard('Fastest median runtime', runtimeWinner, (row) => fmt(row.medianWall, 'minutes'), (row) => `${fmt(row.successRate, 'percent')} success rate`),
-      ),
+      ) : null,
+      experimentEvidencePanel(params),
       discoveredModelCoverage(params),
-      analysisPanel('Cost versus completeness', 'The Pareto frontier shows models for which no cheaper model is at least as complete. Select a point to open its exact contributing runs.', paretoChart(stats, {
+      stats.length ? analysisPanel('Cost versus completeness', 'The Pareto frontier shows models for which no cheaper model is at least as complete. Select a point to open its exact contributing runs.', paretoChart(stats, {
         completeness: modelMetricHints.Completeness,
-      })),
-      modelEvidencePanel(stats, params),
-      el('p', { class: 'method-note model-provenance' }, `Published gold snapshot: ${snapshot.id || 'version unavailable'} · ${snapshot.canonicalIssues.length} canonical records · filters affect cells and targets, never the per-model denominator.`),
+      })) : null,
+      stats.length ? modelEvidencePanel(stats, params) : null,
+      stats.length ? el('p', { class: 'method-note model-provenance' }, `Published gold snapshot: ${snapshot.id || 'version unavailable'} · ${snapshot.canonicalIssues.length} canonical records · filters affect cells and targets, never the per-model denominator.`) : null,
     ))
   }
 
   function discoveredModelCoverage(params) {
-    const selectedTools = values(params, 'skills')
-    const selectedTargets = values(params, 'targets')
-    const selectedLanguages = values(params, 'languages')
-    const eligible = verifiedRuns.filter((run) => matchesPlatform(run, params) && run.status === 'complete' && (!selectedTools.length || selectedTools.includes(skillIdentity(run))) && (!selectedTargets.length || selectedTargets.includes(run.targetId)) && (!selectedLanguages.length || selectedLanguages.includes(targetForRun(run)?.language)))
+    const eligible = verifiedRuns.filter((run) => run.status === 'complete' && matchesEvidenceDimensions(run, params))
     const allReal = new Set(eligible.flatMap((run) => run.issues.filter((issue) => issue.verdict === 'real').map((issue) => issue.id)))
     const body = el('tbody')
     for (const group of groupedStats(eligible, 'model', eligible).sort((a, b) => a.label.localeCompare(b.label))) {
@@ -1823,7 +1810,7 @@ if (typeof module !== 'undefined' && module.exports) {
     }
     return el('section', { class: 'panel' },
       el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Discovered coverage'), el('p', {}, 'Cohort-local discovery across every completed, hash-verified run for the selected skills, targets, and languages. Unreviewed findings have provisional identities. This panel does not change the sealed canonical model score.'))),
-      el('div', { class: 'table-wrap' }, el('table', {}, el('thead', {}, el('tr', {}, el('th', {}, 'Model'), el('th', { class: 'num' }, 'Distinct real'), el('th', { class: 'num' }, 'Discovered coverage'), el('th', { class: 'num' }, 'Provisional'), el('th', { class: 'num' }, 'Runs'))), body)),
+      eligible.length ? el('div', { class: 'table-wrap' }, el('table', {}, el('thead', {}, el('tr', {}, el('th', {}, 'Model'), el('th', { class: 'num' }, 'Distinct real'), el('th', { class: 'num' }, 'Discovered coverage'), el('th', { class: 'num' }, 'Provisional'), el('th', { class: 'num' }, 'Runs'))), body)) : el('div', { class: 'empty' }, 'No completed benchmark runs match these filters.'),
     )
   }
 
@@ -1831,7 +1818,6 @@ if (typeof module !== 'undefined' && module.exports) {
     if (params.get('group') === 'model') {
       const canonical = new URLSearchParams(params)
       canonical.delete('group')
-      canonical.delete('model')
       canonical.set('tab', 'models')
       window.history.replaceState(null, '', `#choose?${canonical.toString()}`)
       activeParams = canonical
@@ -1839,6 +1825,10 @@ if (typeof module !== 'undefined' && module.exports) {
     }
     if (params.get('tab') === 'models') return renderModelComparison(params)
     const base = verifiedRuns.filter((run) => matchesOverviewDimensions(run, params))
+    if (!base.length) return frame(el('div', {},
+      compactHero('Choose a reviewer', 'No completed benchmark results for these filters.', 'Experimental reports remain available separately and do not contribute to benchmark rankings.'),
+      chooseTabs(params, 'skills'), filterBar(params), experimentEvidencePanel(params),
+    ))
     const requestedGroup = params.get('group') || 'skill'
     const groupBy = ['skill', 'skillModel', 'language'].includes(requestedGroup) ? requestedGroup : 'skill'
     const sort = decisionSortKey(params)
@@ -1937,11 +1927,36 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function matchesExperiment(record, params) {
-    return matchesPlatform(record, params) && matchesSelectedModel(record, params) &&
-      (!values(params, 'skills').length || values(params, 'skills').includes(record.skillId)) &&
-      (!values(params, 'targets').length || values(params, 'targets').includes(record.targetId)) &&
-      (!values(params, 'languages').length || values(params, 'languages').includes(targets.get(record.targetId)?.language)) &&
+    return matchesEvidenceDimensions(record, params) &&
       (!params.get('experiment') || params.get('experiment') === record.experimentId)
+  }
+
+  function experimentEvidencePanel(params) {
+    const records = (DATA.experiments || []).filter((record) => matchesExperiment(record, params))
+    if (!records.length) return null
+    const groups = new Map()
+    for (const record of records) {
+      const key = `${record.platform}:${record.modelId}`
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key).push(record)
+    }
+    return el('section', { class: 'panel experiment-evidence' },
+      el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Experimental model evidence'),
+        el('p', {}, 'Archived trials are available for these filters. They have no benchmark precision, completeness, cost ranking, or canonical credit. Repeated trials count as separate reports.'))),
+      el('div', { class: 'table-wrap' }, el('table', {},
+        el('thead', {}, el('tr', {}, ['Model', 'Skill platform', 'Targets', 'Evidence'].map((label) => el('th', {}, label)))),
+        el('tbody', {}, [...groups.values()].map((rows) => {
+          const row = rows[0]
+          const query = new URLSearchParams()
+          for (const key of ['skills', 'targets', 'languages', 'experiment']) if (params.has(key)) query.set(key, params.get(key))
+          query.set('platform', row.platform)
+          query.set('model', row.modelId)
+          return el('tr', {}, el('td', {}, modelLabel(row.modelId)), el('td', {}, row.platform === 'codex' ? 'Codex' : 'Claude'),
+            el('td', {}, [...new Set(rows.map((record) => record.targetId))].join(', ')),
+            el('td', {}, el('a', { href: `#experiments?${query}`, class: 'experiment-evidence-link' }, `${rows.length} experimental reports`)))
+        })),
+      )),
+    )
   }
 
   function experimentTable(records) {
@@ -1966,7 +1981,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const all = DATA.experiments || []
     const records = all.filter((record) => matchesExperiment(record, params))
     const featured = records.filter((record) => record.featured)
-    const correction = all.find((record) => record.correction)?.correction
+    const correction = records.find((record) => record.platform === 'claude' && record.correction)?.correction
     const choices = (key, label) => [...new Map(all.map((record) => [record[key], label(record)])).entries()]
     const report = params.get('report') ? all.find((record) => record.id === params.get('report')) : null
     const totals = [...new Set(featured.map((record) => record.skillId))].map((id) => {
@@ -1981,7 +1996,7 @@ if (typeof module !== 'undefined' && module.exports) {
         modelPicker(params),
         checklist('Targets', 'targets', choices('targetId', (r) => r.targetId), params),
         field('Experiment', select('experiment-filter', [['', 'All experiments'], ...choices('experimentId', (r) => r.experimentId)], params.get('experiment') || '', (event) => viewParams(params, { experiment: event.target.value }))),
-        hashLink('Clear filters', '#experiments', 'button-link'),
+        el('a', { href: '#experiments', class: 'button-link' }, 'Clear filters'),
       ),
       params.get('report') ? report ? el('section', { class: 'panel experiment-panel', id: 'experiment-report' },
         el('h2', {}, `${report.skillLabel} · ${report.recordId}`),

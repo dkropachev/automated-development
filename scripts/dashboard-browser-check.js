@@ -62,7 +62,7 @@ function modelCompletenessDenominators(text) {
 
 function modelRows(text) {
   const table = text.match(/<table class="model-comparison-table">[\s\S]*?<tbody>([\s\S]*?)<\/tbody><\/table>/)
-  assert.ok(table, 'the model comparison must render model rows')
+  if (!table) return []
   return [...table[1].matchAll(/<tr([^>]*)>([\s\S]*?)<\/tr>/g)]
     .filter((match) => !match[1].includes('protocol-detail-row')).map((match) => ({
     html: match[2],
@@ -201,7 +201,7 @@ try {
   const models = render('choose?tab=models')
   assert.match(models.app, /Compare models against the canonical gold standard\./)
   assert.match(models.app, /aria-current="page" class="active">Models<\/a>/)
-  assert.doesNotMatch(models.app, /id="model-filter"/)
+  assert.match(models.app, /id="model-filter"/)
   assert.match(models.app, /id="model-scope"/)
   assert.match(models.app, /All models · 17 matched cells/)
   for (const label of ['Best value', 'Most complete', 'Lowest median cost', 'Fastest median runtime']) assert.match(models.app, new RegExp(`>${label}<`))
@@ -258,7 +258,8 @@ try {
   assert.deepEqual(discoveredRuns(cohortSkillModels.app), expectedDiscoveredRuns('code-review-ad'), 'cohort-only skills must filter discovered coverage')
 
   const protocolFiltered = render('choose?tab=models&skills=review-and-fix-pr')
-  assert.equal(modelRows(protocolFiltered.app).length, 3)
+  assert.equal(modelRows(protocolFiltered.app).length, 0)
+  assert.match(protocolFiltered.app, /No canonical benchmark results for these filters/)
   for (const row of modelRows(protocolFiltered.app)) {
     assert.match(row.html, /N\/A/)
     assert.doesNotMatch(row.html, /0 \/ 113/)
@@ -273,7 +274,7 @@ try {
 
   const controlledPair = render('choose?tab=models&scope=controlled-pair')
   assert.match(controlledPair.app, /Current controlled pair · 19 matched cells/)
-  assert.match(controlledPair.app, /<option value="all:controlled-pair" selected="">/)
+  assert.match(controlledPair.app, /<option value="controlled-pair" selected="">/)
   assert.deepEqual(modelRows(controlledPair.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1'])
   assert.deepEqual(linkedEvidenceCounts(controlledPair.app), [19, 19])
 
@@ -454,9 +455,31 @@ try {
   const qualifiedModels = render('choose?tab=models&skills=claude%3Abuiltin-code-review')
   assert.deepEqual(linkedEvidenceCounts(qualifiedModels.app), linkedEvidenceCounts(skillFilteredModels.app))
   assert.deepEqual(modelCompletenessDenominators(qualifiedModels.app), modelCompletenessDenominators(skillFilteredModels.app))
-  const codexModels = render('choose?tab=models&platform=codex')
+  const codexModels = render('choose?tab=models&platform=codex&scope=all-models')
   assert.deepEqual(discoveredRuns(codexModels.app), [])
-  assert.ok(linkedEvidenceCounts(codexModels.app).every((count) => !count), 'Codex experiments receive no canonical credit')
+  const assertNoCanonicalResults = (html) => {
+    assert.deepEqual(modelRows(html), [])
+    assert.doesNotMatch(html, /class="model-comparison-table"|class="model-winners"|class="notice model-legacy-warning"|id="canonical-evidence-title"|17 matched cells|19 matched cells/)
+    assert.match(html, /No canonical benchmark results for these filters/)
+  }
+  assertNoCanonicalResults(codexModels.app)
+  assert.match(codexModels.app, /<td>gpt-6.1-sol<\/td><td>Codex<\/td>/)
+  assert.match(codexModels.app, />27 experimental reports<\/a>/)
+  assert.doesNotMatch(codexModels.app, /<td[^>]*>(?:<strong>)?Claude/)
+  const explicitCodexModel = render('choose?tab=models&model=gpt-6.1-sol')
+  assertNoCanonicalResults(explicitCodexModel.app)
+  assert.deepEqual(discoveredRuns(explicitCodexModel.app), [])
+  assert.match(explicitCodexModel.app, />27 experimental reports<\/a>/)
+  const explicitClaudeModel = render('choose?tab=models&model=claude-opus-5-5')
+  assert.deepEqual(modelRows(explicitClaudeModel.app).map((row) => row.name), ['Claude Opus 5.5'])
+  assert.ok(discoveredRuns(explicitClaudeModel.app).every((id) => DASHBOARD_DATA.runs.find((run) => run.id === id).modelId === 'claude-opus-5-5'))
+  const unknownModel = render('choose?tab=models&model=unknown-model')
+  assertNoCanonicalResults(unknownModel.app)
+  assert.deepEqual(discoveredRuns(unknownModel.app), [])
+  assert.doesNotMatch(unknownModel.app, /class="experiment-evidence-link"/)
+  const noTargets = render('choose?tab=models&targets=not-recorded')
+  assertNoCanonicalResults(noTargets.app)
+  assert.deepEqual(discoveredRuns(noTargets.app), [])
 
   // Exercise the actual change handler: both dimensions must change together.
   const changePicker = (id, value) => `const picker = document.getElementById(${JSON.stringify(id)}); picker.value = ${JSON.stringify(value)}; picker.dispatchEvent(new Event('change'));`
@@ -471,12 +494,39 @@ try {
   assert.match(chooseAll.app, /value="all" selected=""/)
   const chooseClaudePlatform = render('experiments?platform=codex&model=gpt-6.1-sol', changePicker('model-filter', 'claude:all'))
   assert.match(chooseClaudePlatform.app, /Every archived trial · 3 records/)
-  const chooseCodexScope = render('choose?tab=models', changePicker('model-scope', 'codex:all-models'))
+  const chooseCodexScope = render('choose?tab=models', changePicker('model-filter', 'codex:all'))
   assert.deepEqual(discoveredRuns(chooseCodexScope.app), [])
-  assert.match(chooseCodexScope.app, /value="codex:all-models" selected=""/)
+  assert.match(chooseCodexScope.app, /value="codex:all" selected=""/)
   assert.doesNotMatch(chooseCodexScope.app, /id="platform-filter"/)
-  const restoreScope = render('choose?tab=models&platform=codex', changePicker('model-scope', 'all:all-models'))
+  const restoreScope = render('choose?tab=models&platform=codex', changePicker('model-filter', 'all'))
   assert.deepEqual(discoveredRuns(restoreScope.app), expectedDiscoveredRuns())
+  assertNoCanonicalResults(chooseCodexScope.app)
+  const followLeaderboard = render('experiments?platform=codex', `document.querySelector('.header-actions a[href^="#choose"]').click();`)
+  assert.match(followLeaderboard.app, /value="codex:all" selected=""/)
+  assert.match(followLeaderboard.app, /No completed benchmark results for these filters/)
+  assert.match(followLeaderboard.app, />27 experimental reports<\/a>/)
+  assert.doesNotMatch(followLeaderboard.app, /Decision leaderboard|class="leaderboard-table"/)
+  const followModels = render('choose?platform=codex&model=gpt-6.1-sol', `document.querySelector('.choose-tabs a[href*="tab=models"]').click();`)
+  assertNoCanonicalResults(followModels.app)
+  assert.match(followModels.app, /value="codex:gpt-6.1-sol" selected=""/)
+  const clearExperiments = render('experiments?platform=codex&model=gpt-6.1-sol&targets=quillstone', `document.querySelector('a[href="#experiments"]').click();`)
+  assert.match(clearExperiments.app, /Every archived trial · 30 records/)
+  assert.match(clearExperiments.app, /value="all" selected=""/)
+  const experimentLink = codexModels.app.match(/href="(#experiments\?[^"]+)" class="experiment-evidence-link"/)[1].replaceAll('&amp;', '&')
+  const modelExperiments = render(experimentLink.slice(1))
+  assert.match(modelExperiments.app, /Every archived trial · 27 records/)
+  const singleTargetExperiments = render('choose?tab=models&platform=codex&targets=quillstone')
+  const rustRecords = DASHBOARD_DATA.experiments.filter((r) => r.platform === 'codex' && r.targetId === 'quillstone')
+  assert.match(singleTargetExperiments.app, new RegExp(`>${rustRecords.length} experimental reports<`))
+  const rustCodexSummary = render('home?platform=codex&language=Rust')
+  assert.match(rustCodexSummary.app, new RegExp(`>${rustRecords.length} experimental reports<`))
+  assert.match(rustCodexSummary.app, /languages=Rust[^"]*" class="experiment-evidence-link"/)
+  const rustSummaryPanel = rustCodexSummary.app.match(/class="panel experiment-evidence"[\s\S]*?<\/section>/)[0]
+  assert.doesNotMatch(rustSummaryPanel, /ironweave|tidepool/)
+
+  const compareCodexOnly = render('compare?platform=codex&compareSkills=claude%3Acode-review-ad,codex%3Acode-review-ad')
+  assert.doesNotMatch(compareCodexOnly.app, /class="selection-card selected"[^>]*>[\s\S]*?code-review-ad · Claude/)
+
 
   // The summary controls must occupy one row with matching bottom edges at desktop width.
   const aligned = render('home', `const controls = [...document.querySelectorAll('.leader-pickers > .field')]; document.body.setAttribute('data-picker-layout', JSON.stringify(controls.map((node) => ({ bottom: node.getBoundingClientRect().bottom, height: node.getBoundingClientRect().height }))));`)
