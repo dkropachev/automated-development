@@ -75,7 +75,7 @@ function applyIdentities(data, catalog) {
     run.metrics.severityLowPlus = scored.filter((issue) => issue.verdict === 'real' && ['blocker', 'high', 'medium', 'low'].includes(issue.severity)).length
     run.metrics.falsePositiveRate = run.metrics.real + run.metrics.falsePositive ? run.metrics.falsePositive / (run.metrics.real + run.metrics.falsePositive) : null
     run.metrics.realPerDollar = run.usage.costUsd > 0 ? run.metrics.real / run.usage.costUsd : null
-    run.metrics.costPerReal = run.metrics.real > 0 ? run.usage.costUsd / run.metrics.real : null
+    run.metrics.costPerReal = run.metrics.real > 0 && run.usage.costUsd != null ? run.usage.costUsd / run.metrics.real : null
     run.metrics.minutesPerReal = run.metrics.real > 0 && run.wallMs != null ? run.wallMs / 60000 / run.metrics.real : null
   }
   data.identityIssues = [...identityById.values()]

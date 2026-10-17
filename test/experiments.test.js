@@ -77,8 +77,11 @@ for (const failure of ['missing report', 'hash mismatch', 'missing binding', 'ex
 }
 
 test('experiment publication leaves every benchmark metric and canonical mapping unchanged', (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'benchmark-without-experiments-'))
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }))
+  const repository = fs.mkdtempSync(path.join(os.tmpdir(), 'benchmark-without-experiments-'))
+  const root = path.join(repository, 'bench')
+  fs.mkdirSync(root)
+  t.after(() => fs.rmSync(repository, { recursive: true, force: true }))
+  fs.cpSync(path.join(ROOT, '../.agents/skills/code-review-ad'), path.join(repository, '.agents/skills/code-review-ad'), { recursive: true })
   for (const name of ['models.json', 'state.json', 'tools.json', 'issue-identities.json', 'runs', 'results', 'findings', 'judgement', 'groundtruth', 'gold']) {
     fs.cpSync(path.join(ROOT, name), path.join(root, name), { recursive: true })
   }
@@ -88,7 +91,7 @@ test('experiment publication leaves every benchmark metric and canonical mapping
   assert.deepEqual(after.issues, before.issues)
   assert.deepEqual(after.identityIssues, before.identityIssues)
   assert.deepEqual(after.modelComparison, before.modelComparison)
-  assert.ok(after.runs.every((r) => r.platform === 'claude' && r.skillId === `claude:${r.toolId}`))
+  assert.ok(after.runs.every((r) => r.platform === (after.cohorts.find((cohort) => cohort.id === r.cohortId).platform || 'claude') && r.skillId === `${r.platform}:${r.toolId}`))
   assert.deepEqual(after.tools.filter((tool) => tool.id === 'code-review-ad').map((tool) => tool.skillId).sort(), ['claude:code-review-ad', 'codex:code-review-ad'])
 })
 

@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 2,
+  "runId": "codex-code-review-ad-2026-10-17",
+  "requestedModel": "gpt-6.1-sol",
+  "modelLabel": "GPT-6.1 Sol",
+  "claudeVersion": null,
+  "configSha256": "c94d9b557d71eb6b25c4556cc6964310565e5398eecd13841149f2c92bbcf304",
+  "platform": "codex",
+  "codexReviewer": {
+    "executableSha256": "8f788a0679db24e2640b2c0b021dcda3df8046fa2956a9e608b081cc220312a3",
+    "reasoningEffort": "high",
+    "reviewerEffort": "xhigh",
+    "roles": [
+      "spec",
+      "standards",
+      "toolkit"
+    ],
+    "skill": {
+      "contentSha256": "28b74a25e7d8493be82f5df40be99cc5cbaa4a5ad2d7d59f1827a262576a2835",
+      "files": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa"
+      }
+    },
+    "version": "codex-cli 0.161.0"
+  },
+  "target": "ironweave",
+  "language": "C++",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "rawFindings": 8,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "stream_close() can hang indefinitely waiting on a stalled send, no timeout",
+      "file": "src/rpc/rpc.cc",
+      "line": 565,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "rpc connections build write_buf via fd.output() with default output_stream_options (batch_flushes=false, confirmed via include/seastar/rpc/rpc.hh:247 and include/seastar/core/iostream.hh:426/502), so send_entry()'s write_buf.flush() at src/rpc/rpc.cc:188 runs do_flush() synchronously and only resolves once the real socket write completes; stream_close() now awaits that same _outgoing_queue_ready chain (queue_drained) before calling write_buf.close(), with no timeout, so a frame already queued when stream_close() starts (e.g. the compressor's untimed send_empty_frame hook) that stalls on an unresponsive-but-connected peer blocks the close indefinitely. The reviewer's specific aside that the old code could unblock a stuck write via SHUT_WR is not supported (output_stream::close(), unmodified by this PR, already sequences _fd.close() strictly after any pending flush), but that does not change the core, demonstrable conclusion that this PR adds an unbounded wait where none was explicitly coordinated before.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The explicit wait on the outgoing queue before closing write_buf is new code added by this PR's stream_close() rewrite.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Queue draining can prevent shutdown from completing"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad": "An accepted compressor frame can be blocked in a direct socket write while the peer stays connected without reading, and the new wait delays socket shutdown until that write finishes. Previously, closing an empty local output buffer could reach SHUT_WR and release the blocked write. Without an independent disconnect or abort, stream closure can now wait indefinitely."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "New span-only data_sink_impl::put override fails to compile at API level 7/8",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1883,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Confirmed by direct compilation: data_sink_impl only declares put(std::span<temporary_buffer<char>>) as pure virtual when SEASTAR_API_LEVEL>=9 (include/seastar/core/iostream.hh:108-119); with -DSEASTAR_API_LEVEL=7 or =8 the base class instead declares put(net::packet). Compiling a minimal reproduction of test_data_sink_impl's unconditional `future<> put(std::span<...>) override` against this repo's headers with g++-14 at API level 7 and 8 both fail with 'marked override, but does not override', so rpc_test.cc would not compile for those two documented, cmake-configurable API levels.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "test_data_sink_impl is new test code added entirely by this PR.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "New sink breaks older supported API configurations, failing compilation"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad": "With Seastar_API_LEVEL=7 or 8, data_sink_impl requires put(net::packet). The unconditional span overload does not override that interface, leaving the helper abstract and preventing rpc_test from compiling."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Claim that the reproducer can pass without exercising the new guard is wrong",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2017,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "false-positive",
+      "verdictReason": "Empirically disproven: built the test with g++-14 and temporarily removed the `!_stream_closing` check from connection::send() (src/rpc/rpc.cc:293), leaving only `!_error`. Ran test_stream_send_after_stream_close 5 times; all 5 runs failed reliably at the BOOST_REQUIRE_MESSAGE(!st.put_after_close) check (rpc_test.cc:2030), i.e. the test does catch the absence of the guard rather than passing via an unrelated `_error` rejection. Restored the original guard afterward and confirmed the build and test are back to clean/passing.",
+      "introducedByPr": false,
+      "scope": "in-scope",
+      "scopeReason": "The claim concerns the new regression test added by this PR, even though the claim itself does not hold.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Reproducer test can pass without exercising the new guard"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad": "The peer can consume EOF and close its socket before the hook runs, causing the client receive loop to set _error. The existing rejection then satisfies the test even with _stream_closing rejection removed, so parking local sink closure does not exclude this ordering."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Test's try/catch for send rejection also silently accepts success, not just throw",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2016,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "rpc_test.cc:2016-2019 wraps stream_send_empty_frame().get() in a try/catch that only reacts to rpc::closed_error; if the call resolved successfully instead of throwing, the test would not fail on this line. The subsequent BOOST_REQUIRE_MESSAGE(!st.put_after_close) at line 2030 does catch the concrete consequence (a write reaching the closed sink), but it does not verify the documented contract that send() on a stream_closing connection must raise closed_error, so a future change that silently discards the frame instead of throwing would pass undetected.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This is the new regression test added by this PR.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Successful silent rejection also passes the test"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad": "The test catches closed_error but accepts normal completion. Returning success while discarding the frame therefore passes, despite violating the promised exceptional result."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "close_entered_cv.wait has no internal timeout, relies on the global test timeout",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2011,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "st.close_entered_cv.wait([&]{ return st.close_entered; }).get() at rpc_test.cc:2011 has no bound of its own; if stream_close() never reaches write_buf.close() the wait blocks until the external ctest/test.py timeout (default 300s). This is accurate, but the same unbounded condition_variable.wait pattern (relying on the suite's global timeout rather than a per-wait timeout) is already used elsewhere in this file, e.g. tests/unit/rpc_test.cc:1739-1740's _needs_progress condition_variable, so this is consistent with existing idiom rather than a new anti-pattern.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The wait is part of the new regression test added by this PR.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Close-entry wait has no local failure bound"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad": "If the expected close transition is not reached, this wait prevents release and cleanup from running. Only the external test timeout, 300 seconds by default, bounds the failure."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Failing BOOST_REQUIRE before sink close aborts the whole test process",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 2000,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Empirically confirmed: changed BOOST_REQUIRE_EQUAL(client_factory.hooks.size(), 2u) at rpc_test.cc:2000 to compare against 3u to force a failure before `sink`/`source` are closed, rebuilt, and ran the test. Boost.Test correctly reports the critical-check failure but then, while unwinding, destroys the still-open `sink`; sink_impl::~sink_impl()'s SEASTAR_ASSERT(this->_con->get()->sink_closed()) (include/seastar/rpc/rpc_impl.hh:935) fires and the process aborts ('terminate called without an active exception', 'Aborting on shard 0'), rather than cleanly reporting a single Boost.Test failure.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The unclosed sink/source local variables and the assertion that precedes closing them are part of the new regression test added by this PR.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Failed assertion bypasses required cleanup, risking abort"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad": "Failure of the hook-count assertion unwinds an unclosed sink, whose destructor asserts sink_closed(), potentially aborting the runner instead of reporting the assertion failure. Enclosing client cleanup runs only after these local handles unwind."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "\"Pass-through compressor\" comment mischaracterizes an LZ4-compressing helper",
+      "file": "tests/unit/rpc_test.cc",
+      "line": 1937,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "The comment at rpc_test.cc:1937-1938 calls hook_capturing_compressor_factory a 'pass-through compressor', but its compressor::compress/decompress (rpc_test.cc:1942-1947) delegate fully to rpc::lz4_fragmented_compressor and additionally substitute an empty snd_buf for zero-size data; it performs real LZ4 framing, not a byte pass-through, which could mislead a future reader into thinking the frame bytes are preserved verbatim.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment and the struct it describes are new, added by this PR's test file.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "\"Pass-through compressor\" inaccurately describes the helper"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad": "The helper performs LZ4 compression with chunk headers and additionally substitutes the empty-buffer representation. It preserves decoded content but does not pass through the input bytes."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "New source doc says throwing closes it, but decode exceptions skip close_source()",
+      "file": "include/seastar/rpc/rpc_types.hh",
+      "line": 387,
+      "kind": "docs",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "The new doc comment (rpc_types.hh:385-390) states a source 'is released by reading it until it yields an unengaged optional ... or throws, and there is no other way to do it', an unqualified absolute claim. But in source_impl::operator()() (include/seastar/rpc/rpc_impl.hh:941-979), both the fast path (existing buffered data) and the post-refill path call unmarshall() directly inside process_one_buffer() with no close_source() wrapping; close_source() is only invoked for a failed stream_receive() or for the empty-buffers EOF case. A decoding/unmarshalling exception therefore propagates to the caller without ever setting _source_closed, so an application that follows the documented contract (treat a caught exception as having closed the source) leaves stream_check_twoway_closed() permanently false, meaning stream_close() never runs even after the sink is also closed -- the connection is never shut down.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This absolute documentation contract is new in this PR; the pre-existing close_source() code path it inaccurately describes was not touched, but the incorrect/incomplete documentation of it is this PR's addition.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Decoding exception does not close the source despite documented contract"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/ironweave/code-review-ad": "The new documentation says reading until the source throws closes it, but exceptions from unmarshall() escape without calling close_source(); only receive failures and EOF perform that transition. Following the documented contract after a decoding exception can leave the connection open, and this is newly incorrect documentation of existing behavior."
+      }
+    }
+  ],
+  "judgeCostUsd": 2.9197481999999995,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 144,
+      "outputTokens": 59092,
+      "cacheReadInputTokens": 8270241,
+      "cacheCreationInputTokens": 168623,
+      "webSearchRequests": 0,
+      "costUSD": 2.9197481999999995,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 40406,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/ironweave/runs/codex-code-review-ad-2026-10-17/_judge/attempt-UCqYiD/repo",
+  "judgedAt": "2026-10-17T03:15:19.081Z"
+}

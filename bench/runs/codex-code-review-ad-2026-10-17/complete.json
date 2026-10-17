@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "runId": "codex-code-review-ad-2026-10-17",
+  "requestedModel": "gpt-6.1-sol",
+  "modelLabel": "GPT-6.1 Sol",
+  "claudeVersion": null,
+  "configSha256": "c94d9b557d71eb6b25c4556cc6964310565e5398eecd13841149f2c92bbcf304",
+  "platform": "codex",
+  "codexReviewer": {
+    "executableSha256": "8f788a0679db24e2640b2c0b021dcda3df8046fa2956a9e608b081cc220312a3",
+    "reasoningEffort": "high",
+    "reviewerEffort": "xhigh",
+    "roles": [
+      "spec",
+      "standards",
+      "toolkit"
+    ],
+    "skill": {
+      "contentSha256": "28b74a25e7d8493be82f5df40be99cc5cbaa4a5ad2d7d59f1827a262576a2835",
+      "files": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa"
+      }
+    },
+    "version": "codex-cli 0.161.0"
+  },
+  "createdAt": "2026-10-17T03:15:19.101Z",
+  "manifestSha256": "febdd3eb717323a2670b1edddfeffcb83dd5beb7aebed3ce6e6a3632ea780f9b",
+  "sealSha256": "46424f1c2909e37bc8331330d95ded43c25e26be39a4292efe6c2fd077cd7fff",
+  "findings": [
+    {
+      "file": "findings/ironweave/code-review-ad.json",
+      "sha256": "cbaa2050f81e582440326b1c3f70aa5b51fcac8db48f8e721b161524da47ed59"
+    },
+    {
+      "file": "findings/quillstone/code-review-ad.json",
+      "sha256": "bf5bd2970b9c88365e8690d9a1b2f702a33246367830fd647c2a3a39a95b4679"
+    },
+    {
+      "file": "findings/tidepool/code-review-ad.json",
+      "sha256": "469ba4153a8bfbc70dc00415a3e58031fd5ff77a416028928ef7e9151484237a"
+    }
+  ],
+  "judgements": [
+    {
+      "file": "judgement/ironweave.json",
+      "sha256": "7bab7668068e4e0a4f64ec215a07ac9922060bfe5405f565bcd1df60755433b9"
+    },
+    {
+      "file": "judgement/quillstone.json",
+      "sha256": "d2350098c1eb5dd8655438df83a52488ff853f00c29349fac2b32d49095b41dc"
+    },
+    {
+      "file": "judgement/tidepool.json",
+      "sha256": "e62186cadcfec1a0afdf9d8727fe52200b5d7dfca6e1cc74993b6122403019be"
+    }
+  ]
+}

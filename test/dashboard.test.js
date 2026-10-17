@@ -279,9 +279,9 @@ test('artifact loader reads the complete tracked matrix without runtime transcri
   const data = dashboard.loadArtifacts()
   assert.equal(data.schemaVersion, 3)
   assert.equal(data.defaultModel, 'claude-opus-5-5')
-  assert.deepEqual(data.models.map((model) => model.id), [
-    'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-fable-5-1', 'claude-opus-5',
-  ])
+  const configuredIds = JSON.parse(fs.readFileSync(path.join(ROOT, 'bench/models.json'))).models.map((model) => model.id)
+  const completedIds = data.cohorts.map((cohort) => cohort.requestedModel || cohort.observedModel).filter(Boolean)
+  assert.deepEqual(data.models.map((model) => model.id).sort(), [...new Set([...configuredIds, ...completedIds])].sort())
   assert.ok(data.cohorts.some((cohort) => cohort.id === 'legacy'))
   assert.equal(data.cohorts.find((cohort) => cohort.id === 'legacy').complete, false)
   assert.ok(data.cohorts.filter((cohort) => !cohort.legacy).every((cohort) => cohort.complete))
@@ -522,7 +522,7 @@ test('dashboard model picker defaults to all models and keeps observed stack sep
   assert.match(html, /"id":"claude-fable-5-1","label":"Claude Fable 5\.1"/)
   assert.match(html, /function selectedModel\(params\)/)
   assert.match(html, /return params\.get\('model'\) \|\| 'all'/)
-  assert.match(html, /'all', 'All models \/ history'/)
+  assert.match(html, /'all', 'All models'/)
   assert.match(html, /return selected === 'all' \|\| run\.modelId === selected/)
   assert.match(html, /summaryItem\('Model under test'/)
   assert.match(html, /summaryItem\('Observed model stack'/)

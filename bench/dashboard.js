@@ -12,6 +12,7 @@ const {
 const { applyIdentities, loadCatalog, revisionKey } = require('./issue-identities')
 
 const { loadExperiments, experimentTools } = require('./experiments')
+const { snapshotSkill } = require('./lib/codex-review')
 
 const ROOT = __dirname
 const ASSET_DIR = path.join(ROOT, 'dashboard')
@@ -334,14 +335,14 @@ function targetView(target, groundtruth = null) {
   }
 }
 
-function toolView(tool) {
+function toolView(tool, platform = 'claude') {
   const {
     id, label, source, languages, parked, parkedReason, catalogId, catalogLabel,
     description, install, invoke, repoUrl, pageUrl, experimental, selfAuthored, reviewOnly,
     requiresPluginDir, resultContract, cohortOnly,
   } = tool
   return {
-    id, platform: 'claude', skillId: `claude:${id}`, label: `${id === 'code-review-ad' ? id : label} · Claude`, source, languages: languages || null, parked: Boolean(parked), parkedReason: parkedReason || null,
+    id, platform, skillId: `${platform}:${id}`, label: `${id === 'code-review-ad' ? id : label} · ${platform === 'codex' ? 'Codex' : 'Claude'}`, source, languages: languages || null, parked: Boolean(parked), parkedReason: parkedReason || null,
     catalogId: catalogId || id, catalogLabel: catalogLabel || label, description: description || null,
     install: install || null, invoke: invoke || null, repoUrl: repoUrl || null, pageUrl: pageUrl || null,
     ...(experimental == null ? {} : { experimental: Boolean(experimental) }),
@@ -587,7 +588,7 @@ function loadArtifacts(root = ROOT) {
     const completed = readComplete(root, entry.runId)
     const manifest = completed.manifest
     contexts.push({
-      cohort: { ...entry, ...manifest, label: manifest.modelLabel, complete: true },
+      cohort: { ...entry, ...manifest, label: manifest.modelLabel, complete: true, completedAt: completed.complete.createdAt },
       targets: Object.values(manifest.targetMetadata),
       toolFile: manifest.toolConfig,
       groundtruth: manifest.groundtruth || {},
@@ -603,9 +604,9 @@ function loadArtifacts(root = ROOT) {
       targetDataById.get(target.id).snapshots[context.cohort.runId] = snapshot
     }
     for (const tool of context.toolFile.tools || []) {
-      const snapshot = toolView(tool)
-      if (!toolDataById.has(tool.id)) toolDataById.set(tool.id, { ...snapshot, snapshots: {} })
-      toolDataById.get(tool.id).snapshots[context.cohort.runId] = snapshot
+      const snapshot = toolView(tool, context.cohort.platform || 'claude')
+      if (!toolDataById.has(snapshot.skillId)) toolDataById.set(snapshot.skillId, { ...snapshot, snapshots: {} })
+      toolDataById.get(snapshot.skillId).snapshots[context.cohort.runId] = snapshot
     }
   }
   const runs = []
@@ -654,9 +655,9 @@ function loadArtifacts(root = ROOT) {
         const claims = findingRecord.findings || []
         const usage = normalizeUsage(record)
         const tool = toolById.get(record.tool)
-        const toolSnapshot = toolView(tool || { id: record.tool, label: record.label || record.tool })
-        if (!toolDataById.has(record.tool)) toolDataById.set(record.tool, { ...toolSnapshot, snapshots: {} })
-        toolDataById.get(record.tool).snapshots[cohortId] = toolSnapshot
+        const toolSnapshot = toolView(tool || { id: record.tool, label: record.label || record.tool }, cohort.platform || 'claude')
+        if (!toolDataById.has(toolSnapshot.skillId)) toolDataById.set(toolSnapshot.skillId, { ...toolSnapshot, snapshots: {} })
+        toolDataById.get(toolSnapshot.skillId).snapshots[cohortId] = toolSnapshot
         const identity = modelIdentity(cohort, record, configuredModels, usage)
         const run = {
           id: `${cohortId}/${target.id}/${record.tool}`,
@@ -671,8 +672,9 @@ function loadArtifacts(root = ROOT) {
           targetLabel: `${target.id} · ${target.language}`,
           targetSnapshot: snapshot,
           toolId: record.tool,
-          platform: 'claude',
-          skillId: `claude:${record.tool}`,
+          platform: cohort.platform || 'claude',
+          skillId: `${cohort.platform || 'claude'}:${record.tool}`,
+          ...(cohort.codexReviewer ? { skillFingerprint: cohort.codexReviewer.skill.contentSha256, codexVersion: cohort.codexReviewer.version } : {}),
           toolLabel: toolSnapshot.label,
           toolSource: (tool && tool.source) || record.source || null,
           toolSnapshot,
@@ -732,6 +734,31 @@ function loadArtifacts(root = ROOT) {
     const modelId = cohort.requestedModel || cohort.observedModel
     if (modelId && !models.some((model) => model.id === modelId)) models.push({ id: modelId, label: cohort.modelLabel || modelId, cliModel: null })
   }
+  const skillDirectory = path.join(root, '..', '.agents', 'skills', 'code-review-ad')
+  const currentSkillVersions = fs.existsSync(skillDirectory) ? { 'codex:code-review-ad': snapshotSkill(skillDirectory).contentSha256 } : {}
+  const latest = new Map()
+  const evaluations = []
+  for (const cohort of cohorts.filter((entry) => entry.platform === 'codex' && entry.complete).sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.runId.localeCompare(b.runId))) {
+    const rows = runs.filter((run) => run.cohortId === cohort.runId)
+    if (!rows.length || rows.some((run) => run.status !== 'complete')) continue
+    const skillIds = [...new Set(rows.map((run) => run.skillId))]
+    if (skillIds.length !== 1) continue
+    const expectedTargets = Object.keys(state.targets || {}).sort()
+    if (JSON.stringify([...new Set(rows.map((run) => run.targetId))].sort()) !== JSON.stringify(expectedTargets)) continue
+    const key = `${skillIds[0]}:${cohort.requestedModel}`
+    const evaluation = { id: cohort.runId, skillId: skillIds[0], platform: 'codex', modelId: cohort.requestedModel,
+      skillFingerprint: cohort.codexReviewer.skill.contentSha256, runtimeVersion: cohort.codexReviewer.version,
+      reasoningEffort: cohort.codexReviewer.reasoningEffort, reviewerEffort: cohort.codexReviewer.reviewerEffort,
+      completedAt: cohort.completedAt,
+      runIds: rows.map((run) => run.id), targetIds: expectedTargets,
+    }
+    evaluations.push(evaluation)
+    const previous = latest.get(key)
+    if (currentSkillVersions[skillIds[0]] === evaluation.skillFingerprint && (!previous || Date.parse(evaluation.completedAt) > Date.parse(previous.completedAt) || (evaluation.completedAt === previous.completedAt && evaluation.id.localeCompare(previous.id) > 0))) latest.set(key, evaluation)
+  }
+  const currentEvaluations = [...latest.values()]
+  const currentRunIds = new Set(currentEvaluations.flatMap((entry) => entry.runIds))
+  for (const run of runs) if (run.platform === 'codex') run.currentEvaluation = currentRunIds.has(run.id)
   const modelComparison = loadPublishedModelComparison(root, runs)
   const cohortToolSnapshots = new Map()
   for (const run of runs) {
@@ -757,6 +784,7 @@ function loadArtifacts(root = ROOT) {
         modelLabel: cohort.modelLabel || null,
         modelProvenance: cohort.requestedModel ? 'requested' : cohort.observedModel ? 'observed' : 'unavailable',
         claudeVersion: cohort.claudeVersion || null,
+        ...(cohort.codexReviewer ? { platform: 'codex', codexReviewer: cohort.codexReviewer } : {}),
         createdAt: cohort.createdAt || null,
         complete: Boolean(cohort.complete),
         legacy: Boolean(cohort.legacy),
@@ -769,6 +797,9 @@ function loadArtifacts(root = ROOT) {
     runs,
     modelComparison,
     experiments,
+    currentSkillVersions,
+    currentEvaluations,
+    evaluations,
   }, loadCatalog(root))
 }
 

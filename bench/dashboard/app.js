@@ -203,7 +203,7 @@ if (typeof module !== 'undefined' && module.exports) {
   function metricLabel(label, hint) { return hintedLabel(label, hint || metricHints[label]) }
 
   const usageSourceHints = {
-    transcript: 'Read from the stored Claude Code transcript cost and usage records.',
+    transcript: 'Read from the stored runtime transcript usage records. Missing dollar receipts stay unavailable.',
     model: 'Summed from per-model usage recorded by the run result.',
     reported: 'Taken from the usage totals reported directly by the runner.',
     mixed: 'Different fields came from transcript, per-model, and runner-reported records.',
@@ -282,7 +282,7 @@ if (typeof module !== 'undefined' && module.exports) {
   function preserveModel(hash) {
     if (!hash.startsWith('#')) return hash
     const query = new URLSearchParams(hash.split('?')[1] || '')
-    for (const key of ['platform', 'model']) {
+    for (const key of ['platform', 'model', 'history']) {
       const value = activeParams.get(key)
       if (value && !query.has(key)) hash += `${hash.includes('?') ? '&' : '?'}${key}=${encodeURIComponent(value)}`
     }
@@ -322,7 +322,7 @@ if (typeof module !== 'undefined' && module.exports) {
             navLink('Insights', 'insights'),
             navLink('Findings', 'findings'),
             navLink('Runs', 'runs'),
-            navLink('Experiments', 'experiments'),
+            navLink('Evaluation', 'experiments'),
           ),
         ),
         el('main', { id: 'main' }, content),
@@ -460,7 +460,7 @@ if (typeof module !== 'undefined' && module.exports) {
       selections.set(value, { platform, model })
       parent.append(option(value, label, value === selected))
     }
-    add(control, 'all', 'All models / history', 'all', 'all')
+    add(control, 'all', 'All models', 'all', 'all')
     // Preserve model-only URLs as cross-platform selections. Choosing a grouped option sets
     // both dimensions together, so an old platform filter cannot hide the new model.
     if (platform === 'all' && model !== 'all') add(control, model, modelLabel(model), 'all', model)
@@ -507,10 +507,10 @@ if (typeof module !== 'undefined' && module.exports) {
       const input = el('input', { id: 'run-search', type: 'search', value: params.get('q') || '', placeholder: 'Search…', onchange: (event) => viewParams(params, { q: event.target.value.trim() }) })
       bar.append(field('Search', input, 'search'))
     }
-    const hasFilters = ['platform', 'skills', 'model', 'languages', 'targets', 'q', 'status', 'runIds'].some((key) => params.has(key))
+    const hasFilters = ['platform', 'skills', 'model', 'languages', 'targets', 'q', 'status', 'runIds', 'history'].some((key) => params.has(key))
     if (hasFilters) bar.append(el('button', { class: 'clear-filters', onclick: () => {
       const next = new URLSearchParams(params)
-      for (const key of ['platform', 'skills', 'model', 'languages', 'targets', 'q', 'status', 'runIds']) next.delete(key)
+      for (const key of ['platform', 'skills', 'model', 'languages', 'targets', 'q', 'status', 'runIds', 'history']) next.delete(key)
       location.hash = activeView + (next.toString() ? '?' + next.toString() : '')
     } }, 'Clear filters'))
     return bar
@@ -518,6 +518,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
   // Use the same dimensions for benchmark, canonical, and experiment evidence.
   function matchesEvidenceDimensions(record, params) {
+    if (record.platform === 'codex' && record.cohortId && !record.currentEvaluation && params.get('history') !== 'all' && !values(params, 'runIds').length && params.get('evaluation') !== record.cohortId) return false
     const selectedTargets = values(params, 'targets')
     const selectedSkills = values(params, 'skills')
     const selectedLanguages = values(params, 'languages')
@@ -601,7 +602,7 @@ if (typeof module !== 'undefined' && module.exports) {
     for (const run of universeRows.filter((item) => item.status === 'complete' && cohortTargets.has(item.revisionKey))) {
       for (const issue of run.issues) if (issue.verdict === 'real') universe.set(issueKey(run.targetId, issue), issue)
     }
-    const cost = total(rows, (run) => run.usage.costUsd)
+    const cost = rows.every((run) => run.usage.costUsd != null) ? total(rows, (run) => run.usage.costUsd) : null
     const decided = real.length + falsePositive.length
     const weightedQuality = high * 8 + medium * 4 + real.filter((row) => row.issue.severity === 'low').length - falsePositive.length * 3
     const completenessFor = (severities) => {
@@ -714,7 +715,7 @@ if (typeof module !== 'undefined' && module.exports) {
       experimentalToolBadge(skill),
       el('h3', {}, hashLink(skill.label, `#skills/${encodeURIComponent(skill.id)}`)),
       el('p', {}, skill.description || 'No description is recorded for this skill.'),
-      el('span', { class: 'skill-facts' }, !skill.rows.length ? `${skill.experiments.length} experiment records · Benchmark metrics unavailable` : `${skill.rows.length} benchmark runs · ${skill.experiments.length} experiment records · ${stats.real} discovered real finding${stats.real === 1 ? '' : 's'} · ${fmt(stats.cost, 'money')} attempted cost`),
+      el('span', { class: 'skill-facts' }, !skill.rows.length ? 'No completed current-version benchmark'  : `${skill.rows.length} benchmark runs · ${stats.real} discovered real finding${stats.real === 1 ? '' : 's'} · ${fmt(stats.cost, 'money')} attempted cost`),
     )
   }
 
@@ -773,7 +774,7 @@ if (typeof module !== 'undefined' && module.exports) {
           el('p', {}, 'Compare Claude benchmark results and separate Codex and Claude experiments on real Go, Rust, and C++ pull requests. Experimental groups never contribute to benchmark rankings.'),
           el('div', { class: 'hero-actions' },
             hashLink('Explore the leaderboard', '#choose', 'button-link primary'),
-            hashLink('Archived experiments', '#experiments', 'button-link'),
+            hashLink('Latest skill evaluation', '#experiments', 'button-link'),
           ),
         ),
         el('div', { class: 'landing-proof', 'aria-label': 'Benchmark size' },
@@ -783,7 +784,7 @@ if (typeof module !== 'undefined' && module.exports) {
         ),
       ),
       leaderRuns.length ? null : el('div', { class: 'notice info evidence-note' }, 'No completed benchmark runs match these filters. Experimental reports do not contribute to benchmark rankings.'),
-      leaderRuns.length ? null : experimentEvidencePanel(evidenceParams),
+      experimentEvidencePanel(evidenceParams),
       el('section', { class: 'landing-section leaders-section', 'aria-labelledby': 'leaders-title' },
         el('div', { class: 'landing-section-head' },
           el('div', {}, el('div', { class: 'eyebrow' }, 'Benchmark leaders'), el('h2', { id: 'leaders-title' }, 'Leaders'), el('p', {}, 'The strongest value, coverage, speed, and discovery results for the selected filters.')),
@@ -1349,6 +1350,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const requestedScope = params.get('scope')
     const scope = snapshot.scopes.find((item) => item.id === requestedScope && !item.id.startsWith('supplemental-')) || snapshot.scopes.find((item) => item.id === 'all-models') || snapshot.scopes[0]
     const stats = comparisonStats(snapshot, scope, params)
+    const current = evaluationRows(params)
     const valueWinner = modelWinner(stats, (row) => row.realPerDollar)
     const completenessWinner = modelWinner(stats, (row) => row.completeness)
     const costWinner = modelWinner(stats, (row) => row.medianCost, 1)
@@ -1361,7 +1363,7 @@ if (typeof module !== 'undefined' && module.exports) {
     }))
     const hasCanonicalSelection = modelScopes.some((candidate) => filteredComparisonSources(snapshot, candidate, params).length)
     frame(el('div', {},
-      compactHero('Choose a reviewer', stats.length ? 'Compare models against the canonical gold standard.' : 'No canonical benchmark results for these filters.', stats.length ? 'Recorded benchmark spend, verified detections, runtime, and reliability over pinned pull requests. Supplemental skills appear on the Skills tab.' : 'Only evidence in an accepted gold snapshot can enter this ranking. Experimental reports are shown separately when available.'),
+      compactHero('Choose a reviewer', stats.length ? 'Compare models against the canonical gold standard.' : current.length ? 'Latest completed skill evaluation.' : 'No canonical benchmark results for these filters.', stats.length ? 'Recorded benchmark spend, verified detections, runtime, and reliability over pinned pull requests. Supplemental skills appear on the Skills tab.' : 'Current-version benchmark results are shown below. Canonical comparison requires a separately accepted gold snapshot.'),
       chooseTabs(params, 'models'),
       el('section', { class: 'model-scope-controls' }, modelPicker(params), hasCanonicalSelection ? scopePicker : null, el('p', {}, stats.length ? 'The completeness denominator is the same for every model: all canonical real issues on the targets selected below.' : 'No selected evidence is eligible for this canonical ranking.')),
       modelComparisonFilterBar(params, snapshot, scope),
@@ -1487,7 +1489,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const displayRows = base.filter((run) => selected.includes(skillIdentity(run)))
     const groups = selected.map((toolId) => aggregateRuns(toolId, tools.get(toolId)?.label || toolId, 'Skill', displayRows.filter((run) => skillIdentity(run) === toolId), base, true))
     const unionReal = new Set(groups.flatMap((group) => group.realRows.map((row) => issueKey(row.targetId, row.issue))))
-    const portfolioCost = total(groups, (group) => group.cost)
+    const portfolioCost = groups.every((group) => group.cost != null) ? total(groups, (group) => group.cost) : null
     frame(el('div', {},
       compactHero('Compare skills', 'Put reviewers head to head.', 'Select two to five skills. Completed runs on the same pinned PR revision share reviewed issue identities across cohorts.'),
       filterBar(dimensionParams, { skills: false }),
@@ -1523,32 +1525,58 @@ if (typeof module !== 'undefined' && module.exports) {
       (!params.get('experiment') || params.get('experiment') === record.experimentId)
   }
 
-  function experimentEvidencePanel(params) {
-    const records = (DATA.experiments || []).filter((record) => matchesExperiment(record, params))
-    if (!records.length) return null
-    const groups = new Map()
-    for (const record of records) {
-      const key = `${record.platform}:${record.modelId}`
-      if (!groups.has(key)) groups.set(key, [])
-      groups.get(key).push(record)
-    }
-    return el('section', { class: 'panel experiment-evidence' },
-      el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, 'Experimental model evidence'),
-        el('p', {}, 'Archived trials are available for these filters. They have no benchmark precision, completeness, cost ranking, or canonical credit. Repeated trials count as separate reports.'))),
-      el('div', { class: 'table-wrap' }, el('table', {},
-        el('thead', {}, el('tr', {}, ['Model', 'Skill platform', 'Targets', 'Evidence'].map((label) => el('th', {}, label)))),
-        el('tbody', {}, [...groups.values()].map((rows) => {
-          const row = rows[0]
-          const query = new URLSearchParams()
-          for (const key of ['skills', 'targets', 'languages', 'experiment']) if (params.has(key)) query.set(key, params.get(key))
-          query.set('platform', row.platform)
-          query.set('model', row.modelId)
-          return el('tr', {}, el('td', {}, modelLabel(row.modelId)), el('td', {}, row.platform === 'codex' ? 'Codex' : 'Claude'),
-            el('td', {}, [...new Set(rows.map((record) => record.targetId))].join(', ')),
-            el('td', {}, el('a', { href: `#experiments?${query}`, class: 'experiment-evidence-link' }, `${rows.length} experimental reports`)))
-        })),
-      )),
+  function evaluationRows(params) {
+    const available = params.has('evaluation') ? (DATA.evaluations || []).filter((entry) => entry.id === params.get('evaluation')) : DATA.currentEvaluations || []
+    return available.map((entry) => ({ ...entry, rows: entry.runIds.map((id) => runs.get(id)).filter((run) => run && matchesEvidenceDimensions(run, params)) }))
+      .filter((entry) => entry.rows.length)
+  }
+
+  function evaluationCard(entry, detail = false, params = activeParams) {
+    const rows = entry.rows
+    const localIssues = rows.flatMap((run) => run.localIssues)
+    const real = localIssues.filter((issue) => issue.verdict === 'real').length
+    const falsePositive = localIssues.filter((issue) => issue.verdict === 'false-positive').length
+    const latest = (DATA.currentEvaluations || []).some((current) => current.id === entry.id)
+    const query = new URLSearchParams({ evaluation: entry.id, platform: entry.platform, model: entry.modelId })
+    for (const key of ['targets', 'languages']) if (params.has(key)) query.set(key, params.get(key))
+    return el('section', { class: 'panel current-evaluation', 'data-evaluation-id': entry.id },
+      el('div', { class: 'panel-head' }, el('div', {}, el('h2', {}, latest ? 'Latest completed skill evaluation' : 'Completed skill evaluation'),
+        el('p', {}, `${tools.get(entry.skillId)?.label || entry.skillId} · ${modelLabel(entry.modelId)} · completed ${entry.completedAt.slice(0, 10)}`),
+        el('p', {}, `Skill ${entry.skillFingerprint.slice(0, 12)} · parent ${entry.reasoningEffort} / reviewers ${entry.reviewerEffort}`))),
+      el('div', { class: 'panel-body' },
+        el('p', {}, `Completed on all ${entry.targetIds.length} benchmark targets. Showing ${rows.length} of ${entry.targetIds.length} targets for these filters. Findings are cohort-local judgements; this evaluation has no canonical gold score.`),
+        el('section', { class: 'kpis decision-kpis' },
+          kpi('Real findings', fmt(real), 'cohort-local judge'),
+          kpi('Precision', fmt(real + falsePositive ? real / (real + falsePositive) : null, 'percent'), 'real / decided findings'),
+          kpi('Tokens', fmt(total(rows, (run) => run.usage.total)), 'parent and all three reviewers'),
+          kpi('Review cost', 'unavailable', 'no recorded USD receipt'),
+        ),
+        detail ? el('div', { class: 'table-wrap' }, el('table', { class: 'evaluation-targets' },
+          el('thead', {}, el('tr', {}, ['Target', 'Real findings', 'Tokens', 'Report'].map((label) => el('th', {}, label)))),
+          el('tbody', {}, rows.map((run) => el('tr', {}, el('td', {}, run.targetId),
+            el('td', { class: 'num' }, fmt(run.localIssues.filter((issue) => issue.verdict === 'real').length)),
+            el('td', { class: 'num' }, fmt(run.usage.total)), el('td', {}, hashLink('Read report', runHash(run), 'run-link'))))),
+        )) : el('a', { href: `#experiments?${query}`, class: 'evaluation-link' }, 'View evaluation'),
+      ),
     )
+  }
+
+  function experimentEvidencePanel(params) {
+    const entries = evaluationRows(params)
+    return entries.length ? el('div', {}, entries.map((entry) => evaluationCard(entry, false, params))) : null
+  }
+
+  function renderCurrentEvaluations(params) {
+    const entries = evaluationRows(params)
+    const archive = new URLSearchParams(params)
+    archive.delete('evaluation')
+    archive.set('history', 'all')
+    frame(el('div', {},
+      compactHero('Skill evaluation', params.has('evaluation') && !(DATA.currentEvaluations || []).some((entry) => entry.id === params.get('evaluation')) ? 'Recorded skill evaluation' : 'Latest skill evaluation', 'Completed full benchmark results tied to the recorded skill files.'),
+      filterBar(params),
+      entries.length ? entries.map((entry) => evaluationCard(entry, true, params)) : el('div', { class: 'empty panel' }, 'No completed evaluation of the current skill matches these filters.'),
+      el('p', { class: 'method-note' }, el('a', { href: `#experiments?${archive}`, class: 'archive-link' }, 'View archived trials')),
+    ))
   }
 
   function experimentTable(records) {
@@ -1570,6 +1598,7 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function renderExperiments(params) {
+    if (params.get('history') !== 'all' && !params.has('report') && !params.has('experiment')) return renderCurrentEvaluations(params)
     const all = DATA.experiments || []
     const records = all.filter((record) => matchesExperiment(record, params))
     const featured = records.filter((record) => record.featured)
@@ -1582,13 +1611,14 @@ if (typeof module !== 'undefined' && module.exports) {
       return el('p', {}, `${rows[0].skillLabel}: ${rows.length} target records · ${sum('verifiedGroups')} verified groups · ${sum('bugGroups')} bug groups · ${sum('totalTokens')} tokens`)
     })
     frame(el('div', {},
-      compactHero('Archived experiments', 'Codex and Claude skill experiments', 'Exploratory, repeated trials. These records contribute no benchmark precision, completeness, cost ranking, or canonical gold credit. Missing measurements are unavailable; raw reports retain rejected claims.'),
+      compactHero('Archived experiments', 'Archived Codex and Claude trials', 'Exploratory, repeated trials. These records contribute no benchmark precision, completeness, cost ranking, or canonical gold credit. Missing measurements are unavailable; raw reports retain rejected claims.'),
+      el('p', {}, el('a', { href: '#experiments', class: 'button-link' }, 'Latest evaluation')),
       el('section', { class: 'filter-bar', 'aria-label': 'Experiment filters' },
         checklist('Skills', 'skills', choices('skillId', (r) => r.skillLabel), params),
         modelPicker(params),
         checklist('Targets', 'targets', choices('targetId', (r) => r.targetId), params),
         field('Experiment', select('experiment-filter', [['', 'All experiments'], ...choices('experimentId', (r) => r.experimentId)], params.get('experiment') || '', (event) => viewParams(params, { experiment: event.target.value }))),
-        el('a', { href: '#experiments', class: 'button-link' }, 'Clear filters'),
+        el('a', { href: '#experiments?history=all', class: 'button-link' }, 'Clear archive filters'),
       ),
       params.get('report') ? report ? el('section', { class: 'panel experiment-panel', id: 'experiment-report' },
         el('h2', {}, `${report.skillLabel} · ${report.recordId}`),
@@ -1613,7 +1643,7 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function skillCatalogue(sourceRuns = verifiedRuns, params = activeParams) {
-    const experimentRows = (DATA.experiments || []).filter((record) => matchesExperiment(record, params))
+    const experimentRows = params.get('history') === 'all' ? (DATA.experiments || []).filter((record) => matchesExperiment(record, params)) : []
     return DATA.tools.filter((tool) => matchesPlatform(tool, params)).map((tool) => {
       const id = tool.skillId || qualifiedSkill(tool.id)
       const rows = sourceRuns.filter((run) => skillIdentity(run) === id)
@@ -1637,7 +1667,7 @@ if (typeof module !== 'undefined' && module.exports) {
       ),
       el('div', { class: 'skill-actions' },
         skill.rows.length ? runCountLink(skill.rows, `${skill.rows.length} benchmark runs`) : el('span', {}, '0 benchmark runs'),
-        hashLink(`${skill.experiments.length} experiment records`, `#experiments?skills=${encodeURIComponent(skill.id)}`),
+        (DATA.currentEvaluations || []).some((entry) => entry.skillId === skill.id) ? hashLink('Latest evaluation', `#experiments?skills=${encodeURIComponent(skill.id)}`) : null,
         skill.repoUrl ? externalLink('GitHub ↗', skill.repoUrl) : null,
         skill.pageUrl ? externalLink('Skill page ↗', skill.pageUrl) : null,
       ),

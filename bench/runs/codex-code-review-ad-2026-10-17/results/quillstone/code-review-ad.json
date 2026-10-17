@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 2,
+  "runId": "codex-code-review-ad-2026-10-17",
+  "requestedModel": "gpt-6.1-sol",
+  "modelLabel": "GPT-6.1 Sol",
+  "claudeVersion": null,
+  "configSha256": "c94d9b557d71eb6b25c4556cc6964310565e5398eecd13841149f2c92bbcf304",
+  "platform": "codex",
+  "codexReviewer": {
+    "executableSha256": "8f788a0679db24e2640b2c0b021dcda3df8046fa2956a9e608b081cc220312a3",
+    "reasoningEffort": "high",
+    "reviewerEffort": "xhigh",
+    "roles": [
+      "spec",
+      "standards",
+      "toolkit"
+    ],
+    "skill": {
+      "contentSha256": "28b74a25e7d8493be82f5df40be99cc5cbaa4a5ad2d7d59f1827a262576a2835",
+      "files": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa"
+      }
+    },
+    "version": "codex-cli 0.161.0"
+  },
+  "target": "quillstone",
+  "tool": "code-review-ad",
+  "cellId": "codex-code-review-ad-2026-10-17/quillstone/code-review-ad",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "label": "code-review-ad",
+  "source": "repository:.agents/skills/code-review-ad",
+  "exitCode": 0,
+  "signal": null,
+  "isError": false,
+  "apiErrorStatus": null,
+  "result": "## Toolkit\n\n- **[P2] Keyspace setup failures lose warning visibility** — [connection_pool.rs:903](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/quillstone/scylla/src/network/connection_pool.rs:903). Failed initialization `USE` requests previously logged at WARN and now log at DEBUG. When existing connections remain, the error also stays out of shared pool state. At INFO/WARN, repeated refill failures therefore become invisible to callers and operators.\n\n- **[P2] New regression test has unbounded waits** — [connection_pool.rs:1634](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/quillstone/scylla/src/network/connection_pool.rs:1634), repeated at line 1667. Both waits depend on a keyspace request without a local timeout. If that operation stalls, the test cannot reach its assertions or explicit proxy shutdown. Nextest supplies an external 120-second deadline; the PR’s documented `cargo test` invocation does not. This is a test failure-safety defect; the production timeout omission predates this PR.\n\n## Standards\n\n- **[P3] Both new keyspace tests omit tracing setup** — [connection_pool.rs:1474](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/quillstone/scylla/src/network/connection_pool.rs:1474) and line 1526. Neither calls `setup_tracing()`, despite [CONTRIBUTING.md:92](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/quillstone/CONTRIBUTING.md:92) directing new tests to do so. Isolated failures can consequently omit the required diagnostic tracing. The PR documents no exception.\n\n## Spec\n\nNo findings.\n\nCoverage limitations: the linked issue body was unavailable, and validation commands and per-commit compilation were not executed. New tests do not directly cover nonempty shard-aware failure, recovery from Broken to Ready, or resharding with nonzero excess connections.\n\nHEAD remained pinned and the worktree remained clean.",
+  "prompt": "Use code-review-ad at /tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/quillstone-skill/SKILL.md to review this pull request. Follow the supplied skill exactly, including its three independent native Codex agents and reviewer reasoning settings. Use gpt-6.1-sol for the parent and reviewers. The parent runs at high effort; the skill specifies xhigh for reviewers. The checkout is pinned to the head below. Use this supplied frozen PR metadata in place of gh pr view for this offline benchmark. Do not fetch reviews, comments, or external web content. Read source, repository guidance, and Git history in this checkout. Review only: do not edit files, commit, post, or run model subprocesses. Never read benchmark results, reports, judgements, other review sessions, or anything under /extra/dkropachev/automated-development. Use only the supplied skill snapshot, not an installed skill. Return the skill's final report.\n\nFrozen PR metadata:\n{\n  \"baseRefOid\": \"ec5003868283c23a1cecb7c8070c72870315502c\",\n  \"body\": \"## Description\\r\\n\\r\\nA failed `USE` on a newly opened connection is now returned to the pool as a keyspace setup error. The connection is dropped and the pool schedules another refill instead of publishing it as ready.\\r\\n\\r\\nThe regression coverage verifies the failure path preserves the current pool and the success path completes keyspace setup before resharding.\\r\\n\\r\\n## Validation\\r\\n\\r\\n- `cargo +1.88.0 test -p scylla --lib network::connection_pool::tests::keyspace_setup_failure -- --nocapture` (2 passed)\\r\\n- `cargo +1.88.0 check -p scylla --lib --target x86_64-unknown-linux-gnu`\\r\\n- `cargo fmt --all -- --check`\\r\\n- `git diff --check`\\r\\n\\r\\n## Pre-review checklist\\r\\n\\r\\n- [x] The patch is logically coherent.\\r\\n- [x] The commit messages explain what changes and why.\\r\\n- [x] The bug fix has regression coverage.\\r\\n- [x] Affected code compiles and the focused tests pass.\\r\\n- [x] The description explains the motivation and implementation.\\r\\n- [x] The new non-exhaustive `ConnectionError` variant is documented.\\r\\n- [x] User documentation changes are not needed.\\r\\n- [x] The issue-closing annotation is included below.\\r\\n\\r\\nFixes: #1682\\r\\n\",\n  \"commits\": [\n    {\n      \"authoredDate\": \"2026-08-03T23:54:54Z\",\n      \"authors\": [\n        {\n          \"email\": \"bench@example.invalid\",\n          \"id\": \"\",\n          \"login\": \"\",\n          \"name\": \"Bench Author\"\n        }\n      ],\n      \"committedDate\": \"2026-09-20T17:09:53Z\",\n      \"messageBody\": \"\",\n      \"messageHeadline\": \"connection: balance metrics when clearing pools\",\n      \"oid\": \"de164845c9f0d13d42f1b118efa40834718984a5\"\n    },\n    {\n      \"authoredDate\": \"2026-08-05T13:38:50Z\",\n      \"authors\": [\n        {\n          \"email\": \"bench@example.invalid\",\n          \"id\": \"\",\n          \"login\": \"\",\n          \"name\": \"Bench Author\"\n        }\n      ],\n      \"committedDate\": \"2026-09-20T17:09:53Z\",\n      \"messageBody\": \"\",\n      \"messageHeadline\": \"connection: test metric balance when clearing pools\",\n      \"oid\": \"0d91aa54b3fd46d72cdb3560dd14d4085c01fc9a\"\n    },\n    {\n      \"authoredDate\": \"2026-08-03T23:55:39Z\",\n      \"authors\": [\n        {\n          \"email\": \"bench@example.invalid\",\n          \"id\": \"\",\n          \"login\": \"\",\n          \"name\": \"Bench Author\"\n        }\n      ],\n      \"committedDate\": \"2026-09-20T17:09:53Z\",\n      \"messageBody\": \"\",\n      \"messageHeadline\": \"connection: discard connections after keyspace setup failure\",\n      \"oid\": \"7f48315d306b7657d34fa8c0ae20904b3a8e4e36\"\n    },\n    {\n      \"authoredDate\": \"2026-08-07T00:36:22Z\",\n      \"authors\": [\n        {\n          \"email\": \"bench@example.invalid\",\n          \"id\": \"\",\n          \"login\": \"\",\n          \"name\": \"Bench Author\"\n        }\n      ],\n      \"committedDate\": \"2026-09-20T17:09:53Z\",\n      \"messageBody\": \"\",\n      \"messageHeadline\": \"connection: avoid busy-waiting in metrics test\",\n      \"oid\": \"617139dfa6e0d3653cc77ee54d24d112ebf8bce0\"\n    }\n  ],\n  \"headRefOid\": \"617139dfa6e0d3653cc77ee54d24d112ebf8bce0\",\n  \"title\": \"connection: discard connections after keyspace setup failure\",\n  \"url\": \"https://github.com/dkropachev/quillstone/pull/1\"\n}\n",
+  "reportedCostUsd": null,
+  "transcriptUsage": {
+    "input": 257750,
+    "cacheRead": 1163648,
+    "output": 39321,
+    "thinking": 15818,
+    "cacheCreation": 0,
+    "total": 1460719,
+    "costUsd": null,
+    "sessions": 4,
+    "models": {
+      "gpt-6.1-sol": null
+    }
+  },
+  "codexReview": {
+    "schemaVersion": 1,
+    "reportSha256": "42b6fb8ea14c826406dc6751356fb42951e6c0a092d3a05fb8a45890cb5c0c3a",
+    "promptSha256": "88850191a20f374e3846bca1ce315128577434e381a85a6ebe47d5ee9f26a1d1",
+    "agents": [
+      {
+        "threadId": "01a147bf-09c7-7ea3-897c-9a7a2f600dd8",
+        "role": "/root",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "high",
+        "completed": true,
+        "usage": {
+          "input_tokens": 494689,
+          "cached_input_tokens": 432768,
+          "output_tokens": 13974,
+          "reasoning_output_tokens": 1760,
+          "total_tokens": 508663
+        },
+        "rolloutSha256": "1adba1e25175df091638b4df4d03acda90c887593b11372da3cec050c400124b"
+      },
+      {
+        "threadId": "01a147bf-ebef-7f62-a70b-fec547daa42c",
+        "role": "/root/toolkit",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "xhigh",
+        "completed": true,
+        "usage": {
+          "input_tokens": 327142,
+          "cached_input_tokens": 251136,
+          "output_tokens": 9218,
+          "reasoning_output_tokens": 5539,
+          "total_tokens": 336360
+        },
+        "rolloutSha256": "6dc78c4f6796c3dceb704acc5f3e03725b81d9447efc5c2ab6d4344c85d7d192"
+      },
+      {
+        "threadId": "01a147c0-7328-7d72-b95e-a84cce2bfe20",
+        "role": "/root/standards",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "xhigh",
+        "completed": true,
+        "usage": {
+          "input_tokens": 297693,
+          "cached_input_tokens": 231936,
+          "output_tokens": 8707,
+          "reasoning_output_tokens": 4633,
+          "total_tokens": 306400
+        },
+        "rolloutSha256": "700153ea285966094f92d97b16f197a6e7ce5c5a0d803787f43aeb303f963daf"
+      },
+      {
+        "threadId": "01a147c0-f5e3-7531-898a-ba2bd3f30771",
+        "role": "/root/spec",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "xhigh",
+        "completed": true,
+        "usage": {
+          "input_tokens": 301874,
+          "cached_input_tokens": 247808,
+          "output_tokens": 7422,
+          "reasoning_output_tokens": 3886,
+          "total_tokens": 309296
+        },
+        "rolloutSha256": "d189589417291a38b5601878de8ab66411296840d46509170bd47fffea0a3867"
+      }
+    ]
+  },
+  "wallMs": 309187,
+  "finishedAt": "2026-10-17T02:49:33.526Z"
+}
