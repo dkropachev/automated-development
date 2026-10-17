@@ -9,8 +9,9 @@ const codex = require('../bench/lib/codex-review')
 const runner = require('../bench/run-codex')
 const extractor = require('../bench/extract')
 const dashboard = require('../bench/dashboard')
+const pricing = require('../bench/lib/codex-pricing')
 
-function fixture(t) {
+function fixture(t, priced = false) {
   const repository = fs.mkdtempSync(path.join(os.tmpdir(), 'native-codex-bench-'))
   const root = path.join(repository, 'bench')
   fs.mkdirSync(root)
@@ -25,7 +26,7 @@ function fixture(t) {
   fs.writeFileSync(path.join(root, 'state.json'), JSON.stringify({ targets: targetMetadata }))
   const manifest = artifacts.ensureManifest(root, {
     runId: 'codex-test', platform: 'codex', requestedModel: 'gpt-6.1-sol', modelLabel: 'GPT-6.1 Sol',
-    codexReviewer: { version: 'codex-cli 1', executableSha256: 'e'.repeat(64), reasoningEffort: 'high', reviewerEffort: 'xhigh', roles: ['spec', 'standards', 'toolkit'], skill: codex.snapshotSkill(skill) },
+    codexReviewer: { version: 'codex-cli 1', executableSha256: 'e'.repeat(64), reasoningEffort: 'high', reviewerEffort: 'xhigh', roles: ['spec', 'standards', 'toolkit'], skill: codex.snapshotSkill(skill), ...(priced ? { apiPricing: pricing.rateCard() } : {}) },
     configSha256: 'c'.repeat(64),
     targets: Object.fromEntries(targetIds.map((id) => [id, { baseSha: 'a'.repeat(40), headSha: 'b'.repeat(40) }])),
     targetMetadata, groundtruth: Object.fromEntries(targetIds.map((id) => [id, null])),
@@ -43,11 +44,18 @@ function result(manifest, target = 'alpha') {
     reasoningEffort: role === '/root' ? 'high' : 'xhigh', rolloutSha256: 'd'.repeat(64),
     usage: { input_tokens: 100, cached_input_tokens: 20, output_tokens: 40, reasoning_output_tokens: 10, total_tokens: 140 },
   }))
+  if (manifest.codexReviewer.apiPricing) {
+    for (const agent of agents) {
+      agent.usage.cache_write_input_tokens = 10
+      agent.apiRequests = [{ ...agent.usage }]
+    }
+  }
   return {
     schemaVersion: 2, ...artifacts.manifestMetadata(manifest), target, tool: 'code-review-ad',
     cellId: `${manifest.runId}/${target}/code-review-ad`, ...manifest.targets[target],
     result: report, prompt, wallMs: 1000, finishedAt: '2026-10-17T00:00:00.000Z', exitCode: 0, signal: null, isError: false, apiErrorStatus: null, reportedCostUsd: null,
     transcriptUsage: codex.transcriptUsage(agents), codexReview: { schemaVersion: 1, agents, reportSha256: codex.sha256(report), promptSha256: codex.sha256(prompt) },
+    ...(manifest.codexReviewer.apiPricing ? { apiCostEstimate: pricing.estimateApiCost(agents, manifest.codexReviewer.apiPricing) } : {}),
   }
 }
 
@@ -124,7 +132,7 @@ test('native runner requires an explicit cohort and isolates the supplied skill 
 })
 
 test('completed native cohort reaches dashboard under Codex and latest follows the actual skill hash', (t) => {
-  const { root, manifest } = fixture(t)
+  const { root, manifest } = fixture(t, true)
   for (const target of ['alpha', 'beta', 'gamma']) artifacts.writeJsonExclusive(path.join(root, 'runs', manifest.runId, 'results', target, 'code-review-ad.json'), result(manifest, target))
   const model = 'claude-sonnet-5'
   const usage = { [model]: { canonicalModel: model, inputTokens: 1, outputTokens: 1, costUSD: 0.01 } }
@@ -139,7 +147,8 @@ test('completed native cohort reaches dashboard under Codex and latest follows t
   const data = dashboard.loadArtifacts(root)
   assert.equal(data.runs.length, 3)
   assert.ok(data.runs.every((run) => run.platform === 'codex' && run.skillId === 'codex:code-review-ad' && run.currentEvaluation))
-  assert.ok(data.runs.every((run) => run.usage.costUsd === null && run.metrics.costPerReal === null))
+  assert.ok(data.runs.every((run) => run.usage.costUsd === 0.002268 && run.metrics.costPerReal === null))
+  assert.ok(data.runs.every((run) => run.usage.sources.costUsd === 'api-estimate'))
   assert.deepEqual(data.tools.map((tool) => tool.skillId), ['codex:code-review-ad'])
   assert.equal(data.currentEvaluations.length, 1)
   assert.equal(data.currentEvaluations[0].id, manifest.runId)
@@ -168,7 +177,10 @@ test('usage collector isolates a retry from older threads in the same checkout',
   const thread = (id, parent, role) => {
     const rollout = path.join(root, `${id}.jsonl`)
     fs.writeFileSync(rollout, [
-      { type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: { input_tokens: 10, cached_input_tokens: 2, output_tokens: 5, reasoning_output_tokens: 1, total_tokens: 15 } } } },
+      ...[1, 1].map(() => ({ type: 'event_msg', payload: { type: 'token_count', info: {
+        total_token_usage: { input_tokens: 10, cached_input_tokens: 2, cache_write_input_tokens: 3, output_tokens: 5, reasoning_output_tokens: 1, total_tokens: 15 },
+        last_token_usage: { input_tokens: 10, cached_input_tokens: 2, cache_write_input_tokens: 3, output_tokens: 5, reasoning_output_tokens: 1, total_tokens: 15 },
+      } } })),
       { type: 'event_msg', payload: { type: 'task_complete' } },
     ].map((row) => JSON.stringify(row)).join('\n'))
     return [id, rollout, role, 'gpt-6.1-sol', role ? 'xhigh' : 'high', parent ? JSON.stringify({ subagent: { thread_spawn: { parent_thread_id: parent } } }) : 'exec', '/same/checkout']
@@ -179,4 +191,33 @@ test('usage collector isolates a retry from older threads in the same checkout',
   const agents = JSON.parse(execFileSync('python3', [path.join(__dirname, '../bench/collect-codex-usage.py'), database, '/same/checkout', 'new'], { encoding: 'utf8' }))
   assert.equal(agents.length, 4)
   assert.ok(agents.every((agent) => agent.threadId.startsWith('new')))
+  assert.ok(agents.every((agent) => agent.apiRequests.length === 1 && agent.usage.cache_write_input_tokens === 3))
+  assert.equal(pricing.estimateApiCost(agents).costUsd, 0.0002708)
+  const missingLog = rows.find((row) => row[0] === 'new')[1]
+  fs.writeFileSync(missingLog, fs.readFileSync(missingLog, 'utf8').replaceAll('"cache_write_input_tokens":3,', ''))
+  const missing = JSON.parse(execFileSync('python3', [path.join(__dirname, '../bench/collect-codex-usage.py'), database, '/same/checkout', 'new'], { encoding: 'utf8' }))
+  assert.equal(pricing.estimateApiCost(missing).status, 'unavailable')
+})
+
+test('sealed native API estimates validate against frozen rates and request receipts', (t) => {
+  const { manifest } = fixture(t, true)
+  const record = result(manifest)
+  assert.equal(record.reportedCostUsd, null)
+  assert.equal(record.transcriptUsage.costUsd, null)
+  assert.equal(record.transcriptUsage.cacheCreation, 40)
+  assert.equal(record.transcriptUsage.input, 280)
+  artifacts.validateResultRecord(record, manifest, 'alpha', 'code-review-ad')
+  for (const change of [
+    (r) => { r.apiCostEstimate.costUsd = 1 },
+    (r) => { r.codexReview.agents[0].apiRequests[0].output_tokens++ },
+    (r) => { delete r.apiCostEstimate },
+  ]) {
+    const changed = JSON.parse(JSON.stringify(record)); change(changed)
+    assert.throws(() => artifacts.validateResultRecord(changed, manifest, 'alpha', 'code-review-ad'), /Codex/)
+  }
+  const missing = result(manifest)
+  missing.codexReview.agents[0].apiRequests = null
+  missing.apiCostEstimate = pricing.estimateApiCost(missing.codexReview.agents, manifest.codexReviewer.apiPricing)
+  assert.equal(missing.apiCostEstimate.costUsd, null)
+  artifacts.validateResultRecord(missing, manifest, 'alpha', 'code-review-ad')
 })

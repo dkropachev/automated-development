@@ -381,6 +381,26 @@ GPT-6.1 Sol with a high-effort parent and the skill's three xhigh reviewers. All
 agent receipts, exact report/prompt hashes, runtime identity, and normalized token totals are
 validated before accepting a result. No missing USD receipt is interpreted as zero cost.
 
+New native runs automatically freeze a versioned Standard API rate card in their manifest and
+store `apiCostEstimate` in each result. This is the token cost as if the work used the API,
+independent of a subscription, included allowance, or purchased credits; `reportedCostUsd` stays
+null. The estimate uses all four agents, separates uncached input, cache reads, and cache writes,
+includes reasoning once in output, and applies long-context rates per request. The current card
+uses global Standard processing, without speed/regional premiums or non-token tool fees.
+The rate source and check date are embedded; publication never fetches live prices. Update the
+versioned cards explicitly when rates change, retaining old cards for reproducibility.
+
+Missing per-request counters, unknown models, or missing cache-write data leave the estimate
+unavailable; inconsistent recorded counters fail validation. Resuming a cohort retains its
+frozen pricing policy. Historical cohorts remain readable without pricing metadata.
+
+For an already completed cohort, `make bench-price-codex RUN=<run-id>` recovers request counters
+from the local Codex database and logs, checks every rollout against its sealed hash, and writes
+append-only `bench/cost-estimates/` supplements. It makes no model calls and changes no sealed
+artifact. Publication checks supplement references and recalculates each estimate offline.
+The dashboard labels estimates, exposes their basis on run detail, and includes them in cost
+metrics; incomplete monetary totals remain unavailable. Canonical gold membership is unchanged.
+
 The regular extractor, cohort judge, seal, and completion checks apply to native Codex results.
 The dashboard reads their immutable completed snapshots; it never queries the local Codex
 usage database. Current evaluations must cover every target and match the current skill-file

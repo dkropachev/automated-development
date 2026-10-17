@@ -15,7 +15,7 @@ BENCH_NEXT_CALL_ARG = $(if $(strip $(NEXT_CALL)),--next-call "$(NEXT_CALL)")
 
 .PHONY: help install test lint check ci validate-plugin eval-parse validate eval release \
 	bench-prepare bench-quota bench-probe bench-run bench-extract bench-judge bench-report bench-dashboard \
-	bench-publish bench-publish-check bench-reconcile bench-run-codex dashboard-browser-check
+	bench-publish bench-publish-check bench-reconcile bench-run-codex bench-price-codex dashboard-browser-check
 
 help:
 	@$(NODE) -e "const fs=require('fs');for(const l of fs.readFileSync('Makefile','utf8').split('\n')){const m=/^([a-z-]+):.*## (.*)$$/.exec(l);if(m)console.log(m[1].padEnd(16),m[2])}"
@@ -93,3 +93,6 @@ dashboard-browser-check: bench-dashboard ## render and exercise dashboard routes
 
 bench-run-codex: ## run the current Codex skill on all targets; RUN is required
 	$(NODE) bench/run-codex.js $(BENCH_RUN_ARG) $(ARGS)
+
+bench-price-codex: ## recover API cost estimates for a completed Codex RUN without rerunning reviews
+	$(NODE) bench/price-codex.js $(BENCH_RUN_ARG)
