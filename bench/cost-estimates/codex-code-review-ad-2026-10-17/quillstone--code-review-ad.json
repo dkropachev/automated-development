@@ -1,0 +1,346 @@
+{
+  "schemaVersion": 1,
+  "cellId": "codex-code-review-ad-2026-10-17/quillstone/code-review-ad",
+  "resultSha256": "c883653352b1531deee3b281bab4badad2e66579a0bbecbe60897f5ae99f942d",
+  "agents": [
+    {
+      "threadId": "01a147bf-09c7-7ea3-897c-9a7a2f600dd8",
+      "rolloutSha256": "1adba1e25175df091638b4df4d03acda90c887593b11372da3cec050c400124b",
+      "apiRequests": [
+        {
+          "input_tokens": 15347,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 153,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 15500
+        },
+        {
+          "input_tokens": 15841,
+          "cached_input_tokens": 15232,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 179,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 16020
+        },
+        {
+          "input_tokens": 21250,
+          "cached_input_tokens": 15616,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 285,
+          "reasoning_output_tokens": 13,
+          "total_tokens": 21535
+        },
+        {
+          "input_tokens": 26809,
+          "cached_input_tokens": 21120,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 3556,
+          "reasoning_output_tokens": 265,
+          "total_tokens": 30365
+        },
+        {
+          "input_tokens": 30386,
+          "cached_input_tokens": 26624,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 3271,
+          "reasoning_output_tokens": 68,
+          "total_tokens": 33657
+        },
+        {
+          "input_tokens": 33679,
+          "cached_input_tokens": 30208,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 3199,
+          "reasoning_output_tokens": 0,
+          "total_tokens": 36878
+        },
+        {
+          "input_tokens": 36898,
+          "cached_input_tokens": 33536,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 56,
+          "reasoning_output_tokens": 33,
+          "total_tokens": 36954
+        },
+        {
+          "input_tokens": 36979,
+          "cached_input_tokens": 36736,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 66,
+          "reasoning_output_tokens": 9,
+          "total_tokens": 37045
+        },
+        {
+          "input_tokens": 38715,
+          "cached_input_tokens": 36864,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 45,
+          "reasoning_output_tokens": 22,
+          "total_tokens": 38760
+        },
+        {
+          "input_tokens": 40739,
+          "cached_input_tokens": 38528,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 86,
+          "reasoning_output_tokens": 17,
+          "total_tokens": 40825
+        },
+        {
+          "input_tokens": 42160,
+          "cached_input_tokens": 40576,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 689,
+          "reasoning_output_tokens": 340,
+          "total_tokens": 42849
+        },
+        {
+          "input_tokens": 42918,
+          "cached_input_tokens": 41984,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 426,
+          "reasoning_output_tokens": 60,
+          "total_tokens": 43344
+        },
+        {
+          "input_tokens": 53225,
+          "cached_input_tokens": 42752,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 1077,
+          "reasoning_output_tokens": 516,
+          "total_tokens": 54302
+        },
+        {
+          "input_tokens": 59743,
+          "cached_input_tokens": 52992,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 886,
+          "reasoning_output_tokens": 417,
+          "total_tokens": 60629
+        }
+      ]
+    },
+    {
+      "threadId": "01a147bf-ebef-7f62-a70b-fec547daa42c",
+      "rolloutSha256": "6dc78c4f6796c3dceb704acc5f3e03725b81d9447efc5c2ab6d4344c85d7d192",
+      "apiRequests": [
+        {
+          "input_tokens": 17793,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 735,
+          "reasoning_output_tokens": 279,
+          "total_tokens": 18528
+        },
+        {
+          "input_tokens": 27290,
+          "cached_input_tokens": 17664,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 672,
+          "reasoning_output_tokens": 315,
+          "total_tokens": 27962
+        },
+        {
+          "input_tokens": 37774,
+          "cached_input_tokens": 27136,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 552,
+          "reasoning_output_tokens": 338,
+          "total_tokens": 38326
+        },
+        {
+          "input_tokens": 47662,
+          "cached_input_tokens": 37632,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 1179,
+          "reasoning_output_tokens": 853,
+          "total_tokens": 48841
+        },
+        {
+          "input_tokens": 54982,
+          "cached_input_tokens": 47488,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 1126,
+          "reasoning_output_tokens": 697,
+          "total_tokens": 56108
+        },
+        {
+          "input_tokens": 66584,
+          "cached_input_tokens": 54784,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 1314,
+          "reasoning_output_tokens": 1034,
+          "total_tokens": 67898
+        },
+        {
+          "input_tokens": 75057,
+          "cached_input_tokens": 66432,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 3640,
+          "reasoning_output_tokens": 2023,
+          "total_tokens": 78697
+        }
+      ]
+    },
+    {
+      "threadId": "01a147c0-7328-7d72-b95e-a84cce2bfe20",
+      "rolloutSha256": "700153ea285966094f92d97b16f197a6e7ce5c5a0d803787f43aeb303f963daf",
+      "apiRequests": [
+        {
+          "input_tokens": 17776,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 466,
+          "reasoning_output_tokens": 72,
+          "total_tokens": 18242
+        },
+        {
+          "input_tokens": 26327,
+          "cached_input_tokens": 17536,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 761,
+          "reasoning_output_tokens": 386,
+          "total_tokens": 27088
+        },
+        {
+          "input_tokens": 32784,
+          "cached_input_tokens": 26112,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 718,
+          "reasoning_output_tokens": 516,
+          "total_tokens": 33502
+        },
+        {
+          "input_tokens": 43406,
+          "cached_input_tokens": 32640,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 826,
+          "reasoning_output_tokens": 414,
+          "total_tokens": 44232
+        },
+        {
+          "input_tokens": 53947,
+          "cached_input_tokens": 43264,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 912,
+          "reasoning_output_tokens": 516,
+          "total_tokens": 54859
+        },
+        {
+          "input_tokens": 58857,
+          "cached_input_tokens": 53760,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 887,
+          "reasoning_output_tokens": 516,
+          "total_tokens": 59744
+        },
+        {
+          "input_tokens": 64596,
+          "cached_input_tokens": 58624,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 4137,
+          "reasoning_output_tokens": 2213,
+          "total_tokens": 68733
+        }
+      ]
+    },
+    {
+      "threadId": "01a147c0-f5e3-7531-898a-ba2bd3f30771",
+      "rolloutSha256": "d189589417291a38b5601878de8ab66411296840d46509170bd47fffea0a3867",
+      "apiRequests": [
+        {
+          "input_tokens": 17771,
+          "cached_input_tokens": 13696,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 574,
+          "reasoning_output_tokens": 220,
+          "total_tokens": 18345
+        },
+        {
+          "input_tokens": 24974,
+          "cached_input_tokens": 17536,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 537,
+          "reasoning_output_tokens": 174,
+          "total_tokens": 25511
+        },
+        {
+          "input_tokens": 34722,
+          "cached_input_tokens": 24832,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 642,
+          "reasoning_output_tokens": 265,
+          "total_tokens": 35364
+        },
+        {
+          "input_tokens": 44476,
+          "cached_input_tokens": 34560,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 1038,
+          "reasoning_output_tokens": 516,
+          "total_tokens": 45514
+        },
+        {
+          "input_tokens": 51973,
+          "cached_input_tokens": 44288,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 440,
+          "reasoning_output_tokens": 125,
+          "total_tokens": 52413
+        },
+        {
+          "input_tokens": 61284,
+          "cached_input_tokens": 51840,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 837,
+          "reasoning_output_tokens": 516,
+          "total_tokens": 62121
+        },
+        {
+          "input_tokens": 66674,
+          "cached_input_tokens": 61056,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 3354,
+          "reasoning_output_tokens": 2070,
+          "total_tokens": 70028
+        }
+      ]
+    }
+  ],
+  "estimate": {
+    "schemaVersion": 1,
+    "kind": "api-equivalent",
+    "rateCard": {
+      "id": "openai-api-standard-2026-10-17",
+      "checkedAt": "2026-10-17",
+      "source": "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+      "currency": "USD",
+      "serviceTier": "standard",
+      "unit": "per-million-tokens",
+      "models": {
+        "gpt-6.1-sol": {
+          "input": 2,
+          "cacheRead": 0.1,
+          "cacheWrite": 2.5,
+          "output": 10,
+          "longContextThreshold": 272000,
+          "longContext": {
+            "input": 4,
+            "cacheRead": 0.2,
+            "cacheWrite": 5,
+            "output": 15
+          }
+        }
+      }
+    },
+    "assumptions": "Standard API tier, global processing, token charges only; independent of subscription billing. Reasoning is included in output.",
+    "status": "estimated",
+    "costUsd": 1.0250748,
+    "models": {
+      "gpt-6.1-sol": 1.0250748
+    },
+    "requestCount": 35,
+    "longContextRequests": 0
+  }
+}

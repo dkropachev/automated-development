@@ -10,6 +10,7 @@ const { execFileSync, spawn } = require('node:child_process')
 const { isDeepStrictEqual } = require('node:util')
 const artifacts = require('./lib/artifacts')
 const { snapshotSkill, sha256, transcriptUsage, validateReviewer, validateCodexResult } = require('./lib/codex-review')
+const { rateCard, estimateApiCost } = require('./lib/codex-pricing')
 const ROOT = __dirname
 const TOOL = 'code-review-ad'
 const MODEL = 'gpt-6.1-sol'
@@ -62,6 +63,10 @@ function prepare(root, options) {
   })
   const work = path.join(root, 'work', 'codex-native', options.runId)
   const receiptFile = path.join(work, 'prepared.json')
+  // Resuming uses the manifest's frozen rates, including legacy cohorts without estimates.
+  codexReviewer.apiPricing = fs.existsSync(receiptFile)
+    ? artifacts.readManifest(root, options.runId).codexReviewer.apiPricing : rateCard()
+  if (codexReviewer.apiPricing == null) delete codexReviewer.apiPricing
   if (fs.existsSync(receiptFile)) {
     const prepared = json(receiptFile)
     const manifest = artifacts.readManifest(root, options.runId)
@@ -99,7 +104,7 @@ function prepare(root, options) {
     pageUrl: 'https://github.com/dkropachev/automated-development/blob/main/.agents/skills/code-review-ad/SKILL.md',
     install: 'Use .agents/skills/code-review-ad from the repository checkout.', invoke: '$code-review-ad <PR>',
   }] }
-  const runnerSha256 = Object.fromEntries(['run-codex.js', 'collect-codex-usage.py', 'lib/codex-review.js'].map((file) => [file, sha256(fs.readFileSync(path.join(root, file)))]))
+  const runnerSha256 = Object.fromEntries(['run-codex.js', 'collect-codex-usage.py', 'lib/codex-review.js', 'lib/codex-pricing.js'].map((file) => [file, sha256(fs.readFileSync(path.join(root, file)))]))
   const manifest = artifacts.ensureManifest(root, {
     runId: options.runId, requestedModel: MODEL, modelLabel: 'GPT-6.1 Sol', platform: 'codex', codexReviewer,
     configSha256: sha256(JSON.stringify({ toolConfig, codexReviewer, runnerSha256 })),
@@ -172,13 +177,14 @@ async function reviewTarget(prepared, targetId, options) {
       label: TOOL, source: manifest.toolConfig.tools[0].source,
       exitCode: completed.code, signal: completed.signal, isError: false, apiErrorStatus: null,
       result: report, prompt, reportedCostUsd: null, transcriptUsage: transcriptUsage(agents),
+      ...(manifest.codexReviewer.apiPricing ? { apiCostEstimate: estimateApiCost(agents, manifest.codexReviewer.apiPricing) } : {}),
       codexReview: { schemaVersion: 1, reportSha256: sha256(report), promptSha256: sha256(prompt), agents },
       wallMs: Date.now() - started, finishedAt: new Date().toISOString(),
     }
     validateCodexResult(record, manifest)
     artifacts.validateResultRecord(record, manifest, targetId, TOOL)
     artifacts.writeJsonExclusive(out, record)
-    console.log(`recorded ${targetId}: ${record.transcriptUsage.total} tokens`)
+    console.log(`recorded ${targetId}: ${record.transcriptUsage.total} tokens; Standard API estimate ${record.apiCostEstimate?.costUsd == null ? 'unavailable' : '$' + record.apiCostEstimate.costUsd.toFixed(4)}`)
   } finally { artifacts.releaseLocalLock(lock) }
 }
 

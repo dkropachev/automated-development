@@ -82,7 +82,7 @@ test('experiment publication leaves every benchmark metric and canonical mapping
   fs.mkdirSync(root)
   t.after(() => fs.rmSync(repository, { recursive: true, force: true }))
   fs.cpSync(path.join(ROOT, '../.agents/skills/code-review-ad'), path.join(repository, '.agents/skills/code-review-ad'), { recursive: true })
-  for (const name of ['models.json', 'state.json', 'tools.json', 'issue-identities.json', 'runs', 'results', 'findings', 'judgement', 'groundtruth', 'gold']) {
+  for (const name of ['models.json', 'state.json', 'tools.json', 'issue-identities.json', 'runs', 'results', 'findings', 'judgement', 'groundtruth', 'gold', 'cost-estimates']) {
     fs.cpSync(path.join(ROOT, name), path.join(root, name), { recursive: true })
   }
   const before = dashboard.loadArtifacts(root)

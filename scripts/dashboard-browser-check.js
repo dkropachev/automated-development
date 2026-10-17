@@ -470,7 +470,9 @@ try {
     assert.ok(html.includes(`data-evaluation-id="${currentEvaluation.id}"`))
     assert.match(html, /Completed on all 3 benchmark targets/)
     assert.ok(html.includes(currentEvaluation.skillFingerprint.slice(0, 12)))
-    assert.match(html, /no recorded USD receipt/)
+    assert.match(html, /Estimated API cost/)
+    assert.match(html, /Standard API rates · independent of subscription/)
+    assert.match(html, /\$3\.42/)
     assert.doesNotMatch(html, /Every archived trial|27 experimental reports|toolkit-split-r2/)
   }
   const codexModels = render('choose?tab=models&platform=codex&scope=all-models')
@@ -499,6 +501,11 @@ try {
   assert.match(latestPage.app, /class="evaluation-targets"/)
   assert.equal(count(latestPage.app, /class="run-link"/g), 3)
   assert.match(latestPage.app, /View archived trials/)
+  for (const price of ['$1.28', '$1.03', '$1.12']) assert.ok(latestPage.app.includes(price))
+  const pricedRun = render(`run/${encodeURIComponent(latestRunIds[0])}`)
+  assert.match(pricedRun.app, /Estimated API cost/)
+  assert.match(pricedRun.app, /openai-api-standard-2026-10-17/)
+  assert.match(pricedRun.app, /independent of subscription billing/)
 
   const changePicker = (id, value) => `const picker = document.getElementById(${JSON.stringify(id)}); picker.value = ${JSON.stringify(value)}; picker.dispatchEvent(new Event('change'));`
   const chooseCodex = render('experiments?platform=claude&model=claude-opus-5-5', changePicker('model-filter', 'codex:gpt-6.1-sol'))

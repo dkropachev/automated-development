@@ -30,6 +30,9 @@ for thread, rollout, role, model, effort, _source in rows:
         continue
     source = Path(rollout).read_bytes()
     usage = None
+    requests = []
+    complete_requests = True
+    keys = ["input_tokens", "cached_input_tokens", "cache_write_input_tokens", "output_tokens", "reasoning_output_tokens", "total_tokens"]
     completed = False
     for line in source.splitlines():
         event = json.loads(line)
@@ -40,11 +43,23 @@ for thread, rollout, role, model, effort, _source in rows:
             if payload.get("type") == "task_complete":
                 completed = True
             if payload.get("type") == "token_count" and payload.get("info"):
-                usage = payload["info"]["total_token_usage"]
+                info = payload["info"]
+                current = info["total_token_usage"]
+                if current != usage:
+                    last = info.get("last_token_usage", {})
+                    # Repeated snapshots are not new requests. Missing fields, counter resets,
+                    # or dropped events must not produce a plausible but incomplete price.
+                    if all(isinstance(current.get(key), int) and isinstance(last.get(key), int)
+                           and current[key] - (usage or {}).get(key, 0) == last[key] for key in keys):
+                        requests.append({key: last[key] for key in keys})
+                    else:
+                        complete_requests = False
+                usage = current
     if usage is None or not completed:
         raise RuntimeError(f"Incomplete Codex usage receipt: {thread}")
     agents.append({"threadId": thread, "role": role or "/root", "model": model,
                    "reasoningEffort": effort, "completed": completed,
-                   "usage": {key: usage[key] for key in ["input_tokens", "cached_input_tokens", "output_tokens", "reasoning_output_tokens", "total_tokens"]},
+                   "usage": {key: usage[key] for key in keys if key in usage},
+                   "apiRequests": requests if complete_requests else None,
                    "rolloutSha256": hashlib.sha256(source).hexdigest()})
 print(json.dumps(agents))

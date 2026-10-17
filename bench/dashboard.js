@@ -13,6 +13,7 @@ const { applyIdentities, loadCatalog, revisionKey } = require('./issue-identitie
 
 const { loadExperiments, experimentTools } = require('./experiments')
 const { snapshotSkill } = require('./lib/codex-review')
+const { loadCostSupplements } = require('./lib/codex-cost-supplements')
 
 const ROOT = __dirname
 const ASSET_DIR = path.join(ROOT, 'dashboard')
@@ -53,7 +54,7 @@ function reportedUsage(record) {
   }
 }
 
-function normalizeUsage(record) {
+function normalizeUsage(record, estimate = record.apiCostEstimate) {
   const transcript = record.transcriptUsage || {}
   const model = modelUsage(record)
   const reported = reportedUsage(record)
@@ -84,6 +85,13 @@ function normalizeUsage(record) {
   normalized.sources = sources
   const used = new Set(Object.values(sources).filter(Boolean).filter((source) => source !== 'derived'))
   normalized.source = used.size === 0 ? 'unavailable' : used.size === 1 ? [...used][0] : 'mixed'
+  if (estimate) normalized.apiCostEstimate = estimate
+  if (normalized.costUsd == null && estimate?.status === 'estimated') {
+    normalized.costUsd = estimate.costUsd
+    normalized.models = estimate.models
+    normalized.sources.costUsd = 'api-estimate'
+    normalized.source = 'mixed'
+  }
   return normalized
 }
 
@@ -549,6 +557,7 @@ function namespacedIssue(cohortId, targetId, issue) {
 }
 
 function loadArtifacts(root = ROOT) {
+  const costSupplements = loadCostSupplements(root)
   const modelConfig = loadModelConfig(root)
   const configuredModels = modelLookup(modelConfig)
   const discovered = discoverCohorts(root)
@@ -653,7 +662,7 @@ function loadArtifacts(root = ROOT) {
           ? readJson(legacyFinding)
           : findingRecords.get(file) || { findings: [], extractError: null }
         const claims = findingRecord.findings || []
-        const usage = normalizeUsage(record)
+        const usage = normalizeUsage(record, record.apiCostEstimate || costSupplements.get(record.cellId))
         const tool = toolById.get(record.tool)
         const toolSnapshot = toolView(tool || { id: record.tool, label: record.label || record.tool }, cohort.platform || 'claude')
         if (!toolDataById.has(toolSnapshot.skillId)) toolDataById.set(toolSnapshot.skillId, { ...toolSnapshot, snapshots: {} })
