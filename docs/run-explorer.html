@@ -857,12 +857,34 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function modelPicker(params, extraClass = '') {
-    const selected = selectedModel(params)
-    const choices = [...new Map([...configuredModels.map((model) => [model.id, model.label]), ...(DATA.experiments || []).map((record) => [record.modelId, modelLabel(record.modelId)])]).entries()]
-    choices.push(['all', 'All models / history'])
-    return field('Model under test', select('model-filter', choices, selected, (event) => {
-      viewParams(params, { model: event.target.value === 'all' ? '' : event.target.value })
-    }), extraClass)
+    const platform = params.get('platform') || 'all'
+    const model = selectedModel(params)
+    const selected = platform === 'all' ? model : `${platform}:${model}`
+    const control = el('select', { id: 'model-filter', onchange: (event) => {
+      const choice = selections.get(event.target.value)
+      viewParams(params, { platform: choice.platform === 'all' ? '' : choice.platform, model: choice.model === 'all' ? '' : choice.model })
+    } })
+    const selections = new Map()
+    const add = (parent, value, label, platform, model) => {
+      selections.set(value, { platform, model })
+      parent.append(option(value, label, value === selected))
+    }
+    add(control, 'all', 'All models / history', 'all', 'all')
+    // Preserve model-only URLs as cross-platform selections. Choosing a grouped option sets
+    // both dimensions together, so an old platform filter cannot hide the new model.
+    if (platform === 'all' && model !== 'all') add(control, model, modelLabel(model), 'all', model)
+    const evidence = [...DATA.runs, ...(DATA.experiments || [])]
+    for (const [id, label] of [['codex', 'Codex'], ['claude', 'Claude']]) {
+      const group = el('optgroup', { label })
+      add(group, `${id}:all`, `All ${label} models`, id, 'all')
+      const modelIds = [...new Set(evidence.filter((row) => row.platform === id).map((row) => row.modelId).filter(Boolean))]
+      for (const modelId of modelIds) add(group, `${id}:${modelId}`, `${modelLabel(modelId)} · ${label}`, id, modelId)
+      control.append(group)
+    }
+    // Explicit links can select combinations without evidence. Keep that selection visible.
+    if (!selections.has(selected)) add(control, selected, `${modelLabel(model)} · ${platform}`, platform, model)
+    control.value = selected
+    return field('Model under test', control, extraClass)
   }
 
   function matchesSelectedModel(run, params) {
@@ -875,13 +897,8 @@ if (typeof module !== 'undefined' && module.exports) {
     return platform === 'all' || (item.platform || 'claude') === platform
   }
 
-  function platformPicker(params) {
-    return field('Platform', select('platform-filter', [['all', 'All platforms'], ['codex', 'Codex'], ['claude', 'Claude']], params.get('platform') || 'all', (event) => viewParams(params, { platform: event.target.value === 'all' ? '' : event.target.value })))
-  }
-
   function filterBar(params, { search = false, status = false, skills = true, models = true } = {}) {
     const bar = el('section', { class: 'filter-bar', 'aria-label': 'Benchmark filters' })
-    bar.append(platformPicker(params))
     const sourceRuns = (status ? DATA.runs : verifiedRuns).filter((run) => matchesPlatform(run, params))
     const runsInModel = models ? sourceRuns.filter((run) => matchesSelectedModel(run, params)) : sourceRuns
     const skillChoices = [...new Map([...runsInModel.map((run) => [skillIdentity(run), run.toolLabel]), ...(DATA.experiments || []).filter((record) => matchesPlatform(record, params) && matchesSelectedModel(record, params)).map((record) => [record.skillId, record.skillLabel])]).entries()]
@@ -1151,7 +1168,7 @@ if (typeof module !== 'undefined' && module.exports) {
     const sectionScope = `${scopeLabels[completenessScope]}${selectedLanguage === 'all' ? '' : ` · ${selectedLanguage}`}`
     const completenessPicker = field('Count', select('completeness-scope', Object.entries(scopeLabels), completenessScope, (event) => viewParams(params, { completeness: event.target.value === 'all' ? '' : event.target.value })), 'landing-picker')
     const languagePicker = field('Language', select('language-scope', [['all', 'All languages'], ...languages.map((language) => [language, language])], selectedLanguage, (event) => viewParams(params, { language: event.target.value === 'all' ? '' : event.target.value })), 'landing-picker')
-    const selectedModelPicker = el('div', {}, platformPicker(params), modelPicker(params, 'landing-picker'))
+    const selectedModelPicker = modelPicker(params, 'landing-picker')
     frame(el('div', {},
       el('section', { class: 'landing-hero hero' },
         el('div', {},
@@ -1482,12 +1499,11 @@ if (typeof module !== 'undefined' && module.exports) {
       ...cohortRuns.map((run) => targetForRun(run)?.language),
     ].filter(Boolean))].sort().map((language) => [language, language])
     const bar = el('section', { class: 'filter-bar model-filter-bar', 'aria-label': 'Model comparison filters' },
-      platformPicker(params),
       checklist('Skills', 'skills', skillChoices, params),
       checklist('Languages', 'languages', languageChoices, params),
       checklist('Targets', 'targets', targetChoices, params),
     )
-    if (['skills', 'languages', 'targets'].some((key) => params.has(key))) bar.append(el('button', { class: 'clear-filters', onclick: () => viewParams(params, { skills: '', languages: '', targets: '', evidenceModel: '', evidenceVerdict: '' }) }, 'Clear filters'))
+    if (['platform', 'skills', 'languages', 'targets'].some((key) => params.has(key))) bar.append(el('button', { class: 'clear-filters', onclick: () => viewParams(params, { platform: '', skills: '', languages: '', targets: '', evidenceModel: '', evidenceVerdict: '' }) }, 'Clear filters'))
     return bar
   }
 
@@ -1753,7 +1769,16 @@ if (typeof module !== 'undefined' && module.exports) {
     const legacyPresent = stats.some((row) => row.legacy)
     const issueUrl = snapshot.issueUrl || 'https://github.com/dkropachev/automated-development/issues/42'
     const modelScopes = snapshot.scopes.filter((item) => !item.id.startsWith('supplemental-'))
-    const scopePicker = field('Comparison scope', select('model-scope', modelScopes.map((item) => [item.id, comparisonScopeLabel(item)]), scope.id, (event) => { location.hash = comparisonParams(params, { scope: event.target.value === (snapshot.scopes.find((item) => item.id === 'all-models') || snapshot.scopes[0]).id ? '' : event.target.value, evidenceModel: '', evidenceVerdict: '' }) }))
+    const platform = params.get('platform') || 'all'
+    const scopeControl = el('select', { id: 'model-scope', onchange: (event) => {
+      const [platform, scope] = event.target.value.split(':')
+      location.hash = comparisonParams(params, { platform: platform === 'all' ? '' : platform, scope, evidenceModel: '', evidenceVerdict: '' })
+    } })
+    for (const [id, label] of [['all', 'All platforms'], ['codex', 'Codex'], ['claude', 'Claude']]) {
+      scopeControl.append(el('optgroup', { label }, modelScopes.map((item) => option(`${id}:${item.id}`, `${comparisonScopeLabel(item)}${id === 'all' ? '' : ` · ${label}`}`, id === platform && item.id === scope.id))))
+    }
+    scopeControl.value = `${platform}:${scope.id}`
+    const scopePicker = field('Comparison scope', scopeControl)
     frame(el('div', {},
       compactHero('Choose a reviewer', 'Compare models against the canonical gold standard.', 'Recorded benchmark spend, verified detections, runtime, and reliability over pinned pull requests. Supplemental skills appear on the Skills tab.'),
       chooseTabs(params, 'models'),
@@ -1952,9 +1977,8 @@ if (typeof module !== 'undefined' && module.exports) {
     frame(el('div', {},
       compactHero('Archived experiments', 'Codex and Claude skill experiments', 'Exploratory, repeated trials. These records contribute no benchmark precision, completeness, cost ranking, or canonical gold credit. Missing measurements are unavailable; raw reports retain rejected claims.'),
       el('section', { class: 'filter-bar', 'aria-label': 'Experiment filters' },
-        platformPicker(params),
         checklist('Skills', 'skills', choices('skillId', (r) => r.skillLabel), params),
-        field('Model', select('experiment-model', [['all', 'All models'], ...choices('modelId', (r) => r.modelId)], params.get('model') || 'all', (event) => viewParams(params, { model: event.target.value === 'all' ? '' : event.target.value }))),
+        modelPicker(params),
         checklist('Targets', 'targets', choices('targetId', (r) => r.targetId), params),
         field('Experiment', select('experiment-filter', [['', 'All experiments'], ...choices('experimentId', (r) => r.experimentId)], params.get('experiment') || '', (event) => viewParams(params, { experiment: event.target.value }))),
         hashLink('Clear filters', '#experiments', 'button-link'),

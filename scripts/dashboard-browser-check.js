@@ -25,10 +25,12 @@ function chromeExecutable() {
 const chrome = chromeExecutable()
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'review-bench-browser-'))
 
-function render(hash) {
-  const url = `${pathToFileURL(DASHBOARD).href}#${hash}`
+function render(hash, action = null) {
+  const file = action ? path.join(profile, 'interaction.html') : DASHBOARD
+  if (action) fs.writeFileSync(file, DASHBOARD_SOURCE.replace('</body>', `<script>setTimeout(() => { ${action} }, 0)</script></body>`))
+  const url = `${pathToFileURL(file).href}#${hash}`
   const dom = execFileSync(chrome, [
-    '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
+    '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--window-size=1600,1200',
     '--disable-background-networking', '--disable-crash-reporter', `--user-data-dir=${profile}`,
     '--virtual-time-budget=2500', '--dump-dom', url,
   ], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] })
@@ -87,7 +89,12 @@ try {
 
   const defaultHome = render('home')
   assert.match(defaultHome.app, /<option value="all" selected="">All models \/ history<\/option>/)
-  assert.match(defaultHome.app, /<option value="all" selected="">All platforms<\/option>/)
+  assert.doesNotMatch(defaultHome.app, /id="platform-filter"/)
+  assert.equal(count(defaultHome.app, /id="model-filter"/g), 1)
+  assert.match(defaultHome.app, /<optgroup label="Codex">/)
+  assert.match(defaultHome.app, /<optgroup label="Claude">/)
+  assert.match(defaultHome.app, /value="codex:all">All Codex models/)
+  assert.match(defaultHome.app, /value="claude:all">All Claude models/)
   if (/No benchmark runs recorded for Claude Opus 5\.5 yet/.test(defaultHome.app)) {
     assert.match(defaultHome.app, /<strong>0<\/strong><span>review runs<\/span>/)
   } else {
@@ -266,7 +273,7 @@ try {
 
   const controlledPair = render('choose?tab=models&scope=controlled-pair')
   assert.match(controlledPair.app, /Current controlled pair · 19 matched cells/)
-  assert.match(controlledPair.app, /<option value="controlled-pair" selected="">/)
+  assert.match(controlledPair.app, /<option value="all:controlled-pair" selected="">/)
   assert.deepEqual(modelRows(controlledPair.app).map((row) => row.name), ['Claude Opus 5.5', 'Claude Fable 5.1'])
   assert.deepEqual(linkedEvidenceCounts(controlledPair.app), [19, 19])
 
@@ -410,7 +417,7 @@ try {
   assert.equal(render('skills/code-review-ad').app, claudeSkill.app, 'unqualified old skill page aliases Claude')
   const codexCatalogue = render('skills?platform=codex')
   assert.equal(count(codexCatalogue.app, /class="skill-card"/g), 1)
-  assert.match(codexCatalogue.app, /<option value="codex" selected="">Codex<\/option>/)
+  assert.match(codexCatalogue.app, /<option value="codex:all" selected="">All Codex models<\/option>/)
   const experimentModelCatalogue = render('skills?model=gpt-6.1-sol')
   assert.equal(count(experimentModelCatalogue.app, /class="skill-card"/g), 1)
   assert.match(experimentModelCatalogue.app, /27 experiment records/)
@@ -450,6 +457,32 @@ try {
   const codexModels = render('choose?tab=models&platform=codex')
   assert.deepEqual(discoveredRuns(codexModels.app), [])
   assert.ok(linkedEvidenceCounts(codexModels.app).every((count) => !count), 'Codex experiments receive no canonical credit')
+
+  // Exercise the actual change handler: both dimensions must change together.
+  const changePicker = (id, value) => `const picker = document.getElementById(${JSON.stringify(id)}); picker.value = ${JSON.stringify(value)}; picker.dispatchEvent(new Event('change'));`
+  const chooseCodex = render('experiments?platform=claude&model=claude-opus-5-5', changePicker('model-filter', 'codex:gpt-6.1-sol'))
+  assert.match(chooseCodex.app, /Every archived trial · 27 records/)
+  assert.match(chooseCodex.app, /value="codex:gpt-6.1-sol" selected=""/)
+  assert.doesNotMatch(chooseCodex.app, /id="platform-filter"/)
+  const chooseClaude = render('experiments?platform=codex&model=gpt-6.1-sol', changePicker('model-filter', 'claude:claude-opus-5-5'))
+  assert.match(chooseClaude.app, /Every archived trial · 3 records/)
+  const chooseAll = render('experiments?platform=codex&model=gpt-6.1-sol', changePicker('model-filter', 'all'))
+  assert.match(chooseAll.app, /Every archived trial · 30 records/)
+  assert.match(chooseAll.app, /value="all" selected=""/)
+  const chooseClaudePlatform = render('experiments?platform=codex&model=gpt-6.1-sol', changePicker('model-filter', 'claude:all'))
+  assert.match(chooseClaudePlatform.app, /Every archived trial · 3 records/)
+  const chooseCodexScope = render('choose?tab=models', changePicker('model-scope', 'codex:all-models'))
+  assert.deepEqual(discoveredRuns(chooseCodexScope.app), [])
+  assert.match(chooseCodexScope.app, /value="codex:all-models" selected=""/)
+  assert.doesNotMatch(chooseCodexScope.app, /id="platform-filter"/)
+  const restoreScope = render('choose?tab=models&platform=codex', changePicker('model-scope', 'all:all-models'))
+  assert.deepEqual(discoveredRuns(restoreScope.app), expectedDiscoveredRuns())
+
+  // The summary controls must occupy one row with matching bottom edges at desktop width.
+  const aligned = render('home', `const controls = [...document.querySelectorAll('.leader-pickers > .field')]; document.body.setAttribute('data-picker-layout', JSON.stringify(controls.map((node) => ({ bottom: node.getBoundingClientRect().bottom, height: node.getBoundingClientRect().height }))));`)
+  const boxes = JSON.parse(aligned.dom.match(/data-picker-layout="([^"]+)"/)[1].replaceAll('&quot;', '"'))
+  assert.equal(boxes.length, 3)
+  assert.ok(boxes.every((box) => Math.abs(box.bottom - boxes[0].bottom) < 2 && Math.abs(box.height - boxes[0].height) < 2), 'model, count, and language controls must align')
 
   process.stdout.write('dashboard-browser-check: all rendered routes passed\n')
 } finally {

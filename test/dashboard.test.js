@@ -522,7 +522,7 @@ test('dashboard model picker defaults to all models and keeps observed stack sep
   assert.match(html, /"id":"claude-fable-5-1","label":"Claude Fable 5\.1"/)
   assert.match(html, /function selectedModel\(params\)/)
   assert.match(html, /return 'all'/)
-  assert.match(html, /\['all', 'All models \/ history'\]/)
+  assert.match(html, /'all', 'All models \/ history'/)
   assert.match(html, /return selected === 'all' \|\| run\.modelId === selected/)
   assert.match(html, /summaryItem\('Model under test'/)
   assert.match(html, /summaryItem\('Observed model stack'/)
