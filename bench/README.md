@@ -361,3 +361,31 @@ Experiment records never enter benchmark runs, precision, completeness, cost ran
 identity mappings, or canonical gold. `make bench-publish` and `make bench-publish-check` also cover
 `docs/review-skill-experiments.md` and both dashboard exports. `code-review-ad` completed cohorts
 retain their dashboard-only standalone-report policy.
+
+## Current Codex skill evaluation
+
+Run the repository Codex `code-review-ad` skill on the complete three-target suite with:
+
+```
+make bench-run-codex RUN=<new-run-id> ARGS="--concurrency 3"
+make bench-extract RUN=<new-run-id> ARGS="--max-budget-usd 5 --timeout 120"
+make bench-judge RUN=<new-run-id> ARGS="--max-budget-usd 5 --timeout 120"
+make bench-publish
+make bench-publish-check
+```
+
+`--prepare-only` freezes inputs without model calls. `--only <target>` selects missing work
+without shrinking the frozen full matrix. The runner snapshots the current skill files and
+pins each target and its PR metadata before reviews start. Each isolated Codex session uses
+GPT-6.1 Sol with a high-effort parent and the skill's three xhigh reviewers. All four native
+agent receipts, exact report/prompt hashes, runtime identity, and normalized token totals are
+validated before accepting a result. No missing USD receipt is interpreted as zero cost.
+
+The regular extractor, cohort judge, seal, and completion checks apply to native Codex results.
+The dashboard reads their immutable completed snapshots; it never queries the local Codex
+usage database. Current evaluations must cover every target and match the current skill-file
+fingerprint. The default Codex view selects the latest such evaluation per model, with its
+three target reports grouped together. Older experiments remain available through
+`#experiments?history=all`, and recorded benchmark history through `#runs?history=all`.
+A direct recorded run or evaluation link remains available even after the installed skill changes.
+These cohort-local judgements do not add canonical gold credit.

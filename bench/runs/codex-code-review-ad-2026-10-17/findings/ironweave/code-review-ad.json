@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 2,
+  "runId": "codex-code-review-ad-2026-10-17",
+  "requestedModel": "gpt-6.1-sol",
+  "modelLabel": "GPT-6.1 Sol",
+  "claudeVersion": null,
+  "configSha256": "c94d9b557d71eb6b25c4556cc6964310565e5398eecd13841149f2c92bbcf304",
+  "platform": "codex",
+  "codexReviewer": {
+    "executableSha256": "8f788a0679db24e2640b2c0b021dcda3df8046fa2956a9e608b081cc220312a3",
+    "reasoningEffort": "high",
+    "reviewerEffort": "xhigh",
+    "roles": [
+      "spec",
+      "standards",
+      "toolkit"
+    ],
+    "skill": {
+      "contentSha256": "28b74a25e7d8493be82f5df40be99cc5cbaa4a5ad2d7d59f1827a262576a2835",
+      "files": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa"
+      }
+    },
+    "version": "codex-cli 0.161.0"
+  },
+  "cellId": "codex-code-review-ad-2026-10-17/ironweave/code-review-ad",
+  "target": "ironweave",
+  "tool": "code-review-ad",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "sourceResultSha256": "93956d11f7acca59c066e610abee33f0545585c4ca897f824143327ed7b30181",
+  "label": "code-review-ad",
+  "findings": [
+    {
+      "file": "rpc.cc",
+      "line": 565,
+      "title": "Queue draining can prevent shutdown from completing",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "An accepted compressor frame can be blocked in a direct socket write while the peer stays connected without reading, and the new wait delays socket shutdown until that write finishes. Previously, closing an empty local output buffer could reach SHUT_WR and release the blocked write. Without an independent disconnect or abort, stream closure can now wait indefinitely.",
+      "selfRejected": false
+    },
+    {
+      "file": "rpc_test.cc",
+      "line": 1883,
+      "title": "New sink breaks older supported API configurations, failing compilation",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "With Seastar_API_LEVEL=7 or 8, data_sink_impl requires put(net::packet). The unconditional span overload does not override that interface, leaving the helper abstract and preventing rpc_test from compiling.",
+      "selfRejected": false
+    },
+    {
+      "file": "rpc_test.cc",
+      "line": 2017,
+      "title": "Reproducer test can pass without exercising the new guard",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The peer can consume EOF and close its socket before the hook runs, causing the client receive loop to set _error. The existing rejection then satisfies the test even with _stream_closing rejection removed, so parking local sink closure does not exclude this ordering.",
+      "selfRejected": false
+    },
+    {
+      "file": "rpc_test.cc",
+      "line": 2016,
+      "title": "Successful silent rejection also passes the test",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "The test catches closed_error but accepts normal completion. Returning success while discarding the frame therefore passes, despite violating the promised exceptional result.",
+      "selfRejected": false
+    },
+    {
+      "file": "rpc_test.cc",
+      "line": 2011,
+      "title": "Close-entry wait has no local failure bound",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "If the expected close transition is not reached, this wait prevents release and cleanup from running. Only the external test timeout, 300 seconds by default, bounds the failure.",
+      "selfRejected": false
+    },
+    {
+      "file": "rpc_test.cc",
+      "line": 2000,
+      "title": "Failed assertion bypasses required cleanup, risking abort",
+      "severity": "medium",
+      "kind": "bug",
+      "claim": "Failure of the hook-count assertion unwinds an unclosed sink, whose destructor asserts sink_closed(), potentially aborting the runner instead of reporting the assertion failure. Enclosing client cleanup runs only after these local handles unwind.",
+      "selfRejected": false
+    },
+    {
+      "file": "rpc_test.cc",
+      "line": 1937,
+      "title": "\"Pass-through compressor\" inaccurately describes the helper",
+      "severity": "low",
+      "kind": "docs",
+      "claim": "The helper performs LZ4 compression with chunk headers and additionally substitutes the empty-buffer representation. It preserves decoded content but does not pass through the input bytes.",
+      "selfRejected": false
+    },
+    {
+      "file": "rpc_types.hh",
+      "line": 387,
+      "title": "Decoding exception does not close the source despite documented contract",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The new documentation says reading until the source throws closes it, but exceptions from unmarshall() escape without calling close_source(); only receive failures and EOF perform that transition. Following the documented contract after a decoding exception can leave the connection open, and this is newly incorrect documentation of existing behavior.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 3764,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 75038,
+      "webSearchRequests": 0,
+      "costUSD": 0.337796,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2416,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-17T03:01:11.158Z"
+}

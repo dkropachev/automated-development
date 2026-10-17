@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 2,
+  "runId": "codex-code-review-ad-2026-10-17",
+  "requestedModel": "gpt-6.1-sol",
+  "modelLabel": "GPT-6.1 Sol",
+  "claudeVersion": null,
+  "configSha256": "c94d9b557d71eb6b25c4556cc6964310565e5398eecd13841149f2c92bbcf304",
+  "platform": "codex",
+  "codexReviewer": {
+    "executableSha256": "8f788a0679db24e2640b2c0b021dcda3df8046fa2956a9e608b081cc220312a3",
+    "reasoningEffort": "high",
+    "reviewerEffort": "xhigh",
+    "roles": [
+      "spec",
+      "standards",
+      "toolkit"
+    ],
+    "skill": {
+      "contentSha256": "28b74a25e7d8493be82f5df40be99cc5cbaa4a5ad2d7d59f1827a262576a2835",
+      "files": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa"
+      }
+    },
+    "version": "codex-cli 0.161.0"
+  },
+  "cellId": "codex-code-review-ad-2026-10-17/quillstone/code-review-ad",
+  "target": "quillstone",
+  "tool": "code-review-ad",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "sourceResultSha256": "c883653352b1531deee3b281bab4badad2e66579a0bbecbe60897f5ae99f942d",
+  "label": "code-review-ad",
+  "findings": [
+    {
+      "file": "connection_pool.rs",
+      "line": 903,
+      "title": "Keyspace setup failures now log at DEBUG instead of WARN, losing visibility",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "Failed initialization USE requests previously logged at WARN and now log at DEBUG. When existing connections remain, the error also stays out of shared pool state. At INFO/WARN, repeated refill failures therefore become invisible to callers and operators.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1634,
+      "title": "New regression test has unbounded waits on keyspace request with no local timeout",
+      "severity": "high",
+      "kind": "test-gap",
+      "claim": "Both new waits (lines 1634 and 1667) depend on a keyspace request without a local timeout. If that operation stalls, the test cannot reach its assertions or explicit proxy shutdown. Nextest supplies an external 120-second deadline, but the PR's documented cargo test invocation does not; the production timeout omission predates this PR.",
+      "selfRejected": false
+    },
+    {
+      "file": "connection_pool.rs",
+      "line": 1474,
+      "title": "New keyspace tests omit required tracing setup per CONTRIBUTING.md",
+      "severity": "medium",
+      "kind": "test-gap",
+      "claim": "Neither new test (lines 1474 and 1526) calls setup_tracing(), despite CONTRIBUTING.md:92 directing new tests to do so. Isolated failures can consequently omit the required diagnostic tracing. The PR documents no exception.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 1123,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 38294,
+      "webSearchRequests": 0,
+      "costUSD": 0.16441,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 533,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-17T03:00:49.107Z"
+}

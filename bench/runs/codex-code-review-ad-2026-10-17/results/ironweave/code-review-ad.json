@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 2,
+  "runId": "codex-code-review-ad-2026-10-17",
+  "requestedModel": "gpt-6.1-sol",
+  "modelLabel": "GPT-6.1 Sol",
+  "claudeVersion": null,
+  "configSha256": "c94d9b557d71eb6b25c4556cc6964310565e5398eecd13841149f2c92bbcf304",
+  "platform": "codex",
+  "codexReviewer": {
+    "executableSha256": "8f788a0679db24e2640b2c0b021dcda3df8046fa2956a9e608b081cc220312a3",
+    "reasoningEffort": "high",
+    "reviewerEffort": "xhigh",
+    "roles": [
+      "spec",
+      "standards",
+      "toolkit"
+    ],
+    "skill": {
+      "contentSha256": "28b74a25e7d8493be82f5df40be99cc5cbaa4a5ad2d7d59f1827a262576a2835",
+      "files": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa"
+      }
+    },
+    "version": "codex-cli 0.161.0"
+  },
+  "target": "ironweave",
+  "tool": "code-review-ad",
+  "cellId": "codex-code-review-ad-2026-10-17/ironweave/code-review-ad",
+  "baseSha": "5cc62de6583830e20199eb2e5418aa56ce3267fc",
+  "headSha": "69da8f5bb2f2a53a51946aa4b6ba2124be434cb0",
+  "label": "code-review-ad",
+  "source": "repository:.agents/skills/code-review-ad",
+  "exitCode": 0,
+  "signal": null,
+  "isError": false,
+  "apiErrorStatus": null,
+  "result": "## Toolkit\n\n- **P2 — Queue draining can prevent shutdown from completing.** [rpc.cc:565](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/ironweave/src/rpc/rpc.cc:565): An accepted compressor frame can be blocked in a direct socket write while the peer stays connected without reading. The new wait delays socket shutdown until that write finishes. Previously, closing an empty local output buffer could reach `SHUT_WR` and release the blocked write. Without an independent disconnect or abort, stream closure can now wait indefinitely.\n\n- **P2 — The new sink breaks older supported API configurations.** [rpc_test.cc:1883](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/ironweave/tests/unit/rpc_test.cc:1883): With `Seastar_API_LEVEL=7` or `8`, `data_sink_impl` requires `put(net::packet)`. The unconditional span overload does not override that interface, leaving the helper abstract and preventing `rpc_test` from compiling.\n\n- **P2 — The reproducer can pass without exercising the new guard.** [rpc_test.cc:2017](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/ironweave/tests/unit/rpc_test.cc:2017): The peer can consume EOF and close its socket before the hook runs, causing the client receive loop to set `_error`. The existing rejection then satisfies the test even with `_stream_closing` rejection removed. Parking local sink closure does not exclude this ordering.\n\n- **P2 — Successful silent rejection also passes.** [rpc_test.cc:2016](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/ironweave/tests/unit/rpc_test.cc:2016): The test catches `closed_error` but accepts normal completion. Returning success while discarding the frame therefore passes, despite violating the promised exceptional result.\n\n- **P2 — The close-entry wait has no local failure bound.** [rpc_test.cc:2011](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/ironweave/tests/unit/rpc_test.cc:2011): If the expected close transition is not reached, this wait prevents release and cleanup from running. Only the external test timeout—300 seconds by default—bounds the failure.\n\n- **P2 — A failed assertion bypasses required cleanup.** [rpc_test.cc:2000](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/ironweave/tests/unit/rpc_test.cc:2000): Failure of the hook-count assertion unwinds an unclosed sink. Its destructor asserts `sink_closed()`, potentially aborting the runner instead of reporting the assertion failure. Enclosing client cleanup runs after these local handles unwind.\n\n## Standards\n\n- **P3 — “Pass-through compressor” inaccurately describes the helper.** [rpc_test.cc:1937](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/ironweave/tests/unit/rpc_test.cc:1937): The helper performs LZ4 compression with chunk headers and additionally substitutes the empty-buffer representation. It preserves decoded content, but does not pass through the input bytes.\n\n## Spec\n\n- **P2 — A decoding exception does not close the source.** [rpc_types.hh:387](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/ironweave/include/seastar/rpc/rpc_types.hh:387), also [rpc-streaming.md:111](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/ironweave/doc/rpc-streaming.md:111): The new documentation says reading until the source throws closes it. However, exceptions from `unmarshall()` escape without calling `close_source()`; only receive failures and EOF perform that transition. Following the documented contract after a decoding exception can leave the connection open. This is newly incorrect documentation of existing behavior.\n\nCoverage limitations: Doxygen anchor resolution and all timing constraints on `suspend_for_testing()` remain unverified. Tests were not run. HEAD remained pinned and the worktree clean.",
+  "prompt": "Use code-review-ad at /tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/ironweave-skill/SKILL.md to review this pull request. Follow the supplied skill exactly, including its three independent native Codex agents and reviewer reasoning settings. Use gpt-6.1-sol for the parent and reviewers. The parent runs at high effort; the skill specifies xhigh for reviewers. The checkout is pinned to the head below. Use this supplied frozen PR metadata in place of gh pr view for this offline benchmark. Do not fetch reviews, comments, or external web content. Read source, repository guidance, and Git history in this checkout. Review only: do not edit files, commit, post, or run model subprocesses. Never read benchmark results, reports, judgements, other review sessions, or anything under /extra/dkropachev/automated-development. Use only the supplied skill snapshot, not an installed skill. Return the skill's final report.\n\nFrozen PR metadata:\n{\n  \"baseRefOid\": \"5cc62de6583830e20199eb2e5418aa56ce3267fc\",\n  \"body\": \"`connection::stream_close()` closes the connection's write buffer while `_error` is still false; `_error` is only set by the `stop()` it runs afterwards. In between, `connection::send()` keeps accepting frames. Sinks cannot send at that point, but the `send_empty_frame` hook handed to every negotiated compressor is `[this] { return send({}); }` and is not guarded, and a compressor may call it at any time. Scylla's does whenever a new compression dictionary is announced, on every connection on the shard at once.\\n\\nA frame accepted in that window is written into the closed `output_stream` and `flush()`ed, which registers a batch flush that nothing waits for or closes: `stream_close()` has moved on, and `stop_send_loop()` skips `write_buf.close()` because `_sink_closed_future` already reports the buffer closed. The loop then ends, the application drops its sink and source as it is entitled to, and the connection is destroyed with the flush still pending:\\n\\n```\\nseastar::output_stream<char>::~output_stream(): Assertion `!_in_batch && \\\"Was this stream properly closed?\\\"' failed.\\n```\\n\\nThis is what two Scylla nodes hit during tablet streaming. The core dump shows the same 141-byte compressor control frame sitting unflushed on both the stream connection being destroyed and on its parent client, with the stream fully closed and its loop already over.\\n\\nThe fix marks the connection as closing in `stream_close()` before the write buffer is touched, and `send()` fails with `closed_error` from then on. Frames that `send()` accepted just before the mark may still be queued, so `stream_close()` also waits for `_outgoing_queue` to drain, by chaining on `_outgoing_queue_ready` the way `send()` does, before it closes the buffer. Setting `_error` there instead is not an option: `stop()` would then skip the `shutdown_input()` that wakes the receive loop, and `stop_send_loop()` would `shutdown_output()` before the eof marker written by this very close reaches the peer.\\n\\nThe series:\\n\\n1. the fix;\\n2. a deterministic reproducer: the stream socket's `data_sink::close()` is parked, the captured `send_empty_frame` hook is fired while it is parked, and any `put()` after `close()` is recorded. Without the fix it fails on the recorded write; leaving the late `put()` unresolved instead reproduces the exact assertion above;\\n3. documentation of the stream shutdown contract (close the sink, drain the source to eof or error), which was nowhere written down, and a correction of the sentence in `doc/rpc-streaming.md` that read as if closing the client were a substitute.\\n\\nOnly the first two commits are needed for a backport.\\n\\nFixes #3663\\nRefs #3653\\nRefs https://scylladb.atlassian.net/browse/CUSTOMER-666\\nRefs https://scylladb.atlassian.net/browse/CUSTOMER-678\\nRefs https://scylladb.atlassian.net/browse/SCYLLADB-4034\\n\\nVerification: `rpc_test` passes in the debug build (ASan, UBSan, vptr) with the whole series, on 1 and 2 shards; the new test fails without the first commit.\\n\\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\\n\\n\\n\",\n  \"commits\": [\n    {\n      \"authoredDate\": \"2026-09-03T07:12:03Z\",\n      \"authors\": [\n        {\n          \"email\": \"bench@example.invalid\",\n          \"id\": \"\",\n          \"login\": \"\",\n          \"name\": \"Bench Author\"\n        },\n        {\n          \"email\": \"noreply@anthropic.com\",\n          \"id\": \"MDQ6VXNlcjgxODQ3\",\n          \"login\": \"claude\",\n          \"name\": \"Claude Fable 5.1\"\n        }\n      ],\n      \"committedDate\": \"2026-09-20T17:10:39Z\",\n      \"messageBody\": \"connection::stream_close() closes the connection's write buffer while\\n_error is still false.  _error is only set by the stop() it runs\\nafterwards, and in between connection::send() keeps accepting frames.\\nNothing is supposed to send at that point, and the sinks indeed cannot:\\nsink_impl::send_buffer() checks sink_closed().  But the send_empty_frame\\nhook handed to every negotiated compressor is `[this] { return send({}); }`\\nand is not guarded, and a compressor may call it at any time -- Scylla's\\ndoes whenever a new compression dictionary is announced, on every\\nconnection on the shard at once.\\n\\nA frame accepted in that window is written into the closed output_stream\\nand flush()ed, which registers it for a batch flush that nothing waits\\nfor or closes: stream_close() has moved on, and stop_send_loop() skips\\nits own write_buf.close() because _sink_closed_future already reports\\nthat the buffer was closed by stream_close().  The loop then ends, the\\napplication drops its sink and source as it is entitled to, and the\\nconnection is destroyed with the flush still pending:\\n\\n  seastar::output_stream<char>::~output_stream(): Assertion `!_in_batch\\n  && \\\"Was this stream properly closed?\\\"' failed.\\n\\nThat is the crash a Scylla node hit during tablet streaming, with the\\nsame 141-byte compressor control frame sitting unflushed on both the\\nstream connection being destroyed and its parent client.  Without the\\nassertion the flush poller would run on freed memory.\\n\\nMark the connection as closing in stream_close() before the write buffer\\nis touched and have send() fail with closed_error from then on, the same\\nway it does once _error is set.  A frame that send() accepted just\\nbefore the mark may still be sitting in _outgoing_queue, waiting for its\\nturn, so also wait for the queue to drain before closing the buffer, by\\nwaiting for _outgoing_queue_ready: by construction it resolves once the\\nlast accepted entry has been written and flushed into the batch the\\nclose then covers.\\n\\nSetting _error itself in stream_close() is not an option: stop() would\\nthen find it already set and skip the shutdown_input() that wakes the\\nreceive loop, and stop_send_loop() would shutdown_output() before the\\neof marker written by this very close has reached the peer.\\n\\nFixes #3663\\nRefs #3653\\n\\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>\",\n      \"messageHeadline\": \"rpc: refuse to send on a stream connection once stream_close() has begun\",\n      \"oid\": \"f545c28a9af9e3bbda15920604244c1928a83d42\"\n    },\n    {\n      \"authoredDate\": \"2026-09-03T07:12:03Z\",\n      \"authors\": [\n        {\n          \"email\": \"bench@example.invalid\",\n          \"id\": \"\",\n          \"login\": \"\",\n          \"name\": \"Bench Author\"\n        },\n        {\n          \"email\": \"noreply@anthropic.com\",\n          \"id\": \"MDQ6VXNlcjgxODQ3\",\n          \"login\": \"claude\",\n          \"name\": \"Claude Fable 5.1\"\n        }\n      ],\n      \"committedDate\": \"2026-09-20T17:10:40Z\",\n      \"messageBody\": \"Regression test for the previous commit.\\n\\nThe stream connection's socket is wrapped so that its data_sink::close()\\nparks until the test releases it and any put() that arrives after close()\\nwas entered is recorded.  A pass-through compressor hands the test the\\nsend_empty_frame hook rpc gives it.  The peer closes its sink first, so\\nthe client's later sink.close() is what runs stream_close() and closes\\nthe write buffer.  While that close is parked the test calls the stream\\ncompressor's hook.\\n\\nWithout the fix the hook's frame is written into the closed output\\nstream and the test fails on the recorded write.  Had the write been\\nleft in flight instead of completing, dropping the sink and source at\\nthe end would trip ~output_stream()'s `!_in_batch` assertion -- the\\nexact failure seen in the field; verified by temporarily making the late\\nput() never resolve.  With the fix the hook fails with closed_error and\\nnothing is written.\\n\\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>\",\n      \"messageHeadline\": \"rpc_test: reproduce a send racing stream_close()\",\n      \"oid\": \"5e25ebdbda11a47bdc2e0fd8f2e4e3125ef197dc\"\n    },\n    {\n      \"authoredDate\": \"2026-09-02T09:52:07Z\",\n      \"authors\": [\n        {\n          \"email\": \"bench@example.invalid\",\n          \"id\": \"\",\n          \"login\": \"\",\n          \"name\": \"Bench Author\"\n        },\n        {\n          \"email\": \"noreply@anthropic.com\",\n          \"id\": \"MDQ6VXNlcjgxODQ3\",\n          \"login\": \"claude\",\n          \"name\": \"Claude Opus 5 (1M context)\"\n        }\n      ],\n      \"committedDate\": \"2026-09-20T17:10:40Z\",\n      \"messageBody\": \"Shutting a stream down has a contract that was nowhere written down.\\nBoth halves have to be closed: the sink via close(), the source by\\nreading it to eof or error, since rpc::source deliberately has no\\nclose(). Only once both are closed does stream_close() run and wait for\\nthe connection's loop to stop. Close one half alone and nothing waits\\nfor the connection, and it is never shut down.\\n\\nUntil now the only trace of any of this was the SEASTAR_ASSERT in\\n~sink_impl, which covers the sink half only; abandoning a source fails\\nsilently. doc/rpc-streaming.md said nothing about it, and what it did\\nsay about teardown was misleading: \\\"the stream will be aborted if the\\nclient is closed before streaming is\\\" reads as a sanctioned way to\\nabandon a stream that never reaches eof, which it is not -- dropping the\\nunclosed sink afterwards still asserts.\\n\\nWrite the contract down in doc/rpc-streaming.md, correct that sentence,\\nand put it on rpc::sink and rpc::source themselves, where someone\\nreaching for the API will see it.\\n\\nDocumentation only, no functional change.\\n\\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\\nCo-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>\",\n      \"messageHeadline\": \"rpc: document the stream shutdown contract\",\n      \"oid\": \"69da8f5bb2f2a53a51946aa4b6ba2124be434cb0\"\n    }\n  ],\n  \"headRefOid\": \"69da8f5bb2f2a53a51946aa4b6ba2124be434cb0\",\n  \"title\": \"rpc: refuse to send on a stream connection once stream_close() has begun\",\n  \"url\": \"https://github.com/dkropachev/ironweave/pull/1\"\n}\n",
+  "reportedCostUsd": null,
+  "transcriptUsage": {
+    "input": 314936,
+    "cacheRead": 1348864,
+    "output": 51074,
+    "thinking": 16609,
+    "cacheCreation": 0,
+    "total": 1714874,
+    "costUsd": null,
+    "sessions": 4,
+    "models": {
+      "gpt-6.1-sol": null
+    }
+  },
+  "codexReview": {
+    "schemaVersion": 1,
+    "reportSha256": "7c1142a3c9a150e9c6605ea0c9c4c97935990882cca3fc8fcdc6813b595e10f8",
+    "promptSha256": "0dd018ec7584d443fbe28cca5356f1c20b75a72106ff6df35e218fbc26d21bcd",
+    "agents": [
+      {
+        "threadId": "01a147bf-0942-7c41-bd67-f157a4038334",
+        "role": "/root",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "high",
+        "completed": true,
+        "usage": {
+          "input_tokens": 623539,
+          "cached_input_tokens": 542592,
+          "output_tokens": 23907,
+          "reasoning_output_tokens": 3157,
+          "total_tokens": 647446
+        },
+        "rolloutSha256": "d3b7e6894a3e6a2cc84d10903cafb53e254ce221e0987722bf7e1389ae2578a7"
+      },
+      {
+        "threadId": "01a147c0-8407-71f1-9503-f4575b8b818e",
+        "role": "/root/toolkit",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "xhigh",
+        "completed": true,
+        "usage": {
+          "input_tokens": 339330,
+          "cached_input_tokens": 259840,
+          "output_tokens": 10664,
+          "reasoning_output_tokens": 5802,
+          "total_tokens": 349994
+        },
+        "rolloutSha256": "d96822c9c82f6a8790c40ec7e7aa45888edfdb4d3b88479ae7363e2010290aad"
+      },
+      {
+        "threadId": "01a147c1-9521-7c62-a16d-b5a56be3f6e6",
+        "role": "/root/standards",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "xhigh",
+        "completed": true,
+        "usage": {
+          "input_tokens": 334561,
+          "cached_input_tokens": 255744,
+          "output_tokens": 8787,
+          "reasoning_output_tokens": 4236,
+          "total_tokens": 343348
+        },
+        "rolloutSha256": "7c4b887944690b62c3d6caf5067e6758982aac9dea89098791746c9cffb06abf"
+      },
+      {
+        "threadId": "01a147c2-9cc0-7662-a5c3-dda05fb8d01e",
+        "role": "/root/spec",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "xhigh",
+        "completed": true,
+        "usage": {
+          "input_tokens": 366370,
+          "cached_input_tokens": 290688,
+          "output_tokens": 7716,
+          "reasoning_output_tokens": 3414,
+          "total_tokens": 374086
+        },
+        "rolloutSha256": "78076845fba4aa64e8f0b4cdf96650c64e6a9c7894caf7209bdea640ea0eb796"
+      }
+    ]
+  },
+  "wallMs": 490187,
+  "finishedAt": "2026-10-17T02:52:34.453Z"
+}

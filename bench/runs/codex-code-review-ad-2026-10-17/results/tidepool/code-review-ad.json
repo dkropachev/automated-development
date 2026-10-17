@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 2,
+  "runId": "codex-code-review-ad-2026-10-17",
+  "requestedModel": "gpt-6.1-sol",
+  "modelLabel": "GPT-6.1 Sol",
+  "claudeVersion": null,
+  "configSha256": "c94d9b557d71eb6b25c4556cc6964310565e5398eecd13841149f2c92bbcf304",
+  "platform": "codex",
+  "codexReviewer": {
+    "executableSha256": "8f788a0679db24e2640b2c0b021dcda3df8046fa2956a9e608b081cc220312a3",
+    "reasoningEffort": "high",
+    "reviewerEffort": "xhigh",
+    "roles": [
+      "spec",
+      "standards",
+      "toolkit"
+    ],
+    "skill": {
+      "contentSha256": "28b74a25e7d8493be82f5df40be99cc5cbaa4a5ad2d7d59f1827a262576a2835",
+      "files": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa"
+      }
+    },
+    "version": "codex-cli 0.161.0"
+  },
+  "target": "tidepool",
+  "tool": "code-review-ad",
+  "cellId": "codex-code-review-ad-2026-10-17/tidepool/code-review-ad",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "label": "code-review-ad",
+  "source": "repository:.agents/skills/code-review-ad",
+  "exitCode": 0,
+  "signal": null,
+  "isError": false,
+  "apiErrorStatus": null,
+  "result": "## Toolkit\n\n- **P2 — Runtime defect: recursive sizing adds cubic decoding work.** [marshal.go:1130](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/tidepool/marshal.go:1130) recursively classifies each remaining subtype, then repeats that classification while recursively calculating its minimum. Classification costs Θ(d), minimum calculation Θ(d²), and decoding nested singleton vectors Θ(d³), versus Θ(d²) at base. A depth-1,000 type fits wire metadata and requires only a four-byte float payload, yet adds approximately 167 million classification visits per decoded row. This work runs synchronously in `Scan`.\n\n- **P2 — Runtime defect: previously supported empty nested vectors are rejected.** [marshal.go:1142](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/tidepool/marshal.go:1142) assigns a one-byte minimum to `vector<float,0>`, although its fixed-length encoding occupies zero bytes. For `vector<vector<float,0>,2>`, a non-NULL empty payload and `[][]float32` destination succeed at base but fail the new outer bound. Both pinned metadata parsers admit zero dimensions, and the exported zero-dimension API remains explicitly supported by tests.\n\n## Standards\n\n- **P3 — Factual documentation defect: the comment attributes eight bytes to each inner vector.** [marshal_vector_test.go:772](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/tidepool/marshal_vector_test.go:772) describes one outer length vint plus three zero-length text vints. That is **four bytes per inner vector**; eight bytes is the total for both elements. The aggregate assertion is correct.\n\n- **P3 — Factual documentation defect: the documented byte minima exclude supported zero-byte encodings.** [marshal_vector_test.go:693](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/tidepool/marshal_vector_test.go:693) says an N-element vector never occupies fewer than N bytes; line 813 likewise denies a zero-byte element encoding. An outer vector containing N zero-dimensional fixed-element vectors occupies **zero bytes**. The helper’s “fewest bytes” description at [marshal.go:1121](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/tidepool/marshal.go:1121) and the first commit’s universal one-byte claim repeat this incorrect premise.\n\n- **P3 — Factual documentation defect: array destinations contradict the universal allocation claim.** [marshal.go:986](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/tidepool/marshal.go:986) says every path below converts Dimensions into an allocation. The array branch uses existing storage and skips `reflect.MakeSlice`; the added array test correctly describes that behavior.\n\n- **P3 — Repository-rule violation: both commits fail the prescribed message format.** Commits `0276a669` and `78891dd` start with lowercase `fix(marshal):` and omit the prescribed `Patch by …; reviewed by … for #####` trailer. [CONTRIBUTING.md:23](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/tidepool/CONTRIBUTING.md:23) makes the format applicable to submitted patches; lines 37 and 42 specify these requirements. Both commits contain explanatory bodies and tests for their respective changes.\n\n- **P3 — Repository-rule violation: required release and API documentation is absent.** [CONTRIBUTING.md:24](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/tidepool/CONTRIBUTING.md:24) requires notable bug fixes and changed behavior in `CHANGELOG.md`, with functional changes also documented in godoc. This PR changes malformed-payload handling and returned errors but changes neither artifact. The frozen description states no exception.\n\n## Spec\n\n- **P2 — Unmet hardening scope: zero-dimensional nested elements retain substantial allocation before rejection.** [marshal.go:1142](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/tidepool/marshal.go:1142) permits `vector<vector<float,0>,N>` with N equal to its nonempty payload length. Into `[][]float32`, the decoder allocates **24N bytes on amd64** before the first inner vector rejects its nonempty chunk: a 1 MiB payload causes 24 MiB of outer slice-header allocation. This exposure predates the PR; it remains unclosed by the advertised recursive hardening. The description’s companion `dim < 1` rejection is absent from both pinned parsers. The new allocation test exercises inner dimension three instead.\n\n- **P3 — Factual documentation defect: the universal regression-test claim is false.** The frozen description says “Every new test fails against pristine `marshal.go`/`helpers.go`.” The compatibility test at [marshal_vector_test.go:937](/tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/tidepool/marshal_vector_test.go:937) succeeds through unchanged base branches for both nil and empty payloads. The exact-size float acceptance test also succeeds at base. These are legitimate compatibility tests; the reproduction claim is inaccurate.\n\nAll three files and both commits were reviewed independently. No tests, builds, or external checks were run; CI claims, linked issue contents, and 32-bit execution remain unverified. HEAD and the clean working tree are unchanged.",
+  "prompt": "Use code-review-ad at /tmp/review-bench-codex-code-review-ad-2026-10-17-CMsmSG/tidepool-skill/SKILL.md to review this pull request. Follow the supplied skill exactly, including its three independent native Codex agents and reviewer reasoning settings. Use gpt-6.1-sol for the parent and reviewers. The parent runs at high effort; the skill specifies xhigh for reviewers. The checkout is pinned to the head below. Use this supplied frozen PR metadata in place of gh pr view for this offline benchmark. Do not fetch reviews, comments, or external web content. Read source, repository guidance, and Git history in this checkout. Review only: do not edit files, commit, post, or run model subprocesses. Never read benchmark results, reports, judgements, other review sessions, or anything under /extra/dkropachev/automated-development. Use only the supplied skill snapshot, not an installed skill. Return the skill's final report.\n\nFrozen PR metadata:\n{\n  \"baseRefOid\": \"24c789ec836b9382b24a38303e869de57d175e23\",\n  \"body\": \"`unmarshalVector` runs on the goroutine that called `Scan`, where nothing recovers — the\\ndriver's only `recover()` is `parseFrame`'s. Two inputs a server can send end the process\\nthere.\\n\\n**Scope**\\n\\nIn:\\n\\n- `info.Dimensions` is the peer's number and reaches `make` and `reflect.MakeSlice`\\n  unbounded. The fast paths' `len(data) == Dimensions*8` check does not bound it: a\\n  dimension of `1<<61 + 1` wraps that product to exactly 8, so an 8-byte value passes and\\n  the allocation dies. The bound now sits ahead of every consumer, dividing by\\n  `vectorElemMinSize` — recursive, because `vectorFixedElemSize` returns 0 for a nested\\n  vector, exactly the element type whose real minimum is largest. Measured on\\n  `vector<vector<float,3>,N>`: 24 bytes allocated per payload byte before, 3.5 KB flat now.\\n- `reflect.TypeOf(info.Zero())` is nil whenever the element type has no Go type, and\\n  `.Kind()` dereferences it. Two **well-formed** column types reach it: a nested vector,\\n  whose inner type resolves from the bare `...VectorType` prefix, and any element type this\\n  driver does not know. `getCassandraLongType` now keeps that name so the error can say\\n  which type the server sent.\\n\\n**Behaviour change**: a short or zero-length non-NULL payload used to decode to zero values\\n— `vector<int,3>` over an empty payload gave `[0 0 0], nil` — and now errors. That was\\nsilent corruption. The bound's message also replaces the fast paths' exact byte count\\n(\\\"expected 24 bytes, got 16\\\") when it fires first.\\n\\nOut — making a nested vector actually decode into `interface{}`, which now errors rather\\nthan crashing: #1085. Out — surplus trailing bytes, left exactly as found: #1086. Out — a\\nvariable-length element's vint length narrowing to a negative and decoding to empty with a\\nnil error, which this bound does not catch: #1106.\\n\\nLands with #1093, which rejects `dim < 1` in the metadata parsers.\\n\\nVerified with `make check` and `make test-unit`. Every new test fails against pristine\\n`marshal.go`/`helpers.go` — `reflect.MakeSlice: negative len`, `allocation size out of\\nrange`, and two nil-pointer dereferences. Not covered: no live-node run.\\n\\nRefs: https://github.com/dkropachev/tidepool/issues/1091\\nRefs: https://scylladb.atlassian.net/browse/DRIVER-954\\n\\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\",\n  \"commits\": [\n    {\n      \"authoredDate\": \"2026-09-08T20:18:10Z\",\n      \"authors\": [\n        {\n          \"email\": \"bench@example.invalid\",\n          \"id\": \"\",\n          \"login\": \"\",\n          \"name\": \"Bench Author\"\n        },\n        {\n          \"email\": \"noreply@anthropic.com\",\n          \"id\": \"MDQ6VXNlcjgxODQ3\",\n          \"login\": \"claude\",\n          \"name\": \"Claude Opus 5 (1M context)\"\n        }\n      ],\n      \"committedDate\": \"2026-09-20T17:08:55Z\",\n      \"messageBody\": \"unmarshalVector turned a peer-supplied dimension into an allocation\\nbefore it looked at the value: a negative count panicked in\\nreflect.MakeSlice, and a large positive one either panicked in makeslice\\nor exhausted the heap. Both land on the goroutine that called Scan,\\nwhere nothing recovers.\\n\\nThe bound sits ahead of the float fast paths because their\\nlen(data) == Dimensions*8 check can be satisfied by a count large enough\\nfor that product to wrap; once it is there, the multiplication cannot\\noverflow. Every element takes at least one byte on the wire, so a count\\nthe buffer cannot hold is rejected the way unmarshalList already does.\\n\\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\",\n      \"messageHeadline\": \"fix(marshal): bound vector dimensions against the payload\",\n      \"oid\": \"0276a66933a8b5565544158816418d2c1afb826a\"\n    },\n    {\n      \"authoredDate\": \"2026-09-14T12:51:45Z\",\n      \"authors\": [\n        {\n          \"email\": \"bench@example.invalid\",\n          \"id\": \"\",\n          \"login\": \"\",\n          \"name\": \"Bench Author\"\n        },\n        {\n          \"email\": \"noreply@anthropic.com\",\n          \"id\": \"MDQ6VXNlcjgxODQ3\",\n          \"login\": \"claude\",\n          \"name\": \"Claude Opus 5 (1M context)\"\n        }\n      ],\n      \"committedDate\": \"2026-09-20T17:08:55Z\",\n      \"messageBody\": \"unmarshalVector resolves an empty-interface destination through\\nreflect.TypeOf(info.Zero()), the only such site in the package.\\nVectorType.Zero() returns an untyped nil whenever the element type has no\\nGo representation, reflect.TypeOf of that is a nil Type, and Kind() on it\\ndereferences nil -- on the goroutine that called Scan, outside\\nparseFrame's recover, so the process dies rather than the query.\\n\\nTwo column types a server can send reach it with no malformed metadata at\\nall: a nested vector, whose inner type resolves from the bare\\n\\\"...VectorType\\\" prefix, and any element type this driver does not know.\\nBoth predate this branch; the reproducer runs against its base.\\n\\ngetCassandraLongType now keeps an unrecognised type name on the custom\\ntype it degrades to, so the error can say which type the server sent\\ninstead of rendering as a bare \\\"custom()\\\".\\n\\nCo-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>\",\n      \"messageHeadline\": \"fix(marshal): reject a vector element type that has no Go type\",\n      \"oid\": \"78891dd78461a2758585ce3545de0d55f2c114a3\"\n    }\n  ],\n  \"headRefOid\": \"78891dd78461a2758585ce3545de0d55f2c114a3\",\n  \"title\": \"fix(marshal): stop a vector value from crashing the Scan goroutine\",\n  \"url\": \"https://github.com/dkropachev/tidepool/pull/1\"\n}\n",
+  "reportedCostUsd": null,
+  "transcriptUsage": {
+    "input": 291218,
+    "cacheRead": 1271552,
+    "output": 41087,
+    "thinking": 14476,
+    "cacheCreation": 0,
+    "total": 1603857,
+    "costUsd": null,
+    "sessions": 4,
+    "models": {
+      "gpt-6.1-sol": null
+    }
+  },
+  "codexReview": {
+    "schemaVersion": 1,
+    "reportSha256": "bcc04dd6d3b46778a1d3fe51bf82f66d2234e235dd6071b281b0cb19af48dec2",
+    "promptSha256": "052192ff2da869d58c1fbeee985c3e99d25563c8d272dd285cfaa6b1be7bbb10",
+    "agents": [
+      {
+        "threadId": "01a147bf-09c4-70e3-96a6-545d6abadf6f",
+        "role": "/root",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "high",
+        "completed": true,
+        "usage": {
+          "input_tokens": 677310,
+          "cached_input_tokens": 561536,
+          "output_tokens": 17825,
+          "reasoning_output_tokens": 2775,
+          "total_tokens": 695135
+        },
+        "rolloutSha256": "b0ac060f00f669ec1c379557c7979f48377758e2984bc25df55de2f95e194368"
+      },
+      {
+        "threadId": "01a147c1-2e31-71e2-8d51-db539eb21648",
+        "role": "/root/toolkit",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "xhigh",
+        "completed": true,
+        "usage": {
+          "input_tokens": 258574,
+          "cached_input_tokens": 193024,
+          "output_tokens": 8093,
+          "reasoning_output_tokens": 4535,
+          "total_tokens": 266667
+        },
+        "rolloutSha256": "7ec20b7f950890f584a650d91fcab8d4df8e180245e4c609cf55fecbd313e776"
+      },
+      {
+        "threadId": "01a147c2-7c04-7e91-a524-dc48ab8d4230",
+        "role": "/root/standards",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "xhigh",
+        "completed": true,
+        "usage": {
+          "input_tokens": 306132,
+          "cached_input_tokens": 249600,
+          "output_tokens": 7865,
+          "reasoning_output_tokens": 3302,
+          "total_tokens": 313997
+        },
+        "rolloutSha256": "34dd06942095d91840c673f62f8b76a92362ddbade5132139e42198b5d0a0e6d"
+      },
+      {
+        "threadId": "01a147c3-cc72-7333-a98c-b1f1c537c014",
+        "role": "/root/spec",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": "xhigh",
+        "completed": true,
+        "usage": {
+          "input_tokens": 320754,
+          "cached_input_tokens": 267392,
+          "output_tokens": 7304,
+          "reasoning_output_tokens": 3864,
+          "total_tokens": 328058
+        },
+        "rolloutSha256": "dcc35aa2620f9782a2f11f0e1d880966063baf30ffbf3b8f1df06fc4ae5728e1"
+      }
+    ]
+  },
+  "wallMs": 933447,
+  "finishedAt": "2026-10-17T02:59:57.847Z"
+}

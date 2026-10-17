@@ -162,6 +162,10 @@ function manifestMetadata(manifest) {
     claudeVersion: manifest.claudeVersion,
     configSha256: manifest.configSha256,
   }
+  if (manifest.platform === 'codex') {
+    metadata.platform = 'codex'
+    metadata.codexReviewer = canonical(manifest.codexReviewer)
+  }
   if (manifest.pluginFingerprint != null) metadata.pluginFingerprint = canonical(manifest.pluginFingerprint)
   if (manifest.codexJudge != null) metadata.codexJudge = canonical(manifest.codexJudge)
   return metadata
@@ -363,7 +367,11 @@ function validateManifest(manifest, expected = {}, options = {}) {
   if (manifest.runId === 'legacy') throw new Error('legacy cohort is read-only')
   assertSafeId(manifest.requestedModel, 'manifest requested model')
   if (typeof manifest.modelLabel !== 'string' || !manifest.modelLabel) throw new Error('manifest modelLabel is required')
-  if (typeof manifest.claudeVersion !== 'string' || !manifest.claudeVersion) throw new Error('manifest claudeVersion is required')
+  if (manifest.platform != null && !['claude', 'codex'].includes(manifest.platform)) throw new Error('invalid manifest platform')
+  if (manifest.platform === 'codex') {
+    require('./codex-review').validateReviewer(manifest.codexReviewer)
+    if (manifest.claudeVersion !== null) throw new Error('Codex manifest must not claim a Claude runtime')
+  } else if (typeof manifest.claudeVersion !== 'string' || !manifest.claudeVersion) throw new Error('manifest claudeVersion is required')
   if (typeof manifest.createdAt !== 'string' || !manifest.createdAt) throw new Error('manifest createdAt is required')
   if (!unpinned) {
     if (!FILE_HASH.test(manifest.configSha256 || '')) throw new Error('manifest configSha256 is required')
@@ -372,6 +380,7 @@ function validateManifest(manifest, expected = {}, options = {}) {
     manifest.groundtruth = normalizedGroundtruth(manifest.groundtruth, Object.keys(manifest.targets))
     manifest.expectedCells = normalizedExpectedCells(manifest.runId, manifest.expectedCells)
     manifest.toolConfig = normalizedToolConfig(manifest.toolConfig)
+    if (manifest.platform === 'codex' && (manifest.toolConfig.tools.some((tool) => tool.id !== 'code-review-ad' || tool.platform !== 'codex') || manifest.expectedCells.some((cell) => cell.tool !== 'code-review-ad'))) throw new Error('unsupported native Codex tool configuration')
     for (const cell of manifest.expectedCells) {
       if (!manifest.targets[cell.target]) throw new Error(`expected cell target is not pinned: ${cell.target}`)
     }
@@ -448,6 +457,8 @@ function validateManifest(manifest, expected = {}, options = {}) {
     const actual = manifest.codexJudge == null ? null : manifest.codexJudge
     if (JSON.stringify(actual) !== JSON.stringify(wanted)) throw new Error(`cohort ${manifest.runId} Codex judge identity mismatch`)
   }
+  if (expected.platform != null && (manifest.platform || 'claude') !== expected.platform) throw new Error('cohort platform mismatch')
+  if (expected.codexReviewer && JSON.stringify(canonical(expected.codexReviewer)) !== JSON.stringify(canonical(manifest.codexReviewer))) throw new Error('cohort Codex reviewer mismatch')
   if (expected.targetIds) assertManifestTargets(manifest, expected.targetIds)
   return manifest
 }
@@ -462,7 +473,7 @@ function ensureManifest(root, metadata) {
   assertSafeId(metadata.runId, 'run id')
   if (metadata.runId === 'legacy') throw new Error('legacy cohort is read-only')
   const model = assertSafeId(metadata.requestedModel, 'requested model')
-  if (!metadata.modelLabel || !metadata.claudeVersion) throw new Error('modelLabel and claudeVersion are required')
+  if (!metadata.modelLabel || (metadata.platform !== 'codex' && !metadata.claudeVersion)) throw new Error('modelLabel and claudeVersion are required')
   if (!FILE_HASH.test(metadata.configSha256 || '')) throw new Error('configSha256 is required')
   const targets = normalizedPins(metadata.targets)
   const targetMetadata = normalizedTargetMetadata(metadata.targetMetadata, Object.keys(targets))
@@ -478,7 +489,8 @@ function ensureManifest(root, metadata) {
     runId: metadata.runId,
     requestedModel: model,
     modelLabel: metadata.modelLabel,
-    claudeVersion: metadata.claudeVersion,
+    claudeVersion: metadata.platform === 'codex' ? null : metadata.claudeVersion,
+    ...(metadata.platform === 'codex' ? { platform: 'codex', codexReviewer: canonical(metadata.codexReviewer) } : {}),
     configSha256: metadata.configSha256,
     targets,
     targetMetadata,
@@ -1206,6 +1218,7 @@ function validateResultIdentity(record, manifest, targetId, toolId) {
 
 function validateResultRecord(record, manifest, targetId, toolId, options = {}) {
   validateResultIdentity(record, manifest, targetId, toolId)
+  if (manifest.platform === 'codex') return require('./codex-review').validateCodexResult(record, manifest)
   validateClaudeResponse({ code: record.exitCode, signal: record.signal }, {
     is_error: record.isError,
     api_error_status: record.apiErrorStatus,

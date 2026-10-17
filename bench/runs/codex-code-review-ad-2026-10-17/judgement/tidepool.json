@@ -1,0 +1,290 @@
+{
+  "schemaVersion": 2,
+  "runId": "codex-code-review-ad-2026-10-17",
+  "requestedModel": "gpt-6.1-sol",
+  "modelLabel": "GPT-6.1 Sol",
+  "claudeVersion": null,
+  "configSha256": "c94d9b557d71eb6b25c4556cc6964310565e5398eecd13841149f2c92bbcf304",
+  "platform": "codex",
+  "codexReviewer": {
+    "executableSha256": "8f788a0679db24e2640b2c0b021dcda3df8046fa2956a9e608b081cc220312a3",
+    "reasoningEffort": "high",
+    "reviewerEffort": "xhigh",
+    "roles": [
+      "spec",
+      "standards",
+      "toolkit"
+    ],
+    "skill": {
+      "contentSha256": "28b74a25e7d8493be82f5df40be99cc5cbaa4a5ad2d7d59f1827a262576a2835",
+      "files": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa"
+      }
+    },
+    "version": "codex-cli 0.161.0"
+  },
+  "target": "tidepool",
+  "language": "Go",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "rawFindings": 9,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "New vectorElemMinSize recursion makes nested-vector decode cost cubic in depth",
+      "file": "marshal.go",
+      "line": 1125,
+      "kind": "perf",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Traced vectorElemMinSize (marshal.go:1125) and isVectorVariableLengthType (marshal.go:1181): each level of vectorElemMinSize's own recursion re-runs isVectorVariableLengthType's full descent to the bottom, giving Θ(depth²) per call; a counted-call probe against depth 10/20/40/80 nested vectors measured 66/231/861/3321 calls, matching the quadratic growth. Since unmarshalVector calls vectorElemMinSize once per nesting level during an actual decode, total cost across a depth-d decode is Θ(d³), confirming the claim.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "vectorElemMinSize is new code added by this PR; the quadratic/cubic blowup did not exist before it.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Recursive sizing causes cubic (Θ(d³)) decoding work for nested vectors"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad": "marshal.go:1130 recursively classifies each remaining subtype then repeats classification while recursively calculating its minimum, making classification Θ(d), minimum calculation Θ(d²), and decoding nested singleton vectors Θ(d³) versus Θ(d²) at base. A depth-1,000 type that fits wire metadata and requires only a four-byte float payload adds approximately 167 million classification visits per decoded row. This work runs synchronously in Scan."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "vectorElemMinSize returns 1 for a 0-dim vector element, rejecting valid empty nested…",
+      "file": "marshal.go",
+      "line": 1141,
+      "kind": "bug",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Built a vector<vector<float,0>,2> TypeInfo and called unmarshalVector with a non-nil empty payload: it returned \"unmarshal vector: 2 dimensions do not fit in 0 bytes\" instead of decoding to [][]float32{}. vectorElemMinSize(vector<float,0>) returns 1 (the size<1 fallback at marshal.go:1141-1143) even though a 0-dimension fixed-element vector truly occupies 0 bytes, so the new bound at marshal.go:1000 rejects a payload the pre-PR code accepted.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The dimension bound and vectorElemMinSize are new in this PR and directly cause the regression.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Previously supported empty nested vectors (vector<vector<float,0>,N>) now rejected"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad": "marshal.go:1142 assigns a one-byte minimum to vector<float,0>, although its fixed-length encoding occupies zero bytes. For vector<vector<float,0>,2>, a non-NULL empty payload and [][]float32 destination succeed at base but fail the new outer bound, even though both pinned metadata parsers admit zero dimensions and the exported zero-dimension API remains explicitly supported by tests."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Test comment overstates nested variable-length vector's per-inner-vector byte count",
+      "file": "marshal_vector_test.go",
+      "line": 768,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Read the test at marshal_vector_test.go:767-786: the comment says each inner vector is \"a vint length followed by three vint lengths of zero: eight bytes\", but the assertion two lines later checks the combined payload for both inner vectors equals 8 bytes total, i.e. 4 bytes per inner vector, not 8.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is part of this PR's newly added test file content.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Test comment misattributes eight bytes to each inner vector instead of four"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad": "marshal_vector_test.go:772's comment describes one outer length vint plus three zero-length text vints as eight bytes per inner vector, but that is actually four bytes per inner vector — eight bytes is the total for both elements. The aggregate assertion itself is correct."
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Test/helper comments wrongly claim an N-element vector is never fewer than N bytes",
+      "file": "marshal_vector_test.go",
+      "line": 691,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "The comment at marshal_vector_test.go:691-692 (and the matching vectorElemMinSize doc comment at marshal.go:1121-1124) claims a vector of N elements is never encoded in fewer than N bytes; confirmed via I2's reproduction that an outer vector of N zero-dimension inner vectors encodes to exactly 0 bytes regardless of N, contradicting the stated universal floor.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment and the code whose behavior it mischaracterizes are both new in this PR.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Documented byte minima claim wrongly excludes supported zero-byte encodings"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad": "marshal_vector_test.go:693 states an N-element vector never occupies fewer than N bytes, and line 813 likewise denies a zero-byte element encoding, but an outer vector containing N zero-dimensional fixed-element vectors occupies zero bytes. The helper's 'fewest bytes' description at marshal.go:1121 and the first commit's universal one-byte claim repeat this same incorrect premise."
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Comment claims every unmarshalVector path allocates via MakeSlice, but the array branch…",
+      "file": "marshal.go",
+      "line": 986,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Read marshal.go:986-991 and the array branch at marshal.go:1078-1081: when the destination kind is reflect.Array, the code validates rv.Len() against info.Dimensions and reuses the caller's existing array storage, never calling reflect.MakeSlice, contradicting the comment's universal claim.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The comment is new, added alongside the bound checks in this PR.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Comment claims all paths allocate via MakeSlice, but array branch doesn't"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad": "marshal.go:986 claims every path below converts Dimensions into an allocation, but the array branch uses existing storage and skips reflect.MakeSlice. The added array test correctly describes that behavior, contradicting the universal claim."
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Commits don't follow CONTRIBUTING.md's prescribed commit message format/trailer",
+      "file": "CONTRIBUTING.md",
+      "line": 23,
+      "kind": "style",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "Checked `git log --oneline -20`: every recent commit in this repo (fix(...), test(...), docs(...), refactor(...)) uses conventional-commit style, not CONTRIBUTING.md's \"Patch by …; reviewed by … for #####\" format, so this PR's commits match the repo's actual established practice rather than deviating from it.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The mismatch between CONTRIBUTING.md's documented format and the project's real commit convention predates this PR and is universal across its history, not something this PR introduced.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Commits violate prescribed commit message format and trailer requirement"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad": "Commits 0276a669 and 78891dd start with lowercase fix(marshal): and omit the prescribed 'Patch by …; reviewed by … for #####' trailer required by CONTRIBUTING.md:23 (format) and lines 37 and 42 (requirements) for submitted patches. Both commits contain explanatory bodies and tests for their respective changes."
+      }
+    },
+    {
+      "id": "I7",
+      "title": "No CHANGELOG.md/godoc update for the behavior change, as CONTRIBUTING.md requires",
+      "file": "CONTRIBUTING.md",
+      "line": 24,
+      "kind": "docs",
+      "severity": "nit",
+      "verdict": "false-positive",
+      "verdictReason": "CHANGELOG.md does not exist in this repository (it was removed in a prior commit, per `git log -- CHANGELOG.md` showing \"Remove upstream's CHANGELOG.md\"), and none of the other recent bugfix commits (15b26ab, f18c7da, e36b80d, 5269894) touch it either, so this requirement is not enforced in actual project practice.",
+      "introducedByPr": false,
+      "scope": "out-of-scope",
+      "scopeReason": "The CHANGELOG.md requirement is stale documentation unmet by every other commit in the project's history, not a gap specific to this PR.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Required CHANGELOG.md and godoc updates for behavior change are missing"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad": "CONTRIBUTING.md:24 requires notable bug fixes and changed behavior to be documented in CHANGELOG.md, with functional changes also documented in godoc. This PR changes malformed-payload handling and returned errors but updates neither artifact, and the frozen PR description states no exception."
+      }
+    },
+    {
+      "id": "I8",
+      "title": "Zero-dim nested vector element lets dimension bound admit N up to payload length,…",
+      "file": "marshal.go",
+      "line": 1141,
+      "kind": "security",
+      "severity": "medium",
+      "verdict": "real",
+      "verdictReason": "Reproduced directly: unmarshalVector on vector<vector<float,0>,N> with a 1 MiB payload and N set to the bound's allowed maximum (len(data)) allocated ~25.17 MB (measured via runtime.MemStats) before the first inner vector's nonempty-data check rejected it -- matching the predicted 24*N bytes for a [][]float32 destination on amd64. The root cause is the same vectorElemMinSize==1 floor from I2 for zero-dimension elements, which lets N scale with raw payload bytes instead of being rejected outright.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "This PR's own new bound and vectorElemMinSize logic determine the allowed N for this case; the residual amplification is a gap in the new hardening this PR added, not an unrelated pre-existing path.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Zero-dim nested elements allocate 24N bytes before rejection, hardening gap unclosed"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad": "marshal.go:1142 permits vector<vector<float,0>,N> with N equal to its nonempty payload length; decoding into [][]float32 allocates 24N bytes on amd64 before the first inner vector rejects its nonempty chunk, so a 1 MiB payload causes 24 MiB of outer slice-header allocation. This exposure predates the PR and remains unclosed by the advertised recursive hardening; the description's companion dim < 1 rejection is absent from both pinned parsers, and the new allocation test exercises inner dimension three instead."
+      }
+    },
+    {
+      "id": "I9",
+      "title": "PR description's blanket claim that every new test fails against pristine code is…",
+      "file": "marshal_vector_test.go",
+      "line": 937,
+      "kind": "docs",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Isolated TestUnmarshalVectorZeroDimensionsDoesNotTouchSubType's nil/empty-payload cases and the \"float vector at the exact size\" case from TestUnmarshalVectorAcceptsWellFormedPayloads into a standalone file and ran them against a worktree checked out at main (pristine marshal.go/helpers.go): both passed without modification, contradicting the PR description's \"Every new test fails against pristine marshal.go/helpers.go\" claim.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The inaccurate claim is in this PR's own frozen description, describing this PR's own test additions.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "PR description's claim that all new tests fail against pristine code is false"
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/tidepool/code-review-ad": "The frozen PR description claims 'Every new test fails against pristine marshal.go/helpers.go,' but the compatibility test at marshal_vector_test.go:937 succeeds through unchanged base branches for both nil and empty payloads, as does the exact-size float acceptance test. These are legitimate compatibility tests; the reproduction claim is inaccurate."
+      }
+    }
+  ],
+  "judgeCostUsd": 1.6006448000000002,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 86,
+      "outputTokens": 36652,
+      "cacheReadInputTokens": 3660864,
+      "cacheCreationInputTokens": 125445,
+      "webSearchRequests": 0,
+      "costUSD": 1.6006448000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 19454,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/tidepool/runs/codex-code-review-ad-2026-10-17/_judge/attempt-G4mk1v/repo",
+  "judgedAt": "2026-10-17T03:09:31.116Z"
+}

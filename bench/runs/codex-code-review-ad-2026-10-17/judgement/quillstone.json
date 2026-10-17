@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 2,
+  "runId": "codex-code-review-ad-2026-10-17",
+  "requestedModel": "gpt-6.1-sol",
+  "modelLabel": "GPT-6.1 Sol",
+  "claudeVersion": null,
+  "configSha256": "c94d9b557d71eb6b25c4556cc6964310565e5398eecd13841149f2c92bbcf304",
+  "platform": "codex",
+  "codexReviewer": {
+    "executableSha256": "8f788a0679db24e2640b2c0b021dcda3df8046fa2956a9e608b081cc220312a3",
+    "reasoningEffort": "high",
+    "reviewerEffort": "xhigh",
+    "roles": [
+      "spec",
+      "standards",
+      "toolkit"
+    ],
+    "skill": {
+      "contentSha256": "28b74a25e7d8493be82f5df40be99cc5cbaa4a5ad2d7d59f1827a262576a2835",
+      "files": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa"
+      }
+    },
+    "version": "codex-cli 0.161.0"
+  },
+  "target": "quillstone",
+  "language": "Rust",
+  "baseSha": "ec5003868283c23a1cecb7c8070c72870315502c",
+  "headSha": "617139dfa6e0d3653cc77ee54d24d112ebf8bce0",
+  "rawFindings": 3,
+  "issues": [
+    {
+      "id": "I1",
+      "title": "Keyspace setup failure logged at DEBUG instead of previous WARN",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 903,
+      "kind": "design",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Confirmed: pre-PR code in start_setting_keyspace_for_connection logged the failure via warn! (and, worse, still returned Ok so the broken connection was silently pooled). The PR now correctly discards the connection via Err(ConnectionSetupError::Keyspace) in handle_ready_connection (connection_pool.rs:897-909), but the per-attempt message there is debug!, and when the pool is non-empty update_shared_conns is skipped, so repeated keyspace failures on a partially-healthy pool are now invisible above debug level where before they were WARN.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The log-level and visibility change is part of this PR's own refactor of keyspace-failure handling, and the same diff also fixes a worse pre-existing bug (silently pooling a connection with the wrong keyspace), so the behavior change is intentional but its observability side-effect should be reconsidered as part of this change.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/quillstone/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Failed initialization USE requests previously logged at WARN and now log at DEBUG. When existing connections remain, the error also stays out of shared pool state. At INFO/WARN, repeated refill failures therefore become invisible to callers and operators."
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/quillstone/code-review-ad": "Failed initialization USE requests previously logged at WARN and now log at DEBUG. When existing connections remain, the error also stays out of shared pool state. At INFO/WARN, repeated refill failures therefore become invisible to callers and operators."
+      }
+    },
+    {
+      "id": "I2",
+      "title": "New keyspace regression test awaits ready_connections.next() with no timeout",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1634,
+      "kind": "test-gap",
+      "severity": "low",
+      "verdict": "real",
+      "verdictReason": "Confirmed both `let event = refiller.ready_connections.next().await.unwrap();` calls (lines 1634 and 1667) are unguarded awaits on a keyspace USE request completing through the mocked proxy; if that future never resolves the test hangs indefinitely under plain `cargo test`. This pattern (bare .next().await in a test) does not exist anywhere in main's version of this file, and the same PR demonstrates awareness of the risk by wrapping a different new test's wait in tokio::time::timeout (line 2001), making the omission here inconsistent with the PR's own precedent.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "The test and both unbounded awaits are new code added by this PR.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/quillstone/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Both new waits (lines 1634 and 1667) depend on a keyspace request without a local timeout. If that operation stalls, the test cannot reach its assertions or explicit proxy shutdown. Nextest supplies an external 120-second deadline, but the PR's documented cargo test invocation does not; the production timeout omission predates this PR."
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/quillstone/code-review-ad": "Both new waits (lines 1634 and 1667) depend on a keyspace request without a local timeout. If that operation stalls, the test cannot reach its assertions or explicit proxy shutdown. Nextest supplies an external 120-second deadline, but the PR's documented cargo test invocation does not; the production timeout omission predates this PR."
+      }
+    },
+    {
+      "id": "I3",
+      "title": "New keyspace-failure tests omit CONTRIBUTING.md-required setup_tracing() call",
+      "file": "scylla/src/network/connection_pool.rs",
+      "line": 1474,
+      "kind": "test-gap",
+      "severity": "nit",
+      "verdict": "real",
+      "verdictReason": "Verified: CONTRIBUTING.md:92 states 'any new tests should' call setup_tracing() so tracing output is visible on failure. keyspace_setup_failure_triggers_refill (line 1474) and keyspace_setup_failure_preserves_pool_state (line 1526) do not call it, while this same PR's other new tests (resharding_discards_old_connections_and_balances_metrics, excess_connection_limit_clears_connections_and_balances_metrics, full_pool_clears_excess_connections_and_balances_metrics) do call setup_tracing() at lines 1728, 1869, 1973 respectively.",
+      "introducedByPr": true,
+      "scope": "in-scope",
+      "scopeReason": "Both tests are newly added by this PR and the convention is self-evidently followed elsewhere in the same diff.",
+      "reportedBy": [
+        "code-review-ad"
+      ],
+      "reportedByRuns": [
+        "codex-code-review-ad-2026-10-17/quillstone/code-review-ad"
+      ],
+      "reportedAs": {
+        "code-review-ad": "Neither new test (lines 1474 and 1526) calls setup_tracing(), despite CONTRIBUTING.md:92 directing new tests to do so. Isolated failures can consequently omit the required diagnostic tracing. The PR documents no exception."
+      },
+      "reportedAsByRun": {
+        "codex-code-review-ad-2026-10-17/quillstone/code-review-ad": "Neither new test (lines 1474 and 1526) calls setup_tracing(), despite CONTRIBUTING.md:92 directing new tests to do so. Isolated failures can consequently omit the required diagnostic tracing. The PR documents no exception."
+      }
+    }
+  ],
+  "judgeCostUsd": 0.6429104,
+  "judgeRequestedModel": "claude-sonnet-5",
+  "judgeModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 34,
+      "outputTokens": 10666,
+      "cacheReadInputTokens": 1084112,
+      "cacheCreationInputTokens": 79840,
+      "webSearchRequests": 0,
+      "costUSD": 0.6429104,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 5154,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "workspace": "work/quillstone/runs/codex-code-review-ad-2026-10-17/_judge/attempt-10vrvZ/repo",
+  "judgedAt": "2026-10-17T03:04:33.750Z"
+}

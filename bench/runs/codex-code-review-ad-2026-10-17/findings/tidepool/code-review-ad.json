@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 2,
+  "runId": "codex-code-review-ad-2026-10-17",
+  "requestedModel": "gpt-6.1-sol",
+  "modelLabel": "GPT-6.1 Sol",
+  "claudeVersion": null,
+  "configSha256": "c94d9b557d71eb6b25c4556cc6964310565e5398eecd13841149f2c92bbcf304",
+  "platform": "codex",
+  "codexReviewer": {
+    "executableSha256": "8f788a0679db24e2640b2c0b021dcda3df8046fa2956a9e608b081cc220312a3",
+    "reasoningEffort": "high",
+    "reviewerEffort": "xhigh",
+    "roles": [
+      "spec",
+      "standards",
+      "toolkit"
+    ],
+    "skill": {
+      "contentSha256": "28b74a25e7d8493be82f5df40be99cc5cbaa4a5ad2d7d59f1827a262576a2835",
+      "files": {
+        "SKILL.md": "80f5ac7fdb3a2a5aa53aff8096b703f01858f452a17e45885adc33d304912f28",
+        "checks/bounds.md": "fab80818b97579775b6edc45f94480195023081b088a31ecea36850d79f40ee4",
+        "checks/claims.md": "b940cbea71adaf34aca7f3fe6d8a5391c7a0be0d56467e405de12e581dec3f3a",
+        "checks/concurrency.md": "21018771d850570479eb63e505a160897f553e9c8d33c39e6965a67185d2bd82",
+        "checks/counterexamples.md": "f6967146a4f57bf16883a21663bb40a44d8d539d03f0667398d249e8b4e947f8",
+        "checks/lifecycle.md": "91690a5078861fb2abb98ac188c36ef96e4845f936817dde0aad58892f82da91",
+        "checks/pools.md": "e02c342d8c48163fcb51eb49aeaa81ceb31cb70bf8867918cce759ef7ba5d944",
+        "checks/standards.md": "bc5301dd1b0d40c150d74143a41b7831b4195aa57f39e1c9de4f5ad563f59f1a",
+        "passes/spec.md": "1f13b1dd355cd250ecdcd88b830fa2cab8f4f7aeb2164f60d2fa3c2b8e990cfb",
+        "passes/standards.md": "4da6a1cad2f5e535adb50b2716ae8cd209304b5e29bcfd3a2a74d8c0987c1616",
+        "passes/toolkit.md": "ee170fb857ff38740b64096a2e099718c66e39f652f07067e422ee26e5102d1f",
+        "review.md": "f87f7de993cd3b57e3d986761685604b2f6729c52744e95ecf95c5d2f0db1f7c",
+        "scripts/prepare-review.js": "6aced586cd723df7afbd2f1d703c51857b79c968f4a38fc2277761e1ea48b5fa"
+      }
+    },
+    "version": "codex-cli 0.161.0"
+  },
+  "cellId": "codex-code-review-ad-2026-10-17/tidepool/code-review-ad",
+  "target": "tidepool",
+  "tool": "code-review-ad",
+  "baseSha": "24c789ec836b9382b24a38303e869de57d175e23",
+  "headSha": "78891dd78461a2758585ce3545de0d55f2c114a3",
+  "sourceResultSha256": "e945e3c37f0182e85c8dd84b920249aad766c1dbe414eef0785e04b9dba5b39e",
+  "label": "code-review-ad",
+  "findings": [
+    {
+      "file": "marshal.go",
+      "line": 1130,
+      "title": "Recursive sizing causes cubic (Θ(d³)) decoding work for nested vectors",
+      "severity": "high",
+      "kind": "perf",
+      "claim": "marshal.go:1130 recursively classifies each remaining subtype then repeats classification while recursively calculating its minimum, making classification Θ(d), minimum calculation Θ(d²), and decoding nested singleton vectors Θ(d³) versus Θ(d²) at base. A depth-1,000 type that fits wire metadata and requires only a four-byte float payload adds approximately 167 million classification visits per decoded row. This work runs synchronously in Scan.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1142,
+      "title": "Previously supported empty nested vectors (vector<vector<float,0>,N>) now rejected",
+      "severity": "high",
+      "kind": "bug",
+      "claim": "marshal.go:1142 assigns a one-byte minimum to vector<float,0>, although its fixed-length encoding occupies zero bytes. For vector<vector<float,0>,2>, a non-NULL empty payload and [][]float32 destination succeed at base but fail the new outer bound, even though both pinned metadata parsers admit zero dimensions and the exported zero-dimension API remains explicitly supported by tests.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 772,
+      "title": "Test comment misattributes eight bytes to each inner vector instead of four",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "marshal_vector_test.go:772's comment describes one outer length vint plus three zero-length text vints as eight bytes per inner vector, but that is actually four bytes per inner vector — eight bytes is the total for both elements. The aggregate assertion itself is correct.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 693,
+      "title": "Documented byte minima claim wrongly excludes supported zero-byte encodings",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "marshal_vector_test.go:693 states an N-element vector never occupies fewer than N bytes, and line 813 likewise denies a zero-byte element encoding, but an outer vector containing N zero-dimensional fixed-element vectors occupies zero bytes. The helper's 'fewest bytes' description at marshal.go:1121 and the first commit's universal one-byte claim repeat this same incorrect premise.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 986,
+      "title": "Comment claims all paths allocate via MakeSlice, but array branch doesn't",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "marshal.go:986 claims every path below converts Dimensions into an allocation, but the array branch uses existing storage and skips reflect.MakeSlice. The added array test correctly describes that behavior, contradicting the universal claim.",
+      "selfRejected": false
+    },
+    {
+      "file": "CONTRIBUTING.md",
+      "line": 23,
+      "title": "Commits violate prescribed commit message format and trailer requirement",
+      "severity": "medium",
+      "kind": "style",
+      "claim": "Commits 0276a669 and 78891dd start with lowercase fix(marshal): and omit the prescribed 'Patch by …; reviewed by … for #####' trailer required by CONTRIBUTING.md:23 (format) and lines 37 and 42 (requirements) for submitted patches. Both commits contain explanatory bodies and tests for their respective changes.",
+      "selfRejected": false
+    },
+    {
+      "file": "CONTRIBUTING.md",
+      "line": 24,
+      "title": "Required CHANGELOG.md and godoc updates for behavior change are missing",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "CONTRIBUTING.md:24 requires notable bug fixes and changed behavior to be documented in CHANGELOG.md, with functional changes also documented in godoc. This PR changes malformed-payload handling and returned errors but updates neither artifact, and the frozen PR description states no exception.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal.go",
+      "line": 1142,
+      "title": "Zero-dim nested elements allocate 24N bytes before rejection, hardening gap unclosed",
+      "severity": "high",
+      "kind": "security",
+      "claim": "marshal.go:1142 permits vector<vector<float,0>,N> with N equal to its nonempty payload length; decoding into [][]float32 allocates 24N bytes on amd64 before the first inner vector rejects its nonempty chunk, so a 1 MiB payload causes 24 MiB of outer slice-header allocation. This exposure predates the PR and remains unclosed by the advertised recursive hardening; the description's companion dim < 1 rejection is absent from both pinned parsers, and the new allocation test exercises inner dimension three instead.",
+      "selfRejected": false
+    },
+    {
+      "file": "marshal_vector_test.go",
+      "line": 937,
+      "title": "PR description's claim that all new tests fail against pristine code is false",
+      "severity": "medium",
+      "kind": "docs",
+      "claim": "The frozen PR description claims 'Every new test fails against pristine marshal.go/helpers.go,' but the compatibility test at marshal_vector_test.go:937 succeeds through unchanged base branches for both nil and empty payloads, as does the exact-size float acceptance test. These are legitimate compatibility tests; the reproduction claim is inaccurate.",
+      "selfRejected": false
+    }
+  ],
+  "extractError": null,
+  "sourceReportEmpty": false,
+  "extractorRequestedModel": "claude-sonnet-5",
+  "extractorModelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 2,
+      "outputTokens": 5111,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 75530,
+      "webSearchRequests": 0,
+      "costUSD": 0.353234,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3087,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "extractionSkippedReason": null,
+  "extractedAt": "2026-10-17T03:01:18.727Z"
+}
